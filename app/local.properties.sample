@@ -1,0 +1,6 @@
+sdk.dir=/path/to/Android/sdk
+# Supabase 認証キー（Supabase ダッシュボード → Project Settings → API で取得）
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_KEY=sb_publishable_xxxxxxxxxxxxxxxxxxxx
+# Sentry DSN（Sentry ダッシュボード → Project Settings → Client Keys (DSN) で取得。未設定ならクラッシュレポートは無効化される）
+SENTRY_DSN=https://xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx@oXXXXXXXXXXXXXXXX.ingest.us.sentry.io/XXXXXXXXXX

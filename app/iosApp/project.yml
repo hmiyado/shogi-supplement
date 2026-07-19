@@ -1,0 +1,181 @@
+name: iosApp
+options:
+  bundleIdPrefix: dev.miyado.shogisupplement
+  deploymentTarget:
+    iOS: "17.0"
+targets:
+  iosApp:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    dependencies:
+      # クラッシュレポート（Android側のsentry-androidと同じプロジェクトへ送信）。
+      # SPMはこの環境のxcodebuild CLIで解決がハングするため、ビルド済み
+      # XCFrameworkをベンダリングする（scripts/fetch-sentry.sh で取得・git管理外）。
+      - framework: vendor/Sentry-Dynamic.xcframework
+        embed: true
+    sources:
+      - path: iosApp
+        excludes:
+          - "Resources/**"
+          - "Info.plist"
+      - path: iosApp/Resources
+        buildPhase: resources
+      # engine_wrapper.h/.cpp はKotlin(:shared)のcinterop経由でのみ使う
+      # （build_ios.shがlibshogiengine.aへコンパイル込み。実体はSharedUi.frameworkに
+      # 埋め込まれるため、Xcodeターゲットのソースとしては含めない）。
+      # 評価関数はリポジトリに複製せず、androidApp配下のnn.binを参照パスでバンドルする。
+      # type: folder でフォルダ参照（青フォルダ）にし、ディレクトリ名"eval"を保ったまま
+      # bundle直下にコピーする（Bundle.main.url(forResource:"eval", withExtension: nil)で参照）。
+      - path: ../androidApp/src/main/assets/eval
+        name: eval
+        type: folder
+        buildPhase: resources
+      # 係数表（判定ロジックの不変条件）をiOS取込フロー（AnalysisOrchestrator）でも
+      # 使うためバンドルする。androidApp/src/main/assets 側と複製せず参照パスで共有する
+      # （evalディレクトリと同じ方式）。Bundle.main.pathForResource("coefficients_hao_v1",
+      # ofType:"json") で参照する。
+      - path: ../androidApp/src/main/assets/coefficients_hao_v1.json
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.miyado.shogisupplement.ios
+        PRODUCT_NAME: iosApp
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1"
+        # CADisableMinimumFrameDurationOnPhone は GENERATE_INFOPLIST_FILE の
+        # INFOPLIST_KEY_ 機構（既知キーのみ対応）では注入できないため、実ファイルを使用。
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: iosApp/Info.plist
+        # :ui が :shared を export した umbrella framework（SharedUi）に統一。
+        # :shared.framework は二重リンクせず、SharedUi 経由で :shared の公開APIも使う。
+        # FRAMEWORK_SEARCH_PATHS はビルド構成（Debug/Release）× SDK で出力先が
+        # 異なるため settings.configs 側で定義する（下記）。
+        # SQLDelight native-driver（sqliter）はシステムのsqlite3をcinterop経由で
+        # 呼ぶため、明示的にリンクする必要がある。
+        # :shared のcinterop linkerOpts（shared/build.gradle.kts）で
+        # SharedUi.framework（静的framework）のビルド時に -L/-lshogiengine を渡しているが、
+        # K/Nの静的frameworkはネイティブ依存を「解決込みで埋め込む」わけではなく
+        # 未解決externのまま外部化する（要リンクフラグ）。
+        # そのため、SharedUi.frameworkを消費するXcode側（このターゲット）でも改めて
+        # libshogiengine.aへの -L/-l を通す必要がある。
+        # wrapper C APIはKotlin cinterop経由でのみ使うため、
+        # SWIFT_OBJC_BRIDGING_HEADER/HEADER_SEARCH_PATHSは不要。
+        OTHER_LDFLAGS: "-framework SharedUi -lsqlite3 -lc++ -lshogiengine"
+        # アプリアイコン（駒型二色カプセル。androidApp のアダプティブアイコンと同意匠）。
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        "LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*]": "$(SRCROOT)/engine/build/sim"
+        "LIBRARY_SEARCH_PATHS[sdk=iphoneos*]": "$(SRCROOT)/engine/build/device"
+        # SharedUi.framework（:ui の Kotlin/Native成果物）はApple Siliconホストでは
+        # iosSimulatorArm64しかビルドされずx86_64スライスを持たない。
+        # generic/platform=iOS Simulator destinationでのビルドはONLY_ACTIVE_ARCHが
+        # 効かず（"active"な実機/シミュレータが定まらないため）ARCHS_STANDARD既定値
+        # （arm64 x86_64）でリンクしようとしてx86_64側が未解決シンボルになるため、
+        # シミュレータSDKではx86_64を明示的に除外する。
+        "EXCLUDED_ARCHS[sdk=iphonesimulator*]": "x86_64"
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
+        # Xcode 16のDebug dylib機構がKotlin/Nativeフレームワークとのリンクで
+        # "not an allowed client of SwiftUICore" を起こすため無効化する。
+        ENABLE_DEBUG_DYLIB: NO
+      configs:
+        Debug:
+          "FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]": "$(SRCROOT)/../ui/build/bin/iosSimulatorArm64/debugFramework"
+          "FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]": "$(SRCROOT)/../ui/build/bin/iosArm64/debugFramework"
+        Release:
+          "FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]": "$(SRCROOT)/../ui/build/bin/iosSimulatorArm64/releaseFramework"
+          "FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]": "$(SRCROOT)/../ui/build/bin/iosArm64/releaseFramework"
+    preBuildScripts:
+      - name: "Build Shared+UI Kotlin Framework (gradlew :ui:linkDebugFramework<Target>)"
+        # シミュレータ/実機どちらでビルドされるかで:uiのK/Nターゲットを、
+        # Debug/Releaseで:uiのリンクタスクを、それぞれ切り替える
+        # （$PLATFORM_NAMEはXcodeがSDKに応じて設定する。iphoneos=実機/iphonesimulator=シミュレータ。
+        # $CONFIGURATIONは"Debug"/"Release"がそのままgradleタスク名に一致する）。
+        script: |
+          set -e
+          cd "$SRCROOT/.."
+          if [ "$PLATFORM_NAME" = "iphoneos" ]; then
+            TASK=":ui:link${CONFIGURATION}FrameworkIosArm64"
+          else
+            TASK=":ui:link${CONFIGURATION}FrameworkIosSimulatorArm64"
+          fi
+          JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home ./gradlew "$TASK"
+        basedOnDependencyAnalysis: false
+      # Supabase接続設定（URL/anonキー）を app/local.properties から読んで
+      # SupabaseConfig.properties としてバンドルへ直接生成する（Androidの
+      # local.properties→BuildConfig と同じ方針でリポジトリに秘密を置かない）。
+      # local.properties が無い/キーが無いビルドでは空になり、
+      # アプリ側はアカウント導線を非表示にする（IosSupabaseConfig.kt参照）。
+      - name: "Generate SupabaseConfig.properties (from app/local.properties)"
+        script: |
+          set -e
+          PROPS="$SRCROOT/../local.properties"
+          OUT_DIR="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH"
+          mkdir -p "$OUT_DIR"
+          URL=""
+          KEY=""
+          if [ -f "$PROPS" ]; then
+            URL=$(sed -n 's/^SUPABASE_URL=//p' "$PROPS" | head -1)
+            KEY=$(sed -n 's/^SUPABASE_KEY=//p' "$PROPS" | head -1)
+          fi
+          printf 'SUPABASE_URL=%s\nSUPABASE_KEY=%s\n' "$URL" "$KEY" > "$OUT_DIR/SupabaseConfig.properties"
+        basedOnDependencyAnalysis: false
+      # Sentry DSN も同じ経路（app/local.properties→ビルド時生成）でバンドルする。
+      # 公開するとイベントを外部から投げ込まれるリスクがあるためリポジトリに秘密を置かない。
+      # 未設定ビルドでは空になり、IosSentryConfig.swift 経由でSentry初期化自体をスキップする。
+      - name: "Generate SentryConfig.properties (from app/local.properties)"
+        script: |
+          set -e
+          PROPS="$SRCROOT/../local.properties"
+          OUT_DIR="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH"
+          mkdir -p "$OUT_DIR"
+          DSN=""
+          if [ -f "$PROPS" ]; then
+            DSN=$(sed -n 's/^SENTRY_DSN=//p' "$PROPS" | head -1)
+          fi
+          printf 'SENTRY_DSN=%s\n' "$DSN" > "$OUT_DIR/SentryConfig.properties"
+        basedOnDependencyAnalysis: false
+    postCompileScripts:
+      - name: "Sync Compose Resources into app bundle (gradlew :ui:syncComposeResourcesForIos)"
+        # :ui のフォント等（commonMain/composeResources）は通常 embedAndSignAppleFrameworkForXcode
+        # が担う compose-resources 同梱をこのタスク単体で行う（framework埋め込みを
+        # 手動リンクにしているため、resources同梱だけ別途呼び出す）。
+        script: |
+          set -e
+          cd "$SRCROOT/.."
+          JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home ./gradlew :ui:syncComposeResourcesForIos
+        basedOnDependencyAnalysis: false
+  # 実機スモークテスト用 XCUITest ターゲット。iosApp と同じ Team/署名設定で自動署名する。
+  # フィクスチャ（Fixtures/wars_game3.kif）は app/shared/src/jvmTest/resources からのコピーで、
+  # .gitignore 済み（リポジトリに新たな棋譜を追加しない方針のため）。
+  iosAppUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: iosAppUITests
+        excludes:
+          - "Fixtures/**"
+      - path: iosAppUITests/Fixtures
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.miyado.shogisupplement.ios.iosAppUITests
+        PRODUCT_NAME: iosAppUITests
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1"
+        DEVELOPMENT_TEAM: C8DX3743C6
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: iosApp
+schemes:
+  iosApp:
+    build:
+      targets:
+        iosApp: all
+        iosAppUITests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - iosAppUITests

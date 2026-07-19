@@ -1,0 +1,20 @@
+[
+ {
+  "file": "miyado_game1.kif",
+  "ply": 41,
+  "side": "sente",
+  "move_usi": "B*3d",
+  "best_usi": "2f6f",
+  "loss_wp": 0.225,
+  "sfen_before": "ln2g3l/2ks1s3/1pppppnr1/p7p/5gpp1/P1P4RP/1PSPPSP2/1KGG5/LN5NL b BPbp 41",
+  "category": "駒損（タクティクス）",
+  "diff_material": -11,
+  "punish_checks": 0,
+  "took_moved_piece": 0,
+  "missed_mate_in": "",
+  "verdict": "○ 出題対象",
+  "note": "自帯6.3件/1000手 (上帯5.2件)。帯として典型的なミス",
+  "problem": "手筋 (両取り・素抜き) の問題",
+  "priority": 2.9978349024480666
+ }
+]

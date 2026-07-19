@@ -1,0 +1,23 @@
+<!-- アプリタイトル用アイコン: ic_launcher_foreground.xml と同じ駒型カプセルの
+     図形（上=紺青 #3A4B7C／下=卵黄 #EEDD77／輪郭=墨 #211E1A）を、adaptive icon の
+     セーフゾーン余白を除いた実際の図形の外接矩形＋2単位の余白でクロップしたもの。
+     TopAppBar タイトル左に小さく表示する用途（ic_launcher_foreground.xml 自体は
+     108x108 のうち図形は約37.5x48しか占めず、そのまま縮小すると図形が小さくなりすぎる）。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="30dp"
+    android:viewportWidth="41.5"
+    android:viewportHeight="52">
+    <path
+        android:pathData="M20.75,2 L34.65,8.7 L37.25,27.5 L4.25,27.5 L6.85,8.7 Z"
+        android:fillColor="#3A4B7C"
+        android:strokeColor="#211E1A"
+        android:strokeWidth="2"
+        android:strokeLineJoin="round"/>
+    <path
+        android:pathData="M4.25,27.5 L37.25,27.5 L39.5,50 L2,50 Z"
+        android:fillColor="#EEDD77"
+        android:strokeColor="#211E1A"
+        android:strokeWidth="2"
+        android:strokeLineJoin="round"/>
+</vector>

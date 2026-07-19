@@ -1,0 +1,51 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# macOS
+.DS_Store
+
+# Claude Code ローカル設定
+.claude/settings.local.json
+
+# 作業ログ置き場（セッション引き継ぎ・実装計画の進行管理。設計資料は docs/ でコミットする）
+tmp/
+
+# Gradle / Android（ビルド成果物とローカル設定。Supabaseキーは local.properties のみ）
+app/.gradle/
+app/.kotlin/
+app/build/
+app/*/build/
+app/local.properties
+
+# リリース署名（アップロード鍵とパスワード。絶対にコミットしない）
+app/keystore.properties
+app/keystore/
+
+# 研究一式（データ・スクリプト・エンジン・実験ドキュメント）は独立リポジトリ
+# https://github.com/hmiyado/shogi-supplement-research （research/ がそのルート）。
+# アプリが必要とする係数表・評価関数は app/androidApp/src/main/assets/ に同梱済み
+research/
+
+# iOS: xcodeproj は xcodegen generate で再生成（app/iosApp/project.yml が正）
+app/iosApp/iosApp.xcodeproj/
+# xcodebuild derivedData等のローカル出力（任意名で作られるため前方一致）
+app/iosApp/build_*/
+# xcodeproj は xcodegen generate で再生成（app/iosApp/project.yml が正）
+app/iosApp/build_dd/
+実機（iphoneos）向け署名なしビルドの一時出力（検証用）
+app/iosApp/build_dd_device/
+
+YaneuraOu上流ソース（コミットしない。app/iosApp/engine/build_ios.shで再取得）
+app/iosApp/engine/upstream/
+ビルド成果物（静的ライブラリ・オブジェクトファイル）
+app/iosApp/engine/build/
+
+# 実機スモークUIテスト用フィクスチャ（app/shared/src/jvmTest/resources からのコピー。
+# リポジトリに新たな棋譜を追加しない方針のため、ここに複製が生まれてもコミットしない）
+app/iosApp/iosAppUITests/Fixtures/
+
+# エージェント用worktree（隔離作業領域・コミット禁止）
+.claude/worktrees/
+app/iosApp/vendor/

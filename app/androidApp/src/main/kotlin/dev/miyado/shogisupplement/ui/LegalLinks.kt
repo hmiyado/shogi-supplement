@@ -1,0 +1,24 @@
+package dev.miyado.shogisupplement.ui
+
+/**
+ * アプリが参照する法務ページの URL 定数。
+ *
+ * 規約は GH Pages（https://shogi-supplement.miyado.dev/）でホストされる。
+ * リポジトリ作成はリリース準備時のため、現時点では URL が 404 でも構わない。
+ */
+object LegalLinks {
+    /** 利用規約・プライバシーポリシーの公開 URL（GH Pages）。 */
+    const val TERMS_URL = "https://shogi-supplement.miyado.dev/terms.html"
+
+    /**
+     * フィードバック用 X アカウント URL（DMで報告を受け付ける。#8）。
+     * GitHub Issuesでの公開報告から移行した。
+     */
+    const val FEEDBACK_URL = "https://x.com/shogisupplement"
+
+    /**
+     * Webヘルプ（仕組みとデータの詳細説明）の公開 URL（GH Pages: docs/help.html）。
+     * 研究データの出典など、アプリのリリースと独立して更新したい説明はこちらに置く。
+     */
+    const val HELP_WEB_URL = "https://shogi-supplement.miyado.dev/help.html"
+}

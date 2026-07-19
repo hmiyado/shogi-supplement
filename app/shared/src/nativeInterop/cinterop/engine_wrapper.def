@@ -1,0 +1,9 @@
+# YaneuraOu in-process wrapper（app/iosApp/engine/wrapper/engine_wrapper.h）を
+# :shared の Kotlin/Native ターゲット（iosArm64/iosSimulatorArm64）へ公開する cinterop 定義。
+#
+# 実ライブラリ（libshogiengine.a = wrapper.cpp + libyaneuraou.a を build_ios.sh がマージ
+# したもの）へのリンクはターゲットごとに出力先（build/sim・build/device）が異なるため、
+# staticLibraries/libraryPaths はここでは指定せず shared/build.gradle.kts の
+# binaries.framework { linkerOpts(...) } / binaries.getTest("DEBUG") { linkerOpts(...) }
+# 側でターゲット別に -L/-l を通す（詳細はbuild.gradle.ktsのコメント参照）。
+headers = engine_wrapper.h

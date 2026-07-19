@@ -1,0 +1,15 @@
+<!-- テーマアイコン用モノクロレイヤー（Android 13+）。
+     システムが単色tint＋マスクするため、線画ではなく塗りの2シルエット
+     （間の透過ギャップ=カプセル割線）で表現する。セーフゾーン内に収まる -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:pathData="M54,30 L67.9,36.7 L70.2,54 L37.8,54 L40.1,36.7 Z"
+        android:fillColor="#000000"/>
+    <path
+        android:pathData="M37.6,57.5 L70.4,57.5 L72.75,78 L35.25,78 Z"
+        android:fillColor="#000000"/>
+</vector>

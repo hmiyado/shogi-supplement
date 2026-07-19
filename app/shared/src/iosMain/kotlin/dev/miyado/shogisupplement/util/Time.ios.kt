@@ -1,0 +1,6 @@
+package dev.miyado.shogisupplement.util
+
+import platform.Foundation.NSDate
+import platform.Foundation.timeIntervalSince1970
+
+actual fun currentEpochSeconds(): Long = NSDate().timeIntervalSince1970.toLong()

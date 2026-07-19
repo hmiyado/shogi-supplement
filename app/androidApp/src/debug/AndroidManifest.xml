@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    デバッグ専用マニフェスト。
+    DebugUploadReceiver を debug ビルドのみに登録する。
+    release ビルドにはマージされないため、adb ブロードキャストによる診断は debug のみ有効。
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <receiver
+            android:name=".DebugUploadReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="dev.miyado.shogisupplement.DEBUG_UPLOAD" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

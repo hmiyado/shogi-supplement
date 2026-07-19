@@ -1,0 +1,286 @@
+CREATE TABLE game (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    file_name TEXT NOT NULL,
+    content_hash TEXT NOT NULL,
+    move_count INTEGER NOT NULL,
+    sente_name TEXT,
+    gote_name TEXT,
+    analyzed_at INTEGER NOT NULL,
+    rating INTEGER NOT NULL,
+    rating_sample_moves INTEGER,
+    coef_version TEXT NOT NULL,
+    kif_text TEXT,
+    uploaded_at INTEGER,
+    moves_usi TEXT,
+    user_side TEXT,
+    rating_service TEXT,
+    rating_raw INTEGER,
+    rating_rule TEXT,
+    source_place TEXT,
+    game_winner TEXT,
+    end_reason TEXT
+);
+
+CREATE TABLE blunder_report (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    game_id INTEGER NOT NULL REFERENCES game(id),
+    ply INTEGER NOT NULL,
+    side TEXT NOT NULL,
+    move_usi TEXT NOT NULL,
+    best_usi TEXT,
+    loss_wp REAL NOT NULL,
+    sfen_before TEXT NOT NULL,
+    category TEXT NOT NULL,
+    diff_material INTEGER NOT NULL,
+    punish_checks INTEGER NOT NULL,
+    took_moved_piece INTEGER NOT NULL,
+    missed_mate_in INTEGER,
+    verdict TEXT NOT NULL,
+    note TEXT NOT NULL,
+    problem_type TEXT NOT NULL,
+    priority REAL NOT NULL,
+    best_pv TEXT,
+    punish_pv TEXT,
+    cp_before INTEGER,
+    cp_after INTEGER
+);
+
+CREATE TABLE user_settings (
+    id INTEGER NOT NULL PRIMARY KEY,
+    rating INTEGER NOT NULL DEFAULT 1750,
+    consent_accepted_at INTEGER,
+    auto_upload INTEGER NOT NULL DEFAULT 0,
+    rating_service TEXT NOT NULL DEFAULT 'lishogi',
+    rating_raw INTEGER NOT NULL DEFAULT 1750,
+    last_user_side TEXT,
+    service_account_name TEXT,
+    rating_rule TEXT,
+    theme_mode TEXT NOT NULL DEFAULT 'system',
+    eval_display TEXT NOT NULL DEFAULT 'cp',
+    skip_side_confirm INTEGER NOT NULL DEFAULT 0
+);
+
+insertGame:
+INSERT INTO game (file_name, content_hash, move_count, sente_name, gote_name, analyzed_at, rating, rating_sample_moves, coef_version, kif_text, moves_usi, user_side, rating_service, rating_raw, rating_rule, source_place, game_winner, end_reason)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+getLastInsertRowId:
+SELECT last_insert_rowid();
+
+getGameByHash:
+SELECT * FROM game WHERE content_hash = ?;
+
+getAllGames:
+SELECT * FROM game ORDER BY analyzed_at DESC;
+
+getGameById:
+SELECT * FROM game WHERE id = ?;
+
+getGamesNotUploaded:
+SELECT * FROM game WHERE uploaded_at IS NULL ORDER BY analyzed_at DESC;
+
+updateUploadedAt:
+UPDATE game SET uploaded_at = ? WHERE id = ?;
+
+updateUserSide:
+UPDATE game SET user_side = ?, rating_service = ?, rating_raw = ? WHERE id = ?;
+
+resetAllUploadedAt:
+UPDATE game SET uploaded_at = NULL;
+
+insertBlunderReport:
+INSERT INTO blunder_report (game_id, ply, side, move_usi, best_usi, loss_wp, sfen_before, category, diff_material, punish_checks, took_moved_piece, missed_mate_in, verdict, note, problem_type, priority, best_pv, punish_pv, cp_before, cp_after)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+getBlundersByGameId:
+SELECT * FROM blunder_report WHERE game_id = ? ORDER BY ply;
+
+getBlunderCountBySide:
+SELECT COUNT(*) FROM blunder_report WHERE game_id = ? AND side = ?;
+
+updateBestPv:
+UPDATE blunder_report SET best_pv = ? WHERE id = ?;
+
+insertOrIgnoreDefaultSettings:
+INSERT OR IGNORE INTO user_settings (id, rating) VALUES (1, 1750);
+
+updateRating:
+UPDATE user_settings SET rating = ? WHERE id = 1;
+
+updateRatingFull:
+UPDATE user_settings SET rating = ?, rating_service = ?, rating_raw = ? WHERE id = 1;
+
+updateRatingSettings:
+UPDATE user_settings SET rating = ?, rating_service = ?, rating_raw = ?, rating_rule = ?, service_account_name = ? WHERE id = 1;
+
+getRating:
+SELECT rating FROM user_settings WHERE id = 1;
+
+getRatingFull:
+SELECT rating, rating_service, rating_raw FROM user_settings WHERE id = 1;
+
+getRatingSettings:
+SELECT rating, rating_service, rating_raw, rating_rule, service_account_name FROM user_settings WHERE id = 1;
+
+updateServiceAccountName:
+UPDATE user_settings SET service_account_name = ? WHERE id = 1;
+
+getServiceAccountName:
+SELECT service_account_name FROM user_settings WHERE id = 1;
+
+updateLastUserSide:
+UPDATE user_settings SET last_user_side = ? WHERE id = 1;
+
+getLastUserSide:
+SELECT last_user_side FROM user_settings WHERE id = 1;
+
+updateConsentAcceptedAt:
+UPDATE user_settings SET consent_accepted_at = ? WHERE id = 1;
+
+getConsentAcceptedAt:
+SELECT consent_accepted_at FROM user_settings WHERE id = 1;
+
+updateAutoUpload:
+UPDATE user_settings SET auto_upload = ? WHERE id = 1;
+
+getAutoUpload:
+SELECT auto_upload FROM user_settings WHERE id = 1;
+
+getThemeMode:
+SELECT theme_mode FROM user_settings WHERE id = 1;
+
+updateThemeMode:
+UPDATE user_settings SET theme_mode = ? WHERE id = 1;
+
+-- ─── drill_attempt ─────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS drill_attempt (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    blunder_report_id INTEGER NOT NULL REFERENCES blunder_report(id),
+    user_move_usi TEXT NOT NULL,
+    is_correct INTEGER NOT NULL,
+    loss_wp REAL,
+    attempted_at INTEGER NOT NULL
+);
+
+insertDrillAttempt:
+INSERT INTO drill_attempt (blunder_report_id, user_move_usi, is_correct, loss_wp, attempted_at)
+VALUES (?, ?, ?, ?, ?);
+
+getDrillAttemptsByBlunder:
+SELECT * FROM drill_attempt WHERE blunder_report_id = ? ORDER BY attempted_at DESC;
+
+getDrillCandidates:
+SELECT * FROM blunder_report
+WHERE verdict LIKE '◎%' OR verdict LIKE '○%'
+ORDER BY
+    CASE WHEN verdict LIKE '◎%' THEN 0 ELSE 1 END,
+    priority DESC;
+
+getDrillAttemptCountAll:
+SELECT blunder_report_id, COUNT(*) AS attempt_count FROM drill_attempt GROUP BY blunder_report_id;
+
+-- ─── 強さ推定用: 過去局の累計手数・悪手数 ────────────────────────────────────
+-- user_side が設定されている局のみ集計。自分の手番の手数のみカウント。
+-- sente → (move_count + 1) / 2、gote → move_count / 2（整数除算）
+
+getPrevTotalMoves:
+SELECT COALESCE(SUM(
+    CASE
+        WHEN user_side = 'sente' THEN (move_count + 1) / 2
+        WHEN user_side = 'gote' THEN move_count / 2
+        ELSE 0
+    END
+), 0) AS total_moves
+FROM game
+WHERE user_side IS NOT NULL;
+
+getPrevTotalBlunders:
+SELECT COUNT(*) AS total_blunders
+FROM blunder_report b
+JOIN game g ON g.id = b.game_id
+WHERE g.user_side IS NOT NULL AND b.side = g.user_side;
+
+-- ─── service_rank ───────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS service_rank (
+    service TEXT NOT NULL,
+    rule TEXT NOT NULL,
+    rank_raw INTEGER NOT NULL,
+    PRIMARY KEY(service, rule)
+);
+
+upsertServiceRank:
+INSERT OR REPLACE INTO service_rank (service, rule, rank_raw)
+VALUES (?, ?, ?);
+
+getServiceRanks:
+SELECT * FROM service_rank;
+
+getServiceRanksByService:
+SELECT * FROM service_rank WHERE service = ?;
+
+deleteServiceRank:
+DELETE FROM service_rank WHERE service = ? AND rule = ?;
+
+-- ─── service_account ──────────────────────────────────────────────────────────
+-- サービスごとのアカウント名（先後の自動推定に使用。全サービスのいずれかと一致すれば推定）。
+
+CREATE TABLE IF NOT EXISTS service_account (
+    service TEXT NOT NULL PRIMARY KEY,
+    account_name TEXT NOT NULL
+);
+
+upsertServiceAccount:
+INSERT OR REPLACE INTO service_account (service, account_name)
+VALUES (?, ?);
+
+getAllServiceAccounts:
+SELECT * FROM service_account;
+
+getServiceAccountByService:
+SELECT account_name FROM service_account WHERE service = ?;
+
+deleteServiceAccountByService:
+DELETE FROM service_account WHERE service = ?;
+
+-- ─── position_eval テーブル定義（先手視点 cp 正規化）──────────────────────────
+
+CREATE TABLE IF NOT EXISTS position_eval (
+    game_id INTEGER NOT NULL REFERENCES game(id),
+    ply INTEGER NOT NULL,
+    score_cp INTEGER,
+    mate_in INTEGER,
+    PRIMARY KEY(game_id, ply)
+);
+
+-- ─── eval_display（形勢の表示単位: 'cp' / 'wp'）─────────────────────────────
+
+getEvalDisplay:
+SELECT eval_display FROM user_settings WHERE id = 1;
+
+updateEvalDisplay:
+UPDATE user_settings SET eval_display = ? WHERE id = 1;
+
+-- ─── skip_side_confirm（先後確認の省略）─────────────────────────────────
+
+getSkipSideConfirm:
+SELECT skip_side_confirm FROM user_settings WHERE id = 1;
+
+updateSkipSideConfirm:
+UPDATE user_settings SET skip_side_confirm = ? WHERE id = 1;
+
+-- ─── position_eval（全局面評価値・先手視点 cp に正規化）────────────────────────────
+-- ply = evals リストのインデックス（0 = 初期局面、N = N 手後の局面）。
+-- score_cp: 先手視点の cp 値（正 = 先手優勢）。詰み局面は NULL にして mate_in を使う。
+-- mate_in: 詰みまでの手数（先手視点: 正 = 先手が詰ます、負 = 後手が詰ます）。非詰み局面は NULL。
+
+insertPositionEval:
+INSERT OR REPLACE INTO position_eval (game_id, ply, score_cp, mate_in)
+VALUES (?, ?, ?, ?);
+
+getPositionEvalsByGameId:
+SELECT * FROM position_eval WHERE game_id = ? ORDER BY ply;
+
+deletePositionEvalsByGameId:
+DELETE FROM position_eval WHERE game_id = ?;

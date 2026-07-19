@@ -1,0 +1,22 @@
+<!-- アプリアイコン前景: 駒型二色カプセル（案E・2026-07-14 miyadoさん採用）
+     上=紺青 #3A4B7C／下=卵黄 #EEDD77／輪郭=墨 #211E1A。
+     Adaptiveアイコンのセーフゾーン=中央直径66dp円に全体が収まるよう縮小済み
+     （最遠点=下角 半径30.4 < 33） -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:pathData="M54,30 L67.9,36.7 L70.5,55.5 L37.5,55.5 L40.1,36.7 Z"
+        android:fillColor="#3A4B7C"
+        android:strokeColor="#211E1A"
+        android:strokeWidth="2"
+        android:strokeLineJoin="round"/>
+    <path
+        android:pathData="M37.5,55.5 L70.5,55.5 L72.75,78 L35.25,78 Z"
+        android:fillColor="#EEDD77"
+        android:strokeColor="#211E1A"
+        android:strokeWidth="2"
+        android:strokeLineJoin="round"/>
+</vector>
