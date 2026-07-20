@@ -21,4 +21,7 @@ object LegalLinks {
      * 研究データの出典など、アプリのリリースと独立して更新したい説明はこちらに置く。
      */
     const val HELP_WEB_URL = "https://shogi-supplement.miyado.dev/help.html"
+
+    /** 推定棋力カードの「?」から直接開く、Webヘルプの「推定棋力（偏差値）の算出方法」節。 */
+    const val HELP_WEB_STRENGTH_URL = "$HELP_WEB_URL#strength"
 }

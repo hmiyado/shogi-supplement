@@ -37,9 +37,9 @@ fun HomeHost(
         onOpenSettings = { vm.openSettings() },
         onViewAllGames = { vm.openGameList() },
         onOpenStrengthHelp = {
-            // 推定棋力の説明はWebヘルプ（アプリ内ヘルプ画面は廃止しWebに統一）
+            // 推定棋力の説明はWebヘルプの該当節へ直接遷移（アプリ内ヘルプ画面は廃止しWebに統一）
             context.startActivity(
-                Intent(Intent.ACTION_VIEW, Uri.parse(LegalLinks.HELP_WEB_URL)),
+                Intent(Intent.ACTION_VIEW, Uri.parse(LegalLinks.HELP_WEB_STRENGTH_URL)),
             )
         },
         // タイトル左のアプリアイコン（R.drawable.ic_app_title_icon）は Android専用リソースのため、

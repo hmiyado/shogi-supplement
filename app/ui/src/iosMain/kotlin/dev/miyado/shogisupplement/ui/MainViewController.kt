@@ -258,7 +258,7 @@ private fun DemoApp(
                     onStartDrill = { route = DemoRoute.Drill },
                     onOpenSettings = { route = DemoRoute.Settings },
                     onViewAllGames = { route = DemoRoute.GameList },
-                    onOpenStrengthHelp = { openUrl(IOS_HELP_URL) },
+                    onOpenStrengthHelp = { openUrl(IOS_HELP_STRENGTH_URL) },
                 )
             }
         }
@@ -750,6 +750,7 @@ private fun IosAccountScreenHost(
 private const val IOS_TERMS_URL = "https://shogi-supplement.miyado.dev/terms.html"
 private const val IOS_FEEDBACK_URL = "https://x.com/shogisupplement"
 private const val IOS_HELP_URL = "https://shogi-supplement.miyado.dev/help.html"
+private const val IOS_HELP_STRENGTH_URL = "$IOS_HELP_URL#strength"
 // LicenseInfoScreen の表示テキスト（AppStrings.LICENSE_SOURCE_URL）と同じ値。
 // 実際に開くURLはプラットフォーム側のこの定数を使う（TERMS/FEEDBACKと同じ複製パターン）。
 private const val IOS_SOURCE_REPO_URL = "https://github.com/hmiyado/shogi-supplement"
