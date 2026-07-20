@@ -53,7 +53,11 @@ struct ComposeView: UIViewControllerRepresentable {
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
 }
 
+#if DEBUG
 /// SwiftUIスパイク本体（KIFパース・DB永続化・推定棋力表示の3点を確認する）。
+/// リリースビルドには含まれない（ContentView.body の #if DEBUG からしか
+/// 参照されないが、型定義自体も #if で囲んでおかないとリリース構成でも
+/// コンパイル対象になり、Kotlin側API変更に追随できず壊れる）。
 struct SpikeView: View {
     @State private var kifSummary: String = "読み込み中…"
     @State private var dbSummary: String = "DB確認中…"
@@ -123,7 +127,7 @@ struct SpikeView: View {
     }
 
     private func runDatabaseCheck(game: KifuGame, kifText: String) {
-        let repo = DatabaseFactory.shared.getInstance()
+        let repo = DatabaseFactory.shared.gameRepository()
         // サンプルKIF固定のコンテンツハッシュ。毎起動で重複保存しないようにgetByHashで確認。
         let contentHash = "ios-spike-sample-kif-v1"
 
@@ -153,10 +157,11 @@ struct SpikeView: View {
     }
 
     private func runStrengthDisplay() {
-        let estimate = StrengthEstimate(rating: 1682, clamped: .none, errorMargin: 650)
+        let estimate = StrengthEstimate(rating: 1682, clamped: .none, errorMargin: 650, totalMoves: 800)
         strengthSummary = estimate.toDisplayString()
     }
 }
+#endif
 
 private extension Color {
     init(hex: UInt32) {
