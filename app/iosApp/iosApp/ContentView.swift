@@ -139,6 +139,7 @@ struct SpikeView: View {
                 headers: game.headers,
                 reports: [],
                 rating: 1682,
+                ratingSampleMoves: nil,
                 coefVersion: "ios-spike",
                 analyzedAt: Int64(Date().timeIntervalSince1970),
                 kifText: kifText,

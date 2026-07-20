@@ -107,6 +107,30 @@ class KifParserTest {
         assertEquals("miyado", game.goteName)
     }
 
+    @Test
+    fun `narigin_abbrev_game1 - 成銀の1文字略記「全」を含む実局も完全一致する`() {
+        // 実局サンプル（2026-07-20 miyadoさん提供、対局者名は匿名化）。「５二全(42)」の
+        // ように成銀・成桂・成香を「全」「圭」「杏」の1文字で略記するKIF出力への回帰用。
+        val game = parser.parse(resource("narigin_abbrev_game1.kif"))
+        val expected = resource("narigin_abbrev_game1_expected_usi.txt").trim().split(" ")
+        assertEquals(81, game.moves.size)
+        assertEquals(expected, game.moves)
+        assertEquals("匿名", game.senteName)
+        assertEquals("miyado", game.goteName)
+    }
+
+    @Test
+    fun `narikei_abbrev_game1 - 成桂の1文字略記「圭」を含む実局も完全一致する`() {
+        // 実局サンプル（2026-07-20 miyadoさん提供、対局者名は匿名化）。「４一圭(52)」の
+        // ように成桂を「圭」で略記するKIF出力への回帰用。同一局に成銀の略記「全」も複数含む。
+        val game = parser.parse(resource("narikei_abbrev_game1.kif"))
+        val expected = resource("narikei_abbrev_game1_expected_usi.txt").trim().split(" ")
+        assertEquals(118, game.moves.size)
+        assertEquals(expected, game.moves)
+        assertEquals("匿名", game.senteName)
+        assertEquals("miyado", game.goteName)
+    }
+
     // ---- 個別仕様 ----
 
     @Test

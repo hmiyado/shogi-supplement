@@ -148,7 +148,7 @@ class KifParser : KifuParser {
             i += 2
         }
 
-        // 駒名（成香・成桂・成銀は2文字）
+        // 駒名（成香・成桂・成銀は2文字。杏・圭・全はそれぞれの1文字略記）
         val piece: String
         if (moveText.startsWith("成", i) && i + 1 < moveText.length && moveText[i + 1] in "香桂銀") {
             piece = moveText.substring(i, i + 2)
@@ -156,7 +156,7 @@ class KifParser : KifuParser {
         } else {
             if (i >= moveText.length) throw KifuParseException("駒名を読めません", line)
             piece = moveText[i].toString()
-            if (piece[0] !in "歩香桂銀金角飛玉王と馬龍竜") {
+            if (piece[0] !in "歩香桂銀金角飛玉王と馬龍竜杏圭全") {
                 throw KifuParseException("未知の駒名です", line)
             }
             i++
