@@ -12,6 +12,8 @@ plugins {
 // OSSライセンス一覧の生成設定（AboutLibraries）。
 // ビルド時の自動生成は無効化し、`./gradlew :androidApp:exportLibraryDefinitions` で
 // src/main/res/raw/aboutlibraries.json を手動生成してコミットする（再現性・オフラインビルド優先）。
+// 運用注意: このJSONは ui/src/commonMain/composeResources/files/aboutlibraries.json にも
+// 複製がある（iOS側は Res.readBytes で同ファイルを読む）。再エクスポート時は両方を更新すること。
 aboutLibraries {
     android {
         registerAndroidTasks = false

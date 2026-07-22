@@ -35,6 +35,10 @@ kotlin {
             // commonMainのViewModel基盤（AccountViewModel/DrillViewModel等）用。
             // Android では androidx.lifecycle への typealias のため実体は同一。
             implementation(libs.kmp.lifecycle.viewmodel)
+            // OSSライセンス画面（LicenseInfoScreen）の一覧描画（LibrariesContainer）。
+            // Android/iOS共通の commonMain 実装が Libs 型を扱うため :ui 側に置く
+            // （データの読み込み手段はプラットフォーム側の責務のまま）。
+            implementation(libs.aboutlibraries.compose.m3)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)

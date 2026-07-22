@@ -548,47 +548,34 @@ object AppStrings {
     // デモは HomeScreen・ReportScreen・DrillScreen 側の既存 AppStrings をそのまま使うため、
     // デモ専用の文字列はここにはない。
 
-    // ═══ 29. OSSライセンス画面（iOS）════════════════════════════════════════
-    // Android版（androidApp/ui/LicensesScreen.kt）は AboutLibraries の完全な依存一覧を
-    // 表示するが、iOSはその仕組みを持たないため、GPLv3表示義務を満たす最小限
-    // （本アプリ・同梱エンジン・主要OSSの列挙）の簡易画面を :ui commonMain に置く。
-    // 冒頭ヘッダの文言は Android版 LicensesHeader と内容を揃えている。
-    // LICENSE_OSS_BODY は androidApp/src/main/res/raw/aboutlibraries.json
-    // （AboutLibraries のエクスポート）からライセンス種別ごとに主要な依存を
-    // 手動で集約した静的リスト。依存追加時は同ファイルの再エクスポートに合わせて
-    // 本リストも更新する（docs/app-architecture.md の運用と対応）。
+    // ═══ 29. OSSライセンス画面（iOS/Android共通）══════════════════════════════
+    // :ui commonMain の LicenseInfoScreen が唯一の実装（Android/iOSとも同じ画面を使う）。
+    // 依存OSSの完全な一覧は AboutLibraries（Libs）を LibrariesContainer に渡して描画するため、
+    // 手動要約の文字列は持たない（旧 LICENSE_OSS_HEADER/BODY は撤去）。
+    // LICENSE_OSS_LIST_HEADER より後ろの一覧本体は LicenseInfoScreen が Libs から描画する。
 
     const val LICENSE_SCREEN_TITLE = "ライセンス"
     const val LICENSE_APP_HEADER = "本アプリのライセンス"
     const val LICENSE_APP_BODY =
         "将棋サプリは GNU General Public License v3.0（GPLv3）のもとで" +
         "公開されるオープンソースソフトウェアです。"
+
     const val LICENSE_ENGINE_HEADER = "同梱している将棋エンジン・評価関数"
     const val LICENSE_ENGINE_BODY =
         "・やねうら王（YaneuraOu） — GPLv3\n" +
         "・Háo 評価関数 — GPLv3"
-    const val LICENSE_OSS_HEADER = "使用している主要なOSSライブラリ"
-    const val LICENSE_OSS_BODY =
-        "Apache License 2.0\n" +
-        "・Kotlin / Compose Multiplatform（JetBrains）\n" +
-        "・AndroidX（Activity Compose・Lifecycle 等）\n" +
-        "・Kotlinx Coroutines\n" +
-        "・Kotlinx Serialization\n" +
-        "・SQLDelight\n" +
-        "・Ktor\n" +
-        "・Kermit（ロギング）\n" +
-        "・Multiplatform Settings\n" +
-        "・OkHttp / Okio\n" +
-        "・Cryptography-Kotlin\n" +
-        "・AboutLibraries\n" +
-        "\n" +
-        "MIT License\n" +
-        "・Supabase Kotlin SDK\n" +
-        "・Sentry\n" +
-        "\n" +
-        "SIL Open Font License 1.1\n" +
-        "・Shippori Mincho\n" +
-        "・IBM Plex Sans JP / IBM Plex Mono"
+
+    const val LICENSE_FONT_HEADER = "フォントライセンス"
+    const val LICENSE_FONT_INTRO =
+        "本アプリは以下のフォントを SIL Open Font License 1.1（OFL-1.1）のもとで使用しています。" +
+        "OFL の全文はソースリポジトリに同梱しています。"
+    const val LICENSE_FONT_BODY =
+        "・Shippori Mincho — SIL Open Font License 1.1\n" +
+        "・IBM Plex Sans JP — SIL Open Font License 1.1\n" +
+        "・IBM Plex Mono — SIL Open Font License 1.1"
+
+    const val LICENSE_OSS_LIST_HEADER = "使用しているOSSライブラリ"
+
     const val LICENSE_SOURCE_HEADER = "ソースリポジトリ"
     /** タップでリポジトリURLを開くリンクの表示文言。実URL値はプラットフォーム側の定数を使う。 */
     const val LICENSE_SOURCE_URL = "https://github.com/hmiyado/shogi-supplement"

@@ -40,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ComposeUIViewController
+import com.mikepenz.aboutlibraries.Libs
 import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.db.DatabaseFactory
 import dev.miyado.shogisupplement.db.GameRecord
@@ -53,6 +54,7 @@ import dev.miyado.shogisupplement.ui.drill.DrillQuestionContent
 import dev.miyado.shogisupplement.ui.drill.DrillResultContent
 import dev.miyado.shogisupplement.ui.drill.DrillUiState
 import dev.miyado.shogisupplement.ui.gamelist.GameListScreen
+import dev.miyado.shogisupplement.ui.generated.resources.Res
 import dev.miyado.shogisupplement.ui.home.HomeScreen
 import dev.miyado.shogisupplement.ui.license.LicenseInfoScreen
 import dev.miyado.shogisupplement.ui.report.ReportScreen
@@ -61,6 +63,7 @@ import dev.miyado.shogisupplement.ui.settings.SettingsScreen
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
 import dev.miyado.shogisupplement.upload.UploadResult
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import platform.Foundation.NSBundle
 import platform.Foundation.NSURL
 import platform.UIKit.UIApplication
@@ -288,7 +291,9 @@ private fun DemoApp(
             )
         }
         DemoRoute.Licenses -> {
+            val libraries = remember { loadBundledLibraries() }
             LicenseInfoScreen(
+                libraries = libraries,
                 onBack = { route = DemoRoute.Settings },
                 onOpenSourceRepo = { openUrl(IOS_SOURCE_REPO_URL) },
             )
@@ -759,3 +764,17 @@ private fun openUrl(url: String) {
     val nsUrl = NSURL.URLWithString(url) ?: return
     UIApplication.sharedApplication.openURL(nsUrl, options = emptyMap<Any?, Any>(), completionHandler = null)
 }
+
+/**
+ * 依存OSS一覧（AboutLibraries）を compose resources から読み込む。
+ * Android の `res/raw/aboutlibraries.json`（`./gradlew :androidApp:exportLibraryDefinitions` で
+ * 生成）と同じ内容を ui/src/commonMain/composeResources/files/ に複製したものを読む
+ * （iOS には Android の Context 経由読み込みに相当する手段がないため）。
+ * フォント読み込み（ui/theme/Type.ios.kt）と同じ runBlocking パターンで同期化する。
+ * 読み込みに失敗しても一覧が空になるだけでヘッダ・リポジトリリンクは表示できるため、
+ * 画面全体をクラッシュさせず null にフォールバックする。
+ */
+private fun loadBundledLibraries(): Libs? = runCatching {
+    val json = runBlocking { Res.readBytes("files/aboutlibraries.json") }.decodeToString()
+    Libs.Builder().withJson(json).build()
+}.getOrNull()

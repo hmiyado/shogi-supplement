@@ -24,4 +24,9 @@ object LegalLinks {
 
     /** 推定棋力カードの「?」から直接開く、Webヘルプの「推定棋力（偏差値）の算出方法」節。 */
     const val HELP_WEB_STRENGTH_URL = "$HELP_WEB_URL#strength"
+
+    // LicenseInfoScreen の表示テキスト（AppStrings.LICENSE_SOURCE_URL）と同じ値。
+    // 実際に開くURLはプラットフォーム側のこの定数を使う（iOS の IOS_SOURCE_REPO_URL と同じ複製パターン）。
+    /** ライセンス画面の「ソースリポジトリ」リンクから開く GitHub リポジトリ URL。 */
+    const val SOURCE_REPO_URL = "https://github.com/hmiyado/shogi-supplement"
 }

@@ -1,6 +1,7 @@
 package dev.miyado.shogisupplement
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
@@ -22,8 +23,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.miyado.shogisupplement.ui.DebugScreen
+import dev.miyado.shogisupplement.ui.LegalLinks
 import dev.miyado.shogisupplement.ui.LicensesScreen
 import dev.miyado.shogisupplement.ui.MainUiState
 import dev.miyado.shogisupplement.ui.MainViewModel
@@ -146,7 +149,15 @@ fun MainApp(vm: MainViewModel, state: MainUiState) {
         is MainUiState.Licenses -> {
             // Settings に統一（Account → Licenses → 戻る でも親の Settings へ）
             BackHandler { vm.openSettings() }
-            LicensesScreen(onBack = { vm.openSettings() })
+            val context = LocalContext.current
+            LicensesScreen(
+                onBack = { vm.openSettings() },
+                onOpenSourceRepo = {
+                    context.startActivity(
+                        Intent(Intent.ACTION_VIEW, Uri.parse(LegalLinks.SOURCE_REPO_URL)),
+                    )
+                },
+            )
         }
         is MainUiState.Settings -> {
             SettingsHost(vm, onOpenRatingSettings = { showRatingSettingsDialog = true })

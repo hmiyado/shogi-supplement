@@ -7,10 +7,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -20,28 +16,37 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.mikepenz.aboutlibraries.Libs
+import com.mikepenz.aboutlibraries.ui.compose.m3.LibrariesContainer
 import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
 /**
- * OSSライセンス画面（iOS向け簡易版）。
+ * OSSライセンス画面（Android/iOS共通の唯一の実装）。
  *
- * Android版（androidApp/ui/LicensesScreen.kt）は AboutLibraries が生成した依存関係の
- * 完全な一覧を表示するが、その仕組み（Gradle プラグイン＋JSON エクスポート）は
- * Android専用のため iOS には持ち込めない。GPLv3 の表示義務を満たす最小限として、
- * 本アプリ自体・同梱エンジン（やねうら王・Háo）・主要な依存OSSライブラリを
- * 静的テキストで列挙する。冒頭ヘッダの文言は Android版 LicensesHeader と揃えてある。
+ * 本アプリ（GPLv3）・同梱エンジン（やねうら王・Háo）・フォントライセンスを
+ * 固定ヘッダとして表示し、続けて依存OSSの完全な一覧を
+ * [libraries]（AboutLibraries の [Libs]）から [LibrariesContainer] で描画する。末尾に
+ * ソースリポジトリへのリンクを置く。
  *
- * URL を開く実処理はプラットフォーム側（iOS の MainViewController.kt）が
- * [onOpenSourceRepo] として渡す（commonMain は URL オープンAPIを持たないため）。
+ * [libraries] の読み込み手段はプラットフォーム側の責務（Android は
+ * `Libs.Builder().withContext(context)`、iOS は compose resources から読んだ JSON を
+ * `Libs.Builder().withJson()`）。ここではパラメータとして受け取るだけにして、
+ * VRT で決定的に描画できるようにする。
+ *
+ * URL を開く実処理もプラットフォーム側が [onOpenSourceRepo] として渡す
+ * （commonMain は URL オープンAPIを持たないため）。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LicenseInfoScreen(
+    libraries: Libs?,
     onBack: () -> Unit,
     onOpenSourceRepo: () -> Unit,
 ) {
@@ -60,66 +65,103 @@ fun LicenseInfoScreen(
             )
         },
     ) { padding ->
-        Column(
+        LibrariesContainer(
+            libraries = libraries,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-        ) {
-            Text(
-                text = AppStrings.LICENSE_APP_HEADER,
-                style = MaterialTheme.typography.titleMedium,
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = AppStrings.LICENSE_APP_BODY,
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Spacer(Modifier.height(16.dp))
-            HorizontalDivider()
-            Spacer(Modifier.height(16.dp))
+                .padding(padding),
+            header = { item { LicenseInfoHeader() } },
+            footer = { item { LicenseSourceFooter(onOpenSourceRepo = onOpenSourceRepo) } },
+        )
+    }
+}
 
-            Text(
-                text = AppStrings.LICENSE_ENGINE_HEADER,
-                style = MaterialTheme.typography.titleSmall,
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = AppStrings.LICENSE_ENGINE_BODY,
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Spacer(Modifier.height(16.dp))
-            HorizontalDivider()
-            Spacer(Modifier.height(16.dp))
+/**
+ * ライセンス画面冒頭の固定ヘッダ。
+ * 本アプリ・同梱エンジン（やねうら王・Háo）・フォントライセンスをこの順で明記し、
+ * 続く依存OSS一覧の見出しで締める。
+ */
+@Composable
+fun LicenseInfoHeader(modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+    ) {
+        Text(
+            text = AppStrings.LICENSE_APP_HEADER,
+            style = MaterialTheme.typography.titleMedium,
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = AppStrings.LICENSE_APP_BODY,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Spacer(Modifier.height(16.dp))
+        HorizontalDivider()
+        Spacer(Modifier.height(16.dp))
 
-            Text(
-                text = AppStrings.LICENSE_OSS_HEADER,
-                style = MaterialTheme.typography.titleSmall,
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = AppStrings.LICENSE_OSS_BODY,
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Spacer(Modifier.height(16.dp))
-            HorizontalDivider()
-            Spacer(Modifier.height(16.dp))
+        Text(
+            text = AppStrings.LICENSE_ENGINE_HEADER,
+            style = MaterialTheme.typography.titleSmall,
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = AppStrings.LICENSE_ENGINE_BODY,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Spacer(Modifier.height(16.dp))
+        HorizontalDivider()
+        Spacer(Modifier.height(16.dp))
 
-            Text(
-                text = AppStrings.LICENSE_SOURCE_HEADER,
-                style = MaterialTheme.typography.titleSmall,
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = AppStrings.LICENSE_SOURCE_URL,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onOpenSourceRepo),
-            )
-        }
+        Text(
+            text = AppStrings.LICENSE_FONT_HEADER,
+            style = MaterialTheme.typography.titleSmall,
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = AppStrings.LICENSE_FONT_INTRO,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = AppStrings.LICENSE_FONT_BODY,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Spacer(Modifier.height(16.dp))
+        HorizontalDivider()
+        Spacer(Modifier.height(16.dp))
+
+        Text(
+            text = AppStrings.LICENSE_OSS_LIST_HEADER,
+            style = MaterialTheme.typography.titleMedium,
+        )
+    }
+}
+
+/** ライセンス画面末尾。依存OSS一覧のあとにソースリポジトリへのリンクを置く。 */
+@Composable
+fun LicenseSourceFooter(onOpenSourceRepo: () -> Unit, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+    ) {
+        HorizontalDivider()
+        Spacer(Modifier.height(16.dp))
+        Text(
+            text = AppStrings.LICENSE_SOURCE_HEADER,
+            style = MaterialTheme.typography.titleSmall,
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = AppStrings.LICENSE_SOURCE_URL,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onOpenSourceRepo),
+        )
     }
 }
 
@@ -130,7 +172,7 @@ fun LicenseInfoScreen(
 private fun PreviewLicenseInfoScreen() {
     ShogiTheme {
         Surface {
-            LicenseInfoScreen(onBack = {}, onOpenSourceRepo = {})
+            LicenseInfoScreen(libraries = null, onBack = {}, onOpenSourceRepo = {})
         }
     }
 }
@@ -140,7 +182,7 @@ private fun PreviewLicenseInfoScreen() {
 private fun PreviewLicenseInfoScreenDark() {
     ShogiTheme(themeMode = "dark") {
         Surface {
-            LicenseInfoScreen(onBack = {}, onOpenSourceRepo = {})
+            LicenseInfoScreen(libraries = null, onBack = {}, onOpenSourceRepo = {})
         }
     }
 }

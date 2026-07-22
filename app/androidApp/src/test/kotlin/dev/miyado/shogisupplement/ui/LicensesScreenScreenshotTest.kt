@@ -1,5 +1,6 @@
 package dev.miyado.shogisupplement.ui
 
+import dev.miyado.shogisupplement.ui.license.LicenseInfoHeader
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
 import androidx.compose.material3.Surface
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
@@ -14,10 +15,11 @@ import org.robolectric.annotation.GraphicsMode
 /**
  * OSSライセンス一覧画面の VRT（スクリーンショットテスト）。
  *
- * 1. 画面全体: 手書きヘッダ（本アプリGPLv3・やねうら王・Háo）＋AboutLibraries一覧の冒頭。
- *    一覧データは res/raw/aboutlibraries.json（コミット済み）から同期読み込みされるため
- *    決定的に描画できる。依存を更新して JSON を再生成した場合は golden も更新すること。
- * 2. ヘッダ単体: GPLv3表記の手書き部分。
+ * 1. 画面全体: 固定ヘッダ（本アプリGPLv3・やねうら王・Háo・フォントライセンス）＋
+ *    AboutLibraries一覧の冒頭。一覧データは res/raw/aboutlibraries.json（コミット済み）から
+ *    同期読み込みされるため決定的に描画できる。依存を更新して JSON を再生成した場合は
+ *    golden も更新すること（ui/composeResources 側の複製も合わせて更新）。
+ * 2. ヘッダ単体: 固定ヘッダ部分（[LicenseInfoHeader]、:ui commonMain・Android/iOS共通実装）。
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -34,7 +36,7 @@ class LicensesScreenScreenshotTest {
         compareOptions = RoborazziOptions.CompareOptions(changeThreshold = 0.01f),
     )
 
-    /** ライセンス画面全体（TopAppBar + 手書きヘッダ + 一覧冒頭）。 */
+    /** ライセンス画面全体（TopAppBar + 固定ヘッダ + 一覧冒頭）。 */
     @Test
     fun licenses_screen() {
         captureRoboImage(
@@ -43,13 +45,13 @@ class LicensesScreenScreenshotTest {
         ) {
             ShogiTheme {
                 Surface {
-                    LicensesScreen(onBack = {})
+                    LicensesScreen(onBack = {}, onOpenSourceRepo = {})
                 }
             }
         }
     }
 
-    /** 手書きヘッダ単体（GPLv3表記）。 */
+    /** 固定ヘッダ単体（GPLv3表記・エンジンクレジット・フォントライセンス）。 */
     @Test
     fun licenses_header() {
         captureRoboImage(
@@ -58,7 +60,7 @@ class LicensesScreenScreenshotTest {
         ) {
             ShogiTheme {
                 Surface {
-                    LicensesHeader()
+                    LicenseInfoHeader()
                 }
             }
         }
