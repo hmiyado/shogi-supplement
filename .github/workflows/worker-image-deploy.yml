@@ -1,0 +1,100 @@
+name: Worker Image Deploy
+
+# Why not include `terraform apply` here: インフラ変更とアプリデプロイを同一ジョブで
+# 自動実行すると、意図しないterraform差分がアプリデプロイのついでに本番へ適用される
+# 事故につながる。apply は常に人間が`terraform plan`の差分を確認してから手元で
+# 実行する（infra/README.md参照）。
+#
+# 認証はWorkload Identity Federationでキーレス（google-github-actions/auth）。
+# JSON鍵は発行・使用しない。
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "app/server/worker/**"
+      - "app/shared/**"
+      - "app/gradle/**"
+      - "app/gradle.properties"
+      - "app/gradlew"
+      - "app/gradlew.bat"
+      - "app/build.gradle.kts"
+      - "app/settings.gradle.kts"
+      - ".github/workflows/worker-image-deploy.yml"
+
+# 同時デプロイの競合（Cloud Runへの同時リビジョン切替）を避けるため直列化する。
+# 後続pushで前のデプロイを取り消さない（cancel-in-progress: false）:
+# デプロイ半ばでのキャンセルはイメージpush済み・Cloud Run未反映のような中途半端な
+# 状態を生みうるため、待って順番に流す方が安全。
+concurrency:
+  group: worker-image-deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write # WIF（google-github-actions/auth）に必須
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    # GitHub Environmentsで`production`にRequired reviewersを設定すれば、
+    # ここに人間承認ゲートを追加できる（任意設定）。
+    # 環境自体が未作成でも`environment:`指定は無害（保護ルールなしの環境として扱われる）。
+    environment: production
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Why not Variables（vars.*）: 公開リポジトリではワークフローログを誰でも読めるが、
+      # Variablesはログ出力時にマスクされない。プロジェクトID・プロジェクト番号を含む値が
+      # 漏れると`prod.tfvars`を非公開にしている意味が薄れる。設定項目はinfra/README.md参照。
+      - id: auth
+        name: Authenticate to Google Cloud (WIF)
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOYER_SA_EMAIL }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker "${{ secrets.GCP_REGION || 'asia-northeast1' }}-docker.pkg.dev" --quiet
+
+      - name: Build image
+        # ビルドコンテキストはapp/（Dockerfile冒頭のコメントのとおり、:sharedのソースが
+        # 必要なため server/worker 単体ディレクトリでは完結しない）。
+        # タグはコミットSHAを主とする（`latest`のみに頼らない＝どのビルドが動いているか
+        # 常にコミットへ遡れるようにするため）。`latest`も併せてpushし、
+        # 人間が最新版を追いやすくする。
+        env:
+          IMAGE_BASE: ${{ secrets.GCP_REGION || 'asia-northeast1' }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPOSITORY || 'analysis-worker' }}/${{ secrets.GCP_CLOUD_RUN_SERVICE || 'analysis-worker' }}
+        run: |
+          docker build \
+            -f app/server/worker/Dockerfile \
+            -t "${IMAGE_BASE}:${{ github.sha }}" \
+            -t "${IMAGE_BASE}:latest" \
+            app
+
+      - name: Push image
+        env:
+          IMAGE_BASE: ${{ secrets.GCP_REGION || 'asia-northeast1' }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPOSITORY || 'analysis-worker' }}/${{ secrets.GCP_CLOUD_RUN_SERVICE || 'analysis-worker' }}
+        run: |
+          docker push "${IMAGE_BASE}:${{ github.sha }}"
+          docker push "${IMAGE_BASE}:latest"
+
+      - name: Deploy new Cloud Run revision
+        # `--image`以外のフラグを渡さない: リソース(cpu/mem/concurrency/env/secret参照等)は
+        # infra/terraform/run.tfが正であり、ここで重複指定するとterraformの意図と
+        # ズレた時に「どちらが正か」が曖昧になる。`gcloud run deploy --image`は
+        # 指定しなかった設定を現行リビジョンのまま引き継ぐため、image以外はterraform
+        # (apply時)にのみ委ねる形になる（run.tfのlifecycle.ignore_changesが
+        # image属性だけを無視する設計と対になっている）。
+        env:
+          IMAGE_BASE: ${{ secrets.GCP_REGION || 'asia-northeast1' }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REPOSITORY || 'analysis-worker' }}/${{ secrets.GCP_CLOUD_RUN_SERVICE || 'analysis-worker' }}
+        run: |
+          gcloud run deploy "${{ secrets.GCP_CLOUD_RUN_SERVICE || 'analysis-worker' }}" \
+            --image="${IMAGE_BASE}:${{ github.sha }}" \
+            --region="${{ secrets.GCP_REGION || 'asia-northeast1' }}" \
+            --project="${{ secrets.GCP_PROJECT_ID }}" \
+            --quiet

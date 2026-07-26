@@ -1,0 +1,49 @@
+name: Terraform Lint
+
+# Why not `terraform plan` here: デプロイ用SA（gha-deployer, iam.tf）はrun.admin・
+# artifactregistry.writerなどCloud Runデプロイに絞った最小権限で、planが横断的に
+# 読みにいくIAM/SecretManager/Budget/Monitoring等の権限を持たない。広い権限のSAを
+# 新設するかはterraform側の設計判断であり、このワークフローのスコープ外。
+# `terraform apply`を自動実行しない理由はworker-image-deploy.yml参照。
+on:
+  pull_request:
+    paths:
+      - "infra/terraform/**"
+      - ".github/workflows/terraform-lint.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "infra/terraform/**"
+      - ".github/workflows/terraform-lint.yml"
+
+concurrency:
+  group: terraform-lint-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  fmt-and-validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra/terraform
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_wrapper: false
+
+      - name: terraform fmt -check
+        run: terraform fmt -check -recursive
+
+      # fmt/validateのみでGCP認証もterraform plan/applyも行わないため、
+      # -backend=false でのローカル検証に留める。
+      - name: terraform init (no backend)
+        run: terraform init -backend=false
+
+      - name: terraform validate
+        run: terraform validate
