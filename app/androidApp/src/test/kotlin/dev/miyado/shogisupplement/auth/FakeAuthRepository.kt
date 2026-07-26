@@ -36,6 +36,9 @@ class FakeAuthRepository(
         return signInAnonymouslyResult
     }
 
+    override suspend fun accessToken(): String? =
+        _currentUser.value?.let { "fake-access-token-${it.id}" }
+
     override suspend fun signOut(): Result<Unit> {
         _currentUser.value = null
         return Result.success(Unit)

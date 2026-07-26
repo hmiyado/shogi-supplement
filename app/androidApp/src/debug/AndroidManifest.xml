@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
     デバッグ専用マニフェスト。
-    DebugUploadReceiver を debug ビルドのみに登録する。
+    診断用レシーバを debug ビルドのみに登録する。
     release ビルドにはマージされないため、adb ブロードキャストによる診断は debug のみ有効。
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -11,6 +11,13 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="dev.miyado.shogisupplement.DEBUG_UPLOAD" />
+            </intent-filter>
+        </receiver>
+        <receiver
+            android:name=".DebugServerAnalysisReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="dev.miyado.shogisupplement.DEBUG_SERVER_ANALYSIS" />
             </intent-filter>
         </receiver>
     </application>

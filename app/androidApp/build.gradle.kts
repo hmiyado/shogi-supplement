@@ -48,6 +48,10 @@ android {
         // Sentry DSN も同じ経路で注入する（公開すると外部からイベントを投げ込まれる
         // リスクがあるため非公開化。未設定時は ShogiApp.initSentry() 側で初期化自体をスキップする）
         buildConfigField("String", "SENTRY_DSN", "\"${localProps["SENTRY_DSN"] ?: ""}\"")
+        // サーバー解析（Cloud Run）のベースURL。Play版は端末解析のままなので本番導線では
+        // 使わず、debugビルドの疎通確認（DebugServerAnalysisReceiver）だけが参照する。
+        // 未設定なら空文字になり、受信側が「未設定」として弾く。
+        buildConfigField("String", "ANALYSIS_BASE_URL", "\"${localProps["ANALYSIS_BASE_URL"] ?: ""}\"")
     }
 
     // リリース署名: app/keystore.properties から読み込み（git管理外）。

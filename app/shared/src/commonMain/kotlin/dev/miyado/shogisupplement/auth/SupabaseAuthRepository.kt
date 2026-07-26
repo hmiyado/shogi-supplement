@@ -47,6 +47,8 @@ class SupabaseAuthRepository(
         supabase.auth.signInAnonymously()
     }
 
+    override suspend fun accessToken(): String? = supabase.auth.currentAccessTokenOrNull()
+
     override suspend fun signOut(): Result<Unit> = runCatching {
         supabase.auth.signOut()
     }

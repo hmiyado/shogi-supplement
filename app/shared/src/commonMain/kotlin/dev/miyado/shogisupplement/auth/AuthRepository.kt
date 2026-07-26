@@ -20,6 +20,15 @@ interface AuthRepository {
     suspend fun signInAnonymously(): Result<Unit>
 
     /**
+     * 現在のセッションのアクセストークン（Supabase JWT）。未ログインは null。
+     *
+     * サーバー解析（[dev.miyado.shogisupplement.engine.RemoteAnalysisRunner]）の
+     * Authorization ヘッダに使う。トークンは短命で自動更新されるため、値を保持せず
+     * リクエストごとに取り直す。
+     */
+    suspend fun accessToken(): String?
+
+    /**
      * ログアウトする。
      * @return 成功時 Result.success(Unit)、失敗時 Result.failure(exception)
      */
