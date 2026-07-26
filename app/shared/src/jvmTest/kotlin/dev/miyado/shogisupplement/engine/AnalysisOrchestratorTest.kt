@@ -2,6 +2,7 @@ package dev.miyado.shogisupplement.engine
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import dev.miyado.shogisupplement.blunder.Score
+import dev.miyado.shogisupplement.crash.NoopCrashReporter
 import dev.miyado.shogisupplement.db.GameRepository
 import dev.miyado.shogisupplement.db.ShogiSupplementDatabase
 import dev.miyado.shogisupplement.judge.CoefficientTable
@@ -49,8 +50,11 @@ class AnalysisOrchestratorTest {
         val orchestrator = AnalysisOrchestrator(
             repository = repository,
             coefTable = coefTable,
-            workers = 1,
-            engineFactory = { FakeEngine() },
+            analyzer = AnalysisRunner(
+                workers = 1,
+                crashReporter = NoopCrashReporter,
+                engineFactory = { FakeEngine() },
+            ),
         )
         return orchestrator to repository
     }

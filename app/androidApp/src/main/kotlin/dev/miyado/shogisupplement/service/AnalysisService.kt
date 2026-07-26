@@ -17,7 +17,7 @@ import dev.miyado.shogisupplement.crash.isAlreadyReported
 import dev.miyado.shogisupplement.db.AppDatabase
 import dev.miyado.shogisupplement.engine.AnalysisOrchestrator
 import dev.miyado.shogisupplement.engine.EvalLoader
-import dev.miyado.shogisupplement.engine.UsiEngineProcess
+import dev.miyado.shogisupplement.engine.createAndroidAnalysisRunner
 import dev.miyado.shogisupplement.judge.CoefficientTable
 import dev.miyado.shogisupplement.service.AnalysisServiceBus.ServiceEvent
 import dev.miyado.shogisupplement.text.AppStrings
@@ -103,10 +103,11 @@ class AnalysisService : Service() {
             val orchestrator = AnalysisOrchestrator(
                 repository = repository,
                 coefTable = coef,
-                workers = 4,
-                // 局ごとに新規プロセスを起動する（既存挙動そのまま）。
-                // disposeEngine は既定値（quit()で毎局プロセスを終了）を使う。
-                engineFactory = { UsiEngineProcess.create(applicationInfo, evalDir) },
+                analyzer = createAndroidAnalysisRunner(
+                    appInfo = applicationInfo,
+                    evalDir = evalDir,
+                    crashReporter = crashReporter,
+                ),
                 crashReporter = crashReporter,
             )
 

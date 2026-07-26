@@ -34,18 +34,11 @@ class AnalysisRunner(
     private val crashReporter: CrashReporter,
     private val engineFactory: () -> Engine,
     private val disposeEngine: (Engine) -> Unit = { it.quit() },
-) {
+) : GameAnalyzer {
 
-    /**
-     * 1局の全局面（0手目=初期局面〜N手目）を解析し、局面ごとの結果を返す。
-     *
-     * @param moves 棋譜の USI 手列
-     * @param onProgress (done, total) の進捗コールバック
-     * @return 局面インデックス順の結果リスト（各要素 = その局面の MultiPV 結果）
-     */
-    suspend fun analyzeGame(
+    override suspend fun analyzeGame(
         moves: List<String>,
-        onProgress: ((done: Int, total: Int) -> Unit)? = null,
+        onProgress: ((done: Int, total: Int) -> Unit)?,
     ): List<List<PvInfo>> = coroutineScope {
         val positions = (0..moves.size).toList()
         val total = positions.size

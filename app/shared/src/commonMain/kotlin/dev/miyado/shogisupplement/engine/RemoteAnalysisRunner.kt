@@ -25,8 +25,7 @@ import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.jsonObject
 
 /**
- * `POST /v1/analyses`（app/server/worker）を叩くクライアント。[AnalysisRunner.analyzeGame] と
- * 同一シグネチャの [analyzeGame] を持つ。
+ * `POST /v1/analyses`（app/server/worker）を叩く [GameAnalyzer] 実装。
  *
  * リクエスト/レスポンスのJSON形式は [dev.miyado.shogisupplement.api.analysis] のDTOをサーバーと直接
  * 共有する（フィールド名を手作業で突き合わせる必要はない）。
@@ -44,24 +43,18 @@ class RemoteAnalysisRunner(
     private val httpClient: HttpClient = HttpClient(),
     private val maxRetries: Int = 3,
     private val retryBackoffMs: Long = 1_000,
-) {
+) : GameAnalyzer {
     private val json = Json { ignoreUnknownKeys = true }
 
     /**
-     * 1局の全局面を解析し、局面ごとの結果を返す。
-     *
      * サーバーは moves_hash で冪等なので、通信切断時は同一の [moves] で再POSTするだけで
      * 安全に復旧できる。切断とみなすのはストリームが最終行(result/error)を受け取る前に
      * 終わった場合とHTTP例外のみ。401/403/429/400・終端error行は再試行せず
      * [RemoteAnalysisException] として即座に伝える。
-     *
-     * @param moves 棋譜の USI 手列
-     * @param onProgress (done, total) の進捗コールバック
-     * @return 局面インデックス順の結果リスト（各要素 = その局面の MultiPV 結果）
      */
-    suspend fun analyzeGame(
+    override suspend fun analyzeGame(
         moves: List<String>,
-        onProgress: ((done: Int, total: Int) -> Unit)? = null,
+        onProgress: ((done: Int, total: Int) -> Unit)?,
     ): List<List<PvInfo>> {
         var lastDisconnect: Exception? = null
         val totalAttempts = maxRetries + 1

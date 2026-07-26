@@ -5,8 +5,10 @@ import dev.miyado.shogisupplement.board.ShogiSquare
 import dev.miyado.shogisupplement.db.DrillRepository
 import dev.miyado.shogisupplement.db.GameRepository
 import dev.miyado.shogisupplement.db.RatingSettings
+import dev.miyado.shogisupplement.crash.NoopCrashReporter
 import dev.miyado.shogisupplement.db.SettingsRepository
 import dev.miyado.shogisupplement.engine.AnalysisOrchestrator
+import dev.miyado.shogisupplement.engine.AnalysisRunner
 import dev.miyado.shogisupplement.engine.IosCoefficients
 import dev.miyado.shogisupplement.engine.IosEngineHost
 import dev.miyado.shogisupplement.kifu.ClipboardKifValidator
@@ -361,10 +363,13 @@ class IosMainController(
             val orchestrator = AnalysisOrchestrator(
                 repository = gameRepository,
                 coefTable = coefTable,
-                // iOS はプロセス内で1エンジンのみ（in-process制約）のため workers=1。
-                workers = 1,
-                engineFactory = IosEngineHost.newGameEngineFactory(),
-                disposeEngine = IosEngineHost.keepAliveDispose,
+                analyzer = AnalysisRunner(
+                    // iOS はプロセス内で1エンジンのみ（in-process制約）のため workers=1。
+                    workers = 1,
+                    crashReporter = NoopCrashReporter,
+                    engineFactory = IosEngineHost.newGameEngineFactory(),
+                    disposeEngine = IosEngineHost.keepAliveDispose,
+                ),
             )
             val outcome = orchestrator.analyzeAndSave(
                 kifContent = current.kifText,

@@ -24,28 +24,20 @@ import dev.miyado.shogisupplement.util.sha256Hex
  * 両方から使う。
  *
  * 注入界面:
- * - [engineFactory] / [disposeEngine]: 局ごとにエンジンを取得・解放するファクトリ形式。
- *   - Android: engineFactory = 毎局 [UsiEngineProcess] を新規プロセスとして起動する
- *     （[dev.miyado.shogisupplement.engine.createAndroidAnalysisRunner] 参照）。
- *     disposeEngine = 既定値の `{ it.quit() }`（毎局プロセスを終了する既存挙動を保存）。
- *   - iOS: engineFactory = 常駐1インスタンス（[dev.miyado.shogisupplement.engine.IosEngineHost]）を
- *     返しつつ [Engine.newGame] で局の区切りをつける。disposeEngine = no-op（quitしない。
- *     `UsiEngineInProcess` はプロセス内で一度しか起動できないため）。
+ * - [analyzer]: 局面解析の実行者。端末解析（[AnalysisRunner]）とサーバー解析
+ *   （[RemoteAnalysisRunner]）のどちらを渡しても以降の処理は変わらない。
  * - [repository]: [GameRepository]（重複チェック・過去局集計・保存）
  * - [coefTable]: 係数表（判定ロジックの不変条件はこのオーケストレータでは一切変更しない）
- * - [workers]: 並列エンジン数（Android=4・iOS=1が既定運用）
  * - [onProgress]: (done, total) の進捗コールバック
  *
  * 判定ロジック・係数表・解析条件（go nodes 400000 / Threads=1 / MultiPV=2 / FV_SCALE=20）は
- * 一切変更しない。それらは [Engine] 実装（[UsiEngineProcess] / [UsiEngineInProcess]）と
- * [ReportPipeline] にすでに実装済みのものをそのまま使う。
+ * 一切変更しない。それらは [GameAnalyzer] 実装と [ReportPipeline] にすでに実装済みのものを
+ * そのまま使う。
  */
 class AnalysisOrchestrator(
     private val repository: GameRepository,
     private val coefTable: CoefficientTable,
-    private val workers: Int,
-    private val engineFactory: () -> Engine,
-    private val disposeEngine: (Engine) -> Unit = { it.quit() },
+    private val analyzer: GameAnalyzer,
     private val crashReporter: CrashReporter = NoopCrashReporter,
 ) {
 
@@ -93,15 +85,7 @@ class AnalysisOrchestrator(
             // KIFパース
             val game = KifParser().parse(kifContent)
 
-            // エンジン解析（局ごとにエンジンを取得・解放するファクトリ形式。挙動不変条件は
-            // AnalysisRunner/Engine実装側で保証される）
-            val runner = AnalysisRunner(
-                workers = workers,
-                crashReporter = crashReporter,
-                engineFactory = engineFactory,
-                disposeEngine = disposeEngine,
-            )
-            val allPv = runner.analyzeGame(game.moves, onProgress)
+            val allPv = analyzer.analyzeGame(game.moves, onProgress)
 
             // PvInfo → PositionEval 変換
             val evals = allPv.map { pvList ->
