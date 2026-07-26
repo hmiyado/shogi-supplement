@@ -9,6 +9,7 @@ import dev.miyado.shogisupplement.server.worker.auth.SupabaseJwtAuthVerifier
 import dev.miyado.shogisupplement.server.worker.repo.SupabaseAnalysisJobRepository
 import dev.miyado.shogisupplement.server.worker.repo.SupabaseBanRepository
 import dev.miyado.shogisupplement.server.worker.repo.SupabaseQuotaLimitRepository
+import dev.miyado.shogisupplement.server.worker.repo.supabaseJson
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation as ClientContentNegotiation
@@ -49,7 +50,7 @@ fun Application.module(config: WorkerConfig) {
     // service_roleキーでのPostgRESTアクセス専用クライアント。
     val restClient = HttpClient(CIO) {
         install(ClientContentNegotiation) {
-            json(Json { ignoreUnknownKeys = true })
+            json(supabaseJson)
         }
     }
 

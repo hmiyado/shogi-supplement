@@ -3,12 +3,14 @@ package dev.miyado.shogisupplement.server.worker.repo
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.get
+import io.ktor.client.request.head
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import kotlinx.serialization.SerialName
@@ -68,17 +70,23 @@ class SupabaseAnalysisJobRepository(
     override suspend fun countToday(userId: String): Int {
         val startOfDayJst = Instant.now(clock).atZone(QUOTA_RESET_ZONE).toLocalDate()
             .atStartOfDay(QUOTA_RESET_ZONE).toInstant()
-        val response = httpClient.get(restUrl(supabaseUrl, "analysis_jobs")) {
+        // HEAD + Prefer:count=exact で行データを一切転送させず、PostgRESTに
+        // Content-Range: <range>/<total> の形で総件数だけ計算・返却させる。クォータ判定は
+        // 毎リクエスト走るため、行を返してアプリ側でカウントする方式だと保存件数に比例して
+        // 転送量・デシリアライズコストが増える。
+        val response = httpClient.head(restUrl(supabaseUrl, "analysis_jobs")) {
             parameter("user_id", "eq.$userId")
             parameter("created_at", "gte.$startOfDayJst")
             // status=errorは消費済みクォータとしてカウントしない（結果を返せなかったジョブのため）。
             parameter("status", "neq.error")
-            parameter("select", "id")
+            header("Prefer", "count=exact")
             supabaseServiceRoleHeaders(serviceRoleKey)
         }
         check(response.status.isSuccess()) { "analysis_jobs countToday failed: ${response.status}" }
-        val rows: List<JobRow> = response.body()
-        return rows.size
+        val contentRange = response.headers[HttpHeaders.ContentRange]
+            ?: error("analysis_jobs countToday: missing Content-Range (Prefer:count=exact not honored?)")
+        return contentRange.substringAfterLast('/').toIntOrNull()
+            ?: error("analysis_jobs countToday: unparseable Content-Range \"$contentRange\"")
     }
 
     @Serializable
