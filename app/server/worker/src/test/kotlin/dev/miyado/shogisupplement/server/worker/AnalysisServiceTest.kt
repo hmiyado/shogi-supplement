@@ -7,6 +7,7 @@ import dev.miyado.shogisupplement.api.analysis.ErrorJson
 import dev.miyado.shogisupplement.api.analysis.PvInfoJson
 import dev.miyado.shogisupplement.api.analysis.ProgressJson
 import dev.miyado.shogisupplement.api.analysis.ScoreJson
+import dev.miyado.shogisupplement.engine.Engine
 import dev.miyado.shogisupplement.server.worker.fakes.FakeAnalysisJobRepository
 import dev.miyado.shogisupplement.server.worker.fakes.FakeAuthVerifier
 import dev.miyado.shogisupplement.server.worker.fakes.FakeBanRepository
@@ -22,6 +23,9 @@ import kotlinx.serialization.json.encodeToJsonElement
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -58,16 +62,19 @@ class AnalysisServiceTest {
         clock: Clock = fixedClock,
         pollIntervalMs: Long = 1,
         pollTimeoutMs: Long = 2_000,
+        analysisWorkers: Int = 1,
+        engineFactory: () -> Engine = { engine },
     ) = AnalysisService(
         authVerifier = authVerifier,
         banRepository = banRepository,
         quotaLimitRepository = quotaLimitRepository,
         analysisJobRepository = analysisJobRepository,
-        engineFactory = { engine },
+        engineFactory = engineFactory,
         engineMetaProvider = { engineMeta() },
         clock = clock,
         pollIntervalMs = pollIntervalMs,
         pollTimeoutMs = pollTimeoutMs,
+        analysisWorkers = analysisWorkers,
     )
 
     private suspend fun AnalysisRequestOutcome.Stream.collectLines(): List<String> {
@@ -291,6 +298,41 @@ class AnalysisServiceTest {
         val decoded = json.decodeFromString(AnalysisResultJson.serializer(), lines.single())
         assertEquals(cachedResult, decoded)
         assertEquals(0, engine.analyzeCallCount, "engine must not be invoked on a cache hit")
+    }
+
+    // ── 並列度 ───────────────────────────────────────────────────────────
+
+    @Test
+    fun `analysisWorkers runs that many engine processes at once and quits them all`() = runTest {
+        val workers = 3
+        // 3本が同時にanalyzeへ入るまで各エンジンを待たせる。並列度が3未満だと
+        // 最初の1本がここで待ち続け、awaitがタイムアウトして落ちる。
+        val allStarted = CountDownLatch(workers)
+        val engines = CopyOnWriteArrayList<FakeEngine>()
+        val service = buildService(
+            analysisWorkers = workers,
+            engineFactory = {
+                FakeEngine(
+                    onAnalyzeCalled = {
+                        allStarted.countDown()
+                        assertTrue(
+                            allStarted.await(10, TimeUnit.SECONDS),
+                            "エンジンが${workers}本同時に走らなかった",
+                        )
+                    },
+                ).also { engines.add(it) }
+            },
+        )
+
+        val outcome = service.handle(
+            "Bearer valid-token",
+            AnalysisRequest(movesUsi = listOf("7g7f", "3c3d", "2g2f")),
+        )
+        assertIs<AnalysisRequestOutcome.Stream>(outcome)
+        outcome.collectLines()
+
+        assertEquals(workers, engines.size, "プールはanalysisWorkers本を超えて作らない")
+        assertTrue(engines.all { it.quitCalled }, "作ったエンジンは全てquitする")
     }
 
     // ── 実行中の同一ジョブ: 完了を待って返却 ─────────────────────────────

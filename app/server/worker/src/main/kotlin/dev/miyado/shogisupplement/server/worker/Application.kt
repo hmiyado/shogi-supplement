@@ -87,6 +87,7 @@ fun Application.module(config: WorkerConfig) {
                 fvScale = EngineInvariants.FV_SCALE,
             )
         },
+        analysisWorkers = config.analysisWorkers,
     )
 
     routing {

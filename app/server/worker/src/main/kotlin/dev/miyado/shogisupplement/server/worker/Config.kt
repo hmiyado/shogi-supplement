@@ -11,6 +11,7 @@ data class WorkerConfig(
     val engineEvalDir: String,
     val engineRev: String,
     val evalSha256: String,
+    val analysisWorkers: Int,
 ) {
     companion object {
         fun fromEnv(env: (String) -> String? = System::getenv): WorkerConfig {
@@ -26,6 +27,9 @@ data class WorkerConfig(
                 engineEvalDir = env("ENGINE_EVAL_DIR") ?: "/opt/engine/eval_hao",
                 engineRev = requireEnv(env, "ENGINE_REV"),
                 evalSha256 = requireEnv(env, "ENGINE_EVAL_SHA256"),
+                // 1局面ずつ解析するエンジンプロセスの本数。CPU割り当てと揃えること
+                // （エンジンはThreads=1なので、割り当てを超えるとタイムシェアするだけで速くならない）。
+                analysisWorkers = (env("ANALYSIS_WORKERS") ?: "1").toInt(),
             )
         }
 

@@ -65,6 +65,7 @@ class AnalysisService(
     private val clock: Clock = Clock.systemUTC(),
     private val pollIntervalMs: Long = 500,
     private val pollTimeoutMs: Long = 280_000,
+    private val analysisWorkers: Int = 1,
 ) {
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -145,11 +146,10 @@ class AnalysisService(
     /** 新規解析を実行し、進捗→最終行をNDJSONで書き出すエミッタ。 */
     private fun runEmitter(jobId: String, input: EngineInput): suspend (suspend (String) -> Unit) -> Unit =
         { write ->
-            val engine = engineFactory()
             try {
                 val resultDto = when (input) {
-                    is EngineInput.Game -> analyzeGame(engine, input, write)
-                    is EngineInput.Position -> analyzePosition(engine, input, write)
+                    is EngineInput.Game -> analyzeGame(input, write)
+                    is EngineInput.Position -> analyzePosition(input, write)
                 }
                 analysisJobRepository.markDone(
                     jobId,
@@ -161,23 +161,20 @@ class AnalysisService(
                 val message = e.message ?: e::class.simpleName ?: "engine error"
                 analysisJobRepository.markError(jobId, message)
                 write(json.encodeToString(ErrorJson(message)) + "\n")
-            } finally {
-                runCatching { engine.quit() }
             }
         }
 
     private suspend fun analyzeGame(
-        engine: Engine,
         input: EngineInput.Game,
         write: suspend (String) -> Unit,
     ): AnalysisResultJson = coroutineScope {
-        // エンジンプロセス1本を局面0..Nで使い回すためworkers=1固定。disposeEngineはno-op
-        // （プロセスの生成・終了はrunEmitterが一括して担う）。
+        // エンジンプロセスの生成と終了はAnalysisRunnerに任せる（プールに最大analysisWorkers本まで
+        // 作り、局の解析が終わったら全部quitする）。Threads=1のまま本数で並列度を上げる形なので、
+        // 解析条件は1本のときと同一で結果も変わらない。
         val runner = AnalysisRunner(
-            workers = 1,
+            workers = analysisWorkers,
             crashReporter = NoopCrashReporter,
-            engineFactory = { engine },
-            disposeEngine = { },
+            engineFactory = engineFactory,
         )
         // AnalysisRunner.onProgressは非suspendコールバックのため、suspendなwrite（NDJSON書き込み）
         // を直接呼べない。Channelで一方向にブリッジし、書き込みは専用コルーチンに直列化する。
@@ -202,12 +199,16 @@ class AnalysisService(
     }
 
     private suspend fun analyzePosition(
-        engine: Engine,
         input: EngineInput.Position,
         write: suspend (String) -> Unit,
     ): AnalysisResultJson {
         write(json.encodeToString(ProgressJson(0, 1)) + "\n")
-        val pvList = engine.analyzeSfen(input.sfen, input.moves)
+        val engine = engineFactory()
+        val pvList = try {
+            engine.analyzeSfen(input.sfen, input.moves)
+        } finally {
+            runCatching { engine.quit() }
+        }
         write(json.encodeToString(ProgressJson(1, 1)) + "\n")
         return AnalysisResultJson(
             result = listOf(pvList.map { it.toJson() }),
