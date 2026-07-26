@@ -125,4 +125,26 @@ class BlunderJudgeTest {
         val v = BlunderJudge.judge(Score.Mate(-5), Score.Mate(3))
         assertFalse(v.isBlunder)
     }
+
+    // ---- 実践手=最善手の除外 ----
+
+    @Test
+    fun `実践手が最善手と一致するなら評価値の振れに関わらず悪手でない`() {
+        // Score単体ならスイング悪手の条件（500cp損）を満たすが、moveUsi=bestUsiなら除外
+        val v = BlunderJudge.judge(Score.Cp(100), Score.Cp(400), moveUsi = "7g7f", bestUsi = "7g7f")
+        assertFalse(v.isBlunder)
+    }
+
+    @Test
+    fun `実践手が最善手と異なるなら通常どおり判定する`() {
+        val v = BlunderJudge.judge(Score.Cp(100), Score.Cp(400), moveUsi = "7g7f", bestUsi = "2f2e")
+        assertTrue(v.isBlunder)
+        assertEquals(BlunderType.EVAL_SWING, v.type)
+    }
+
+    @Test
+    fun `moveUsiとbestUsiを渡さない場合は従来どおり評価値のみで判定する`() {
+        val v = BlunderJudge.judge(Score.Cp(100), Score.Cp(400))
+        assertTrue(v.isBlunder)
+    }
 }

@@ -39,6 +39,7 @@ data class BlunderVerdict(
  * 悪手定義 v1.1（scripts/report_kifu.py is_blunder_v1() の移植）。
  *
  * 判定式:
+ * - 実践手がエンジン最善手と一致するなら無条件で悪手でない
  * - 詰み見逃し: 指す前に自分の詰みあり（mate>0）∧ 指した後に相手視点で mate<=0 でない
  * - 頓死: 指した後に相手の詰みあり ∧ 指す前は被詰みでない ∧ 指す前 cp > -500（勝負が残る）
  * - スイング: loss_cp >= 500 ∧ 指す前勝率 5〜95% ∧ 指した後自分視点マイナス
@@ -66,14 +67,22 @@ object BlunderJudge {
     /**
      * @param before 指す前の局面のスコア（指し手側=手番側視点）
      * @param after  指した後の局面のスコア（相手側=次の手番側視点）
+     * @param moveUsi 実際に指した手のUSI（渡さない場合は最善手一致判定をスキップ）
+     * @param bestUsi 指す前の局面でのエンジン最善手のUSI
      */
-    fun judge(before: Score, after: Score): BlunderVerdict {
+    fun judge(before: Score, after: Score, moveUsi: String? = null, bestUsi: String? = null): BlunderVerdict {
         val cpBefore = toCp(before)
         val cpAfter = toCp(after)
         // 相手視点cpAfterを自分視点に反転して損失を計算
         val lossCp = cpBefore + cpAfter
         val wpBefore = winProb(cpBefore)
         val wpAfter = winProb(-cpAfter)
+
+        if (moveUsi != null && bestUsi != null && moveUsi == bestUsi) {
+            // 指す前と指した後はルートの違う別々の探索で、固定ノードのため到達深さも揃わない。
+            // 同じ手を辿っても評価値は一致せず、閾値を超えて振れることがある。
+            return BlunderVerdict(false, null, lossCp, wpBefore, wpAfter)
+        }
 
         val mateBefore = (before as? Score.Mate)?.plies
         val mateAfter = (after as? Score.Mate)?.plies

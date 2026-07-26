@@ -88,7 +88,7 @@ object ReportPipeline {
 
             thisGameMoves++
 
-            val blunderVerdict = BlunderJudge.judge(curScore, nxtScore)
+            val blunderVerdict = BlunderJudge.judge(curScore, nxtScore, moveUsi = usiStr, bestUsi = cur.pv.firstOrNull())
             if (!blunderVerdict.isBlunder) {
                 board.push(ShogiMove.fromUsi(usiStr))
                 continue
