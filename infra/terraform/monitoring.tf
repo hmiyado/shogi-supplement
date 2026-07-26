@@ -50,8 +50,15 @@ resource "google_monitoring_alert_policy" "high_5xx_rate" {
   depends_on = [google_project_service.apis]
 }
 
-# レイテンシ悪化: 90局面の解析本体は30〜40秒かかる想定だが、それとは別に
-# 起動・認可・冪等チェックが異常に遅くなっていないかを見る。
+# レイテンシ悪化: 解析がタイムアウトしかけている状態（エンジンのハング、実行中ジョブの
+# 完了待ちが返らない等）を拾う。
+#
+# Why not 「応答開始までの遅延」を見ないのか: request_latenciesはリクエスト全体の所要時間で、
+# 最初の1バイトまでの時間ではない。/v1/analysesは解析が終わるまでNDJSONで接続を保持する
+# 設計なので、1リクエストが数十秒かかるのが正常値になる。短い閾値を置くと解析するたびに
+# 鳴る（実測: 通常の解析が19〜64秒。5秒閾値では常時発報していた）。
+# 応答開始までの遅延を本当に見たいなら、ワーカー側でその時間をログに出して
+# ログベース指標にする必要がある。
 resource "google_monitoring_alert_policy" "latency" {
   display_name = "${var.service_name}: レイテンシ悪化"
   combiner     = "OR"

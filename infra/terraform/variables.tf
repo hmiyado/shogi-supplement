@@ -144,6 +144,6 @@ variable "error_5xx_count_threshold" {
 
 variable "latency_threshold_ms" {
   type        = number
-  default     = 5000
-  description = "p99レイテンシアラートの閾値（ミリ秒）。judgment call: 1局30〜40秒の解析本体は別物として、応答開始までの異常な遅延を検知する目的の暫定値"
+  default     = 280000
+  description = "p99レイテンシアラートの閾値（ミリ秒）。request_timeout_secondsの手前に置き、解析がタイムアウトしかけている状態だけを拾う"
 }
