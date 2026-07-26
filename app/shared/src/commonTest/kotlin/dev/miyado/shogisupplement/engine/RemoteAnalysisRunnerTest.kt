@@ -1,0 +1,186 @@
+package dev.miyado.shogisupplement.engine
+
+import dev.miyado.shogisupplement.blunder.Score
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
+import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.headersOf
+import io.ktor.utils.io.ByteReadChannel
+import kotlinx.coroutines.test.runTest
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
+
+/**
+ * [RemoteAnalysisRunner] のHTTPをMockEngineで差し替えたテスト。
+ *
+ * NDJSON行の形は app/server/worker の実応答（RoutesTest.kt・FakeEngine.kt）に合わせている:
+ * progress行={"progress":n,"total":m}、最終行={"result":[[{multipv,score,pv,nodes}...]...],"engine_meta":{...}}、
+ * エラー行={"error":"..."}、429応答={"error":"quota_exceeded","reset_at":"..."}。
+ */
+class RemoteAnalysisRunnerTest {
+
+    private val ndjsonHeaders = headersOf(HttpHeaders.ContentType, "application/x-ndjson")
+
+    private fun runner(
+        client: HttpClient,
+        maxRetries: Int = 3,
+        retryBackoffMs: Long = 1,
+    ) = RemoteAnalysisRunner(
+        baseUrl = "https://analysis-worker.example",
+        accessTokenProvider = { "test-jwt" },
+        httpClient = client,
+        maxRetries = maxRetries,
+        retryBackoffMs = retryBackoffMs,
+    )
+
+    @Test
+    fun `progress lines are relayed in order and the final line builds PvInfo`() = runTest {
+        val body = buildString {
+            appendLine("""{"progress":1,"total":2}""")
+            appendLine("""{"progress":2,"total":2}""")
+            appendLine(
+                """{"result":[[{"multipv":1,"score":{"type":"cp","value":30},"pv":["7g7f"],"nodes":400000},""" +
+                    """{"multipv":2,"score":{"type":"mate","value":-3},"pv":["2g2f"],"nodes":400000}]],""" +
+                    """"engine_meta":{"engine_rev":"rev","eval_sha256":"sha","nodes":400000,"threads":1,""" +
+                    """"multi_pv":2,"usi_hash":128,"fv_scale":20}}""",
+            )
+        }
+        val engine = MockEngine { request ->
+            assertEquals("Bearer test-jwt", request.headers[HttpHeaders.Authorization])
+            respond(content = ByteReadChannel(body), status = HttpStatusCode.OK, headers = ndjsonHeaders)
+        }
+        val progressEvents = mutableListOf<Pair<Int, Int>>()
+
+        val result = runner(HttpClient(engine)).analyzeGame(listOf("7g7f")) { done, total ->
+            progressEvents.add(done to total)
+        }
+
+        assertEquals(listOf(1 to 2, 2 to 2), progressEvents)
+        assertEquals(1, result.size)
+        assertEquals(2, result[0].size)
+        assertEquals(30, (result[0][0].score as Score.Cp).value)
+        assertEquals(listOf("7g7f"), result[0][0].pv)
+        assertEquals(-3, (result[0][1].score as Score.Mate).plies)
+    }
+
+    @Test
+    fun `disconnected stream is recovered by re-posting the same request`() = runTest {
+        var attempt = 0
+        val engine = MockEngine { _ ->
+            attempt++
+            if (attempt == 1) {
+                // 進捗だけでストリームが切れる＝切断。最終行(result/error)が無い。
+                respond(
+                    content = ByteReadChannel("""{"progress":1,"total":2}""" + "\n"),
+                    status = HttpStatusCode.OK,
+                    headers = ndjsonHeaders,
+                )
+            } else {
+                respond(
+                    content = ByteReadChannel(
+                        """{"result":[[{"multipv":1,"score":{"type":"cp","value":10},"pv":[],"nodes":400000}]],""" +
+                            """"engine_meta":{"engine_rev":"r","eval_sha256":"s","nodes":400000,"threads":1,""" +
+                            """"multi_pv":2,"usi_hash":128,"fv_scale":20}}""",
+                    ),
+                    status = HttpStatusCode.OK,
+                    headers = ndjsonHeaders,
+                )
+            }
+        }
+
+        val result = runner(HttpClient(engine)).analyzeGame(listOf("7g7f"))
+
+        assertEquals(2, attempt)
+        assertEquals(10, (result[0][0].score as Score.Cp).value)
+    }
+
+    @Test
+    fun `retry limit is respected and a ConnectionLost is thrown`() = runTest {
+        var attempt = 0
+        val engine = MockEngine { _ ->
+            attempt++
+            // 常に途中で切れる＝毎回切断。
+            respond(
+                content = ByteReadChannel("""{"progress":1,"total":2}""" + "\n"),
+                status = HttpStatusCode.OK,
+                headers = ndjsonHeaders,
+            )
+        }
+
+        val exception = assertFailsWith<RemoteAnalysisException.ConnectionLost> {
+            runner(HttpClient(engine), maxRetries = 2).analyzeGame(listOf("7g7f"))
+        }
+
+        // 初回 + maxRetries(2) = 3回で打ち切り、無限リトライしない。
+        assertEquals(3, attempt)
+        assertTrue(exception.message.orEmpty().isNotBlank())
+    }
+
+    @Test
+    fun `401 is reported as Unauthorized`() = runTest {
+        val engine = MockEngine { _ ->
+            respond(
+                content = ByteReadChannel("""{"error":"invalid or expired token"}"""),
+                status = HttpStatusCode.Unauthorized,
+                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+            )
+        }
+
+        assertFailsWith<RemoteAnalysisException.Unauthorized> {
+            runner(HttpClient(engine)).analyzeGame(listOf("7g7f"))
+        }
+    }
+
+    @Test
+    fun `403 is reported as Banned`() = runTest {
+        val engine = MockEngine { _ ->
+            respond(
+                content = ByteReadChannel("""{"error":"banned"}"""),
+                status = HttpStatusCode.Forbidden,
+                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+            )
+        }
+
+        assertFailsWith<RemoteAnalysisException.Banned> {
+            runner(HttpClient(engine)).analyzeGame(listOf("7g7f"))
+        }
+    }
+
+    @Test
+    fun `429 is reported as QuotaExceeded with the reset_at from the server`() = runTest {
+        val engine = MockEngine { _ ->
+            respond(
+                content = ByteReadChannel("""{"error":"quota_exceeded","reset_at":"2026-07-27T15:00:00Z"}"""),
+                status = HttpStatusCode.TooManyRequests,
+                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+            )
+        }
+
+        val exception = assertFailsWith<RemoteAnalysisException.QuotaExceeded> {
+            runner(HttpClient(engine)).analyzeGame(listOf("7g7f"))
+        }
+        assertEquals("2026-07-27T15:00:00Z", exception.resetAt)
+    }
+
+    @Test
+    fun `a terminal error line is reported as EngineFailure`() = runTest {
+        val engine = MockEngine { _ ->
+            respond(
+                content = ByteReadChannel(
+                    """{"progress":1,"total":2}""" + "\n" + """{"error":"engine crashed"}""" + "\n",
+                ),
+                status = HttpStatusCode.OK,
+                headers = ndjsonHeaders,
+            )
+        }
+
+        val exception = assertFailsWith<RemoteAnalysisException.EngineFailure> {
+            runner(HttpClient(engine)).analyzeGame(listOf("7g7f"))
+        }
+        assertEquals("engine crashed", exception.message)
+    }
+}
