@@ -324,6 +324,19 @@ object AppStrings {
         else -> serviceId
     }
 
+    /**
+     * source_place（[dev.miyado.shogisupplement.kifu.KifuSource.wireValue]）の表示ラベル。
+     * "other"・null・未知の値はnull（呼び出し側はファイル名等へフォールバックする想定。
+     * ReportScreenのトップバー参照）。source_placeは正規化コードのみを保持するため、
+     * ここで人が読める文言に変換してから表示する。
+     */
+    fun sourcePlaceLabel(sourcePlace: String?): String? = when (sourcePlace) {
+        "wars" -> "将棋ウォーズ"
+        "lishogi" -> "lishogi"
+        "kiou" -> "棋桜"
+        else -> null
+    }
+
     /** ルールIDから表示名（warsRules / kiouRules から検索）。 */
     fun ruleLabel(serviceId: String, ruleId: String): String {
         val list = when (serviceId) {

@@ -9,6 +9,7 @@ import dev.miyado.shogisupplement.db.GameRepository
 import dev.miyado.shogisupplement.db.PositionEvalRow
 import dev.miyado.shogisupplement.judge.CoefficientTable
 import dev.miyado.shogisupplement.kifu.KifParser
+import dev.miyado.shogisupplement.kifu.KifuDecomposer
 import dev.miyado.shogisupplement.pipeline.PositionEval
 import dev.miyado.shogisupplement.pipeline.ReportPipeline
 import dev.miyado.shogisupplement.text.AppStrings
@@ -138,7 +139,10 @@ class AnalysisOrchestrator(
                 ratingService = ratingService,
                 ratingRaw = ratingRaw,
                 ratingRule = ratingRule,
-                sourcePlace = game.headers["場所"],
+                // 生の「場所」ヘッダはローカルDBにも残さない（lishogiでは対局を一意特定できる
+                // URLが入るため）。判定は KifuDecomposer.classifySource に一本化し、
+                // アップロード用の分解処理と同じ結果になるようにする。
+                sourcePlace = KifuDecomposer.classifySource(kifContent, game.headers["場所"]).wireValue,
                 gameWinner = game.winner,
                 endReason = game.endReason,
             )

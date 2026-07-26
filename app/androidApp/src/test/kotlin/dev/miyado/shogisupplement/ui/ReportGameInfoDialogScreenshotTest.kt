@@ -50,7 +50,8 @@ class ReportGameInfoDialogScreenshotTest {
         coefVersion = "hao_v1",
         movesUsi = listOf("7g7f", "3c3d", "2g2f", "8c8d"),
         userSide = "sente",
-        sourcePlace = "将棋ウォーズ",
+        // source_place は正規化コード（AppStrings.sourcePlaceLabel で表示文言に変換される）。
+        sourcePlace = "wars",
     )
 
     private fun sampleBlunder() = BlunderRecord(

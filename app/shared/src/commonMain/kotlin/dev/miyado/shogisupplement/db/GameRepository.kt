@@ -2,6 +2,8 @@ package dev.miyado.shogisupplement.db
 
 import dev.miyado.shogisupplement.board.ShogiBoard
 import dev.miyado.shogisupplement.board.ShogiMove
+import dev.miyado.shogisupplement.kifu.KifuDecomposer
+import dev.miyado.shogisupplement.kifu.KifuSource
 import dev.miyado.shogisupplement.pipeline.BlunderReport
 import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.util.currentEpochSeconds
@@ -29,6 +31,9 @@ class GameRepository(private val database: ShogiSupplementDatabase) {
      * @param userSide ユーザーの側（"sente"/"gote"/null）
      * @param ratingService レートのサービス名（"lishogi"/"shogi_wars"/"kiou"）
      * @param ratingRaw サービス上のraw値（ウォーズは段級位を整数エンコード）
+     * @param sourcePlace 出典サービスの正規化値（[KifuSource.wireValue]）。呼び出し側で
+     *   [KifuDecomposer.classifySource] を通した結果を渡す想定。生の「場所」ヘッダ値
+     *   （lishogiでは対局を一意特定できるURLを含む）はここに渡さないこと
      * @return 新しく作成されたgame_id
      */
     fun saveAnalysis(
@@ -351,7 +356,7 @@ internal fun Game.toGameRecord() = GameRecord(
     ratingService = rating_service,
     ratingRaw = rating_raw,
     ratingRule = rating_rule,
-    sourcePlace = source_place,
+    sourcePlace = normalizeLegacySourcePlace(source_place),
     gameWinner = game_winner,
     endReason = end_reason,
 )
@@ -397,6 +402,28 @@ private fun normalizeLegacyNote(note: String, missedMateIn: Long?): String {
         s = s.replace("($band)", "($label)")
     }
     return s
+}
+
+/**
+ * 保存済み source_place の表記を [KifuSource] の正規化値（wireValue）に揃える。
+ * このメソッドが唯一実装される前は生の「場所」ヘッダ値（ウォーズの固定文字列・lishogiの
+ * 対局URL等）をそのまま保存していたため、既存行にはその生値が残っている。
+ * normalizeLegacyNote と同じ「読み出し時に正規化する」パターンを踏襲する
+ * （DBマイグレーションで一括書き換えしない理由も同様: 判定ロジック側の変更に
+ * 表示側が自動的に追随できる）。
+ *
+ * 判定は [KifuDecomposer.classifySource] に一本化してあり、保存経路（新規行）と
+ * ここ（既存行の読み出し）が別々の判定基準を持つことはない。
+ *
+ * Why not KIF原文まで遡って判定すること: source_place列だけでは棋桜のマーカー行
+ * （KIF本文）が失われているため、判定できるのは「場所」ヘッダ由来のウォーズ／lishogiのみ。
+ * それ以外（旧kiouの記録＝場所ヘッダ無しでnullのものを含む）は再解析なしに区別できないため、
+ * nullはnullのまま、それ以外の非正規化値はotherとして扱う。
+ */
+private fun normalizeLegacySourcePlace(sourcePlace: String?): String? {
+    if (sourcePlace == null) return null
+    if (KifuSource.entries.any { it.wireValue == sourcePlace }) return sourcePlace
+    return KifuDecomposer.classifySource(rawText = "", place = sourcePlace).wireValue
 }
 
 // ─── SFEN ヘルパー ───────────────────────────────────────────────────────
@@ -456,7 +483,11 @@ data class GameRecord(
     val ratingService: String? = null,
     val ratingRaw: Long? = null,
     val ratingRule: String? = null,
-    /** KIFの「場所」ヘッダ値（将棋ウォーズ等）。ヘッダなし→null。 */
+    /**
+     * 出典サービスの正規化値（[KifuSource.wireValue]。"wars"/"lishogi"/"kiou"/"other"）。
+     * 生の「場所」ヘッダ値は含まない（読み出し時に正規化される。[normalizeLegacySourcePlace] 参照）。
+     * 情報が無ければnull。
+     */
     val sourcePlace: String? = null,
     /** 勝者（"sente"/"gote"/null）。 */
     val gameWinner: String? = null,

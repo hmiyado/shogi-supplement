@@ -305,7 +305,7 @@ fun ReportScreen(
                     // 棋戦（source_place）をタイトルに優先。無ければファイル名。
                     // 見出し専用書体（DESIGN.md Typography節）。
                     Text(
-                        text = game.sourcePlace ?: game.fileName,
+                        text = AppStrings.sourcePlaceLabel(game.sourcePlace) ?: game.fileName,
                         style = TextStyle(
                             fontFamily = ShipporiMinchoFamily,
                             fontWeight = FontWeight.Bold,

@@ -301,6 +301,93 @@ class GameRepositoryTest {
         assertNull(reports[0].cpAfter)
     }
 
+    // ─── source_place（既存行の読み出し時正規化）─────────────────────────────────
+
+    // 正規化前は「場所」ヘッダの生値をそのまま source_place に保存していたため、
+    // 既存行にはその生値（ウォーズの固定文字列・lishogiの対局URL・任意の文字列）が残っている。
+    // saveAnalysis の sourcePlace 引数は呼び出し側（AnalysisOrchestrator）が正規化する前提の
+    // ため、以下のテストでは生値を直接渡して「正規化前に保存された既存行」を再現する。
+
+    @Test
+    fun `生の場所ヘッダ値が将棋ウォーズだった既存行は読み出し時にwarsへ正規化される`() {
+        val repo = newRepository()
+        val gameId = repo.saveAnalysis(
+            fileName = "legacy.kif",
+            contentHash = "hash-legacy-wars",
+            moves = listOf("7g7f"),
+            headers = emptyMap(),
+            reports = emptyList(),
+            rating = 1750,
+            coefVersion = "hao_v1",
+            sourcePlace = "将棋ウォーズ", // 正規化前に保存されていた生値
+        )
+        assertEquals("wars", repo.getGameById(gameId)?.sourcePlace)
+    }
+
+    @Test
+    fun `生のlishogi対局URLが保存されていた既存行は読み出し時にlishogiへ正規化される`() {
+        val repo = newRepository()
+        val gameId = repo.saveAnalysis(
+            fileName = "legacy.kif",
+            contentHash = "hash-legacy-lishogi",
+            moves = listOf("7g7f"),
+            headers = emptyMap(),
+            reports = emptyList(),
+            rating = 1750,
+            coefVersion = "hao_v1",
+            sourcePlace = "https://lishogi.org/abcd1234", // 正規化前に保存されていた生値
+        )
+        assertEquals("lishogi", repo.getGameById(gameId)?.sourcePlace)
+    }
+
+    @Test
+    fun `ウォーズともlishogiとも判定できない生値が保存されていた既存行はotherへ正規化される`() {
+        val repo = newRepository()
+        val gameId = repo.saveAnalysis(
+            fileName = "legacy.kif",
+            contentHash = "hash-legacy-other",
+            moves = listOf("7g7f"),
+            headers = emptyMap(),
+            reports = emptyList(),
+            rating = 1750,
+            coefVersion = "hao_v1",
+            sourcePlace = "某道場", // ウォーズ固定文字列でもlishogi URLでもない任意の生値
+        )
+        assertEquals("other", repo.getGameById(gameId)?.sourcePlace)
+    }
+
+    @Test
+    fun `source_placeがnullの既存行はnullのまま（otherに寄せない）`() {
+        val repo = newRepository()
+        val gameId = repo.saveAnalysis(
+            fileName = "legacy.kif",
+            contentHash = "hash-legacy-null",
+            moves = listOf("7g7f"),
+            headers = emptyMap(),
+            reports = emptyList(),
+            rating = 1750,
+            coefVersion = "hao_v1",
+            sourcePlace = null,
+        )
+        assertNull(repo.getGameById(gameId)?.sourcePlace)
+    }
+
+    @Test
+    fun `正規化済みのsource_placeは読み出し時にそのまま保たれる（冪等）`() {
+        val repo = newRepository()
+        val gameId = repo.saveAnalysis(
+            fileName = "new.kif",
+            contentHash = "hash-normalized",
+            moves = listOf("7g7f"),
+            headers = emptyMap(),
+            reports = emptyList(),
+            rating = 1750,
+            coefVersion = "hao_v1",
+            sourcePlace = "kiou", // 保存経路が既に正規化済みで渡した値
+        )
+        assertEquals("kiou", repo.getGameById(gameId)?.sourcePlace)
+    }
+
     // ─── position_eval ───────────────────────────────────────────────────────
 
     @Test

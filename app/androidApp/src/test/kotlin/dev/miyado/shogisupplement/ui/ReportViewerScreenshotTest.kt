@@ -421,7 +421,8 @@ class ReportViewerScreenshotTest {
             ShogiTheme {
                 Surface {
                     ReportScreen(
-                        game = sampleGame().copy(sourcePlace = "将棋ウォーズ"),
+                        // source_place は正規化コード（AppStrings.sourcePlaceLabel で表示文言に変換される）。
+                        game = sampleGame().copy(sourcePlace = "wars"),
                         reports = listOf(sampleBlunder()),
                         flip = false,
                         strengthDisplayText = "52 ±27",
