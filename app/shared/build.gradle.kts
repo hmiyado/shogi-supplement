@@ -87,6 +87,12 @@ kotlin {
         }
     }
 
+    // 明示的に呼ぶ必要がある: 下の jvmAndAndroidMain のように dependsOn を手動で書くと
+    // 標準階層テンプレートの自動適用が止まり、iosMain がどのコンパイルにも繋がらなくなる
+    // （commonMain の expect に対する actual が見えず「no actual declaration」で落ちる）。
+    // 明示適用すれば標準の階層に手動のエッジが追加される形になる。
+    applyDefaultHierarchyTemplate()
+
     sourceSets {
         // androidTarget/jvmの両方でしか使えないAPI（java.lang.ProcessBuilder等）を置く
         // 中間source set。KMPの標準階層にjvm+android専用の合流点は無いため手動でdependsOnを配線する。
