@@ -1,4 +1,8 @@
 [versions]
+# 全モジュール（shared/ui/androidApp/server-worker）共通のJVMターゲット。
+# ここを変えるだけで4箇所のjvmToolchain（＋androidAppのsourceCompatibility/
+# targetCompatibility）に反映される。個別ファイルへの直書きは値のズレを生むため避ける。
+jvm-toolchain = "17"
 # CMP 1.9系はKotlin 2.3必須。supabase-kt/ktor-client-darwinのiOS klib（ABI 2.3.0）を
 # 消費するにもKotlin 2.3系が必要（shared/build.gradle.kts参照）。
 kotlin = "2.3.21"
@@ -21,6 +25,9 @@ compose-multiplatform = "1.9.3"
 # JetBrains製 multiplatform lifecycle-viewmodel（iOS向け）。Android上ではandroidx.lifecycleへの
 # typealiasのため実体は共通。バージョンはCMP本体が内部で参照するlifecycleに合わせる（競合回避）。
 kmp-lifecycle = "2.9.6"
+# server/worker（Cloud Runワーカー）専用の依存。androidApp/iosAppからは参照されない。
+nimbus-jose-jwt = "9.37.3"
+logback = "1.5.13"
 
 [libraries]
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
@@ -53,9 +60,27 @@ supabase-auth = { module = "io.github.jan-tennert.supabase:auth-kt", version.ref
 supabase-postgrest = { module = "io.github.jan-tennert.supabase:postgrest-kt", version.ref = "supabase" }
 ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
 ktor-client-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "ktor" }
+# RemoteAnalysisRunner（shared commonMain）がPOST /v1/analysesのNDJSONストリーミングを
+# 読むために使う。エンジンはプラットフォーム側（androidApp=okhttp/iosMain=darwin）が既存どおり供給する。
+ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
+# RemoteAnalysisRunnerTest（shared commonTest）専用。HTTPをモックして切断・リトライ・
+# ステータス別エラーを検証する（全ターゲット共通で使えるモックエンジン）。
+ktor-client-mock = { module = "io.ktor:ktor-client-mock", version.ref = "ktor" }
 kmp-lifecycle-viewmodel = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel", version.ref = "kmp-lifecycle" }
 aboutlibraries-compose-m3 = { module = "com.mikepenz:aboutlibraries-compose-m3", version.ref = "aboutlibraries" }
 sentry-android = { module = "io.sentry:sentry-android", version.ref = "sentry" }
+# server/worker専用（androidApp/iosAppからは参照されない）
+ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
+ktor-server-netty = { module = "io.ktor:ktor-server-netty", version.ref = "ktor" }
+ktor-server-content-negotiation = { module = "io.ktor:ktor-server-content-negotiation", version.ref = "ktor" }
+ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
+ktor-server-call-logging = { module = "io.ktor:ktor-server-call-logging", version.ref = "ktor" }
+ktor-server-status-pages = { module = "io.ktor:ktor-server-status-pages", version.ref = "ktor" }
+ktor-server-test-host = { module = "io.ktor:ktor-server-test-host", version.ref = "ktor" }
+ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }
+ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
+nimbus-jose-jwt = { module = "com.nimbusds:nimbus-jose-jwt", version.ref = "nimbus-jose-jwt" }
+logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 
 [plugins]
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
@@ -68,5 +93,6 @@ sqldelightPlugin = { id = "app.cash.sqldelight", version.ref = "sqldelight" }
 roborazziPlugin = { id = "io.github.takahirom.roborazzi", version.ref = "roborazzi" }
 aboutlibrariesPlugin = { id = "com.mikepenz.aboutlibraries.plugin", version.ref = "aboutlibraries" }
 composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "compose-multiplatform" }
+kotlinJvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 
 [bundles]

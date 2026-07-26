@@ -1,0 +1,13 @@
+<configuration>
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- 棋譜内容・トークン等の機微情報をログに出さない（Sentry運用と同じ原則）。
+         USIプロトコルの逐次ログ（コマンド/info行）はDEBUG時のみ出す想定。 -->
+    <root level="INFO">
+        <appender-ref ref="STDOUT" />
+    </root>
+</configuration>

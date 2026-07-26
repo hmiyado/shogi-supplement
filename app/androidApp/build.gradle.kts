@@ -86,8 +86,8 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.toVersion(libs.versions.jvm.toolchain.get())
+        targetCompatibility = JavaVersion.toVersion(libs.versions.jvm.toolchain.get())
     }
 
     // Android 10+ W^X: ネイティブライブラリを圧縮せずAPKに格納し、
@@ -112,7 +112,7 @@ android {
 }
 
 kotlin {
-    jvmToolchain(17)
+    jvmToolchain(libs.versions.jvm.toolchain.get().toInt())
 }
 
 dependencies {

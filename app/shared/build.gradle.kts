@@ -14,7 +14,7 @@ sqldelight {
 }
 
 kotlin {
-    jvmToolchain(17)
+    jvmToolchain(libs.versions.jvm.toolchain.get().toInt())
 
     androidTarget()
     jvm()
@@ -40,9 +40,23 @@ kotlin {
     // `/Applications/Xcode.app` を前提にSwiftライブラリ探索パスを構築するが、複数バージョン
     // 共存環境ではそのパスが存在しないことがあるため、`xcode-select -p` で実際の
     // Developer Dirを取得し、SDK別のSwift互換ライブラリディレクトリを -L で明示する。
-    val xcodeDeveloperDir = providers.exec {
-        commandLine("xcode-select", "-p")
-    }.standardOutput.asText.get().trim()
+    // Why not call unconditionally: KMPは全ターゲットのbinaries設定をconfiguration時に
+    // 評価するため、xcode-selectがそもそも存在しないLinuxホスト（server/workerの
+    // Dockerfileビルド等、iOSターゲットを一切ビルドしないタスクの実行時も含む）では
+    // プロセス起動自体が例外になり :shared のconfigurationごと失敗する。iOSのリンカ設定は
+    // macOSホストでのみ意味を持つため、非macOSでは空文字にフォールバックし、
+    // configurationは通す（iOSターゲットの実コンパイル/リンクは元々非macOSでは動かない）。
+    // Why not org.gradle.internal.os.OperatingSystem: internalパッケージのAPIで
+    // Gradleの更新により予告なく変わりうるため、`os.name` システムプロパティという
+    // 公開されたJVM標準APIのみでOS判定する。
+    val isMacOsHost = System.getProperty("os.name").orEmpty().lowercase().contains("mac")
+    val xcodeDeveloperDir = if (isMacOsHost) {
+        providers.exec {
+            commandLine("xcode-select", "-p")
+        }.standardOutput.asText.get().trim()
+    } else {
+        ""
+    }
     listOf(iosArm64(), iosSimulatorArm64()).forEach { iosTarget ->
         val engineLibDir = rootProject.projectDir.resolve(
             "iosApp/engine/build/" + if (iosTarget.name == "iosArm64") "device" else "sim"
@@ -83,9 +97,14 @@ kotlin {
             // （HTTPエンジンはAndroid=okhttp（androidApp側で提供）/iOS=darwinを各所で注入）。
             implementation(libs.supabase.auth)
             implementation(libs.supabase.postgrest)
+            // RemoteAnalysisRunner用。エンジン自体はプラットフォーム側が既存どおり供給する
+            // （androidApp=okhttp/iosMain=darwin。上のsupabase依存と同じ方針）。
+            implementation(libs.ktor.client.core)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+            implementation(libs.kotlinx.coroutines.test)
+            implementation(libs.ktor.client.mock)
         }
         jvmTest.dependencies {
             implementation(libs.sqldelight.sqlite.driver)

@@ -1,0 +1,19 @@
+# server/worker Dockerfile 用のビルドコンテキスト絞り込み。
+# ビルドコンテキストは app/（:shared依存のため）。androidApp/iosAppの巨大なビルド成果物
+# （実測で数GB〜十数GB）をそのまま送るとdocker build自体が現実的な時間で終わらないため除外する。
+.gradle/
+.kotlin/
+**/build/
+androidApp/build/
+shared/build/
+ui/build/
+iosApp/build_*/
+iosApp/vendor/
+iosApp/engine/build/
+.git/
+.claude/
+**/.claude/
+keystore/
+data/
+docs/
+scripts/
