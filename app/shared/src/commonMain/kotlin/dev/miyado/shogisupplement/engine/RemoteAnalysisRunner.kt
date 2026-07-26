@@ -8,7 +8,7 @@ import dev.miyado.shogisupplement.api.analysis.QuotaExceededJson
 import dev.miyado.shogisupplement.api.analysis.toPvInfo
 import io.ktor.client.HttpClient
 import io.ktor.client.request.header
-import io.ktor.client.request.post
+import io.ktor.client.request.preparePost
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsChannel
@@ -83,29 +83,31 @@ class RemoteAnalysisRunner(
         onProgress: ((done: Int, total: Int) -> Unit)?,
     ): List<List<PvInfo>> {
         val token = accessTokenProvider()
-        val response = httpClient.post("$baseUrl/v1/analyses") {
+        // preparePost+execute を使う: post() はレスポンス本文を最後まで読み切ってから返すため、
+        // 進捗行が解析完了後にまとめて届いてしまい、ストリーミングの意味が無くなる。
+        return httpClient.preparePost("$baseUrl/v1/analyses") {
             header("Authorization", "Bearer $token")
             contentType(ContentType.Application.Json)
             setBody(json.encodeToString(AnalysisRequest.serializer(), AnalysisRequest(movesUsi = moves)))
-        }
+        }.execute { response ->
+            when (response.status) {
+                HttpStatusCode.Unauthorized ->
+                    throw RemoteAnalysisException.Unauthorized(readErrorMessage(response))
+                HttpStatusCode.Forbidden ->
+                    throw RemoteAnalysisException.Banned
+                HttpStatusCode.TooManyRequests ->
+                    throw RemoteAnalysisException.QuotaExceeded(readResetAt(response))
+                HttpStatusCode.BadRequest ->
+                    throw RemoteAnalysisException.BadRequest(readErrorMessage(response))
+                else -> Unit
+            }
+            if (!response.status.isSuccess()) {
+                // 5xx等の想定外ステータスは切断と同列に扱い再試行対象にする。
+                error("unexpected status ${response.status}")
+            }
 
-        when (response.status) {
-            HttpStatusCode.Unauthorized ->
-                throw RemoteAnalysisException.Unauthorized(readErrorMessage(response))
-            HttpStatusCode.Forbidden ->
-                throw RemoteAnalysisException.Banned
-            HttpStatusCode.TooManyRequests ->
-                throw RemoteAnalysisException.QuotaExceeded(readResetAt(response))
-            HttpStatusCode.BadRequest ->
-                throw RemoteAnalysisException.BadRequest(readErrorMessage(response))
-            else -> Unit
+            consumeStream(response, onProgress)
         }
-        if (!response.status.isSuccess()) {
-            // 5xx等の想定外ステータスは切断と同列に扱い再試行対象にする。
-            error("unexpected status ${response.status}")
-        }
-
-        return consumeStream(response, onProgress)
     }
 
     private suspend fun consumeStream(

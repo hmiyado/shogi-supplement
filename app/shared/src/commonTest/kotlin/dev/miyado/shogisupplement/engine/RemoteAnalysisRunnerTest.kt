@@ -7,8 +7,15 @@ import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
+import io.ktor.utils.io.ByteChannel
 import io.ktor.utils.io.ByteReadChannel
+import io.ktor.utils.io.writeStringUtf8
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -25,6 +32,12 @@ class RemoteAnalysisRunnerTest {
 
     private val ndjsonHeaders = headersOf(HttpHeaders.ContentType, "application/x-ndjson")
 
+    private val resultLine =
+        """{"result":[[{"multipv":1,"score":{"type":"cp","value":30},"pv":["7g7f"],"nodes":400000},""" +
+            """{"multipv":2,"score":{"type":"mate","value":-3},"pv":["2g2f"],"nodes":400000}]],""" +
+            """"engine_meta":{"engine_rev":"rev","eval_sha256":"sha","nodes":400000,"threads":1,""" +
+            """"multi_pv":2,"usi_hash":128,"fv_scale":20}}"""
+
     private fun runner(
         client: HttpClient,
         maxRetries: Int = 3,
@@ -37,17 +50,43 @@ class RemoteAnalysisRunnerTest {
         retryBackoffMs = retryBackoffMs,
     )
 
+    // 本文を最後まで受け取る前に進捗が届くこと＝ストリーミングが機能していることを確かめる。
+    // レスポンス本文を読み切ってから処理する実装（HttpClient.post）だと、最終行を書くまで
+    // 進捗コールバックが呼ばれず、ここは書き込み待ちのままタイムアウトする。
+    @Test
+    fun `progress is delivered before the response body is complete`() = runTest {
+        // 実ディスパッチャで動かす: runTestの仮想時間ではボディの書き込み待ちが進まず、
+        // ストリーミングの成否に関係なくwithTimeoutが即座に成立してしまう。
+        withContext(Dispatchers.Default) {
+            val firstProgress = CompletableDeferred<Unit>()
+            val channel = ByteChannel(autoFlush = true)
+            val engine = MockEngine {
+                respond(content = channel, status = HttpStatusCode.OK, headers = ndjsonHeaders)
+            }
+
+            launch {
+                channel.writeStringUtf8("""{"progress":1,"total":1}""" + "\n")
+                firstProgress.await()
+                channel.writeStringUtf8(resultLine + "\n")
+                channel.flushAndClose()
+            }
+
+            val result = withTimeout(5_000) {
+                runner(HttpClient(engine)).analyzeGame(listOf("7g7f")) { _, _ ->
+                    firstProgress.complete(Unit)
+                }
+            }
+
+            assertEquals(1, result.size)
+        }
+    }
+
     @Test
     fun `progress lines are relayed in order and the final line builds PvInfo`() = runTest {
         val body = buildString {
             appendLine("""{"progress":1,"total":2}""")
             appendLine("""{"progress":2,"total":2}""")
-            appendLine(
-                """{"result":[[{"multipv":1,"score":{"type":"cp","value":30},"pv":["7g7f"],"nodes":400000},""" +
-                    """{"multipv":2,"score":{"type":"mate","value":-3},"pv":["2g2f"],"nodes":400000}]],""" +
-                    """"engine_meta":{"engine_rev":"rev","eval_sha256":"sha","nodes":400000,"threads":1,""" +
-                    """"multi_pv":2,"usi_hash":128,"fv_scale":20}}""",
-            )
+            appendLine(resultLine)
         }
         val engine = MockEngine { request ->
             assertEquals("Bearer test-jwt", request.headers[HttpHeaders.Authorization])
