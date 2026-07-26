@@ -69,12 +69,13 @@ fun Application.module(config: WorkerConfig) {
         quotaLimitRepository = quotaLimitRepository,
         analysisJobRepository = analysisJobRepository,
         engineFactory = {
-            UsiEngineSubprocess.create(
+            val engine = UsiEngineSubprocess.create(
                 enginePath = config.enginePath,
                 evalDir = config.engineEvalDir,
                 logLifecycle = engineLog::info,
                 logIo = engineLog::debug,
             )
+            if (config.isolatePositions) IsolatedEngine(engine) else engine
         },
         engineMetaProvider = {
             EngineMetaJson(

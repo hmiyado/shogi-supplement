@@ -12,6 +12,7 @@ data class WorkerConfig(
     val engineRev: String,
     val evalSha256: String,
     val analysisWorkers: Int,
+    val isolatePositions: Boolean,
 ) {
     companion object {
         fun fromEnv(env: (String) -> String? = System::getenv): WorkerConfig {
@@ -30,6 +31,9 @@ data class WorkerConfig(
                 // 1局面ずつ解析するエンジンプロセスの本数。CPU割り当てと揃えること
                 // （エンジンはThreads=1なので、割り当てを超えるとタイムシェアするだけで速くならない）。
                 analysisWorkers = (env("ANALYSIS_WORKERS") ?: "1").toInt(),
+                // 局面ごとに置換表をクリアするか（[IsolatedEngine]）。解析順に結果が依存するのを
+                // 断ち切れるが、研究側の解析（順番に流して置換表は引き継ぐ）とは条件が変わる。
+                isolatePositions = (env("ANALYSIS_ISOLATE_POSITIONS") ?: "false").toBooleanStrict(),
             )
         }
 
