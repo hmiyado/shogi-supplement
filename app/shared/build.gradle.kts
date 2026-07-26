@@ -88,6 +88,16 @@ kotlin {
     }
 
     sourceSets {
+        // androidTarget/jvmの両方でしか使えないAPI（java.lang.ProcessBuilder等）を置く
+        // 中間source set。KMPの標準階層にjvm+android専用の合流点は無いため手動でdependsOnを配線する。
+        // Why not commonMain: java.lang.ProcessBuilder はJVM/Android専用APIでiOS(Kotlin/Native)には
+        // 存在せず、commonMainに置くとiOSターゲットのコンパイルが壊れる。
+        val jvmAndAndroidMain by creating {
+            dependsOn(commonMain.get())
+        }
+        androidMain.get().dependsOn(jvmAndAndroidMain)
+        jvmMain.get().dependsOn(jvmAndAndroidMain)
+
         commonMain.dependencies {
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.sqldelight.runtime)

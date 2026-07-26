@@ -1,6 +1,4 @@
-package dev.miyado.shogisupplement.server.worker.engine
-
-import dev.miyado.shogisupplement.engine.Engine
+package dev.miyado.shogisupplement.engine
 
 // 解析条件の不変条件。端末解析と完全一致させることが golden パリティテスト（S0）の前提のため、
 // ここを変更しないこと。

@@ -1,40 +1,46 @@
-package dev.miyado.shogisupplement.server.worker.engine
+package dev.miyado.shogisupplement.engine
 
 import dev.miyado.shogisupplement.blunder.Score
-import dev.miyado.shogisupplement.engine.Engine
-import dev.miyado.shogisupplement.engine.EngineAbnormalExitException
-import dev.miyado.shogisupplement.engine.PvInfo
-import org.slf4j.LoggerFactory
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.io.PrintWriter
 
 /**
- * Cloud Run（Linux/JVM）用のEngine実装。ProcessBuilderでUSIエンジンバイナリを1本起動し、
- * USIプロトコルで通信する。
+ * USIエンジンバイナリをサブプロセスとしてexecし、USIプロトコルで通信するEngine実装。
+ * Android（nativeLibraryDir配下のバイナリ）とserver/worker（Cloud Run上のバイナリ）の
+ * どちらも `java.lang.ProcessBuilder` でexecする点は変わらないため、jvmAndAndroidMain
+ * （jvmMain/androidMainの共通source set）に1本だけ置く。
  *
- * Why not androidApp の `UsiEngineProcess` を再利用: android.content.pm.ApplicationInfo に
- * 依存しておりAndroid Gradle Pluginを引き込むため、このモジュールは複製して持つ。
+ * Why not Android専用実装のまま複製を維持: プロセス起動・USIハンドシェイク・info行パースは
+ * 端末解析とサーバー解析のparity要件（研究に使う解析条件を完全一致させる）上、
+ * 2箇所で無関係に変更されると検知しづらい形で乖離しうるため。
  *
  * 解析条件（不変条件）は [EngineInvariants] を単一の真実源とする。
  */
-class WorkerUsiEngineProcess private constructor(
+class UsiEngineSubprocess private constructor(
     private val process: Process,
     private val reader: BufferedReader,
     private val writer: PrintWriter,
+    private val logIo: (String) -> Unit,
 ) : Engine {
 
     companion object {
-        private val log = LoggerFactory.getLogger(WorkerUsiEngineProcess::class.java)
-
         /**
          * エンジンプロセスを起動し、USIハンドシェイクと不変条件のsetoptionを完了させて返す。
          *
          * @param enginePath USIエンジンバイナリの絶対パス
-         * @param evalDir EvalDirの絶対パス（eval_hao）
+         * @param evalDir EvalDirの絶対パス
+         * @param logLifecycle 起動・準備完了などのライフサイクルイベントのログ出力先（既定は何もしない）
+         * @param logIo 送受信するUSI行のログ出力先（既定は何もしない。詳細度が高いため
+         *   呼び出し側で抑制できるよう既定を no-op にしている）
          */
-        fun create(enginePath: String, evalDir: String): WorkerUsiEngineProcess {
-            log.info("Starting engine: {}", enginePath)
+        fun create(
+            enginePath: String,
+            evalDir: String,
+            logLifecycle: (String) -> Unit = {},
+            logIo: (String) -> Unit = {},
+        ): UsiEngineSubprocess {
+            logLifecycle("Starting engine: $enginePath")
 
             val process = ProcessBuilder(enginePath)
                 .redirectErrorStream(false)
@@ -43,11 +49,13 @@ class WorkerUsiEngineProcess private constructor(
             val reader = BufferedReader(InputStreamReader(process.inputStream))
             val writer = PrintWriter(process.outputStream, /* autoFlush= */ true)
 
-            val engine = WorkerUsiEngineProcess(process, reader, writer)
+            val engine = UsiEngineSubprocess(process, reader, writer, logIo)
 
+            // USIハンドシェイク
             engine.send("usi")
             engine.waitFor("usiok")
 
+            // オプション設定（不変条件）
             engine.send("setoption name Threads value ${EngineInvariants.THREADS}")
             engine.send("setoption name USI_Hash value ${EngineInvariants.USI_HASH_MB}")
             engine.send("setoption name MultiPV value ${EngineInvariants.MULTI_PV}")
@@ -61,7 +69,7 @@ class WorkerUsiEngineProcess private constructor(
             engine.waitFor("readyok")
             engine.send("usinewgame")
 
-            log.info("Engine ready")
+            logLifecycle("Engine ready")
             return engine
         }
     }
@@ -88,7 +96,9 @@ class WorkerUsiEngineProcess private constructor(
         return collectPvResult()
     }
 
+    /** go nodes の結果を bestmove まで収集して返す（analyze/analyzeSfen 共通）。 */
     private fun collectPvResult(): List<PvInfo> {
+        // info行を収集し、bestmove が来たら終了
         val pvMap = mutableMapOf<Int, PvInfo>()
         while (true) {
             val line = reader.readLine()
@@ -121,10 +131,13 @@ class WorkerUsiEngineProcess private constructor(
         send("usinewgame")
     }
 
+    // ---- 内部ヘルパー ----
+
+    /** 直前に送信した USI コマンド名（"go"/"position" など。内容は含まない）。 */
     private var lastCommandName: String = ""
 
     private fun send(cmd: String) {
-        log.debug(">> {}", cmd)
+        logIo(">> $cmd")
         lastCommandName = cmd.substringBefore(' ')
         writer.println(cmd)
     }
@@ -137,18 +150,24 @@ class WorkerUsiEngineProcess private constructor(
                     exitCode = tryGetExitCode(),
                     lastCommandName = lastCommandName,
                 )
-            log.debug("<< {}", line)
+            logIo("<< $line")
             if (line.trim() == token) return
         }
     }
 
+    /** エンジンプロセスの終了コードを取得する。プロセスがまだ動いていれば null を返す。 */
     private fun tryGetExitCode(): Int? = try {
         process.exitValue()
     } catch (_: IllegalThreadStateException) {
         null
     }
 
-    /** `info depth ... multipv N score cp/mate V pv ...` を [PvInfo] に変換する。 */
+    /**
+     * USI info 行をパース。
+     * `info depth ... multipv N score cp/mate V pv ...` を PvInfo に変換する。
+     *
+     * multipv が無い行（lowerbound / upperbound 行など）は null を返す。
+     */
     private fun parseInfoLine(line: String): PvInfo? {
         val toks = line.split(" ")
         var i = 1 // "info" をスキップ
@@ -186,6 +205,7 @@ class WorkerUsiEngineProcess private constructor(
         }
 
         val sc = score ?: return null
+        // multipv が省略される場合（早期詰み確定等）は 1 にフォールバック
         val mp = multipv ?: if (pvList.isNotEmpty()) 1 else return null
         return PvInfo(multipv = mp, score = sc, pv = pvList, nodes = nodes)
     }

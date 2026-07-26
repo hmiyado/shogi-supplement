@@ -2,10 +2,10 @@ package dev.miyado.shogisupplement.server.worker
 
 import dev.miyado.shogisupplement.api.analysis.EngineMetaJson
 import dev.miyado.shogisupplement.api.analysis.ErrorJson
+import dev.miyado.shogisupplement.engine.EngineInvariants
+import dev.miyado.shogisupplement.engine.UsiEngineSubprocess
 import dev.miyado.shogisupplement.server.worker.auth.RemoteJwkSetProvider
 import dev.miyado.shogisupplement.server.worker.auth.SupabaseJwtAuthVerifier
-import dev.miyado.shogisupplement.server.worker.engine.EngineInvariants
-import dev.miyado.shogisupplement.server.worker.engine.WorkerUsiEngineProcess
 import dev.miyado.shogisupplement.server.worker.repo.SupabaseAnalysisJobRepository
 import dev.miyado.shogisupplement.server.worker.repo.SupabaseBanRepository
 import dev.miyado.shogisupplement.server.worker.repo.SupabaseQuotaLimitRepository
@@ -24,6 +24,9 @@ import io.ktor.server.response.respond
 import io.ktor.server.routing.routing
 import io.ktor.http.HttpStatusCode
 import kotlinx.serialization.json.Json
+import org.slf4j.LoggerFactory
+
+private val engineLog = LoggerFactory.getLogger(UsiEngineSubprocess::class.java)
 
 fun main() {
     val config = WorkerConfig.fromEnv()
@@ -64,7 +67,14 @@ fun Application.module(config: WorkerConfig) {
         banRepository = banRepository,
         quotaLimitRepository = quotaLimitRepository,
         analysisJobRepository = analysisJobRepository,
-        engineFactory = { WorkerUsiEngineProcess.create(config.enginePath, config.engineEvalDir) },
+        engineFactory = {
+            UsiEngineSubprocess.create(
+                enginePath = config.enginePath,
+                evalDir = config.engineEvalDir,
+                logLifecycle = engineLog::info,
+                logIo = engineLog::debug,
+            )
+        },
         engineMetaProvider = {
             EngineMetaJson(
                 engineRev = config.engineRev,
