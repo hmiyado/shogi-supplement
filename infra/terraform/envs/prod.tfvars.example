@@ -1,0 +1,33 @@
+# prod.tfvars の雛形。実値をコピーして prod.tfvars を作り、そちらは絶対にコミットしない
+# （.gitignoreでenvs/*.tfvarsを除外済み。*.exampleだけコミット対象）。
+# ここに実プロジェクトID・請求先アカウントID・メールアドレス等の機微情報を書かない。
+
+project_id = "REPLACE_WITH_GCP_PROJECT_ID"
+
+region      = "asia-northeast1"
+environment = "prod"
+
+billing_account_id            = "REPLACE_WITH_BILLING_ACCOUNT_ID" # 例: 012345-6789AB-CDEF01
+billing_budget_project_number = "REPLACE_WITH_PROJECT_NUMBER"     # gcloud projects describe で取得
+
+budget_amount_jpy = 1000
+
+alert_notification_emails = [
+  "REPLACE_WITH_NOTIFICATION_EMAIL",
+]
+
+github_repository = "REPLACE_WITH_OWNER/REPLACE_WITH_REPO" # 例: hmiyado/shogi-supplement
+
+# ワーカーに渡す非機微な接続設定（値自体は公開URLだが、実プロジェクトのURLなのでプレースホルダにする）
+supabase_url         = "https://REPLACE_WITH_PROJECT_REF.supabase.co"
+supabase_jwt_issuer  = "https://REPLACE_WITH_PROJECT_REF.supabase.co/auth/v1"
+supabase_jwks_url    = "https://REPLACE_WITH_PROJECT_REF.supabase.co/auth/v1/.well-known/jwks.json"
+
+# 以下は変更不要な想定のデフォルト値（必要な場合のみ上書き）
+# worker_image             = "us-docker.pkg.dev/cloudrun/container/hello"
+# min_instance_count       = 0
+# max_instance_count       = 5
+# request_timeout_seconds  = 300
+# error_5xx_count_threshold = 5
+# latency_threshold_ms     = 5000
+# deletion_protection      = true
