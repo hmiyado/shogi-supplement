@@ -5,7 +5,7 @@ import XCTest
 /// フローは PasteboardImportSmokeTests.swift と同一（クリップボード取込→先後選択→
 /// 解析完了待ち→レポート自動遷移）を土台にし、レポート→ホーム→ドリルの5画面を
 /// 巡回して XCTAttachment（lifetime = .keepAlways）としてスクリーンショットを添付する。
-/// 実行後は xcresulttool で xcresult から PNG を抽出して tmp/store-screenshots/ に置く
+/// 実行後は xcresulttool で xcresult から PNG を抽出する
 /// （抽出スクリプト側の作業。本ファイルは撮影のみを担う）。
 ///
 /// 撮影する5画面:
