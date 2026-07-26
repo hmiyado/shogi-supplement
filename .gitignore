@@ -16,7 +16,9 @@ tmp/
 app/.gradle/
 app/.kotlin/
 app/build/
-app/*/build/
+# Why not `app/*/build/`: ワイルドカード1つはディレクトリ1階層しかマッチせず、
+# app/server/worker/build/ のような入れ子モジュールの成果物が素通りする。
+app/**/build/
 app/local.properties
 
 # リリース署名（アップロード鍵とパスワード。絶対にコミットしない）
@@ -49,3 +51,27 @@ app/iosApp/iosAppUITests/Fixtures/
 # エージェント用worktree（隔離作業領域・コミット禁止）
 .claude/worktrees/
 app/iosApp/vendor/
+
+# Terraform（infra/terraform）: ローカルプラグインキャッシュとtfstate。
+# tfstateにはリソースの実値が写り込むため、リモートバックエンド運用でもローカルに
+# 生成されたものは絶対にコミットしない。*.tfvars.exampleはプレースホルダのみなので対象外。
+infra/terraform/.terraform/
+infra/terraform/**/.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+infra/terraform/envs/*.tfvars
+!infra/terraform/envs/*.tfvars.example
+
+# エディタの一時ファイル。tfvarsのような除外済みファイルを編集している最中でも、
+# スワップは別の拡張子になるため上の除外にマッチせず取り込まれてしまう。
+*.swp
+*.swo
+*~
+.*.swp
+.*.swo
