@@ -1,5 +1,12 @@
 package dev.miyado.shogisupplement.server.worker
 
+import dev.miyado.shogisupplement.api.analysis.AnalysisRequest
+import dev.miyado.shogisupplement.api.analysis.AnalysisResultJson
+import dev.miyado.shogisupplement.api.analysis.EngineMetaJson
+import dev.miyado.shogisupplement.api.analysis.ErrorJson
+import dev.miyado.shogisupplement.api.analysis.PvInfoJson
+import dev.miyado.shogisupplement.api.analysis.ProgressJson
+import dev.miyado.shogisupplement.api.analysis.toJson
 import dev.miyado.shogisupplement.crash.NoopCrashReporter
 import dev.miyado.shogisupplement.engine.AnalysisRunner
 import dev.miyado.shogisupplement.engine.Engine
@@ -236,8 +243,7 @@ class AnalysisService(
 }
 
 // analysis_jobs.moves_usi (jsonb) 保存用ペイロード。テーブル定義はmoves_usi jsonb列1本のみで
-// sfen用の列を持たないため、同じ列にモード情報つきJSONを保存して両モードに対応する
-// （マイグレーション未対応の解釈補完。マイグレーション変更は本タスクの範囲外）。
+// sfen用の列を持たないため、同じ列にモード情報つきJSONを保存して両モードに対応する。
 private fun EngineInput.toStoragePayload(): JsonElement = when (this) {
     is EngineInput.Game -> buildJsonObject {
         put("mode", "game")

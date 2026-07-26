@@ -1,5 +1,12 @@
 package dev.miyado.shogisupplement.server.worker
 
+import dev.miyado.shogisupplement.api.analysis.AnalysisRequest
+import dev.miyado.shogisupplement.api.analysis.AnalysisResultJson
+import dev.miyado.shogisupplement.api.analysis.EngineMetaJson
+import dev.miyado.shogisupplement.api.analysis.ErrorJson
+import dev.miyado.shogisupplement.api.analysis.PvInfoJson
+import dev.miyado.shogisupplement.api.analysis.ProgressJson
+import dev.miyado.shogisupplement.api.analysis.ScoreJson
 import dev.miyado.shogisupplement.server.worker.fakes.FakeAnalysisJobRepository
 import dev.miyado.shogisupplement.server.worker.fakes.FakeAuthVerifier
 import dev.miyado.shogisupplement.server.worker.fakes.FakeBanRepository
@@ -143,8 +150,7 @@ class AnalysisServiceTest {
 
     @Test
     fun `quota already at limit but idempotent hit on the same moves returns cached result, not 429`() = runTest {
-        // レビュー指摘: 上限ちょうどの状態で同じmoves_usiを再POSTする（切断からの復旧）シナリオ。
-        // その1局は既にクォータを消費済みなので、追加のクォータ判定なしに結果を返すべき。
+        // 上限ちょうどの状態で同じmoves_usiを再POSTする（切断復旧）シナリオ。追加のクォータ判定なしに返す。
         val movesUsi = listOf("7g7f", "3c3d")
         val movesHash = sha256Hex(movesUsi.joinToString(" "))
         val cachedResult = AnalysisResultJson(
@@ -269,7 +275,6 @@ class AnalysisServiceTest {
                 userId = "user-1",
                 movesHash = movesHash,
                 status = AnalysisJobStatus.DONE,
-                // result_json / engine_meta は別列（infra/supabase/migrations/…）なので分けて保存する
                 resultJson = json.encodeToJsonElement(cachedResult.result),
                 engineMeta = json.encodeToJsonElement(cachedResult.engineMeta),
                 error = null,

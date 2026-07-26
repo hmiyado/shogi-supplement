@@ -1,5 +1,7 @@
 package dev.miyado.shogisupplement.server.worker
 
+import dev.miyado.shogisupplement.api.analysis.EngineMetaJson
+import dev.miyado.shogisupplement.api.analysis.ErrorJson
 import dev.miyado.shogisupplement.server.worker.auth.RemoteJwkSetProvider
 import dev.miyado.shogisupplement.server.worker.auth.SupabaseJwtAuthVerifier
 import dev.miyado.shogisupplement.server.worker.engine.EngineInvariants
@@ -41,8 +43,7 @@ fun Application.module(config: WorkerConfig) {
         }
     }
 
-    // service_roleキーでのPostgRESTアクセス専用クライアント（androidAppがktor-client-okhttpを
-    // 自前で持つのと同じ方針で:sharedには積まない。build.gradle.ktsのコメント参照）。
+    // service_roleキーでのPostgRESTアクセス専用クライアント。
     val restClient = HttpClient(CIO) {
         install(ClientContentNegotiation) {
             json(Json { ignoreUnknownKeys = true })

@@ -1,5 +1,6 @@
 package dev.miyado.shogisupplement.server.worker
 
+import dev.miyado.shogisupplement.api.analysis.EngineMetaJson
 import dev.miyado.shogisupplement.server.worker.fakes.FakeAnalysisJobRepository
 import dev.miyado.shogisupplement.server.worker.fakes.FakeAuthVerifier
 import dev.miyado.shogisupplement.server.worker.fakes.FakeBanRepository
