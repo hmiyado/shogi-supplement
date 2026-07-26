@@ -84,6 +84,14 @@ android {
         }
     }
 
+    sourceSets {
+        getByName("debug") {
+            // DebugServerAnalysisReceiver が解析対象に使う棋譜。リポジトリのサンプルを
+            // そのまま参照する（複製すると原本との差異に気づけないため）。debugのみ。
+            assets.srcDir(rootProject.file("data/kifu_samples"))
+        }
+    }
+
     buildFeatures {
         compose = true
         buildConfig = true

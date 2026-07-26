@@ -3,7 +3,6 @@ package dev.miyado.shogisupplement
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.util.Log
 import dev.miyado.shogisupplement.db.AppDatabase
 import dev.miyado.shogisupplement.engine.AnalysisOrchestrator
@@ -25,12 +24,15 @@ import kotlinx.coroutines.launch
  * アプリ⇄サーバーの疎通を logcat（タグ: DebugServerAnalysis）で確認するためのもの。
  * Play版の解析導線は端末解析のままで、このレシーバは release ビルドに含まれない。
  *
+ * 対象の棋譜は data/kifu_samples/ のサンプル（debugビルドのassetsに入る）から選ぶ。
+ * Why not 端末上のファイル: スコープドストレージ下ではadbで置いたファイルをアプリが読めず、
+ * 疎通の確認より先に権限の問題で詰まるため。
+ *
  * 発火コマンド:
- *   adb push game.kif /sdcard/Download/game.kif
  *   adb shell am broadcast \
  *     -a dev.miyado.shogisupplement.DEBUG_SERVER_ANALYSIS \
  *     -p dev.miyado.shogisupplement \
- *     -e kif_uri file:///sdcard/Download/game.kif
+ *     -e kif miyado_game1.kif
  *
  * ベースURLは local.properties の ANALYSIS_BASE_URL（BuildConfig 経由）。未設定なら何もしない。
  */
@@ -47,16 +49,12 @@ class DebugServerAnalysisReceiver : BroadcastReceiver() {
             Log.e(TAG, "ANALYSIS_BASE_URL が未設定（local.properties を確認）")
             return
         }
-        val uriString = intent.getStringExtra(EXTRA_KIF_URI)
-        if (uriString == null) {
-            Log.e(TAG, "kif_uri が指定されていない")
-            return
-        }
+        val kifName = intent.getStringExtra(EXTRA_KIF) ?: DEFAULT_KIF
 
         val pendingResult = goAsync()
         scope.launch {
             try {
-                runServerAnalysis(context, baseUrl, uriString)
+                runServerAnalysis(context, baseUrl, kifName)
             } catch (e: Exception) {
                 Log.e(TAG, "=== DEBUG_SERVER_ANALYSIS 例外 ===", e)
             } finally {
@@ -65,7 +63,7 @@ class DebugServerAnalysisReceiver : BroadcastReceiver() {
         }
     }
 
-    private suspend fun runServerAnalysis(context: Context, baseUrl: String, uriString: String) {
+    private suspend fun runServerAnalysis(context: Context, baseUrl: String, kifName: String) {
         val app = context.applicationContext as ShogiApp
 
         // サーバーはJWTでユーザーを識別するため、未ログインならここで匿名サインインする
@@ -80,7 +78,7 @@ class DebugServerAnalysisReceiver : BroadcastReceiver() {
         }
         Log.i(TAG, "ログイン済み: uid=${app.authRepository.currentUser.value?.id}")
 
-        val kifContent = readKif(context, Uri.parse(uriString))
+        val kifContent = context.assets.open(kifName).readBytes().decodeToString()
         val coefJson = context.assets.open("coefficients_hao_v1.json").readBytes().decodeToString()
 
         // 解析は1リクエストで全局面を返すまでストリームを保持するため、既定のタイムアウトでは
@@ -106,10 +104,10 @@ class DebugServerAnalysisReceiver : BroadcastReceiver() {
             )
 
             val startedAt = System.currentTimeMillis()
-            Log.i(TAG, "解析開始: baseUrl=$baseUrl uri=$uriString")
+            Log.i(TAG, "解析開始: baseUrl=$baseUrl kif=$kifName")
             val outcome = orchestrator.analyzeAndSave(
                 kifContent = kifContent,
-                fileName = uriString.substringAfterLast('/'),
+                fileName = kifName,
                 onProgress = { done, total -> Log.i(TAG, "進捗 $done/$total") },
             )
             val elapsedMs = System.currentTimeMillis() - startedAt
@@ -133,16 +131,10 @@ class DebugServerAnalysisReceiver : BroadcastReceiver() {
         }
     }
 
-    private fun readKif(context: Context, uri: Uri): String =
-        if (uri.scheme == "file") {
-            java.io.File(uri.path!!).readText()
-        } else {
-            context.contentResolver.openInputStream(uri)!!.use { it.readBytes().decodeToString() }
-        }
-
     companion object {
         const val ACTION_DEBUG_SERVER_ANALYSIS = "dev.miyado.shogisupplement.DEBUG_SERVER_ANALYSIS"
-        private const val EXTRA_KIF_URI = "kif_uri"
+        private const val EXTRA_KIF = "kif"
+        private const val DEFAULT_KIF = "miyado_game1.kif"
         private const val TAG = "DebugServerAnalysis"
         private const val REQUEST_TIMEOUT_MS = 10 * 60 * 1000L
         private const val SOCKET_TIMEOUT_MS = 5 * 60 * 1000L
