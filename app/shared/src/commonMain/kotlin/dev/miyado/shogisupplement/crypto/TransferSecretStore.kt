@@ -28,12 +28,12 @@ interface TransferSecretStore {
 /**
  * S の取得・遅延生成をまとめたヘルパー。
  *
- * Why not オンボーディングUIでのみSを生成する: 引き継ぎコード表示・S生成のUIはこのタスクの
- * 範囲外（別タスク）だが、v2アップロード経路はprivate_enc暗号化にK_encを必要とし、
- * オンボーディング前でもアップロードが起こりうる（既存の自動アップロード経路は解析完了時に
- * 即座に呼ばれるため）。初回利用時に遅延生成することで、オンボーディングUIが実装されるまでの間も
- * アップロードが失敗し続けることを避ける。UI実装後は同じ関数をオンボーディング画面からも呼べば、
- * 生成タイミングの二重管理にはならない。
+ * Why not オンボーディング画面（ConsentOrchestrator）だけでSを生成する: v2アップロード経路は
+ * private_enc暗号化にK_encを必要とし、オンボーディングより前にアップロードが起こりうる
+ * 経路が別にある（既存の自動アップロード経路は解析完了時に即座に呼ばれるため）。
+ * 呼び出し側（ConsentOrchestrator・SupabaseUploadRepository・
+ * SupabaseServices.getOrCreateTransferCode）が全員この関数を経由することで、
+ * 生成タイミングを気にせず「未生成なら作る」を安全に呼べる。
  */
 object TransferSecretManager {
     suspend fun getOrCreateSecret(store: TransferSecretStore): ByteArray {

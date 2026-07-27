@@ -30,8 +30,8 @@ object TransferSecretKeys {
 
     /**
      * サーバーに送る唯一の派生値（K_auth自体は送らない・ハッシュのみ）。
-     * 引き継ぎコード復元フロー（S4）で使う想定で、このタスクでは呼び出し元を持たない
-     * （登録・照合APIの実装は別タスク）。
+     * 登録は [dev.miyado.shogisupplement.upload.SupabaseTransferSecretRegistrar] が担う。
+     * 照合（引き継ぎコード入力による復元フロー）はS4で別途実装する。
      */
     suspend fun authKeyHash(authKey: ByteArray): ByteArray =
         CryptographyProvider.Default.get(SHA256).hasher().hash(authKey)
