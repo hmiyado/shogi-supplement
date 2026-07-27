@@ -75,3 +75,6 @@ infra/terraform/envs/*.tfvars
 *~
 .*.swp
 .*.swo
+
+# Supabase CLIがlink時に作る作業ディレクトリ（プロジェクト識別子を含む）
+**/supabase/.temp/
