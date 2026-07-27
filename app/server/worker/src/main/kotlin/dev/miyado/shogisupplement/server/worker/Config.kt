@@ -14,6 +14,10 @@ data class WorkerConfig(
     val analysisWorkers: Int,
     val isolatePositions: Boolean,
     val analysisPositionDailyLimit: Int,
+    // 空文字列＝App Check検証を無効化する（段階導入）。ベータ初期は未設定のまま運用し、
+    // クライアントのFirebase SDK組み込みが揃った後にenv投入して有効化する（古いアプリ
+    // バージョンを一斉に締め出さないため。有効化のタイミングはenv投入そのものが制御する）。
+    val firebaseProjectNumber: String,
 ) {
     companion object {
         fun fromEnv(env: (String) -> String? = System::getenv): WorkerConfig {
@@ -40,6 +44,7 @@ data class WorkerConfig(
                 // クォータ（quota_limits.daily_limit、既定30）とは別枠かつDB管理外
                 // （ユーザーごとの調整が必要になったらDB化を検討する。現時点では固定値で十分）。
                 analysisPositionDailyLimit = (env("ANALYSIS_POSITION_DAILY_LIMIT") ?: "100").toInt(),
+                firebaseProjectNumber = env("FIREBASE_PROJECT_NUMBER") ?: "",
             )
         }
 

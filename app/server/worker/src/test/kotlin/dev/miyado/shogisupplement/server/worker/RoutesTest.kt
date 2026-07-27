@@ -2,6 +2,7 @@ package dev.miyado.shogisupplement.server.worker
 
 import dev.miyado.shogisupplement.api.analysis.EngineMetaJson
 import dev.miyado.shogisupplement.server.worker.fakes.FakeAnalysisJobRepository
+import dev.miyado.shogisupplement.server.worker.fakes.FakeAppCheckVerifier
 import dev.miyado.shogisupplement.server.worker.fakes.FakeAuthVerifier
 import dev.miyado.shogisupplement.server.worker.fakes.FakeBanRepository
 import dev.miyado.shogisupplement.server.worker.fakes.FakeEngine
@@ -101,6 +102,63 @@ class RoutesTest {
             setBody("""{"moves_usi":["7g7f"]}""")
         }
         assertEquals(HttpStatusCode.Forbidden, response.status)
+    }
+
+    @Test
+    fun `app check enabled and missing header returns 401`() = testApplication {
+        application {
+            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
+            routing {
+                registerAnalysisRoutes(
+                    AnalysisService(
+                        authVerifier = FakeAuthVerifier(mapOf("valid-token" to "user-1")),
+                        banRepository = FakeBanRepository(),
+                        quotaLimitRepository = FakeQuotaLimitRepository(),
+                        analysisJobRepository = FakeAnalysisJobRepository(),
+                        engineFactory = { FakeEngine() },
+                        engineMetaProvider = {
+                            EngineMetaJson("rev", "sha", 400_000, 1, 2, 128, 20)
+                        },
+                        appCheckVerifier = FakeAppCheckVerifier(setOf("valid-app-check-token")),
+                    ),
+                )
+            }
+        }
+        val response = client.post("/v1/analyses") {
+            header("Authorization", "Bearer valid-token")
+            contentType(ContentType.Application.Json)
+            setBody("""{"moves_usi":["7g7f"]}""")
+        }
+        assertEquals(HttpStatusCode.Unauthorized, response.status)
+    }
+
+    @Test
+    fun `app check enabled and valid header streams NDJSON`() = testApplication {
+        application {
+            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
+            routing {
+                registerAnalysisRoutes(
+                    AnalysisService(
+                        authVerifier = FakeAuthVerifier(mapOf("valid-token" to "user-1")),
+                        banRepository = FakeBanRepository(),
+                        quotaLimitRepository = FakeQuotaLimitRepository(),
+                        analysisJobRepository = FakeAnalysisJobRepository(),
+                        engineFactory = { FakeEngine() },
+                        engineMetaProvider = {
+                            EngineMetaJson("rev", "sha", 400_000, 1, 2, 128, 20)
+                        },
+                        appCheckVerifier = FakeAppCheckVerifier(setOf("valid-app-check-token")),
+                    ),
+                )
+            }
+        }
+        val response = client.post("/v1/analyses") {
+            header("Authorization", "Bearer valid-token")
+            header("X-Firebase-AppCheck", "valid-app-check-token")
+            contentType(ContentType.Application.Json)
+            setBody("""{"moves_usi":["7g7f"]}""")
+        }
+        assertEquals(HttpStatusCode.OK, response.status)
     }
 
     @Test

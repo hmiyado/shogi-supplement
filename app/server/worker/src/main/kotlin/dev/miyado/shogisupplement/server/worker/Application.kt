@@ -5,6 +5,7 @@ import dev.miyado.shogisupplement.api.analysis.ErrorJson
 import dev.miyado.shogisupplement.engine.EngineInvariants
 import dev.miyado.shogisupplement.engine.IsolatedEngine
 import dev.miyado.shogisupplement.engine.UsiEngineSubprocess
+import dev.miyado.shogisupplement.server.worker.auth.FirebaseAppCheckVerifier
 import dev.miyado.shogisupplement.server.worker.auth.RemoteJwkSetProvider
 import dev.miyado.shogisupplement.server.worker.auth.SupabaseJwtAuthVerifier
 import dev.miyado.shogisupplement.server.worker.repo.SupabaseAnalysisJobRepository
@@ -64,8 +65,15 @@ fun Application.module(config: WorkerConfig) {
     val jwkSetProvider = RemoteJwkSetProvider(config.supabaseJwksUrl)
     val authVerifier = SupabaseJwtAuthVerifier(jwkSetProvider, issuer = config.supabaseJwtIssuer)
 
+    // 空文字列（未設定）ならnull＝検証自体を無効化する（段階導入。WorkerConfig.firebaseProjectNumber参照）。
+    val appCheckVerifier = config.firebaseProjectNumber.takeIf { it.isNotBlank() }?.let { projectNumber ->
+        val appCheckJwkSetProvider = RemoteJwkSetProvider(FirebaseAppCheckVerifier.JWKS_URL)
+        FirebaseAppCheckVerifier(appCheckJwkSetProvider, projectNumber = projectNumber)
+    }
+
     val service = AnalysisService(
         authVerifier = authVerifier,
+        appCheckVerifier = appCheckVerifier,
         banRepository = banRepository,
         quotaLimitRepository = quotaLimitRepository,
         analysisJobRepository = analysisJobRepository,

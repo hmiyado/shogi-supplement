@@ -11,6 +11,8 @@ import dev.miyado.shogisupplement.crash.NoopCrashReporter
 import dev.miyado.shogisupplement.engine.AnalysisRunner
 import dev.miyado.shogisupplement.engine.Engine
 import dev.miyado.shogisupplement.engine.PvInfo
+import dev.miyado.shogisupplement.server.worker.auth.AppCheckResult
+import dev.miyado.shogisupplement.server.worker.auth.AppCheckVerifier
 import dev.miyado.shogisupplement.server.worker.auth.AuthResult
 import dev.miyado.shogisupplement.server.worker.auth.AuthVerifier
 import dev.miyado.shogisupplement.server.worker.auth.extractBearerToken
@@ -52,7 +54,8 @@ sealed class AnalysisRequestOutcome {
 
 class AnalysisWaitTimeoutException(message: String) : Exception(message)
 
-// 認可の順序（不変条件・変更しないこと）: JWT検証 → user_bans照合（BAN即403）→
+// 認可の順序（不変条件・変更しないこと）: App Check検証（有効時のみ。ヘッダ欠如/検証失敗は
+// 401）→ JWT検証 → user_bans照合（BAN即403）→
 // クォータ判定（超過は429＋翌日リセット時刻）→ moves_hash冪等チェック（解析済みなら即返却／
 // 実行中なら完了を待って返却）→ 解析。
 class AnalysisService(
@@ -70,10 +73,27 @@ class AnalysisService(
     // （quotaLimitRepository.dailyLimit、既定30）とは完全に別枠（countTodayPositionで
     // 別カウントする）。環境変数 ANALYSIS_POSITION_DAILY_LIMIT 由来（WorkerConfig参照）。
     private val positionDailyLimit: Int = 100,
+    // nullは段階導入の無効状態（FIREBASE_PROJECT_NUMBER未設定）を表す。この場合ヘッダの
+    // 有無に関わらず検証自体をスキップする（古いアプリバージョンを締め出さないため）。
+    private val appCheckVerifier: AppCheckVerifier? = null,
 ) {
     private val json = Json { ignoreUnknownKeys = true }
 
-    suspend fun handle(authorizationHeader: String?, request: AnalysisRequest): AnalysisRequestOutcome {
+    suspend fun handle(
+        authorizationHeader: String?,
+        request: AnalysisRequest,
+        appCheckHeader: String? = null,
+    ): AnalysisRequestOutcome {
+        if (appCheckVerifier != null) {
+            if (appCheckHeader == null) {
+                return AnalysisRequestOutcome.Unauthorized("missing app check token")
+            }
+            when (val appCheck = appCheckVerifier.verify(appCheckHeader)) {
+                is AppCheckResult.Invalid -> return AnalysisRequestOutcome.Unauthorized(appCheck.reason)
+                AppCheckResult.Valid -> Unit
+            }
+        }
+
         val token = extractBearerToken(authorizationHeader)
             ?: return AnalysisRequestOutcome.Unauthorized("missing bearer token")
 

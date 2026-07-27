@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory
 
 private val log = LoggerFactory.getLogger("dev.miyado.shogisupplement.server.worker.Routes")
 private val NDJSON = ContentType.parse("application/x-ndjson")
+private const val APP_CHECK_HEADER = "X-Firebase-AppCheck"
 
 // HTTP変換の薄い層のみを担い、認可・冪等・解析の実処理は[AnalysisService]に委譲する。
 fun Routing.registerAnalysisRoutes(service: AnalysisService) {
@@ -27,6 +28,7 @@ fun Routing.registerAnalysisRoutes(service: AnalysisService) {
 
     post("/v1/analyses") {
         val authorizationHeader = call.request.headers[HttpHeaders.Authorization]
+        val appCheckHeader = call.request.headers[APP_CHECK_HEADER]
 
         val request = try {
             call.receive<AnalysisRequest>()
@@ -35,7 +37,7 @@ fun Routing.registerAnalysisRoutes(service: AnalysisService) {
             return@post
         }
 
-        when (val outcome = service.handle(authorizationHeader, request)) {
+        when (val outcome = service.handle(authorizationHeader, request, appCheckHeader)) {
             is AnalysisRequestOutcome.Unauthorized ->
                 call.respond(HttpStatusCode.Unauthorized, ErrorJson(outcome.reason))
 

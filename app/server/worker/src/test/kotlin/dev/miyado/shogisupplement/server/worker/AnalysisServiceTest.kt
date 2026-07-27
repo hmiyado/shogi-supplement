@@ -9,6 +9,7 @@ import dev.miyado.shogisupplement.api.analysis.ProgressJson
 import dev.miyado.shogisupplement.api.analysis.ScoreJson
 import dev.miyado.shogisupplement.engine.Engine
 import dev.miyado.shogisupplement.server.worker.fakes.FakeAnalysisJobRepository
+import dev.miyado.shogisupplement.server.worker.fakes.FakeAppCheckVerifier
 import dev.miyado.shogisupplement.server.worker.fakes.FakeAuthVerifier
 import dev.miyado.shogisupplement.server.worker.fakes.FakeBanRepository
 import dev.miyado.shogisupplement.server.worker.fakes.FakeEngine
@@ -65,6 +66,7 @@ class AnalysisServiceTest {
         analysisWorkers: Int = 1,
         engineFactory: () -> Engine = { engine },
         positionDailyLimit: Int = 100,
+        appCheckVerifier: FakeAppCheckVerifier? = null,
     ) = AnalysisService(
         authVerifier = authVerifier,
         banRepository = banRepository,
@@ -77,12 +79,61 @@ class AnalysisServiceTest {
         pollTimeoutMs = pollTimeoutMs,
         analysisWorkers = analysisWorkers,
         positionDailyLimit = positionDailyLimit,
+        appCheckVerifier = appCheckVerifier,
     )
 
     private suspend fun AnalysisRequestOutcome.Stream.collectLines(): List<String> {
         val lines = mutableListOf<String>()
         emit { line -> lines.add(line.removeSuffix("\n")) }
         return lines
+    }
+
+    // ── 401: App Check（段階導入。有効時のみJWT検証より前段でゲートする） ──────
+
+    @Test
+    fun `app check disabled (default null) proceeds without any app check header`() = runTest {
+        // FIREBASE_PROJECT_NUMBER未設定を模した既定状態。ヘッダが無くても素通りする。
+        val service = buildService()
+        val outcome = service.handle("Bearer valid-token", AnalysisRequest(movesUsi = listOf("7g7f")))
+        assertIs<AnalysisRequestOutcome.Stream>(outcome)
+    }
+
+    @Test
+    fun `app check enabled and missing header returns Unauthorized before checking JWT`() = runTest {
+        val authVerifier = FakeAuthVerifier(mapOf("valid-token" to "user-1"))
+        val service = buildService(
+            authVerifier = authVerifier,
+            appCheckVerifier = FakeAppCheckVerifier(setOf("valid-app-check-token")),
+        )
+        val outcome = service.handle(
+            "Bearer valid-token",
+            AnalysisRequest(movesUsi = listOf("7g7f")),
+            appCheckHeader = null,
+        )
+        assertIs<AnalysisRequestOutcome.Unauthorized>(outcome)
+        assertEquals(null, authVerifier.lastVerifiedToken, "App CheckがJWT検証より前段でゲートするはず")
+    }
+
+    @Test
+    fun `app check enabled and invalid token returns Unauthorized`() = runTest {
+        val service = buildService(appCheckVerifier = FakeAppCheckVerifier(setOf("valid-app-check-token")))
+        val outcome = service.handle(
+            "Bearer valid-token",
+            AnalysisRequest(movesUsi = listOf("7g7f")),
+            appCheckHeader = "forged-token",
+        )
+        assertIs<AnalysisRequestOutcome.Unauthorized>(outcome)
+    }
+
+    @Test
+    fun `app check enabled and valid token proceeds to JWT verification`() = runTest {
+        val service = buildService(appCheckVerifier = FakeAppCheckVerifier(setOf("valid-app-check-token")))
+        val outcome = service.handle(
+            "Bearer valid-token",
+            AnalysisRequest(movesUsi = listOf("7g7f")),
+            appCheckHeader = "valid-app-check-token",
+        )
+        assertIs<AnalysisRequestOutcome.Stream>(outcome)
     }
 
     // ── 401: JWT無効/期限切れ ──────────────────────────────────────────────
