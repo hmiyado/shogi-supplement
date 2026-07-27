@@ -622,4 +622,27 @@ object AppStrings {
 
     /** 再POSTの上限回数に達しても復旧できなかった接続断。 */
     const val SERVER_ANALYSIS_ERROR_CONNECTION_LOST = "サーバーへの接続が回復しませんでした。ネットワークを確認してお試しください"
+
+    // ═══ 31. 同意オンボーディング（iOS専用・初回起動必須）═══════════════════════
+
+    const val CONSENT_TITLE = "はじめに"
+    const val CONSENT_INTRO =
+        "将棋サプリは棋譜をサーバーで解析し、レート帯相応の悪手をドリルとして出題します。" +
+        "解析にはサーバーを使うため、匿名のアカウントを作成します。名前・メールアドレスの入力は必要ありません。"
+    const val CONSENT_BETA_NOTICE = "ベータ期間中は無料で利用できます。正式版では有料化を予定しています。"
+    const val CONSENT_RESEARCH_UPLOAD_TEXT =
+        "解析した棋譜と結果を匿名で研究利用（アプリ改善・棋力推定の較正）のためにサーバーへ送信することに同意します"
+    const val CONSENT_REQUIRED_NOTE = "同意すると利用を開始できます。同意しない場合はアプリを利用できません"
+    const val CONSENT_ACCEPT_BUTTON = "同意して始める"
+
+    // ═══ 32. 引き継ぎコード表示（設定画面）══════════════════════════════════════
+
+    const val TRANSFER_CODE_TITLE = "引き継ぎコード"
+    const val SETTINGS_ROW_TRANSFER_CODE = "引き継ぎコード"
+    const val SETTINGS_ROW_TRANSFER_CODE_SUB = "別の端末への引き継ぎに使うコードを表示"
+    const val TRANSFER_CODE_DESCRIPTION =
+        "このコードで別の端末へ引き継げます。他人に知られると棋譜とアカウントにアクセスされます。" +
+        "画面の写真やメモアプリなど、安全な場所に控えてください。"
+    const val TRANSFER_CODE_COPY_BUTTON = "コピー"
+    const val TRANSFER_CODE_COPIED = "コピーしました"
 }

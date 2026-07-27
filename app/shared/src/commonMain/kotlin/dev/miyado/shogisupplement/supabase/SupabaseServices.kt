@@ -2,9 +2,14 @@ package dev.miyado.shogisupplement.supabase
 
 import dev.miyado.shogisupplement.auth.AuthRepository
 import dev.miyado.shogisupplement.auth.SupabaseAuthRepository
+import dev.miyado.shogisupplement.consent.ConsentOrchestrator
+import dev.miyado.shogisupplement.crypto.TransferCode
+import dev.miyado.shogisupplement.crypto.TransferSecretManager
+import dev.miyado.shogisupplement.crypto.TransferSecretRegistrar
 import dev.miyado.shogisupplement.crypto.TransferSecretStore
 import dev.miyado.shogisupplement.db.GameRepository
 import dev.miyado.shogisupplement.db.SettingsRepository
+import dev.miyado.shogisupplement.upload.SupabaseTransferSecretRegistrar
 import dev.miyado.shogisupplement.upload.SupabaseUploadRepository
 import dev.miyado.shogisupplement.upload.UploadOrchestrator
 import dev.miyado.shogisupplement.upload.UploadRepository
@@ -28,7 +33,7 @@ class SupabaseServices(
     supabaseKey: String,
     gameRepository: GameRepository,
     settingsRepository: SettingsRepository,
-    transferSecretStore: TransferSecretStore,
+    private val transferSecretStore: TransferSecretStore,
 ) {
     private val client = createSupabaseClient(
         supabaseUrl = supabaseUrl,
@@ -46,4 +51,24 @@ class SupabaseServices(
         dbRepository = gameRepository,
         settingsRepository = settingsRepository,
     )
+
+    /** K_authハッシュの登録（設計書 付録「引き継ぎコードの詳細仕様」節）。 */
+    val transferSecretRegistrar: TransferSecretRegistrar =
+        SupabaseTransferSecretRegistrar(client, transferSecretStore)
+
+    /** 同意オンボーディング（iOS専用・初回起動必須）の完了処理。 */
+    val consentOrchestrator: ConsentOrchestrator = ConsentOrchestrator(
+        settingsRepository = settingsRepository,
+        authRepository = authRepository,
+        transferSecretRegistrar = transferSecretRegistrar,
+    )
+
+    /**
+     * 設定画面「引き継ぎコード」表示用。端末シークレットSが未生成なら遅延生成する
+     * （[TransferSecretManager.getOrCreateSecret] 参照）。
+     */
+    suspend fun getOrCreateTransferCode(): String {
+        val secret = TransferSecretManager.getOrCreateSecret(transferSecretStore)
+        return TransferCode.encode(secret)
+    }
 }
