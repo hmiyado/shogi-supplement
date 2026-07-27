@@ -132,6 +132,12 @@ kotlin {
             // RemoteAnalysisRunner用。エンジン自体はプラットフォーム側が既存どおり供給する
             // （androidApp=okhttp/iosMain=darwin。上のsupabase依存と同じ方針）。
             implementation(libs.ktor.client.core)
+            // 引き継ぎコード鍵導出（HKDF）・private_enc暗号化（AES-256-GCM）用。
+            // provider-optimalがターゲットごとにJDK provider(JVM/Android)/CryptoKit・OpenSSL3(iOS)を
+            // 自動選択するため、expect/actualはS本体の永続化（Keychain/Keystore）にだけ残る
+            // （crypto/TransferSecretStore参照）。
+            implementation(libs.cryptography.core)
+            implementation(libs.cryptography.provider.optimal)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
