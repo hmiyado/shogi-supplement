@@ -9,6 +9,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import dev.miyado.shogisupplement.board.PieceType
 import dev.miyado.shogisupplement.board.ShogiBoard
 import dev.miyado.shogisupplement.board.ShogiSquare
 import dev.miyado.shogisupplement.db.GameRecord
@@ -61,20 +62,36 @@ class ReportScreenStudyInteractionTest {
     )
 
     /**
+     * 先手が角を1枚持ち駒にした局面（本譜の一部として角交換を含める）。
+     * 7g7f 3c3d 8h2b+（先手角が後手角を取って成る）9c9d（後手は取り返さない）。
+     * ply=4 時点で手番は先手・先手の持ち駒に角が1枚（後手の持ち駒は空）となる。
+     */
+    private fun sampleGameWithHandPiece() = sampleGame().copy(
+        moveCount = 4L,
+        movesUsi = listOf("7g7f", "3c3d", "8h2b+", "9c9d"),
+    )
+
+    /**
      * ReportScreen を MainActivity と同じ形で状態ホルダーに接続する。
      * onStartStudy は MainViewModel.startStudy の中身（buildInitialStudyState）を呼ぶ。
      */
-    private fun setReportScreenContent(getState: () -> StudyState?, setState: (StudyState?) -> Unit) {
+    private fun setReportScreenContent(
+        getState: () -> StudyState?,
+        setState: (StudyState?) -> Unit,
+        game: GameRecord = sampleGame(),
+        initialPlyIndex: Int = 0,
+    ) {
         composeRule.setContent {
             ShogiTheme {
                 Surface {
                     ReportScreen(
-                        game = sampleGame(),
+                        game = game,
                         reports = emptyList(),
                         flip = false,
                         onBack = {},
                         studyState = getState(),
-                        onStartStudy = { baseSfen, flip, bestPv, ply, idx, absPly, sq ->
+                        initialPlyIndex = initialPlyIndex,
+                        onStartStudy = { baseSfen, flip, bestPv, ply, idx, absPly, sq, pieceType ->
                             val board = ShogiBoard.fromSfen(baseSfen)
                             setState(
                                 buildInitialStudyState(
@@ -85,6 +102,7 @@ class ReportScreenStudyInteractionTest {
                                     originSelectedIdx = idx,
                                     originAbsolutePly = absPly,
                                     tappedSquare = sq,
+                                    tappedHandPieceType = pieceType,
                                     board = board,
                                 ),
                             )
@@ -136,5 +154,37 @@ class ReportScreenStudyInteractionTest {
         // 「（▲番です）」を統合表示する（No-jitter・DESIGN.md Layout節）。
         composeRule.onNodeWithText(AppStrings.studyTurnHint(senteToMove = true), substring = true)
             .assertIsDisplayed()
+    }
+
+    /**
+     * 検討モード外で持ち駒（手番側＝先手の角）をタップ→盤上駒タップと同じ流儀で検討モードが
+     * 開始され、かつタップした持ち駒が打ちの選択状態になること。
+     */
+    @Test
+    fun tappingHandPieceStartsStudyWithDropSelected() {
+        var studyState by mutableStateOf<StudyState?>(null)
+        setReportScreenContent(
+            { studyState },
+            { studyState = it },
+            game = sampleGameWithHandPiece(),
+            initialPlyIndex = 4,
+        )
+
+        // ply=4 時点は先手番・先手の持ち駒に角1枚（後手の持ち駒は空）。
+        composeRule.onNodeWithTag("hand_piece_sente_B").performClick()
+        composeRule.waitForIdle()
+
+        val s = studyState
+        assertNotNull("持ち駒タップで検討モードが開始されること", s)
+        assertNull("盤上マスの選択(selectedFrom)は無いこと", s!!.selectedFrom)
+        assertEquals(
+            "タップした持ち駒種別が打ちの選択状態になること",
+            PieceType.BISHOP,
+            s.selectedDropType,
+        )
+        assertTrue(
+            "選択した持ち駒の合法な打ち先が legalDestinations に入ること",
+            s.legalDestinations.isNotEmpty(),
+        )
     }
 }

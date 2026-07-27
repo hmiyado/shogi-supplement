@@ -671,10 +671,10 @@ private fun IosReportScreenHost(
             }
         },
         studyState = studyState,
-        onStartStudy = { baseSfen, sFlip, originIsBestPv, originPlyIndex, originSelectedIdx, originAbsolutePly, tappedSquare ->
+        onStartStudy = { baseSfen, sFlip, originIsBestPv, originPlyIndex, originSelectedIdx, originAbsolutePly, tappedSquare, tappedHandPieceType ->
             controller.startStudy(
                 baseSfen, sFlip, originIsBestPv, originPlyIndex,
-                originSelectedIdx, originAbsolutePly, tappedSquare,
+                originSelectedIdx, originAbsolutePly, tappedSquare, tappedHandPieceType,
             )
         },
         onStudySquareTapped = { sq -> controller.onStudySquareTapped(sq) },

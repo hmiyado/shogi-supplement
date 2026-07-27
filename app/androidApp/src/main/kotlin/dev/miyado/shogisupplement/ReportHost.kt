@@ -41,10 +41,10 @@ fun ReportHost(vm: MainViewModel, state: MainUiState.ShowReport) {
             vm.extendBestPv(blunderId, sfenAtEnd, currentPv)
         },
         studyState = studyState,
-        onStartStudy = { baseSfen, flip, originIsBestPv, originPlyIndex, originSelectedIdx, originAbsolutePly, tappedSquare ->
+        onStartStudy = { baseSfen, flip, originIsBestPv, originPlyIndex, originSelectedIdx, originAbsolutePly, tappedSquare, tappedHandPieceType ->
             vm.startStudy(
                 baseSfen, flip, originIsBestPv, originPlyIndex,
-                originSelectedIdx, originAbsolutePly, tappedSquare,
+                originSelectedIdx, originAbsolutePly, tappedSquare, tappedHandPieceType,
             )
         },
         onStudySquareTapped = { sq -> vm.onStudySquareTapped(sq) },

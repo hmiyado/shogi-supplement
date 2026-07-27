@@ -497,8 +497,10 @@ class IosMainController(
         originSelectedIdx: Int?,
         originAbsolutePly: Int,
         tappedSquare: ShogiSquare? = null,
+        tappedHandPieceType: PieceType? = null,
     ) = reportViewModel.startStudy(
-        baseSfen, flip, originIsBestPv, originPlyIndex, originSelectedIdx, originAbsolutePly, tappedSquare,
+        baseSfen, flip, originIsBestPv, originPlyIndex, originSelectedIdx, originAbsolutePly,
+        tappedSquare, tappedHandPieceType,
     )
 
     fun onStudySquareTapped(sq: ShogiSquare) = reportViewModel.onStudySquareTapped(sq)

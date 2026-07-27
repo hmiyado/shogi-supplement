@@ -131,7 +131,10 @@ fun ReportScreen(
     onExtendBestPv: (blunderId: Long, sfenAtLineEnd: String, currentPvStr: String?) -> Unit = { _, _, _ -> },
     /** 検討モード状態（null = 検討していない）。VRTでは表示状態を直接注入できる。 */
     studyState: StudyState? = null,
-    /** 検討モード開始（盤上の駒タップ時に呼ぶ）。タップしたマスも渡す（即選択用）。 */
+    /**
+     * 検討モード開始（盤上の駒タップまたは持ち駒タップ時に呼ぶ）。
+     * タップしたマス／持ち駒種別のどちらか一方を渡す（即選択用・互いに排他）。
+     */
     onStartStudy: (
         baseSfen: String,
         flip: Boolean,
@@ -139,8 +142,9 @@ fun ReportScreen(
         originPlyIndex: Int,
         originSelectedIdx: Int?,
         originAbsolutePly: Int,
-        tappedSquare: ShogiSquare,
-    ) -> Unit = { _, _, _, _, _, _, _ -> },
+        tappedSquare: ShogiSquare?,
+        tappedHandPieceType: PieceType?,
+    ) -> Unit = { _, _, _, _, _, _, _, _ -> },
     /** 検討モードの盤上マスタップ。 */
     onStudySquareTapped: (ShogiSquare) -> Unit = {},
     /** 検討モードの持ち駒タップ。 */
@@ -403,6 +407,7 @@ fun ReportScreen(
                                     selectedIdx,
                                     studyOriginAbsolutePly,
                                     sq,
+                                    null,
                                 )
                             } else {
                                 // 駒のないマス: 列位置（flip考慮）で左右半分を近似。
@@ -416,7 +421,25 @@ fun ReportScreen(
                             }
                         }
                     },
-                    onHandPieceTapped = { pt -> if (studyState != null) onStudyHandPieceTapped(pt) },
+                    onHandPieceTapped = { pt ->
+                        if (studyState != null) {
+                            onStudyHandPieceTapped(pt)
+                        } else {
+                            // 持ち駒タップ: 盤上駒タップと同じ流儀で検討モードを開始し、
+                            // タップした持ち駒を打ちの選択状態にする（ShogiBoardView が
+                            // 手番側の持ち駒にしか配線しないため、常に手番側の駒）。
+                            onStartStudy(
+                                currentSfen,
+                                flip,
+                                viewerMode == ViewerMode.BEST_PV,
+                                clampedPly,
+                                selectedIdx,
+                                studyOriginAbsolutePly,
+                                null,
+                                pt,
+                            )
+                        }
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(max = screenHeight * 0.45f),

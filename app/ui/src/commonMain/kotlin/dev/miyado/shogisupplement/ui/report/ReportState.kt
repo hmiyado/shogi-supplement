@@ -60,10 +60,14 @@ data class StudyState(
 )
 
 /**
- * 検討開始時の初期 StudyState を構築する（開始タップのマスも受け取る）。
+ * 検討開始時の初期 StudyState を構築する（開始タップのマスまたは持ち駒種別を受け取る）。
  *
  * tappedSquare の駒が手番側なら、検討開始と同時にその駒を選択状態にする
  * （selectedFrom + legalDestinations 設定）。手番側でなければ選択なしで開始する。
+ *
+ * tappedHandPieceType が渡されたとき（持ち駒タップからの開始）は tappedSquare 側の判定を
+ * 行わず、その駒種別を打ちの選択状態にする（ShogiBoardView の持ち駒タップは手番側の
+ * 持ち駒にしか配線されないため、盤上駒タップの「手番でない側」判定に相当するものは無い）。
  *
  * MainViewModel.startStudy から使う純粋ロジック（Robolectric テストから直接呼べるよう分離）。
  * ReportScreenStudyInteractionTest（androidApp側）から別モジュール越しに呼ぶため、
@@ -78,7 +82,20 @@ fun buildInitialStudyState(
     originAbsolutePly: Int,
     tappedSquare: ShogiSquare?,
     board: ShogiBoard,
+    tappedHandPieceType: PieceType? = null,
 ): StudyState {
+    if (tappedHandPieceType != null) {
+        return StudyState(
+            baseSfen = baseSfen,
+            originIsBestPv = originIsBestPv,
+            originPlyIndex = originPlyIndex,
+            originSelectedIdx = originSelectedIdx,
+            originAbsolutePly = originAbsolutePly,
+            flip = flip,
+            selectedDropType = tappedHandPieceType,
+            legalDestinations = board.legalDropSquares(tappedHandPieceType).toSet(),
+        )
+    }
     val piece = tappedSquare?.let { board.pieceAt(it) }
     val selectable = piece != null && piece.side == board.turn
     return StudyState(

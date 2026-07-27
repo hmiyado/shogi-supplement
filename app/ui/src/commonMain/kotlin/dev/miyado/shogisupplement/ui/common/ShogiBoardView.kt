@@ -617,8 +617,10 @@ private fun HandRow(
                     val label = if (cnt > 1) "$kanji×$cnt" else kanji
                     val isSelectedPiece = pt != null && selectedDropType == pt && isCurrentTurn
                     // FlowRow 内で折返し。widthIn(min) で最小幅確保。
+                    // testTag は視覚に影響しないためRoborazziのゴールデンには無関係（テスト用の識別子）。
                     Box(
                         modifier = Modifier
+                            .testTag("hand_piece_${if (isBlack) "sente" else "gote"}_$pc")
                             .height(cellSize)
                             .widthIn(min = cellSize * 0.75f)
                             .border(

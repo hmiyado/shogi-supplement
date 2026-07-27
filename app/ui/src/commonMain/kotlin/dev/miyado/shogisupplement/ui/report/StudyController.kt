@@ -58,11 +58,13 @@ class StudyController(
     private var studyEvalDirty = false
 
     /**
-     * 検討モードを開始する（レポートビューアで盤上の駒をタップしたときに呼ぶ）。
+     * 検討モードを開始する（レポートビューアで盤上の駒または持ち駒をタップしたときに呼ぶ）。
      *
      * エンジンはここでは生成しない（起動コストを避けるため、実際に手を指す初手のタイミングで
      * 遅延生成する）。
      * 開始タップのマス（tappedSquare）の駒が手番側なら、開始と同時に選択状態にする。
+     * 持ち駒タップから開始する場合は tappedHandPieceType を渡す（打ちの選択状態で開始する。
+     * tappedSquare とは排他）。
      */
     fun startStudy(
         baseSfen: String,
@@ -72,6 +74,7 @@ class StudyController(
         originSelectedIdx: Int?,
         originAbsolutePly: Int,
         tappedSquare: ShogiSquare? = null,
+        tappedHandPieceType: PieceType? = null,
     ) {
         val board = runCatching { ShogiBoard.fromSfen(baseSfen) }.getOrNull() ?: return
         studyBoard = board
@@ -84,6 +87,7 @@ class StudyController(
             originAbsolutePly = originAbsolutePly,
             tappedSquare = tappedSquare,
             board = board,
+            tappedHandPieceType = tappedHandPieceType,
         )
     }
 
