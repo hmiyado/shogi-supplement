@@ -78,3 +78,7 @@ infra/terraform/envs/*.tfvars
 
 # Supabase CLIがlink時に作る作業ディレクトリ（プロジェクト識別子を含む）
 **/supabase/.temp/
+
+# Firebase設定（プロジェクト識別子を公開リポジトリに置かない方針。local.propertiesと同じ扱い）
+app/androidApp/google-services.json
+app/iosApp/local/
