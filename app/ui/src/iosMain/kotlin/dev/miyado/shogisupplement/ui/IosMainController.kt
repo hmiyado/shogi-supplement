@@ -279,6 +279,15 @@ class IosMainController(
             _importState.value = ImportState.RatingSetup(kifText, senteName, goteName, sourceFileName)
             return
         }
+        proceedToSideConfirm(kifText, senteName, goteName, sourceFileName)
+    }
+
+    private fun proceedToSideConfirm(
+        kifText: String,
+        senteName: String?,
+        goteName: String?,
+        sourceFileName: String?,
+    ) {
         val suggestion = UserSideSuggester.suggest(
             senteName = senteName,
             goteName = goteName,
@@ -315,7 +324,10 @@ class IosMainController(
     ) {
         val current = _importState.value as? ImportState.RatingSetup ?: return
         saveRatingSettings(service, ratingRaw, ratingRule, serviceAccounts, serviceRanks)
-        proceedAfterKifValidated(
+        // 先後選択へ直行する（androidApp の KifImportFlow と同じ）。
+        // Why not proceedAfterKifValidated: あちらはアカウント名の有無を再判定するため、
+        // 任意入力のアカウント名を空のまま保存すると棋力設定が無限に再表示される。
+        proceedToSideConfirm(
             kifText = current.kifText,
             senteName = current.senteName,
             goteName = current.goteName,
