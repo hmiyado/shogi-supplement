@@ -36,6 +36,11 @@ import kotlinx.serialization.json.jsonObject
  * @property maxRetries 切断時に同一リクエストを再POSTする上限回数
  * @property retryBackoffMs 再POSTまでの待機時間の基準値（試行回数に比例。指数バックオフに
  *   しないのは、サーバー側の完了待ちが最大280秒のポーリングで律速されるため）
+ * @property appCheckTokenProvider Firebase App Checkトークンを取得する関数（iOS側の実プロバイダ
+ *   実装は別タスク）。nullのまま、またはトークン取得が失敗（例外/null）した場合はヘッダ自体を
+ *   付けない＝サーバー側の段階導入（FIREBASE_PROJECT_NUMBER未設定）と同じく検証は素通りになる。
+ *   ここで例外を握りつぶさないのは意図的: 呼び出し側（SDK組み込み後）が失敗を検知できるよう、
+ *   nullを返す/返さないの判断自体は呼び出し側の関数の責務に留める。
  */
 class RemoteAnalysisRunner(
     private val baseUrl: String,
@@ -43,6 +48,7 @@ class RemoteAnalysisRunner(
     private val httpClient: HttpClient = HttpClient(),
     private val maxRetries: Int = 3,
     private val retryBackoffMs: Long = 1_000,
+    private val appCheckTokenProvider: (suspend () -> String?)? = null,
 ) : GameAnalyzer {
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -101,10 +107,14 @@ class RemoteAnalysisRunner(
         onProgress: ((done: Int, total: Int) -> Unit)?,
     ): List<List<PvInfo>> {
         val token = accessTokenProvider()
+        val appCheckToken = appCheckTokenProvider?.invoke()
         // preparePost+execute を使う: post() はレスポンス本文を最後まで読み切ってから返すため、
         // 進捗行が解析完了後にまとめて届いてしまい、ストリーミングの意味が無くなる。
         return httpClient.preparePost("$baseUrl/v1/analyses") {
             header("Authorization", "Bearer $token")
+            if (appCheckToken != null) {
+                header("X-Firebase-AppCheck", appCheckToken)
+            }
             contentType(ContentType.Application.Json)
             setBody(json.encodeToString(AnalysisRequest.serializer(), request))
         }.execute { response ->

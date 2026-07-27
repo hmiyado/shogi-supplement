@@ -48,12 +48,14 @@ class RemoteAnalysisRunnerTest {
         client: HttpClient,
         maxRetries: Int = 3,
         retryBackoffMs: Long = 1,
+        appCheckTokenProvider: (suspend () -> String?)? = null,
     ) = RemoteAnalysisRunner(
         baseUrl = "https://analysis-worker.example",
         accessTokenProvider = { "test-jwt" },
         httpClient = client,
         maxRetries = maxRetries,
         retryBackoffMs = retryBackoffMs,
+        appCheckTokenProvider = appCheckTokenProvider,
     )
 
     // 本文を最後まで受け取る前に進捗が届くこと＝ストリーミングが機能していることを確かめる。
@@ -209,6 +211,68 @@ class RemoteAnalysisRunnerTest {
             runner(HttpClient(engine)).analyzeGame(listOf("7g7f"))
         }
         assertEquals("2026-07-27T15:00:00Z", exception.resetAt)
+    }
+
+    // ─── Firebase App Checkトークンの注入（SDK組み込み自体は別タスク） ────────────
+
+    @Test
+    fun `appCheckTokenProvider unset means no X-Firebase-AppCheck header is sent`() = runTest {
+        var capturedHeader: String? = null
+        val engine = MockEngine { request ->
+            capturedHeader = request.headers["X-Firebase-AppCheck"]
+            respond(content = ByteReadChannel(resultLine), status = HttpStatusCode.OK, headers = ndjsonHeaders)
+        }
+
+        runner(HttpClient(engine)).analyzeGame(listOf("7g7f"))
+
+        assertEquals(null, capturedHeader)
+    }
+
+    @Test
+    fun `appCheckTokenProvider returning null means no X-Firebase-AppCheck header is sent`() = runTest {
+        var capturedHeader: String? = null
+        val engine = MockEngine { request ->
+            capturedHeader = request.headers["X-Firebase-AppCheck"]
+            respond(content = ByteReadChannel(resultLine), status = HttpStatusCode.OK, headers = ndjsonHeaders)
+        }
+
+        runner(HttpClient(engine), appCheckTokenProvider = { null }).analyzeGame(listOf("7g7f"))
+
+        assertEquals(null, capturedHeader)
+    }
+
+    @Test
+    fun `appCheckTokenProvider returning a token attaches X-Firebase-AppCheck header on analyzeGame`() = runTest {
+        var capturedHeader: String? = null
+        val engine = MockEngine { request ->
+            capturedHeader = request.headers["X-Firebase-AppCheck"]
+            respond(content = ByteReadChannel(resultLine), status = HttpStatusCode.OK, headers = ndjsonHeaders)
+        }
+
+        runner(HttpClient(engine), appCheckTokenProvider = { "app-check-token" }).analyzeGame(listOf("7g7f"))
+
+        assertEquals("app-check-token", capturedHeader)
+    }
+
+    @Test
+    fun `appCheckTokenProvider returning a token attaches X-Firebase-AppCheck header on analyzePosition`() = runTest {
+        var capturedHeader: String? = null
+        val engine = MockEngine { request ->
+            capturedHeader = request.headers["X-Firebase-AppCheck"]
+            respond(
+                content = ByteReadChannel(
+                    """{"result":[[{"multipv":1,"score":{"type":"cp","value":1},"pv":[],"nodes":400000}]],""" +
+                        """"engine_meta":{"engine_rev":"r","eval_sha256":"s","nodes":400000,"threads":1,""" +
+                        """"multi_pv":2,"usi_hash":128,"fv_scale":20}}""",
+                ),
+                status = HttpStatusCode.OK,
+                headers = ndjsonHeaders,
+            )
+        }
+
+        runner(HttpClient(engine), appCheckTokenProvider = { "app-check-token" }).analyzePosition("startpos")
+
+        assertEquals("app-check-token", capturedHeader)
     }
 
     // ─── analyzePosition（ドリル二次判定の単発局面解析） ──────────────────────
