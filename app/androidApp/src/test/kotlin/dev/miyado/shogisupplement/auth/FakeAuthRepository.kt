@@ -10,11 +10,13 @@ import kotlinx.coroutines.flow.StateFlow
  * @param initialUser 初期ユーザー（デフォルトは未ログイン）
  * @param signInAnonymouslyResult signInAnonymously の返却値（デフォルトは成功）
  * @param deleteAccountResult deleteAccount の返却値（デフォルトは成功）
+ * @param refreshSessionResult refreshSession の返却値（デフォルトは成功）
  */
 class FakeAuthRepository(
     initialUser: AuthUser? = null,
     private val signInAnonymouslyResult: Result<Unit> = Result.success(Unit),
     private val deleteAccountResult: Result<Unit> = Result.success(Unit),
+    private val refreshSessionResult: Result<Unit> = Result.success(Unit),
 ) : AuthRepository {
 
     /** signInAnonymously が呼ばれた回数（テスト検証用）。 */
@@ -23,6 +25,10 @@ class FakeAuthRepository(
 
     /** deleteAccount が呼ばれた回数（テスト検証用）。 */
     var deleteAccountCalls: Int = 0
+        private set
+
+    /** refreshSession が呼ばれた回数（テスト検証用）。 */
+    var refreshSessionCalls: Int = 0
         private set
 
     private val _currentUser = MutableStateFlow(initialUser)
@@ -38,6 +44,11 @@ class FakeAuthRepository(
 
     override suspend fun accessToken(): String? =
         _currentUser.value?.let { "fake-access-token-${it.id}" }
+
+    override suspend fun refreshSession(): Result<Unit> {
+        refreshSessionCalls++
+        return refreshSessionResult
+    }
 
     override suspend fun signOut(): Result<Unit> {
         _currentUser.value = null

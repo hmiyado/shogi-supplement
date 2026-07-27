@@ -49,6 +49,10 @@ class SupabaseAuthRepository(
 
     override suspend fun accessToken(): String? = supabase.auth.currentAccessTokenOrNull()
 
+    override suspend fun refreshSession(): Result<Unit> = runCatching {
+        supabase.auth.refreshCurrentSession()
+    }
+
     override suspend fun signOut(): Result<Unit> = runCatching {
         supabase.auth.signOut()
     }

@@ -29,6 +29,16 @@ interface AuthRepository {
     suspend fun accessToken(): String?
 
     /**
+     * 現在のセッションを更新する（Supabase JWTの再発行）。
+     *
+     * [dev.miyado.shogisupplement.engine.AuthRetryingAnalyzer] がサーバー解析の401時に
+     * 1回だけ試みる自動復旧に使う。signInAnonymously と違い新規アカウントは発行しない
+     * （既存セッションのトークンのみを更新する）。
+     * @return 成功時 Result.success(Unit)、失敗時 Result.failure(exception)
+     */
+    suspend fun refreshSession(): Result<Unit>
+
+    /**
      * ログアウトする。
      * @return 成功時 Result.success(Unit)、失敗時 Result.failure(exception)
      */
