@@ -28,6 +28,9 @@ class DrillJudgeTest {
         sfenBefore: String = initialSfen,
         moveUsi: String = "B*3d",
         bestUsi: String? = "2f6f",
+        cpBefore: Long? = null,
+        secondUsi: String? = null,
+        secondCp: Long? = null,
     ) = BlunderRecord(
         id = 1L,
         gameId = 1L,
@@ -46,6 +49,9 @@ class DrillJudgeTest {
         note = "自帯6.3件/1000手 (上帯5.2件)。帯として典型的なミス",
         problemType = "手筋 (両取り・素抜き) の問題",
         priority = 2.9978349024480666,
+        cpBefore = cpBefore,
+        secondUsi = secondUsi,
+        secondCp = secondCp,
     )
 
     /** 呼び出し記録つき fake エンジン。sfen ごとに返す評価値を指定する。 */
@@ -157,6 +163,107 @@ class DrillJudgeTest {
 
         assertFalse(result.isCorrect)
         assertTrue(result.lossWp > DrillJudge.CORRECT_LOSS_WP_THRESHOLD)
+    }
+
+    // ─── 一次判定（judgePrimary・純関数・pv2境界） ──────────────────────────────
+    //
+    // 前提: cpBefore=0（wpBest=0.5固定）にして secondCp だけ動かすと、
+    // lossWpOfSecond = winProb(0) - winProb(secondCp) = winProb(-secondCp) - 0.5
+    //               = winProb(120)-winProb(0) 相当（既存のエンジン判定テストと同じ境界値）。
+    // secondCp=-120 → 閾値内(≈0.0498)、secondCp=-121 → 閾値超(≈0.0502)。
+
+    @Test
+    fun `judgePrimary - pv2データが無ければUnavailable`() {
+        val verdict = DrillJudge.judgePrimary(sampleBlunder(), userMoveUsi = "7g7f")
+        assertEquals(DrillJudge.PrimaryVerdict.Unavailable, verdict)
+    }
+
+    @Test
+    fun `judgePrimary - pv2一致かつ閾値内はCorrect`() {
+        val blunder = sampleBlunder(cpBefore = 0L, secondUsi = "7g7f", secondCp = -120L)
+        val verdict = DrillJudge.judgePrimary(blunder, userMoveUsi = "7g7f")
+
+        val expected = BlunderJudge.winProb(120) - BlunderJudge.winProb(0)
+        assertTrue(verdict is DrillJudge.PrimaryVerdict.Correct)
+        assertEquals(expected, verdict.lossWp, 1e-12)
+    }
+
+    @Test
+    fun `judgePrimary - pv2一致でも閾値超はIncorrect`() {
+        val blunder = sampleBlunder(cpBefore = 0L, secondUsi = "7g7f", secondCp = -121L)
+        val verdict = DrillJudge.judgePrimary(blunder, userMoveUsi = "7g7f")
+
+        assertTrue(verdict is DrillJudge.PrimaryVerdict.Incorrect)
+    }
+
+    @Test
+    fun `judgePrimary - top-2圏外でpv2のloss_wpが既に閾値超なら確定Incorrect`() {
+        // 指した手は pv1(2f6f) でも pv2(7g7f) でもない
+        val blunder = sampleBlunder(cpBefore = 0L, secondUsi = "7g7f", secondCp = -121L)
+        val verdict = DrillJudge.judgePrimary(blunder, userMoveUsi = "2g2f")
+
+        assertTrue(verdict is DrillJudge.PrimaryVerdict.Incorrect)
+    }
+
+    @Test
+    fun `judgePrimary - top-2圏外でpv2のloss_wpが閾値内ならAmbiguous`() {
+        val blunder = sampleBlunder(cpBefore = 0L, secondUsi = "7g7f", secondCp = -120L)
+        val verdict = DrillJudge.judgePrimary(blunder, userMoveUsi = "2g2f")
+
+        assertEquals(DrillJudge.PrimaryVerdict.Ambiguous, verdict)
+    }
+
+    // ─── 一次判定 → judge() 全体での分岐（エンジン呼び出し有無を含む） ──────────
+
+    @Test
+    fun `judge - pv2一致かつ閾値内は一次判定だけで正解確定しエンジンは呼ばれない`() {
+        val engine = FakeEngine(emptyMap())
+        val blunder = sampleBlunder(cpBefore = 0L, secondUsi = "7g7f", secondCp = -120L)
+        val result = DrillJudge.judge(blunder, userMoveUsi = "7g7f", engineAnalyze = engine::analyze)
+
+        assertTrue(result.isCorrect)
+        assertEquals(DrillJudge.Reason.PRIMARY_MATCH_SECOND, result.reason)
+        assertTrue(engine.receivedSfens.isEmpty(), "engine should not be called")
+    }
+
+    @Test
+    fun `judge - top-2圏外で下界が既に閾値超なら一次判定だけで不正解確定しエンジンは呼ばれない`() {
+        val engine = FakeEngine(emptyMap())
+        val blunder = sampleBlunder(cpBefore = 0L, secondUsi = "7g7f", secondCp = -121L)
+        val result = DrillJudge.judge(blunder, userMoveUsi = "2g2f", engineAnalyze = engine::analyze)
+
+        assertFalse(result.isCorrect)
+        assertEquals(DrillJudge.Reason.PRIMARY_OUT_OF_TOP2, result.reason)
+        assertTrue(engine.receivedSfens.isEmpty(), "engine should not be called")
+    }
+
+    @Test
+    fun `judge - 曖昧領域はエンジン未注入なら不正解フォールバック`() {
+        val blunder = sampleBlunder(cpBefore = 0L, secondUsi = "7g7f", secondCp = -120L)
+        val result = DrillJudge.judge(blunder, userMoveUsi = "2g2f", engineAnalyze = null)
+
+        assertFalse(result.isCorrect)
+        assertTrue(result.lossWp.isNaN())
+        assertEquals(DrillJudge.Reason.ENGINE_EVAL, result.reason)
+    }
+
+    @Test
+    fun `judge - 一次判定がAmbiguousのときはエンジン注入時に二次判定へ委譲され実際に呼ばれる`() {
+        // Unavailable経路（secondUsi/secondCpが無い）ではなく、Ambiguous経路
+        // （pv2データはあるが下界だけでは確定できない）から二次判定に落ちることを確認する。
+        val engine = FakeEngine(
+            mapOf(
+                initialSfen to Score.Cp(300),
+                sfenAfter7g7f to Score.Cp(0),
+            ),
+        )
+        val blunder = sampleBlunder(cpBefore = 0L, secondUsi = "3c3d", secondCp = -120L)
+        val result = DrillJudge.judge(blunder, userMoveUsi = "7g7f", engineAnalyze = engine::analyze)
+
+        assertEquals(listOf(initialSfen, sfenAfter7g7f), engine.receivedSfens)
+        assertEquals(DrillJudge.Reason.ENGINE_EVAL, result.reason)
+        val expected = BlunderJudge.winProb(300) - BlunderJudge.winProb(0)
+        assertEquals(expected, result.lossWp, 1e-12)
     }
 
     // ─── フォールバック ───────────────────────────────────────────────────────
