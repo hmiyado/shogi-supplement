@@ -1,5 +1,6 @@
 package dev.miyado.shogisupplement.ui
 
+import dev.miyado.shogisupplement.auth.AuthRepository
 import dev.miyado.shogisupplement.board.PieceType
 import dev.miyado.shogisupplement.board.ShogiSquare
 import dev.miyado.shogisupplement.db.DrillRepository
@@ -9,9 +10,12 @@ import dev.miyado.shogisupplement.crash.NoopCrashReporter
 import dev.miyado.shogisupplement.db.SettingsRepository
 import dev.miyado.shogisupplement.engine.AnalysisOrchestrator
 import dev.miyado.shogisupplement.engine.AnalysisRunner
+import dev.miyado.shogisupplement.engine.AuthRetryingAnalyzer
+import dev.miyado.shogisupplement.engine.GameAnalyzer
 import dev.miyado.shogisupplement.engine.IosCoefficients
 import dev.miyado.shogisupplement.engine.IosEngineHost
 import dev.miyado.shogisupplement.engine.IsolatedEngine
+import dev.miyado.shogisupplement.engine.RemoteAnalysisRunner
 import dev.miyado.shogisupplement.kifu.ClipboardKifValidator
 import dev.miyado.shogisupplement.kifu.KifParser
 import dev.miyado.shogisupplement.kifu.UserSideSuggester
@@ -22,6 +26,9 @@ import dev.miyado.shogisupplement.ui.home.HomeViewModel
 import dev.miyado.shogisupplement.ui.report.ReportViewModel
 import dev.miyado.shogisupplement.ui.report.StudyState
 import dev.miyado.shogisupplement.upload.UploadOrchestrator
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.darwin.Darwin
+import io.ktor.client.plugins.HttpTimeout
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -60,6 +67,10 @@ class IosMainController(
     private val settingsRepository: SettingsRepository,
     /** null = Supabase未設定ビルド（自動アップロードなし）。 */
     private val uploadOrchestrator: UploadOrchestrator? = null,
+    /** null = Supabase未設定ビルド（サーバー解析なし・匿名サインイン保証もしない）。 */
+    private val authRepository: AuthRepository? = null,
+    /** null = ANALYSIS_BASE_URL未設定（端末解析にフォールバックする。graceful degradation）。 */
+    private val analysisBaseUrl: String? = null,
 ) {
 
     /** クリップボード取込フローの状態。 */
@@ -106,6 +117,21 @@ class IosMainController(
 
     private val scope = CoroutineScope(SupervisorJob() + defaultIoDispatcher)
     private val coefTable = IosCoefficients.getInstance()
+
+    /**
+     * サーバー解析用の HttpClient（analysisBaseUrl 設定時のみ生成・使い回す）。
+     * 解析は1リクエストで全局面を返すまでストリームを保持するため、既定のタイムアウトでは
+     * 途中で切れる。タイムアウト値は Android の DebugServerAnalysisReceiver と同じ
+     * （Cloud Runのリクエストタイムアウトより長く取る）。
+     */
+    private val analysisHttpClient: HttpClient? = analysisBaseUrl?.let {
+        HttpClient(Darwin) {
+            install(HttpTimeout) {
+                requestTimeoutMillis = SERVER_ANALYSIS_REQUEST_TIMEOUT_MS
+                socketTimeoutMillis = SERVER_ANALYSIS_SOCKET_TIMEOUT_MS
+            }
+        }
+    }
 
     /** ホーム画面（games一覧・推定棋力カード・今日の1問）のロードを担う協力オブジェクト。 */
     private val homeViewModel = HomeViewModel(
@@ -361,10 +387,34 @@ class IosMainController(
         _importState.value = ImportState.Analyzing(0, 0)
 
         scope.launch {
-            val orchestrator = AnalysisOrchestrator(
-                repository = gameRepository,
-                coefTable = coefTable,
-                analyzer = AnalysisRunner(
+            val auth = authRepository
+            val baseUrl = analysisBaseUrl
+
+            // サーバー解析はJWTでユーザーを識別するため、未ログインならここで匿名サインインする。
+            // signInAnonymously の自動呼び出しはここ（明示的なサーバー解析経路）に限定し、
+            // 既存アカウントがある場合は currentUser が非null のため再発行されない。
+            if (auth != null && baseUrl != null && auth.currentUser.value == null) {
+                val signInResult = auth.signInAnonymously()
+                if (signInResult.isFailure) {
+                    _importState.value = ImportState.Error(AppStrings.AUTH_ERROR_ANON_SIGN_IN_GENERIC)
+                    return@launch
+                }
+            }
+
+            val analyzer: GameAnalyzer = if (auth != null && baseUrl != null) {
+                AuthRetryingAnalyzer(
+                    delegate = RemoteAnalysisRunner(
+                        baseUrl = baseUrl,
+                        accessTokenProvider = {
+                            checkNotNull(auth.accessToken()) { "アクセストークンが取得できない" }
+                        },
+                        httpClient = checkNotNull(analysisHttpClient),
+                    ),
+                    authRepository = auth,
+                )
+            } else {
+                // ANALYSIS_BASE_URL未設定ビルドでの graceful degradation（従来の端末エンジン）。
+                AnalysisRunner(
                     // iOS はプロセス内で1エンジンのみ（in-process制約）のため workers=1。
                     workers = 1,
                     crashReporter = NoopCrashReporter,
@@ -372,7 +422,13 @@ class IosMainController(
                     // IsolatedEngine で包む（解析結果が解析順に依存しないようにするため）。
                     engineFactory = { IsolatedEngine(IosEngineHost.newGameEngineFactory()()) },
                     disposeEngine = IosEngineHost.keepAliveDispose,
-                ),
+                )
+            }
+
+            val orchestrator = AnalysisOrchestrator(
+                repository = gameRepository,
+                coefTable = coefTable,
+                analyzer = analyzer,
             )
             val outcome = orchestrator.analyzeAndSave(
                 kifContent = current.kifText,
@@ -433,5 +489,11 @@ class IosMainController(
     /** リーク厳禁: 呼び出し元（MainViewController）が破棄されるタイミングで呼ぶこと。 */
     fun dispose() {
         reportViewModel.dispose()
+    }
+
+    companion object {
+        // Android の DebugServerAnalysisReceiver と同じ値（Cloud Runのリクエストタイムアウトより長く取る）。
+        private const val SERVER_ANALYSIS_REQUEST_TIMEOUT_MS = 10 * 60 * 1000L
+        private const val SERVER_ANALYSIS_SOCKET_TIMEOUT_MS = 5 * 60 * 1000L
     }
 }

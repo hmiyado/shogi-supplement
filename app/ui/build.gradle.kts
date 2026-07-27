@@ -47,6 +47,13 @@ kotlin {
         androidMain.dependencies {
             implementation(libs.androidx.activity.compose)
         }
+        // IosMainController がサーバー解析（RemoteAnalysisRunner）用に HttpClient(Darwin) を
+        // 直接構築するため（:shared側は implementation 依存のため api経由では見えない。
+        // shared/build.gradle.ktsのiosMainブロックと同じ方針）。
+        iosMain.dependencies {
+            implementation(libs.ktor.client.core)
+            implementation(libs.ktor.client.darwin)
+        }
     }
 }
 

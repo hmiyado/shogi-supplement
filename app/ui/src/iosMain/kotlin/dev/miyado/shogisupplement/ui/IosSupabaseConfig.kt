@@ -32,19 +32,31 @@ internal object IosSupabaseConfig {
     data class Config(val url: String, val key: String)
 
     fun load(): Config? {
+        val entries = loadEntries() ?: return null
+        val url = entries["SUPABASE_URL"]
+        val key = entries["SUPABASE_KEY"]
+        if (url.isNullOrBlank() || key.isNullOrBlank()) return null
+        return Config(url, key)
+    }
+
+    /**
+     * サーバー解析（[dev.miyado.shogisupplement.engine.RemoteAnalysisRunner]）のベースURL。
+     * Supabase設定（url/key）とは独立に判定する（Androidの local.properties→BuildConfig の
+     * ANALYSIS_BASE_URL と同じキー）。未設定なら null（呼び出し側は端末解析へフォールバックする）。
+     */
+    fun loadAnalysisBaseUrl(): String? =
+        loadEntries()?.get("ANALYSIS_BASE_URL")?.takeIf { it.isNotBlank() }
+
+    private fun loadEntries(): Map<String, String>? {
         val path = NSBundle.mainBundle.pathForResource("SupabaseConfig", ofType = "properties")
             ?: return null
         val text = readFile(path) ?: return null
-        val entries = text.lineSequence()
+        return text.lineSequence()
             .mapNotNull { line ->
                 val idx = line.indexOf('=')
                 if (idx <= 0) null else line.take(idx).trim() to line.drop(idx + 1).trim()
             }
             .toMap()
-        val url = entries["SUPABASE_URL"]
-        val key = entries["SUPABASE_KEY"]
-        if (url.isNullOrBlank() || key.isNullOrBlank()) return null
-        return Config(url, key)
     }
 
     private fun readFile(path: String): String? {

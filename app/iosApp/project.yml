@@ -100,11 +100,12 @@ targets:
           fi
           JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home ./gradlew "$TASK"
         basedOnDependencyAnalysis: false
-      # Supabase接続設定（URL/anonキー）を app/local.properties から読んで
-      # SupabaseConfig.properties としてバンドルへ直接生成する（Androidの
+      # Supabase接続設定（URL/anonキー）とサーバー解析のベースURLを app/local.properties
+      # から読んで SupabaseConfig.properties としてバンドルへ直接生成する（Androidの
       # local.properties→BuildConfig と同じ方針でリポジトリに秘密を置かない）。
       # local.properties が無い/キーが無いビルドでは空になり、
-      # アプリ側はアカウント導線を非表示にする（IosSupabaseConfig.kt参照）。
+      # アプリ側はアカウント導線・サーバー解析を非表示/端末解析にフォールバックする
+      # （IosSupabaseConfig.kt参照）。
       - name: "Generate SupabaseConfig.properties (from app/local.properties)"
         script: |
           set -e
@@ -113,11 +114,14 @@ targets:
           mkdir -p "$OUT_DIR"
           URL=""
           KEY=""
+          ANALYSIS_BASE_URL=""
           if [ -f "$PROPS" ]; then
             URL=$(sed -n 's/^SUPABASE_URL=//p' "$PROPS" | head -1)
             KEY=$(sed -n 's/^SUPABASE_KEY=//p' "$PROPS" | head -1)
+            ANALYSIS_BASE_URL=$(sed -n 's/^ANALYSIS_BASE_URL=//p' "$PROPS" | head -1)
           fi
-          printf 'SUPABASE_URL=%s\nSUPABASE_KEY=%s\n' "$URL" "$KEY" > "$OUT_DIR/SupabaseConfig.properties"
+          printf 'SUPABASE_URL=%s\nSUPABASE_KEY=%s\nANALYSIS_BASE_URL=%s\n' \
+            "$URL" "$KEY" "$ANALYSIS_BASE_URL" > "$OUT_DIR/SupabaseConfig.properties"
         basedOnDependencyAnalysis: false
       # Sentry DSN も同じ経路（app/local.properties→ビルド時生成）でバンドルする。
       # 公開するとイベントを外部から投げ込まれるリスクがあるためリポジトリに秘密を置かない。

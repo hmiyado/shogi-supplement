@@ -105,8 +105,18 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
             SupabaseServices(config.url, config.key, gameRepository, settingsRepository)
         }
     }
+    // サーバー解析のベースURL。Supabase設定とは独立に判定する（IosSupabaseConfig参照）。
+    // 未設定ならnullのままIosMainControllerが端末解析へフォールバックする。
+    val analysisBaseUrl = remember { IosSupabaseConfig.loadAnalysisBaseUrl() }
     val controller = remember {
-        IosMainController(gameRepository, drillRepository, settingsRepository, supabaseServices?.uploadOrchestrator)
+        IosMainController(
+            gameRepository,
+            drillRepository,
+            settingsRepository,
+            supabaseServices?.uploadOrchestrator,
+            authRepository = supabaseServices?.authRepository,
+            analysisBaseUrl = analysisBaseUrl,
+        )
     }
     val themeMode by controller.themeMode.collectAsState()
     ShogiTheme(themeMode = themeMode) {
