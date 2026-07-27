@@ -59,6 +59,12 @@ final class PasteboardImportSmokeTests: XCTestCase {
         app.launch()
         attachScreenshot(named: "01_launched")
 
+        // 2b. フレッシュインストール（consent_accepted_at 未保存）では、ホームより先に
+        //     同意オンボーディング（iOS専用・必須）が全画面で出る（IosConsentScreenHost参照）。
+        //     Supabase未設定ビルドや既に同意済みの再実行では出ないため、出たときだけ処理する
+        //     （棋力設定ダイアログと同じ「出たら処理する」方式）。
+        handleConsentOnboardingIfNeeded()
+
         // 3. 「棋譜を追加する」→「クリップボードから貼り付け」
         let addKifButton = element(labeled: "棋譜を追加する", timeout: 20)
         XCTAssertTrue(addKifButton.exists, "「棋譜を追加する」ボタンが見つかりません")
@@ -125,6 +131,31 @@ final class PasteboardImportSmokeTests: XCTestCase {
     }
 
     // MARK: - Helpers
+
+    /// 同意オンボーディング画面（[ConsentScreen]）が出ていれば、研究利用チェックをON→
+    /// 「同意して始める」で確定する。同意確定処理（匿名サインイン等）は非同期のため、
+    /// 画面が閉じる（ホームへ遷移する）までタイムアウト長めに待つ。
+    private func handleConsentOnboardingIfNeeded() {
+        let consentTitle = element(labeled: "はじめに", timeout: 5)
+        guard consentTitle.exists else { return }
+
+        let consentCheckbox = element(
+            labeledContains: "解析した棋譜と結果を匿名で研究利用",
+            timeout: 5,
+        )
+        XCTAssertTrue(consentCheckbox.exists, "同意オンボーディングの研究利用チェック項目が見つかりません")
+        consentCheckbox.tap()
+
+        let acceptButton = element(labeled: "同意して始める", timeout: 5)
+        XCTAssertTrue(acceptButton.exists, "「同意して始める」ボタンが見つかりません")
+        acceptButton.tap()
+
+        XCTAssertTrue(
+            waitForDisappearance(of: consentTitle, timeout: 30),
+            "同意オンボーディング画面が閉じません（匿名サインイン待ち含む）",
+        )
+        attachScreenshot(named: "01b_consent_accepted")
+    }
 
     private func loadFixtureKifText() throws -> String {
         let bundle = Bundle(for: Self.self)
