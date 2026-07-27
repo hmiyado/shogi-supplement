@@ -4,12 +4,18 @@ import dev.miyado.shogisupplement.blunder.Score
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
+import io.ktor.client.request.HttpRequestData
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.content.OutgoingContent
 import io.ktor.http.headersOf
 import io.ktor.utils.io.ByteChannel
 import io.ktor.utils.io.ByteReadChannel
 import io.ktor.utils.io.writeStringUtf8
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -203,6 +209,64 @@ class RemoteAnalysisRunnerTest {
             runner(HttpClient(engine)).analyzeGame(listOf("7g7f"))
         }
         assertEquals("2026-07-27T15:00:00Z", exception.resetAt)
+    }
+
+    // ─── analyzePosition（ドリル二次判定の単発局面解析） ──────────────────────
+
+    private fun HttpRequestData.bodyText(): String =
+        (body as OutgoingContent.ByteArrayContent).bytes().decodeToString()
+
+    @Test
+    fun `analyzePosition sends sfen and moves and unwraps the single position result`() = runTest {
+        var capturedBody: String? = null
+        val sfen = "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1"
+        val engine = MockEngine { request ->
+            capturedBody = request.bodyText()
+            respond(
+                content = ByteReadChannel(
+                    """{"result":[[{"multipv":1,"score":{"type":"cp","value":42},"pv":["7g7f"],"nodes":400000}]],""" +
+                        """"engine_meta":{"engine_rev":"r","eval_sha256":"s","nodes":400000,"threads":1,""" +
+                        """"multi_pv":2,"usi_hash":128,"fv_scale":20}}""",
+                ),
+                status = HttpStatusCode.OK,
+                headers = ndjsonHeaders,
+            )
+        }
+
+        val pvList = runner(HttpClient(engine)).analyzePosition(sfen, moves = listOf("2g2f"))
+
+        val sentBody = Json.parseToJsonElement(capturedBody!!).jsonObject
+        assertEquals(sfen, sentBody["sfen"]?.jsonPrimitive?.content)
+        assertEquals(listOf("2g2f"), sentBody["moves"]?.jsonArray?.map { it.jsonPrimitive.content })
+        assertEquals(null, sentBody["moves_usi"])
+        assertEquals(1, pvList.size)
+        assertEquals(42, (pvList[0].score as Score.Cp).value)
+    }
+
+    @Test
+    fun `analyzePosition retries on a disconnected stream just like analyzeGame`() = runTest {
+        var attempt = 0
+        val engine = MockEngine { _ ->
+            attempt++
+            if (attempt == 1) {
+                respond(content = ByteReadChannel(""), status = HttpStatusCode.OK, headers = ndjsonHeaders)
+            } else {
+                respond(
+                    content = ByteReadChannel(
+                        """{"result":[[{"multipv":1,"score":{"type":"cp","value":5},"pv":[],"nodes":400000}]],""" +
+                            """"engine_meta":{"engine_rev":"r","eval_sha256":"s","nodes":400000,"threads":1,""" +
+                            """"multi_pv":2,"usi_hash":128,"fv_scale":20}}""",
+                    ),
+                    status = HttpStatusCode.OK,
+                    headers = ndjsonHeaders,
+                )
+            }
+        }
+
+        val pvList = runner(HttpClient(engine)).analyzePosition("startpos")
+
+        assertEquals(2, attempt)
+        assertEquals(5, (pvList[0].score as Score.Cp).value)
     }
 
     @Test

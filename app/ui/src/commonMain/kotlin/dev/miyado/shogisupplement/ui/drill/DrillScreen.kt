@@ -189,6 +189,10 @@ fun DrillResultContent(
                     listOf(result.userMoveUsi) + pv
                 }
             }
+            // 一次判定（pv1/pv2境界の下界のみで確定した判定）は継続読み筋を取得していないため
+            // 指し手そのものだけを表示する（ENGINE_EVAL の result.pv が無いケースと同じ扱い）。
+            DrillJudge.Reason.PRIMARY_MATCH_SECOND, DrillJudge.Reason.PRIMARY_OUT_OF_TOP2 ->
+                listOf(result.userMoveUsi)
         }
     }
     val bestMoves = remember(blunder) {

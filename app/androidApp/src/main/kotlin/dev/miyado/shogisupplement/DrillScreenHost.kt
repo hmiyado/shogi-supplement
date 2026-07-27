@@ -36,6 +36,7 @@ import android.content.Context
 import dev.miyado.shogisupplement.db.AppDatabase
 import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.drill.DrillJudge
+import dev.miyado.shogisupplement.drill.EngineDrillSecondaryJudge
 import dev.miyado.shogisupplement.engine.Engine
 import dev.miyado.shogisupplement.engine.UsiEngineProcess
 import dev.miyado.shogisupplement.text.AppStrings
@@ -64,11 +65,12 @@ import java.io.File
 // 呼び出し側 MainActivity.kt が DrillScreen(...) を呼ぶため関数名は変えない）。
 
 /**
- * Android用 judgeWithEngine 実装。UsiEngineProcess を1回の判定ごとに起動し、
- * analyzeSfen×2（DrillJudge.judgeByEngine内）を行った後 finally で quit する。
- * 起動失敗時は不正解扱いとする。
+ * Android用 judgeWithEngine 実装（二次判定＝一次判定が曖昧領域のときのみ呼ばれる）。
+ * UsiEngineProcess を1回の判定ごとに起動し、analyzeSfen×2（EngineDrillSecondaryJudge内、
+ * 旧DrillJudge.judgeByEngine相当）を行った後 finally で quit する。起動失敗時は不正解扱いとする。
+ * Androidは常に端末エンジン版のみ（サーバー版はiOS限定。クラスKDoc・実装計画参照）。
  */
-private fun androidJudgeWithEngine(context: Context): (BlunderRecord, String) -> DrillJudge.DrillResult =
+private fun androidJudgeWithEngine(context: Context): suspend (BlunderRecord, String) -> DrillJudge.DrillResult =
     { blunder, userMoveUsi ->
         try {
             val appContext = context.applicationContext
@@ -76,9 +78,7 @@ private fun androidJudgeWithEngine(context: Context): (BlunderRecord, String) ->
             val evalDir = File(appContext.filesDir, "eval")
             val engine = UsiEngineProcess.create(appInfo, evalDir)
             try {
-                DrillJudge.judge(blunder, userMoveUsi) { sfen ->
-                    engine.analyzeSfen(sfen)
-                }
+                EngineDrillSecondaryJudge { sfen -> engine.analyzeSfen(sfen) }.judge(blunder, userMoveUsi)
             } finally {
                 engine.quit()
             }

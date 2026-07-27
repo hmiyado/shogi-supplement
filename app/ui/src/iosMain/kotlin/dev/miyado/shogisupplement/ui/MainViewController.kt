@@ -41,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ComposeUIViewController
 import com.mikepenz.aboutlibraries.Libs
+import dev.miyado.shogisupplement.auth.AuthRepository
 import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.db.DatabaseFactory
 import dev.miyado.shogisupplement.db.GameRecord
@@ -126,7 +127,7 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
                     .fillMaxSize()
                     .windowInsetsPadding(WindowInsets.safeDrawing),
             ) {
-                DemoApp(gameRepository, settingsRepository, supabaseServices, controller)
+                DemoApp(gameRepository, settingsRepository, supabaseServices, controller, analysisBaseUrl)
             }
         }
     }
@@ -151,6 +152,8 @@ private fun DemoApp(
     settingsRepository: SettingsRepository,
     supabaseServices: SupabaseServices?,
     controller: IosMainController,
+    /** ドリルの二次判定をサーバー版にするかどうかの判定に使う（IosDrillScreen参照）。 */
+    analysisBaseUrl: String? = null,
 ) {
     var route by remember { mutableStateOf<DemoRoute>(DemoRoute.Home) }
     // 「棋譜を追加する」タップで最初に出す、ファイル/クリップボードの選択ダイアログ。
@@ -283,10 +286,14 @@ private fun DemoApp(
             )
         }
         DemoRoute.Drill -> {
-            IosDrillScreen(onBack = {
-                route = DemoRoute.Home
-                controller.reloadHome()
-            })
+            IosDrillScreen(
+                authRepository = supabaseServices?.authRepository,
+                analysisBaseUrl = analysisBaseUrl,
+                onBack = {
+                    route = DemoRoute.Home
+                    controller.reloadHome()
+                },
+            )
         }
         DemoRoute.Settings -> {
             IosSettingsScreenHost(
@@ -605,8 +612,14 @@ private fun IosReportScreenHost(
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun IosDrillScreen(onBack: () -> Unit) {
-    val vm = remember { DrillDemoFactory.create() }
+private fun IosDrillScreen(
+    onBack: () -> Unit,
+    authRepository: AuthRepository? = null,
+    analysisBaseUrl: String? = null,
+) {
+    val vm = remember(authRepository, analysisBaseUrl) {
+        DrillDemoFactory.create(authRepository = authRepository, analysisBaseUrl = analysisBaseUrl)
+    }
     val state by vm.state.collectAsState()
     val evalDisplay by vm.evalDisplay.collectAsState()
     val pvExtState by vm.pvExtState.collectAsState()

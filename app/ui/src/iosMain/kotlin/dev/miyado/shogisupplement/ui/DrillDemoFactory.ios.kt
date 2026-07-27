@@ -1,17 +1,25 @@
 package dev.miyado.shogisupplement.ui
 
+import dev.miyado.shogisupplement.auth.AuthRepository
 import dev.miyado.shogisupplement.board.ShogiBoard
 import dev.miyado.shogisupplement.classify.ClassificationResult
+import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.db.DatabaseFactory
 import dev.miyado.shogisupplement.db.DrillRepository
 import dev.miyado.shogisupplement.db.GameRepository
 import dev.miyado.shogisupplement.drill.DrillJudge
+import dev.miyado.shogisupplement.drill.EngineDrillSecondaryJudge
+import dev.miyado.shogisupplement.drill.RemoteDrillSecondaryJudge
 import dev.miyado.shogisupplement.engine.IosEngineHost
+import dev.miyado.shogisupplement.engine.RemoteAnalysisRunner
 import dev.miyado.shogisupplement.judge.Judgement
 import dev.miyado.shogisupplement.judge.VerdictKind
 import dev.miyado.shogisupplement.pipeline.BlunderReport
 import dev.miyado.shogisupplement.ui.drill.DrillViewModel
 import dev.miyado.shogisupplement.util.Logger
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.darwin.Darwin
+import io.ktor.client.plugins.HttpTimeout
 
 /**
  * 実データ駆動の KMP版 DrillViewModel を生成するブートストラップ（factory）。
@@ -25,12 +33,24 @@ object DrillDemoFactory {
 
     private const val SEED_CONTENT_HASH = "ios-demo-drill-seed-v1"
 
+    // ドリルの二次判定（単発局面）向けタイムアウト。IosMainController の解析用HttpClientは
+    // 1局まるごとの解析（数十秒〜）を想定した値（10分/5分）だが、ここは1局面だけなので
+    // 短い値で十分（かつ短いほうがUXとしても待たせすぎない）。
+    private const val POSITION_REQUEST_TIMEOUT_MS = 30_000L
+    private const val POSITION_SOCKET_TIMEOUT_MS = 30_000L
+
     /**
      * DrillViewModel を生成する。DBが空なら先にフィクスチャをseedする。
-     * エンジンは [IosEngineHost] 経由でプロセス内に1つだけ起動し、以降のドリル判定で使い回す
-     * （UsiEngineInProcess はプロセス内で一度しか起動できないため。クラスKDoc参照）。
+     *
+     * @param authRepository   null（既定）= Supabase未設定ビルド。二次判定は常に端末エンジン版。
+     * @param analysisBaseUrl  null（既定）= サーバー解析未設定。[authRepository] と両方が
+     *   非null のときだけサーバー版の二次判定（[RemoteDrillSecondaryJudge]）を使う
+     *   （IosMainController.confirmSideAndAnalyze と同じ graceful degradation の方針）。
      */
-    fun create(): DrillViewModel {
+    fun create(
+        authRepository: AuthRepository? = null,
+        analysisBaseUrl: String? = null,
+    ): DrillViewModel {
         val gameRepository = DatabaseFactory.gameRepository()
         val drillRepository = DatabaseFactory.drillRepository()
         val settingsRepository = DatabaseFactory.settingsRepository()
@@ -44,11 +64,45 @@ object DrillDemoFactory {
             gameRepository = gameRepository,
             drillRepository = drillRepository,
             settingsRepository = settingsRepository,
-            judgeWithEngine = { blunder, userMoveUsi ->
-                val engine = IosEngineHost.getOrCreate()
-                if (engine != null) {
-                    DrillJudge.judge(blunder, userMoveUsi) { sfen -> engine.analyzeSfen(sfen) }
-                } else {
+            judgeWithEngine = buildSecondaryJudge(authRepository, analysisBaseUrl),
+            // 読み筋のオンデマンド延長（結果画面の「最善」タブ）も IosEngineHost の常駐エンジンを
+            // 使う。studyEngineFactory は quit() を no-op にする委譲ラッパーを返すため、
+            // PvExtensionRunner が延長解析後に無条件で呼ぶ quit() が常駐エンジンを壊さない
+            // （ReportViewModel/StudyController と同じ理由。IosEngineHost のKDoc参照）。
+            engineFactory = IosEngineHost.studyEngineFactory(),
+        )
+    }
+
+    /** 二次判定（曖昧領域のみ呼ばれる）を、サーバー設定の有無で端末エンジン版/サーバー版に出し分ける。 */
+    private fun buildSecondaryJudge(
+        authRepository: AuthRepository?,
+        analysisBaseUrl: String?,
+    ): suspend (BlunderRecord, String) -> DrillJudge.DrillResult {
+        if (authRepository != null && analysisBaseUrl != null) {
+            val httpClient = HttpClient(Darwin) {
+                install(HttpTimeout) {
+                    requestTimeoutMillis = POSITION_REQUEST_TIMEOUT_MS
+                    socketTimeoutMillis = POSITION_SOCKET_TIMEOUT_MS
+                }
+            }
+            val runner = RemoteAnalysisRunner(
+                baseUrl = analysisBaseUrl,
+                accessTokenProvider = {
+                    checkNotNull(authRepository.accessToken()) { "アクセストークンが取得できない" }
+                },
+                httpClient = httpClient,
+            )
+            val remoteJudge = RemoteDrillSecondaryJudge { sfen -> runner.analyzePosition(sfen) }
+            return { blunder, userMoveUsi ->
+                try {
+                    // IosMainController.confirmSideAndAnalyze と同じ理由: サーバー解析はJWT必須
+                    // なので、匿名サインインすらしていない初回でも通るよう先に保証する。
+                    if (authRepository.currentUser.value == null) {
+                        authRepository.signInAnonymously()
+                    }
+                    remoteJudge.judge(blunder, userMoveUsi)
+                } catch (e: Exception) {
+                    // ネットワーク断・401等: 不正解として返す（Androidのエンジン起動失敗時と同じ方針）
                     DrillJudge.DrillResult(
                         isCorrect = false,
                         lossWp = Double.NaN,
@@ -57,13 +111,23 @@ object DrillDemoFactory {
                         reason = DrillJudge.Reason.ENGINE_EVAL,
                     )
                 }
-            },
-            // 読み筋のオンデマンド延長（結果画面の「最善」タブ）も IosEngineHost の常駐エンジンを
-            // 使う。studyEngineFactory は quit() を no-op にする委譲ラッパーを返すため、
-            // PvExtensionRunner が延長解析後に無条件で呼ぶ quit() が常駐エンジンを壊さない
-            // （ReportViewModel/StudyController と同じ理由。IosEngineHost のKDoc参照）。
-            engineFactory = IosEngineHost.studyEngineFactory(),
-        )
+            }
+        }
+
+        return { blunder, userMoveUsi ->
+            val engine = IosEngineHost.getOrCreate()
+            if (engine != null) {
+                EngineDrillSecondaryJudge { sfen -> engine.analyzeSfen(sfen) }.judge(blunder, userMoveUsi)
+            } else {
+                DrillJudge.DrillResult(
+                    isCorrect = false,
+                    lossWp = Double.NaN,
+                    userMoveUsi = userMoveUsi,
+                    bestMoveUsi = blunder.bestUsi,
+                    reason = DrillJudge.Reason.ENGINE_EVAL,
+                )
+            }
+        }
     }
 
     private fun seedIfEmpty(gameRepository: GameRepository, drillRepository: DrillRepository) {

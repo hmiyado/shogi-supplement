@@ -30,8 +30,10 @@ import kotlinx.coroutines.withContext
 // ViewModel は Application/File/UsiEngineProcess への直接依存を持たず、必要最小限の
 // 注入インターフェース（GameRepository/DrillRepository/SettingsRepository と
 // judgeWithEngine 関数）だけに依存する:
-//   - judgeWithEngine: ENGINE_EVAL 判定が必要な場合のみ呼ばれる。エンジンの起動/破棄
-//     ライフサイクル（Android版=UsiEngineProcess.create/quit を1回の判定ごとに行う、
+//   - judgeWithEngine: 一次判定（DrillJudge.judgePrimary）が Ambiguous/Unavailable を
+//     返した場合のみ呼ばれる二次判定（DrillSecondaryJudge.judge 相当）。suspend にしているのは
+//     iOSのサーバー版（RemoteDrillSecondaryJudge）がネットワークI/Oを行うため。エンジンの
+//     起動/破棄ライフサイクル（Android版=UsiEngineProcess.create/quit を1回の判定ごとに行う、
 //     iOS版=起動済みの UsiEngineInProcess を使い回す）は完全にホスト側の責務とし、
 //     ViewModel はその結果（DrillJudge.DrillResult）だけを受け取る。
 //   - evalDir・ApplicationInfo・nativeLibraryDir 等 Android専用の解決はすべて
@@ -49,8 +51,9 @@ import kotlinx.coroutines.withContext
  * @param gameRepository 棋譜・悪手レポート操作用リポジトリ（出題局面の対局側判定・読み筋延長）
  * @param drillRepository ドリル出題候補・解答履歴の操作用リポジトリ
  * @param settingsRepository 形勢の表示単位（cp/wp）取得用リポジトリ
- * @param judgeWithEngine エンジン評価が必要な場合のみ呼ばれる判定関数。null ならエンジン不要な
- *   即判定2パターン（最善手一致/実戦悪手一致）のみで、それ以外は不正解扱いになる。
+ * @param judgeWithEngine 一次判定（best_usi一致/実戦悪手一致/pv2境界）だけでは確定できない
+ *   曖昧領域でのみ呼ばれる二次判定関数（[dev.miyado.shogisupplement.drill.DrillSecondaryJudge]
+ *   相当）。null なら一次判定のみで、それ以外は不正解扱いになる。
  * @param engineFactory 読み筋のオンデマンド延長（結果画面の「最善」タブ）が必要な場合のみ
  *   呼ばれるエンジン生成関数。null なら延長は常にエラー扱い（ボタン自体は出せるがタップ後に
  *   即エラー状態になる）。ReportViewModel と同じ PvExtensionRunner を使う（エンジンの
@@ -61,7 +64,7 @@ class DrillViewModel(
     private val gameRepository: GameRepository,
     private val drillRepository: DrillRepository,
     private val settingsRepository: SettingsRepository,
-    private val judgeWithEngine: ((blunder: BlunderRecord, userMoveUsi: String) -> DrillJudge.DrillResult)? = null,
+    private val judgeWithEngine: (suspend (blunder: BlunderRecord, userMoveUsi: String) -> DrillJudge.DrillResult)? = null,
     private val engineFactory: (() -> Engine)? = null,
     private val ioDispatcher: CoroutineDispatcher = defaultIoDispatcher,
 ) : ViewModel() {
@@ -320,12 +323,14 @@ class DrillViewModel(
         }
     }
 
-    private fun judgeMove(blunder: BlunderRecord, userMoveUsi: String): DrillJudge.DrillResult {
-        // 即判定（エンジン不要な2パターン）
+    private suspend fun judgeMove(blunder: BlunderRecord, userMoveUsi: String): DrillJudge.DrillResult {
+        // エンジン不要な判定（best_usi一致/実戦悪手一致/一次判定=pv2境界）をまず試す。
+        // reason が ENGINE_EVAL のときだけ、一次判定が Ambiguous/Unavailable だったことを意味する
+        // （DrillJudge.judge 参照）。
         val instant = DrillJudge.judge(blunder, userMoveUsi, engineAnalyze = null)
         if (instant.reason != DrillJudge.Reason.ENGINE_EVAL) return instant
 
-        // エンジン評価が必要な場合: ホストが注入した judgeWithEngine に委譲する
+        // 曖昧領域: ホストが注入した二次判定（judgeWithEngine）に委譲する
         // （エンジンの起動/破棄ライフサイクルはホスト側の責務。クラスKDoc参照）。
         return judgeWithEngine?.invoke(blunder, userMoveUsi) ?: DrillJudge.DrillResult(
             // エンジン起動失敗・未注入: 不正解として返す
@@ -343,7 +348,7 @@ class DrillViewModel(
             gameRepository: GameRepository,
             drillRepository: DrillRepository,
             settingsRepository: SettingsRepository,
-            judgeWithEngine: ((blunder: BlunderRecord, userMoveUsi: String) -> DrillJudge.DrillResult)? = null,
+            judgeWithEngine: (suspend (blunder: BlunderRecord, userMoveUsi: String) -> DrillJudge.DrillResult)? = null,
             engineFactory: (() -> Engine)? = null,
             ioDispatcher: CoroutineDispatcher = defaultIoDispatcher,
         ): ViewModelProvider.Factory = viewModelFactory {

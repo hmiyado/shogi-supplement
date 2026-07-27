@@ -55,6 +55,24 @@ class RemoteAnalysisRunner(
     override suspend fun analyzeGame(
         moves: List<String>,
         onProgress: ((done: Int, total: Int) -> Unit)?,
+    ): List<List<PvInfo>> = executeWithRetry(AnalysisRequest(movesUsi = moves), onProgress)
+
+    /**
+     * ドリルの二次判定（曖昧領域）向けの単発局面解析。サーバー側は sfen+moves モード
+     * （EngineInput.Position）で処理し、1局面ぶんのMultiPV結果だけを返す。
+     * リトライ・冪等（moves_hash）の仕組みは [analyzeGame] と共通（[executeWithRetry] 参照）。
+     *
+     * @param sfen  出発局面のSFEN
+     * @param moves sfen 後にさらに進める USI 手列（省略可）
+     */
+    suspend fun analyzePosition(sfen: String, moves: List<String> = emptyList()): List<PvInfo> {
+        val perPosition = executeWithRetry(AnalysisRequest(sfen = sfen, moves = moves), onProgress = null)
+        return perPosition.firstOrNull() ?: emptyList()
+    }
+
+    private suspend fun executeWithRetry(
+        request: AnalysisRequest,
+        onProgress: ((done: Int, total: Int) -> Unit)?,
     ): List<List<PvInfo>> {
         var lastDisconnect: Exception? = null
         val totalAttempts = maxRetries + 1
@@ -63,7 +81,7 @@ class RemoteAnalysisRunner(
                 delay(retryBackoffMs * attempt)
             }
             try {
-                return requestOnce(moves, onProgress)
+                return requestOnce(request, onProgress)
             } catch (e: RemoteAnalysisException) {
                 // 認可・クォータ・不正リクエスト・エンジン失敗はリトライしても直らないため即座に伝播する。
                 throw e
@@ -79,7 +97,7 @@ class RemoteAnalysisRunner(
     }
 
     private suspend fun requestOnce(
-        moves: List<String>,
+        request: AnalysisRequest,
         onProgress: ((done: Int, total: Int) -> Unit)?,
     ): List<List<PvInfo>> {
         val token = accessTokenProvider()
@@ -88,7 +106,7 @@ class RemoteAnalysisRunner(
         return httpClient.preparePost("$baseUrl/v1/analyses") {
             header("Authorization", "Bearer $token")
             contentType(ContentType.Application.Json)
-            setBody(json.encodeToString(AnalysisRequest.serializer(), AnalysisRequest(movesUsi = moves)))
+            setBody(json.encodeToString(AnalysisRequest.serializer(), request))
         }.execute { response ->
             when (response.status) {
                 HttpStatusCode.Unauthorized ->
