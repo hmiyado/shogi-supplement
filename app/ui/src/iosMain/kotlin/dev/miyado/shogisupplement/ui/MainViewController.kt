@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.ComposeUIViewController
 import com.mikepenz.aboutlibraries.Libs
 import dev.miyado.shogisupplement.auth.AuthRepository
+import dev.miyado.shogisupplement.crypto.IosTransferSecretStore
 import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.db.DatabaseFactory
 import dev.miyado.shogisupplement.db.GameRecord
@@ -103,7 +104,13 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
     // （未設定ビルドでは設定画面の行ごと非表示 = graceful degradation）。
     val supabaseServices = remember {
         IosSupabaseConfig.load()?.let { config ->
-            SupabaseServices(config.url, config.key, gameRepository, settingsRepository)
+            SupabaseServices(
+                config.url,
+                config.key,
+                gameRepository,
+                settingsRepository,
+                IosTransferSecretStore(),
+            )
         }
     }
     // サーバー解析のベースURL。Supabase設定とは独立に判定する（IosSupabaseConfig参照）。

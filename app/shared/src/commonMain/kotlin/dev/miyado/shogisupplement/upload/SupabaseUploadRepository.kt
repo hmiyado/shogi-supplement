@@ -1,35 +1,79 @@
 package dev.miyado.shogisupplement.upload
 
+import dev.miyado.shogisupplement.crypto.PrivateEncCodec
+import dev.miyado.shogisupplement.crypto.TransferSecretKeys
+import dev.miyado.shogisupplement.crypto.TransferSecretManager
+import dev.miyado.shogisupplement.crypto.TransferSecretStore
 import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.db.GameRecord
+import dev.miyado.shogisupplement.kifu.KifParser
+import dev.miyado.shogisupplement.kifu.KifuDecomposer
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.from
+import kotlin.io.encoding.Base64
+import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * Supabase postgrest-kt を使った UploadRepository 実装。
- * uploaded_games テーブルに insert する。
+ * Supabase postgrest-kt を使った UploadRepository 実装（uploaded_games v2）。
+ *
+ * KIF原文はそのまま送らない:
+ * - [KifuDecomposer] で平文列（moves_usi/move_times/headers/result/source_place）と
+ *   秘匿フィールド（private_enc）に分解してから送る
+ * - private_enc は [TransferSecretStore] から読める端末シークレットSにHKDFをかけて
+ *   導出したK_encでAES-256-GCM暗号化する。AADにはcontent_hashを使い、暗号文と行の
+ *   紐付けを検証可能にする（行差し替え検出）
+ *
  * unique(user_id, content_hash) 違反（重複）は Duplicate として吸収する。
  *
  * @param supabase Auth + Postgrest プラグインを持つ共有 Supabase クライアント
+ * @param transferSecretStore K_enc導出元の端末シークレットS永続化（未生成なら遅延生成される。
+ *   [TransferSecretManager.getOrCreateSecret] 参照）
  */
 class SupabaseUploadRepository(
     private val supabase: SupabaseClient,
+    private val transferSecretStore: TransferSecretStore,
 ) : UploadRepository {
 
+    private val parser = KifParser()
+
+    @OptIn(ExperimentalEncodingApi::class)
     override suspend fun uploadGame(
         userId: String,
         game: GameRecord,
         reports: List<BlunderRecord>,
     ): UploadResult {
+        val kifText = game.kifText
+            ?: return UploadResult.Failure("KIF原文が無いため v2 形式でアップロードできません（旧解析）")
         return try {
+            val parsed = parser.parse(kifText)
+            val decomposed = KifuDecomposer.decompose(kifText, parsed)
+
+            val secret = TransferSecretManager.getOrCreateSecret(transferSecretStore)
+            val kEnc = TransferSecretKeys.deriveEncKey(secret)
+            val aad = game.contentHash.encodeToByteArray()
+            val privateEncBytes = PrivateEncCodec.encrypt(kEnc, decomposed.private, aad)
+
             val payload = UploadedGamePayload(
                 userId = userId,
                 contentHash = game.contentHash,
-                movesUsi = game.movesUsi,
-                kifText = game.kifText,
-                rating = game.rating.toInt(),
+                movesUsi = decomposed.public.movesUsi,
+                moveTimes = decomposed.public.moveTimesSeconds,
+                headers = decomposed.public.headers,
+                result = decomposed.public.result,
+                sourcePlace = decomposed.public.source.wireValue,
+                side = game.userSide,
+                privateEnc = Base64.encode(privateEncBytes),
+                ratingService = game.ratingService,
+                ratingRaw = game.ratingRaw?.toInt(),
+                ratingRule = game.ratingRule,
+                userRank = UploadDerivedColumns.rankFor(decomposed.public.headers, game.userSide, own = true),
+                opponentRank = UploadDerivedColumns.rankFor(decomposed.public.headers, game.userSide, own = false),
+                startedAt = UploadDerivedColumns.parseStartedAtJst(decomposed.public.headers["開始日時"]),
+                timeControl = decomposed.public.headers["持ち時間"],
+                byoyomi = decomposed.public.headers["秒読み"],
+                estimatedRating = game.rating.toInt(),
                 ratingSampleMoves = game.ratingSampleMoves?.toInt(),
                 moveCount = game.moveCount,
                 coefVersion = game.coefVersion,
@@ -57,8 +101,21 @@ class SupabaseUploadRepository(
         @SerialName("user_id") val userId: String,
         @SerialName("content_hash") val contentHash: String,
         @SerialName("moves_usi") val movesUsi: List<String>,
-        @SerialName("kif_text") val kifText: String?,
-        val rating: Int?,
+        @SerialName("move_times") val moveTimes: List<Int?>,
+        val headers: Map<String, String>,
+        val result: String?,
+        @SerialName("source_place") val sourcePlace: String,
+        val side: String?,
+        @SerialName("private_enc") val privateEnc: String,
+        @SerialName("rating_service") val ratingService: String?,
+        @SerialName("rating_raw") val ratingRaw: Int?,
+        @SerialName("rating_rule") val ratingRule: String?,
+        @SerialName("user_rank") val userRank: String?,
+        @SerialName("opponent_rank") val opponentRank: String?,
+        @SerialName("started_at") val startedAt: String?,
+        @SerialName("time_control") val timeControl: String?,
+        val byoyomi: String?,
+        @SerialName("estimated_rating") val estimatedRating: Int?,
         @SerialName("rating_sample_moves") val ratingSampleMoves: Int?,
         @SerialName("move_count") val moveCount: Long,
         @SerialName("coef_version") val coefVersion: String,
@@ -91,4 +148,31 @@ class SupabaseUploadRepository(
         problemType = problemType,
         priority = priority,
     )
+}
+
+/**
+ * uploaded_gamesの検索用列をアップロード時に導出する。headersが正本で、
+ * これらの列はDB検索のための複製。
+ */
+internal object UploadDerivedColumns {
+
+    /** side基準で先手段級/後手段級をユーザー側/相手側に割り付ける。side未申告ならnull。 */
+    fun rankFor(headers: Map<String, String>, userSide: String?, own: Boolean): String? = when (userSide) {
+        "sente" -> headers[if (own) "先手段級" else "後手段級"]
+        "gote" -> headers[if (own) "後手段級" else "先手段級"]
+        else -> null
+    }
+
+    /**
+     * 分丸め済みの開始日時（例: "2026/06/25 11:34"・曜日入りもあり得る）をISO-8601へ。
+     * KIFにタイムゾーン情報は無いため、対象サービスが国内向けであることからJSTとして解釈する。
+     * 解釈できない形式はnull（headersに原文が残るため情報は失われない）。
+     */
+    fun parseStartedAtJst(value: String?): String? {
+        if (value == null) return null
+        val m = Regex("""(\d{4})/(\d{1,2})/(\d{1,2}).*?(\d{1,2}):(\d{2})${'$'}""").find(value) ?: return null
+        val (y, mo, d, h, mi) = m.destructured
+        fun pad(v: String) = v.padStart(2, '0')
+        return "$y-${pad(mo)}-${pad(d)}T${pad(h)}:$mi:00+09:00"
+    }
 }

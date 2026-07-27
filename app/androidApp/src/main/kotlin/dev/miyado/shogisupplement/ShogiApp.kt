@@ -6,6 +6,8 @@ import android.app.NotificationManager
 import android.os.Build
 import dev.miyado.shogisupplement.auth.AuthRepository
 import dev.miyado.shogisupplement.auth.SupabaseAuthRepository
+import dev.miyado.shogisupplement.crypto.AndroidTransferSecretStore
+import dev.miyado.shogisupplement.crypto.TransferSecretStore
 import dev.miyado.shogisupplement.db.AppDatabase
 import dev.miyado.shogisupplement.upload.SupabaseUploadRepository
 import dev.miyado.shogisupplement.upload.UploadOrchestrator
@@ -34,9 +36,17 @@ class ShogiApp : Application() {
         SupabaseAuthRepository(supabaseClient)
     }
 
+    /**
+     * private_enc暗号化用のK_enc導出元（端末シークレットSの永続化。Android=Keystoreで
+     * 包んだSharedPreferences。crypto/TransferSecretStore.android.kt参照）。
+     */
+    private val transferSecretStore: TransferSecretStore by lazy {
+        AndroidTransferSecretStore(this)
+    }
+
     /** アップロードリポジトリのシングルトン。 */
     val uploadRepository: UploadRepository by lazy {
-        SupabaseUploadRepository(supabaseClient)
+        SupabaseUploadRepository(supabaseClient, transferSecretStore)
     }
 
     /** アップロードオーケストレーターのシングルトン。 */
