@@ -10,6 +10,10 @@ struct iosAppApp: App {
     // （lazy static のため、参照するまでは init が走らない）。
     init() {
         Self.startSentry()
+        // App Check（匿名アカウント量産への防御）。プロバイダファクトリの設定は
+        // FirebaseApp.configure()より前に行う必要があるため、他の初期化より先に呼ぶ
+        // （IosFirebaseAppCheck.swift参照。plist未同梱ビルドではno-op）。
+        IosFirebaseAppCheck.configureIfAvailable()
         _ = KifFilePickerCoordinator.shared
         Self.seedPasteboardForUITestIfNeeded()
     }
