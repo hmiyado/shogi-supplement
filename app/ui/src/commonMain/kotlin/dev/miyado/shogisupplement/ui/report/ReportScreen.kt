@@ -120,6 +120,13 @@ fun ReportScreen(
     onBack: () -> Unit,
     /** 読み筋延長の状態 Map（blunderId → PvExtState）。 */
     pvExtState: Map<Long, PvExtState> = emptyMap(),
+    /**
+     * 読み筋延長UI導線（「▶+」表示・タップでの延長トリガー）を出すか。
+     * false でも機能自体（onExtendBestPv・PvExtState）は変わらず、ライン末尾では通常の
+     * 「1手進む」矢印（無効状態）になるだけ。iOSでは導線自体を非表示にする決定のため
+     * false を渡す（MainViewController.kt参照）。Androidは既定値trueのまま変更なし。
+     */
+    pvExtensionEnabled: Boolean = true,
     /** 読み筋延長コールバック（blunderId, sfenAtLineEnd, currentPvStr）。 */
     onExtendBestPv: (blunderId: Long, sfenAtLineEnd: String, currentPvStr: String?) -> Unit = { _, _, _ -> },
     /** 検討モード状態（null = 検討していない）。VRTでは表示状態を直接注入できる。 */
@@ -677,7 +684,8 @@ fun ReportScreen(
                 // Loading中も「▶+」のまま無効化。エラー時はナビラベルに「（—）」を出し、
                 // 「▶+」は有効なまま（再試行可）。
                 val extState = selectedBlunder?.let { pvExtState[it.id] }
-                val showExtendIndicator = viewerMode == ViewerMode.BEST_PV &&
+                val showExtendIndicator = pvExtensionEnabled &&
+                    viewerMode == ViewerMode.BEST_PV &&
                     clampedPly >= maxPly && selectedBlunder != null
                 val pvLoading = extState is PvExtState.Loading
                 val canTriggerExtend = showExtendIndicator && !pvLoading

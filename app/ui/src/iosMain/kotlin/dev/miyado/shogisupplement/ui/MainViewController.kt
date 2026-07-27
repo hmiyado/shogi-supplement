@@ -573,6 +573,8 @@ private fun IosReportScreenHost(
         positionEvals = positionEvals,
         onBack = onBack,
         pvExtState = pvExtState,
+        // iOSは読み筋延長のUI導線を非表示にする（決定済み・機能自体は消さない。Androidは不変）。
+        pvExtensionEnabled = false,
         onExtendBestPv = { blunderId, sfenAtEnd, currentPv ->
             controller.extendBestPv(blunderId, sfenAtEnd, currentPv) { id, newPv ->
                 reports = reports.map { r -> if (r.id == id) r.copy(bestPv = newPv) else r }
