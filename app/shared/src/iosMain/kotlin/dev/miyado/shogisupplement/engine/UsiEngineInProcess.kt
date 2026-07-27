@@ -119,11 +119,18 @@ class UsiEngineInProcess private constructor() : Engine {
     }
 
     /**
-     * "usinewgame" を送信する。iOS はプロセス内で一度しか起動できず
-     * 局ごとに [quit] できないため、局の区切りはこのメソッドで表現する
+     * 局の区切りを表現する。iOS はプロセス内で一度しか起動できず局ごとに [quit] できないため、
+     * 常駐する同一インスタンスに対してこのメソッドで区切りをつける
      * （[dev.miyado.shogisupplement.engine.IosEngineHost] の局ごとのエンジンファクトリから呼ばれる）。
+     *
+     * "usinewgame" だけでは置換表・履歴が残り、直前に解析した局面が次の探索に効いてしまう
+     * （固定ノード数では「どこまで読めたか」が変わるので結果が変わる）。やねうら王が
+     * 探索状態を実際にクリアするのは isready なので、その順で送る（Android/サーバー版
+     * [UsiEngineSubprocess.newGame] と同一ロジック）。
      */
     override fun newGame() {
+        send("isready")
+        waitFor("readyok")
         send("usinewgame")
     }
 

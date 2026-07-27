@@ -11,6 +11,7 @@ import dev.miyado.shogisupplement.engine.AnalysisOrchestrator
 import dev.miyado.shogisupplement.engine.AnalysisRunner
 import dev.miyado.shogisupplement.engine.IosCoefficients
 import dev.miyado.shogisupplement.engine.IosEngineHost
+import dev.miyado.shogisupplement.engine.IsolatedEngine
 import dev.miyado.shogisupplement.kifu.ClipboardKifValidator
 import dev.miyado.shogisupplement.kifu.KifParser
 import dev.miyado.shogisupplement.kifu.UserSideSuggester
@@ -367,7 +368,9 @@ class IosMainController(
                     // iOS はプロセス内で1エンジンのみ（in-process制約）のため workers=1。
                     workers = 1,
                     crashReporter = NoopCrashReporter,
-                    engineFactory = IosEngineHost.newGameEngineFactory(),
+                    // 1局の中で複数局面を続けて解析しても局面ごとに置換表がクリアされるよう
+                    // IsolatedEngine で包む（解析結果が解析順に依存しないようにするため）。
+                    engineFactory = { IsolatedEngine(IosEngineHost.newGameEngineFactory()()) },
                     disposeEngine = IosEngineHost.keepAliveDispose,
                 ),
             )

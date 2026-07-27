@@ -15,6 +15,9 @@ import java.io.File
  * nativeLibraryDir の [UsiEngineProcess] を毎局新規プロセスとして起動し、局の解析が
  * 終わったら [UsiEngineProcess.quit] でプロセスを終了する（disposeEngine 既定値のまま）。
  *
+ * [IsolatedEngine] で包み、1局の中で複数局面を続けて解析しても局面ごとに置換表が
+ * クリアされるようにする（解析結果が解析順・並列度に依存しないようにするため）。
+ *
  * @param appInfo ApplicationInfo（nativeLibraryDir 取得用）
  * @param evalDir EvalDir（filesDir/eval）
  */
@@ -26,5 +29,5 @@ fun createAndroidAnalysisRunner(
 ): AnalysisRunner = AnalysisRunner(
     workers = workers,
     crashReporter = crashReporter,
-    engineFactory = { UsiEngineProcess.create(appInfo, evalDir) },
+    engineFactory = { IsolatedEngine(UsiEngineProcess.create(appInfo, evalDir)) },
 )
