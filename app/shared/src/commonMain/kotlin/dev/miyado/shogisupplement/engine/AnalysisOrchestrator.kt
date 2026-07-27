@@ -49,8 +49,18 @@ class AnalysisOrchestrator(
          */
         data class Completed(val gameId: Long, val alreadyExisted: Boolean) : Outcome()
 
-        /** 解析失敗。 */
-        data class Failed(val message: String) : Outcome()
+        /**
+         * 解析失敗。
+         * @param message 表示用メッセージ（日本語）。[RemoteAnalysisException] 由来は
+         *   [RemoteAnalysisErrorMapper] でローカライズ済み、それ以外は例外の生メッセージ。
+         * @param reason 失敗理由の型。既定値 [AnalysisFailureReason.Unknown] のため、reason を
+         *   参照しない既存呼び出し側（Android の AnalysisService・デバッグレシーバ）は
+         *   message だけを見続けても壊れない。
+         */
+        data class Failed(
+            val message: String,
+            val reason: AnalysisFailureReason = AnalysisFailureReason.Unknown,
+        ) : Outcome()
     }
 
     /**
@@ -153,10 +163,19 @@ class AnalysisOrchestrator(
 
             Outcome.Completed(gameId, alreadyExisted = false)
         } catch (e: Exception) {
-            if (!e.isAlreadyReported()) {
+            // RemoteAnalysisException はサーバーが理由を明示して返した想定内の失敗
+            // （401/403/429/400=クライアント起因、EngineFailure=サーバー側で記録済み、
+            // ConnectionLost=ネットワーク事情）のため、二重報告を避けてcaptureExceptionしない。
+            // それ以外の例外（KIFパース失敗・DB保存失敗・端末エンジン内部エラー等）は従来どおり送信する。
+            if (e !is RemoteAnalysisException && !e.isAlreadyReported()) {
                 crashReporter.captureException(e)
             }
-            Outcome.Failed(e.message ?: AppStrings.UNKNOWN_ERROR)
+            val message = if (e is RemoteAnalysisException) {
+                RemoteAnalysisErrorMapper.map(e)
+            } else {
+                e.message ?: AppStrings.UNKNOWN_ERROR
+            }
+            Outcome.Failed(message, AnalysisFailureReason.from(e))
         }
     }
 }
