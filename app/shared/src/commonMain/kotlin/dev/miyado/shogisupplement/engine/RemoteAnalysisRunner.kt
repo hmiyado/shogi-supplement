@@ -36,8 +36,9 @@ import kotlinx.serialization.json.jsonObject
  * @property maxRetries 切断時に同一リクエストを再POSTする上限回数
  * @property retryBackoffMs 再POSTまでの待機時間の基準値（試行回数に比例。指数バックオフに
  *   しないのは、サーバー側の完了待ちが最大280秒のポーリングで律速されるため）
- * @property appCheckTokenProvider Firebase App Checkトークンを取得する関数（iOS側の実プロバイダ
- *   実装は別タスク）。nullのまま、またはトークン取得が失敗（例外/null）した場合はヘッダ自体を
+ * @property appCheckTokenProvider Firebase App Checkトークンを取得する関数。iOS側は
+ *   `AppCheckTokenBridge::getToken`（:ui iosMain）を渡す（IosMainController/DrillDemoFactory
+ *   参照）。nullのまま、またはトークン取得が失敗（例外/null）した場合はヘッダ自体を
  *   付けない＝サーバー側の段階導入（FIREBASE_PROJECT_NUMBER未設定）と同じく検証は素通りになる。
  *   ここで例外を握りつぶさないのは意図的: 呼び出し側（SDK組み込み後）が失敗を検知できるよう、
  *   nullを返す/返さないの判断自体は呼び出し側の関数の責務に留める。

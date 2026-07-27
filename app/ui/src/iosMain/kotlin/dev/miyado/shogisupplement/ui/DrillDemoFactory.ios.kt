@@ -91,6 +91,7 @@ object DrillDemoFactory {
                     checkNotNull(authRepository.accessToken()) { "アクセストークンが取得できない" }
                 },
                 httpClient = httpClient,
+                appCheckTokenProvider = AppCheckTokenBridge::getToken,
             )
             val remoteJudge = RemoteDrillSecondaryJudge { sfen -> runner.analyzePosition(sfen) }
             return { blunder, userMoveUsi ->
