@@ -592,4 +592,27 @@ object AppStrings {
     const val LICENSE_SOURCE_HEADER = "ソースリポジトリ"
     /** タップでリポジトリURLを開くリンクの表示文言。実URL値はプラットフォーム側の定数を使う。 */
     const val LICENSE_SOURCE_URL = "https://github.com/hmiyado/shogi-supplement"
+
+    // ═══ 30. サーバー解析エラー（RemoteAnalysisException）══════════════════════
+    // dev.miyado.shogisupplement.engine.RemoteAnalysisErrorMapper が
+    // AnalysisOrchestrator.Outcome.Failed.message の生成に使う。
+
+    /** 401: セッション再取得（AuthRetryingAnalyzer）を試みても解決しなかった場合。 */
+    const val SERVER_ANALYSIS_ERROR_UNAUTHORIZED = "セッションの更新に失敗しました。時間をおいてお試しください"
+
+    /** 403: user_bans 登録済み（BAN）。 */
+    const val SERVER_ANALYSIS_ERROR_BANNED = "このアカウントはサーバー解析を利用できません"
+
+    /** 429: 当日クォータ超過。resetAtJst = [dev.miyado.shogisupplement.util.formatResetAtJst] 整形済み文字列。 */
+    fun serverAnalysisErrorQuotaExceeded(resetAtJst: String): String =
+        "本日のサーバー解析の上限に達しました。${resetAtJst}にリセットされます"
+
+    /** 400: リクエスト不正（想定外）。 */
+    const val SERVER_ANALYSIS_ERROR_BAD_REQUEST = "解析リクエストが不正です。時間をおいてお試しください"
+
+    /** サーバー側エンジン失敗（NDJSON終端の error 行）。 */
+    const val SERVER_ANALYSIS_ERROR_ENGINE_FAILURE = "サーバー側の解析に失敗しました。時間をおいてお試しください"
+
+    /** 再POSTの上限回数に達しても復旧できなかった接続断。 */
+    const val SERVER_ANALYSIS_ERROR_CONNECTION_LOST = "サーバーへの接続が回復しませんでした。ネットワークを確認してお試しください"
 }
