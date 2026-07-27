@@ -3,6 +3,7 @@ package dev.miyado.shogisupplement.server.worker
 import dev.miyado.shogisupplement.api.analysis.EngineMetaJson
 import dev.miyado.shogisupplement.api.analysis.ErrorJson
 import dev.miyado.shogisupplement.engine.EngineInvariants
+import dev.miyado.shogisupplement.engine.IsolatedEngine
 import dev.miyado.shogisupplement.engine.UsiEngineSubprocess
 import dev.miyado.shogisupplement.server.worker.auth.RemoteJwkSetProvider
 import dev.miyado.shogisupplement.server.worker.auth.SupabaseJwtAuthVerifier

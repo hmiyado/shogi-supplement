@@ -31,9 +31,10 @@ data class WorkerConfig(
                 // 1局面ずつ解析するエンジンプロセスの本数。CPU割り当てと揃えること
                 // （エンジンはThreads=1なので、割り当てを超えるとタイムシェアするだけで速くならない）。
                 analysisWorkers = (env("ANALYSIS_WORKERS") ?: "1").toInt(),
-                // 局面ごとに置換表をクリアするか（[IsolatedEngine]）。解析順に結果が依存するのを
-                // 断ち切れるが、研究側の解析（順番に流して置換表は引き継ぐ）とは条件が変わる。
-                isolatePositions = (env("ANALYSIS_ISOLATE_POSITIONS") ?: "false").toBooleanStrict(),
+                // 局面ごとに置換表をクリアするか（[IsolatedEngine]）。既定で有効にし、解析順・
+                // 並列度に結果が依存しないようにする。falseにするのは研究側の解析条件
+                // （順番に流して置換表は引き継ぐ）と比較実験するときだけ。
+                isolatePositions = (env("ANALYSIS_ISOLATE_POSITIONS") ?: "true").toBooleanStrict(),
             )
         }
 
