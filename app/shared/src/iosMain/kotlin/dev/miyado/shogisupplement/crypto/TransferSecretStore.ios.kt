@@ -120,8 +120,14 @@ class IosTransferSecretStore : TransferSecretStore {
             kCFTypeDictionaryValueCallBacks.ptr,
         )
         CFDictionarySetValue(dict, kSecClass, kSecClassGenericPassword)
-        CFDictionarySetValue(dict, kSecAttrService, cfString(KEYCHAIN_SERVICE))
-        CFDictionarySetValue(dict, kSecAttrAccount, cfString(KEYCHAIN_ACCOUNT))
+        // CFDictionarySetValueはkCFTypeDictionaryValueCallBacksにより値をretainするため、
+        // 辞書に入れた直後に自分の参照はreleaseしてよい（辞書自体のCFRelease時に解放される）。
+        val service = cfString(KEYCHAIN_SERVICE)
+        CFDictionarySetValue(dict, kSecAttrService, service)
+        CFRelease(service)
+        val account = cfString(KEYCHAIN_ACCOUNT)
+        CFDictionarySetValue(dict, kSecAttrAccount, account)
+        CFRelease(account)
         return dict
     }
 }
