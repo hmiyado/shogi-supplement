@@ -24,6 +24,30 @@ targets:
       # XCFrameworkをベンダリングする（scripts/fetch-sentry.sh で取得・git管理外）。
       - framework: vendor/Sentry-Dynamic.xcframework
         embed: true
+      # App Check（匿名アカウント量産への防御）。SentryやSupabaseと
+      # 違いFirebaseはSPM向けの配布しか無い（CocoaPods用xcframework単体zipも無い）ため、
+      # scripts/fetch-firebase.sh が公式Firebase.zip（全プロダクト同梱）から必要分だけを
+      # 部分ダウンロードしてvendor/Firebaseへ置く（git管理外）。static xcframeworkだが
+      # プライバシーマニフェスト（PrivacyInfo.xcprivacy）同梱のためembed: trueにする
+      # （Firebase公式READMEの統合手順どおり。project.yml内の他フレームワークと同じ理由ではない）。
+      - framework: vendor/Firebase/FirebaseCore.xcframework
+        embed: true
+      - framework: vendor/Firebase/FirebaseCoreInternal.xcframework
+        embed: true
+      - framework: vendor/Firebase/FirebaseAppCheck.xcframework
+        embed: true
+      - framework: vendor/Firebase/FirebaseAppCheckInterop.xcframework
+        embed: true
+      - framework: vendor/Firebase/AppCheckCore.xcframework
+        embed: true
+      - framework: vendor/Firebase/GoogleUtilities.xcframework
+        embed: true
+      - framework: vendor/Firebase/FBLPromises.xcframework
+        embed: true
+      - framework: vendor/Firebase/Promises.xcframework
+        embed: true
+      - framework: vendor/Firebase/RecaptchaInterop.xcframework
+        embed: true
     sources:
       - path: iosApp
         excludes:
@@ -71,7 +95,9 @@ targets:
         # libshogiengine.aへの -L/-l を通す必要がある。
         # wrapper C APIはKotlin cinterop経由でのみ使うため、
         # SWIFT_OBJC_BRIDGING_HEADER/HEADER_SEARCH_PATHSは不要。
-        OTHER_LDFLAGS: "-framework SharedUi -lsqlite3 -lc++ -lshogiengine"
+        # -ObjC はFirebase（Objective-Cカテゴリを含む静的ライブラリ）を正しくロードするために
+        # 必須（Firebase公式README・「Integration Instructions」手順8）。
+        OTHER_LDFLAGS: "-framework SharedUi -lsqlite3 -lc++ -lshogiengine -ObjC"
         # アプリアイコン（駒型二色カプセル。androidApp のアダプティブアイコンと同意匠）。
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         "LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*]": "$(SRCROOT)/engine/build/sim"
@@ -100,14 +126,14 @@ targets:
         Debug-Engineless:
           "FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]": "$(SRCROOT)/../ui/build/bin/iosSimulatorArm64/debugFramework"
           "FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]": "$(SRCROOT)/../ui/build/bin/iosArm64/debugFramework"
-          OTHER_LDFLAGS: "-framework SharedUi -lsqlite3 -lc++"
+          OTHER_LDFLAGS: "-framework SharedUi -lsqlite3 -lc++ -ObjC"
           # Swift側のエンジン依存コード（DEBUG用EngineView等）を#if !ENGINELESSで外すためのフラグ
           SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DEBUG ENGINELESS"
         Release-Engineless:
           "FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]": "$(SRCROOT)/../ui/build/bin/iosSimulatorArm64/releaseFramework"
           "FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]": "$(SRCROOT)/../ui/build/bin/iosArm64/releaseFramework"
           SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) ENGINELESS"
-          OTHER_LDFLAGS: "-framework SharedUi -lsqlite3 -lc++"
+          OTHER_LDFLAGS: "-framework SharedUi -lsqlite3 -lc++ -ObjC"
     preBuildScripts:
       - name: "Build Shared+UI Kotlin Framework (gradlew :ui:linkDebugFramework<Target>)"
         # シミュレータ/実機どちらでビルドされるかで:uiのK/Nターゲットを、
@@ -171,6 +197,22 @@ targets:
             DSN=$(sed -n 's/^SENTRY_DSN=//p' "$PROPS" | head -1)
           fi
           printf 'SENTRY_DSN=%s\n' "$DSN" > "$OUT_DIR/SentryConfig.properties"
+        basedOnDependencyAnalysis: false
+      # Firebase App Check設定ファイル。SupabaseConfig.propertiesと同じ流儀だが、
+      # こちらはFirebase SDKがバンドル直下の実ファイル名（GoogleService-Info.plist）を
+      # 前提にしているため、値を読んで再生成せずファイルをそのままコピーする。
+      # local/GoogleService-Info.plist が無いビルドでは何もしない＝Swift側
+      # （IosFirebaseAppCheck.swift）がバンドル内に無いことを見てFirebase初期化ごと
+      # スキップする（graceful degradation。他のconfig生成と同じ方針）。
+      - name: "Copy GoogleService-Info.plist (from iosApp/local, if present)"
+        script: |
+          set -e
+          SRC="$SRCROOT/local/GoogleService-Info.plist"
+          OUT_DIR="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH"
+          mkdir -p "$OUT_DIR"
+          if [ -f "$SRC" ]; then
+            cp "$SRC" "$OUT_DIR/GoogleService-Info.plist"
+          fi
         basedOnDependencyAnalysis: false
     postCompileScripts:
       - name: "Sync Compose Resources into app bundle (gradlew :ui:syncComposeResourcesForIos)"
