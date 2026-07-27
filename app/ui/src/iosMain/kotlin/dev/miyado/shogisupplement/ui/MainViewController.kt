@@ -52,6 +52,7 @@ import dev.miyado.shogisupplement.supabase.SupabaseServices
 import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.account.AccountScreen
 import dev.miyado.shogisupplement.ui.account.AccountViewModel
+import dev.miyado.shogisupplement.ui.consent.ConsentScreen
 import dev.miyado.shogisupplement.ui.drill.DrillQuestionContent
 import dev.miyado.shogisupplement.ui.drill.DrillResultContent
 import dev.miyado.shogisupplement.ui.drill.DrillUiState
@@ -63,6 +64,7 @@ import dev.miyado.shogisupplement.ui.report.ReportScreen
 import dev.miyado.shogisupplement.ui.settings.RatingSettingsDialog
 import dev.miyado.shogisupplement.ui.settings.SettingsScreen
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
+import dev.miyado.shogisupplement.ui.transfercode.TransferCodeScreen
 import dev.miyado.shogisupplement.upload.UploadResult
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -85,8 +87,18 @@ import platform.UIKit.UIViewController
  * アカウント（データ提供＝匿名認証＋アップロード）は設定→アカウントから遷移する
  * （Supabase設定が無いビルドでは行ごと非表示）。棋力設定はiOS未移植のため非表示。
  * ヘルプはWebヘルプ（Safari）へ接続する。
+ * 引き継ぎコード表示（[TransferCodeScreen]）は設定→引き継ぎコードから遷移する
+ * （アカウントと同じくSupabase設定が無いビルドでは非表示）。
+ *
+ * **同意オンボーディング（iOS専用・初回起動必須）**: Supabase設定が供給されているビルドで
+ * `consent_accepted_at` 未保存のときだけ [ConsentScreen] を全画面表示し、他のルートへは
+ * 進めない（[IosConsentScreenHost] 参照）。同意すると
+ * [dev.miyado.shogisupplement.supabase.SupabaseServices.consentOrchestrator] が
+ * 同意フラグ保存→匿名サインイン→自動アップロードON→引き継ぎシークレット登録を行う。
+ * Supabase未設定ビルド（開発用）はオンボーディングをスキップして従来どおり起動する。
  *
  * 画面遷移:
+ *   （初回起動・Supabase設定ありのみ）同意オンボーディング → 同意して始める → ホーム
  *   ホーム（実データ: games一覧＋推定棋力カード＋今日の1問）
  *     → 棋譜タップ → レポート（実データ・検討モード・読み筋延長が動作）→ 戻る
  *     → 「棋譜を追加する」タップ → ファイル/クリップボード選択ダイアログ
@@ -126,6 +138,14 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
             analysisBaseUrl = analysisBaseUrl,
         )
     }
+    // 同意オンボーディング（iOS専用・初回起動必須）: Supabase設定が供給されているビルドで
+    // かつ consent_accepted_at 未保存のときだけ表示する（未設定ビルド=開発用は従来どおり
+    // スキップして直接ホームへ進む。graceful degradation）。
+    // 一度同意すれば以後のアプリ再起動でも再表示しない（フラグはDB永続化のため）。
+    var showConsent by remember {
+        mutableStateOf(supabaseServices != null && settingsRepository.getConsentAcceptedAt() == null)
+    }
+
     val themeMode by controller.themeMode.collectAsState()
     ShogiTheme(themeMode = themeMode) {
         Surface(modifier = Modifier.fillMaxSize()) {
@@ -134,10 +154,48 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
                     .fillMaxSize()
                     .windowInsetsPadding(WindowInsets.safeDrawing),
             ) {
-                DemoApp(gameRepository, settingsRepository, supabaseServices, controller, analysisBaseUrl)
+                val services = supabaseServices
+                if (showConsent && services != null) {
+                    IosConsentScreenHost(
+                        services = services,
+                        onAccepted = { showConsent = false },
+                    )
+                } else {
+                    DemoApp(gameRepository, settingsRepository, supabaseServices, controller, analysisBaseUrl)
+                }
             }
         }
     }
+}
+
+/**
+ * 同意オンボーディング画面のホスト。[ConsentScreen] は状態hoisting方式のため、
+ * 送信中フラグ（二重タップ防止）と [SupabaseServices.consentOrchestrator] の呼び出しをここで担う。
+ * 戻るボタンは無い＝この画面が表示されている間、呼び出し元（MainViewController）は
+ * 他のルートへ遷移させない（同意必須の設計どおり）。
+ */
+@Composable
+private fun IosConsentScreenHost(
+    services: SupabaseServices,
+    onAccepted: () -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    var isSubmitting by remember { mutableStateOf(false) }
+
+    ConsentScreen(
+        isSubmitting = isSubmitting,
+        onAccept = {
+            if (!isSubmitting) {
+                isSubmitting = true
+                scope.launch {
+                    services.consentOrchestrator.acceptConsent()
+                    isSubmitting = false
+                    onAccepted()
+                }
+            }
+        },
+        onOpenTerms = { openUrl(IOS_TERMS_URL) },
+    )
 }
 
 /**
@@ -150,6 +208,7 @@ private sealed class DemoRoute {
     object Settings : DemoRoute()
     object Licenses : DemoRoute()
     object Account : DemoRoute()
+    object TransferCode : DemoRoute()
     object GameList : DemoRoute()
 }
 
@@ -312,6 +371,11 @@ private fun DemoApp(
                 } else {
                     null
                 },
+                onOpenTransferCode = if (supabaseServices != null) {
+                    { route = DemoRoute.TransferCode }
+                } else {
+                    null
+                },
             )
         }
         DemoRoute.Licenses -> {
@@ -332,6 +396,18 @@ private fun DemoApp(
                     services = services,
                     gameRepository = gameRepository,
                     settingsRepository = settingsRepository,
+                    onBack = { route = DemoRoute.Settings },
+                )
+            }
+        }
+        DemoRoute.TransferCode -> {
+            val services = supabaseServices
+            if (services == null) {
+                // 設定なしでこのルートには到達しない（導線自体が非表示）が、念のため戻す。
+                route = DemoRoute.Settings
+            } else {
+                IosTransferCodeScreenHost(
+                    services = services,
                     onBack = { route = DemoRoute.Settings },
                 )
             }
@@ -706,6 +782,7 @@ private fun IosSettingsScreenHost(
     onBack: () -> Unit,
     onOpenLicenses: () -> Unit,
     onOpenAccount: (() -> Unit)?,
+    onOpenTransferCode: (() -> Unit)? = null,
 ) {
     val themeMode by controller.themeMode.collectAsState()
     val evalDisplay by controller.evalDisplay.collectAsState()
@@ -737,6 +814,7 @@ private fun IosSettingsScreenHost(
         onBack = onBack,
         onOpenRatingSettings = { showRatingSettings = true },
         onOpenAccount = onOpenAccount,
+        onOpenTransferCode = onOpenTransferCode,
         onThemeChange = { mode -> controller.saveThemeMode(mode) },
         onEvalDisplayChange = { mode -> controller.saveEvalDisplay(mode) },
         skipSideConfirm = skipSideConfirm,
@@ -778,6 +856,28 @@ private fun IosAccountScreenHost(
         onManualUpload = vm::manualUpload,
         onDeleteAccount = vm::deleteAccount,
         onOpenTerms = { openUrl(IOS_TERMS_URL) },
+    )
+}
+
+/**
+ * 引き継ぎコード表示画面（設定→引き継ぎコード）のホスト。
+ * コードは端末シークレットSの派生（suspend）のため、画面表示のたびに
+ * [SupabaseServices.getOrCreateTransferCode] で非同期に読み込む（S自体はKeychain永続化済みなら
+ * 再生成されない。[dev.miyado.shogisupplement.crypto.TransferSecretManager.getOrCreateSecret] 参照）。
+ */
+@Composable
+private fun IosTransferCodeScreenHost(
+    services: SupabaseServices,
+    onBack: () -> Unit,
+) {
+    var code by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(services) {
+        code = services.getOrCreateTransferCode()
+    }
+    TransferCodeScreen(
+        code = code,
+        onBack = onBack,
+        onCopy = { text -> UIPasteboard.generalPasteboard.string = text },
     )
 }
 

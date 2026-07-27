@@ -61,6 +61,11 @@ fun SettingsScreen(
     onOpenRatingSettings: (() -> Unit)?,
     /** null = アカウント行・「データ」節ごと非表示（Supabase未設定ビルド等）。 */
     onOpenAccount: (() -> Unit)?,
+    /**
+     * null = 引き継ぎコード行を非表示（iOS専用機能。Supabase未設定ビルド・Androidは非表示）。
+     * onOpenAccount が非null（＝「データ」節が表示される）ときのみ意味を持つ。
+     */
+    onOpenTransferCode: (() -> Unit)? = null,
     onThemeChange: (String) -> Unit = {},
     onEvalDisplayChange: (String) -> Unit = {},
     /** 先後確認の省略設定（アカウント名一致時にダイアログを出さない）。 */
@@ -162,6 +167,13 @@ fun SettingsScreen(
                     sub = AppStrings.SETTINGS_ROW_ACCOUNT_SUB,
                     onClick = onOpenAccount,
                 )
+                if (onOpenTransferCode != null) {
+                    SettingsRow(
+                        label = AppStrings.SETTINGS_ROW_TRANSFER_CODE,
+                        sub = AppStrings.SETTINGS_ROW_TRANSFER_CODE_SUB,
+                        onClick = onOpenTransferCode,
+                    )
+                }
                 HorizontalDivider(color = MaterialTheme.shogiColors.line)
             }
 
