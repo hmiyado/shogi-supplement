@@ -64,6 +64,7 @@ class AnalysisServiceTest {
         pollTimeoutMs: Long = 2_000,
         analysisWorkers: Int = 1,
         engineFactory: () -> Engine = { engine },
+        positionDailyLimit: Int = 100,
     ) = AnalysisService(
         authVerifier = authVerifier,
         banRepository = banRepository,
@@ -75,6 +76,7 @@ class AnalysisServiceTest {
         pollIntervalMs = pollIntervalMs,
         pollTimeoutMs = pollTimeoutMs,
         analysisWorkers = analysisWorkers,
+        positionDailyLimit = positionDailyLimit,
     )
 
     private suspend fun AnalysisRequestOutcome.Stream.collectLines(): List<String> {
@@ -252,6 +254,71 @@ class AnalysisServiceTest {
         )
         val outcome = service.handle("Bearer valid-token", AnalysisRequest(movesUsi = listOf("7g7f")))
         assertIs<AnalysisRequestOutcome.Stream>(outcome)
+    }
+
+    // ── クォータのモード分離（1局解析 vs 単発局面） ─────────────────────────
+
+    @Test
+    fun `game quota exhausted does not block a position mode request (separate quota)`() = runTest {
+        val jobs = FakeAnalysisJobRepository()
+        // 1局解析(game)のクォータ(=1)は使い切っているが、単発局面(position)は未使用。
+        jobs.seed(
+            AnalysisJobRecord(
+                id = "job-game-1",
+                userId = "user-1",
+                movesHash = "game-hash-1",
+                status = AnalysisJobStatus.DONE,
+                resultJson = null,
+                engineMeta = null,
+                error = null,
+            ),
+            mode = "game",
+        )
+        val service = buildService(
+            quotaLimitRepository = FakeQuotaLimitRepository(mapOf("user-1" to 1)),
+            analysisJobRepository = jobs,
+            positionDailyLimit = 100,
+        )
+
+        val outcome = service.handle(
+            "Bearer valid-token",
+            AnalysisRequest(sfen = "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1"),
+        )
+
+        assertIs<AnalysisRequestOutcome.Stream>(outcome, "position quota is independent from the exhausted game quota")
+    }
+
+    @Test
+    fun `position quota exhausted returns 429 while game quota still has room`() = runTest {
+        val jobs = FakeAnalysisJobRepository()
+        jobs.seed(
+            AnalysisJobRecord(
+                id = "job-position-1",
+                userId = "user-1",
+                movesHash = "position-hash-1",
+                status = AnalysisJobStatus.DONE,
+                resultJson = null,
+                engineMeta = null,
+                error = null,
+            ),
+            mode = "position",
+        )
+        val service = buildService(
+            quotaLimitRepository = FakeQuotaLimitRepository(mapOf("user-1" to 30)),
+            analysisJobRepository = jobs,
+            positionDailyLimit = 1,
+        )
+
+        // 単発局面は上限(1)ちょうど消費済みなので新規は弾かれる。
+        val positionOutcome = service.handle(
+            "Bearer valid-token",
+            AnalysisRequest(sfen = "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1"),
+        )
+        assertIs<AnalysisRequestOutcome.QuotaExceeded>(positionOutcome)
+
+        // 一方、1局解析(game)は未消費なので通る。
+        val gameOutcome = service.handle("Bearer valid-token", AnalysisRequest(movesUsi = listOf("7g7f")))
+        assertIs<AnalysisRequestOutcome.Stream>(gameOutcome)
     }
 
     // ── 400: 不正リクエスト ───────────────────────────────────────────────

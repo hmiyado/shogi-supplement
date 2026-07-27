@@ -13,6 +13,7 @@ data class WorkerConfig(
     val evalSha256: String,
     val analysisWorkers: Int,
     val isolatePositions: Boolean,
+    val analysisPositionDailyLimit: Int,
 ) {
     companion object {
         fun fromEnv(env: (String) -> String? = System::getenv): WorkerConfig {
@@ -35,6 +36,10 @@ data class WorkerConfig(
                 // 並列度に結果が依存しないようにする。falseにするのは研究側の解析条件
                 // （順番に流して置換表は引き継ぐ）と比較実験するときだけ。
                 isolatePositions = (env("ANALYSIS_ISOLATE_POSITIONS") ?: "true").toBooleanStrict(),
+                // 単発局面解析（mode=position。ドリルの二次判定用）の日次上限。1局解析の
+                // クォータ（quota_limits.daily_limit、既定30）とは別枠かつDB管理外
+                // （ユーザーごとの調整が必要になったらDB化を検討する。現時点では固定値で十分）。
+                analysisPositionDailyLimit = (env("ANALYSIS_POSITION_DAILY_LIMIT") ?: "100").toInt(),
             )
         }
 

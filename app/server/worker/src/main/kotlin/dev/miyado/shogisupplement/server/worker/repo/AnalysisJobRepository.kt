@@ -43,8 +43,15 @@ interface AnalysisJobRepository {
     suspend fun find(userId: String, movesHash: String): AnalysisJobRecord?
 
     // 当日（JST日境界）のクォータ消費件数。status=errorの行は除外すること
-    // （結果を返せなかったジョブはクォータを消費させない）。
+    // （結果を返せなかったジョブはクォータを消費させない）。1局まるごとの解析
+    // （mode=game。moves_usi jsonb内のmodeフィールドで絞る）のみをカウントする。
+    // 単発局面（mode=position。ドリルの二次判定用）は別枠クォータのため countTodayPosition
+    // で別途カウントする。
     suspend fun countToday(userId: String): Int
+
+    // 当日（JST日境界）の単発局面解析（mode=position）のクォータ消費件数。
+    // status=errorの行は除外する。1局解析のクォータ（countToday）とは完全に独立した別枠。
+    suspend fun countTodayPosition(userId: String): Int
 
     /**
      * status=running の行を新規作成する。既に同じ (userId, movesHash) の行があれば

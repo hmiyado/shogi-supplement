@@ -74,6 +74,41 @@ class SupabaseAnalysisJobRepositoryTest {
     }
 
     @Test
+    fun `countToday filters on mode=game via the moves_usi JSON operator`() = runTest {
+        var capturedModeParam: String? = null
+        val repo = repository { request ->
+            capturedModeParam = request.url.parameters["moves_usi->>mode"]
+            respond(
+                content = ByteReadChannel(ByteArray(0)),
+                status = HttpStatusCode.OK,
+                headers = headersOf(HttpHeaders.ContentRange, "0-0/0"),
+            )
+        }
+
+        repo.countToday("user-1")
+
+        assertEquals("eq.game", capturedModeParam)
+    }
+
+    @Test
+    fun `countTodayPosition filters on mode=position and is independent from countToday`() = runTest {
+        var capturedModeParam: String? = null
+        val repo = repository { request ->
+            capturedModeParam = request.url.parameters["moves_usi->>mode"]
+            respond(
+                content = ByteReadChannel(ByteArray(0)),
+                status = HttpStatusCode.OK,
+                headers = headersOf(HttpHeaders.ContentRange, "0-4/5"),
+            )
+        }
+
+        val count = repo.countTodayPosition("user-1")
+
+        assertEquals("eq.position", capturedModeParam)
+        assertEquals(5, count)
+    }
+
+    @Test
     fun `countToday returns 0 when Content-Range reports an empty range`() = runTest {
         val repo = repository { _ ->
             respond(

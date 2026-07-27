@@ -67,7 +67,13 @@ class SupabaseAnalysisJobRepository(
         return rows.firstOrNull()?.toRecord()
     }
 
-    override suspend fun countToday(userId: String): Int {
+    override suspend fun countToday(userId: String): Int = countTodayByMode(userId, mode = "game")
+
+    override suspend fun countTodayPosition(userId: String): Int = countTodayByMode(userId, mode = "position")
+
+    // countToday/countTodayPosition共通実装。modeはmoves_usi(jsonb)内のフィールドなので
+    // PostgRESTのJSON演算子 `->>`（テキスト抽出）でフィルタする: moves_usi->>mode=eq.<mode>
+    private suspend fun countTodayByMode(userId: String, mode: String): Int {
         val startOfDayJst = Instant.now(clock).atZone(QUOTA_RESET_ZONE).toLocalDate()
             .atStartOfDay(QUOTA_RESET_ZONE).toInstant()
         // HEAD + Prefer:count=exact で行データを一切転送させず、PostgRESTに
@@ -79,14 +85,15 @@ class SupabaseAnalysisJobRepository(
             parameter("created_at", "gte.$startOfDayJst")
             // status=errorは消費済みクォータとしてカウントしない（結果を返せなかったジョブのため）。
             parameter("status", "neq.error")
+            parameter("moves_usi->>mode", "eq.$mode")
             header("Prefer", "count=exact")
             supabaseServiceRoleHeaders(serviceRoleKey)
         }
-        check(response.status.isSuccess()) { "analysis_jobs countToday failed: ${response.status}" }
+        check(response.status.isSuccess()) { "analysis_jobs countToday(mode=$mode) failed: ${response.status}" }
         val contentRange = response.headers[HttpHeaders.ContentRange]
-            ?: error("analysis_jobs countToday: missing Content-Range (Prefer:count=exact not honored?)")
+            ?: error("analysis_jobs countToday(mode=$mode): missing Content-Range (Prefer:count=exact not honored?)")
         return contentRange.substringAfterLast('/').toIntOrNull()
-            ?: error("analysis_jobs countToday: unparseable Content-Range \"$contentRange\"")
+            ?: error("analysis_jobs countToday(mode=$mode): unparseable Content-Range \"$contentRange\"")
     }
 
     @Serializable

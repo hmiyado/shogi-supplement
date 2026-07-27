@@ -10,6 +10,8 @@ import dev.miyado.shogisupplement.server.worker.repo.QuotaLimitRepository
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import java.util.concurrent.atomic.AtomicInteger
 
 class FakeBanRepository(private val bannedUserIds: Set<String> = emptySet()) : BanRepository {
@@ -27,12 +29,19 @@ class FakeQuotaLimitRepository(
 class FakeAnalysisJobRepository : AnalysisJobRepository {
     private val mutex = Mutex()
     private val records = LinkedHashMap<Pair<String, String>, AnalysisJobRecord>()
+    // AnalysisJobRecord自体はmodeを持たない（実DBのmoves_usi jsonb内にしか無い値のため）。
+    // countToday/countTodayPositionを別枠クォータとしてテストで検証できるよう、フェイクだけの
+    // 内部状態としてmodeをキーごとに追跡する（既定"game"。seed()経由の呼び出しは大半が
+    // 1局解析シナリオのため、明示しない限りgameとして扱う）。
+    private val modes = mutableMapOf<Pair<String, String>, String>()
     private var nextId = 0
     val findCallCount = AtomicInteger(0)
 
     /** テストから直接状態を仕込むためのヘルパー。 */
-    suspend fun seed(record: AnalysisJobRecord) = mutex.withLock {
-        records[record.userId to record.movesHash] = record
+    suspend fun seed(record: AnalysisJobRecord, mode: String = "game") = mutex.withLock {
+        val key = record.userId to record.movesHash
+        records[key] = record
+        modes[key] = mode
     }
 
     /** 実行中ジョブが指定回数 find() された後、DONE/ERRORへ遷移させる（ポーリング待ちのテスト用）。 */
@@ -59,10 +68,18 @@ class FakeAnalysisJobRepository : AnalysisJobRepository {
         records[key]
     }
 
-    override suspend fun countToday(userId: String): Int = mutex.withLock {
+    override suspend fun countToday(userId: String): Int = countTodayByMode(userId, mode = "game")
+
+    override suspend fun countTodayPosition(userId: String): Int = countTodayByMode(userId, mode = "position")
+
+    private suspend fun countTodayByMode(userId: String, mode: String): Int = mutex.withLock {
         // status=errorは消費済みクォータに数えない（SupabaseAnalysisJobRepositoryと同じ規約。
         // 日境界は実装しない簡易フェイク: AnalysisServiceTestは全件を「当日」として扱う想定）。
-        records.values.count { it.userId == userId && it.status != AnalysisJobStatus.ERROR }
+        records.entries.count { (key, record) ->
+            record.userId == userId &&
+                record.status != AnalysisJobStatus.ERROR &&
+                (modes[key] ?: "game") == mode
+        }
     }
 
     override suspend fun createRunning(
@@ -85,6 +102,9 @@ class FakeAnalysisJobRepository : AnalysisJobRepository {
             error = null,
         )
         records[key] = record
+        // 実DBのmoves_usi jsonb同様、mode はストレージペイロード内のフィールドから取り出す
+        // （AnalysisService.toStoragePayload参照）。
+        modes[key] = (storagePayload as? JsonObject)?.get("mode")?.jsonPrimitive?.content ?: "game"
         CreateRunningResult.Created(record)
     }
 

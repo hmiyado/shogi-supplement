@@ -66,6 +66,10 @@ class AnalysisService(
     private val pollIntervalMs: Long = 500,
     private val pollTimeoutMs: Long = 280_000,
     private val analysisWorkers: Int = 1,
+    // 単発局面解析（mode=position。ドリルの二次判定用）の日次上限。1局解析のクォータ
+    // （quotaLimitRepository.dailyLimit、既定30）とは完全に別枠（countTodayPositionで
+    // 別カウントする）。環境変数 ANALYSIS_POSITION_DAILY_LIMIT 由来（WorkerConfig参照）。
+    private val positionDailyLimit: Int = 100,
 ) {
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -93,8 +97,15 @@ class AnalysisService(
             return resolveExisting(userId, movesHash, existingBeforeQuota, input)
         }
 
-        val limit = quotaLimitRepository.dailyLimit(userId)
-        val used = analysisJobRepository.countToday(userId)
+        // モードごとに完全に独立したクォータで判定する（1局解析=DB管理のquota_limits、
+        // 単発局面=環境変数の固定上限）。countToday/countTodayPositionもモードで絞って
+        // 別々に数える（SupabaseAnalysisJobRepository参照）。
+        val (used, limit) = when (input) {
+            is EngineInput.Game ->
+                analysisJobRepository.countToday(userId) to quotaLimitRepository.dailyLimit(userId)
+            is EngineInput.Position ->
+                analysisJobRepository.countTodayPosition(userId) to positionDailyLimit
+        }
         if (used >= limit) {
             return AnalysisRequestOutcome.QuotaExceeded(resetAt = nextQuotaResetInstant())
         }
