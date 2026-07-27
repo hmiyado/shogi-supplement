@@ -23,6 +23,10 @@ supabase_url         = "https://REPLACE_WITH_PROJECT_REF.supabase.co"
 supabase_jwt_issuer  = "https://REPLACE_WITH_PROJECT_REF.supabase.co/auth/v1"
 supabase_jwks_url    = "https://REPLACE_WITH_PROJECT_REF.supabase.co/auth/v1/.well-known/jwks.json"
 
+# Firebase App Check（匿名アカウント量産対策）。クライアントのSDK組み込みが揃うまでは
+# 未設定（空文字列）のままにし、有効化のタイミングでプロジェクト番号を投入する（段階導入）。
+# firebase_project_number = "REPLACE_WITH_FIREBASE_PROJECT_NUMBER" # Firebaseコンソールの「プロジェクト番号」（12桁の数字）
+
 # 以下は変更不要な想定のデフォルト値（必要な場合のみ上書き）
 # worker_image             = "us-docker.pkg.dev/cloudrun/container/hello"
 # min_instance_count       = 0

@@ -47,6 +47,10 @@ resource "google_cloud_run_v2_service" "analysis_worker" {
         name  = "SUPABASE_JWKS_URL"
         value = var.supabase_jwks_url
       }
+      env {
+        name  = "FIREBASE_PROJECT_NUMBER"
+        value = var.firebase_project_number
+      }
 
       # SAにsecretAccessorを付けるだけでは値は届かない（ワーカーはSecret Manager APIを
       # 自力で叩かず環境変数から設定を読む実装のため）。Cloud Run側の参照機能で注入する。

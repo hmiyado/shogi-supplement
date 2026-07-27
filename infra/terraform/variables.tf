@@ -127,6 +127,16 @@ variable "supabase_jwks_url" {
   description = "Supabase認証のJWKSエンドポイント（例: https://xxxxx.supabase.co/auth/v1/.well-known/jwks.json）"
 }
 
+# Why not 常時必須にする: クライアントのFirebase SDK組み込み（別タスク）が揃う前に
+# 有効化すると、古いアプリバージョンのリクエストを一斉に401で締め出してしまう。
+# 空文字列（既定）のままなら[FirebaseAppCheckVerifier]自体を組み立てない＝検証無効。
+# 有効化はこの変数へ実プロジェクト番号を投入するタイミングで制御する（段階導入）。
+variable "firebase_project_number" {
+  type        = string
+  default     = ""
+  description = "Firebase App Checkのプロジェクト番号（GCPプロジェクト番号と同一）。空文字列ならApp Check検証を無効化する"
+}
+
 variable "deletion_protection" {
   type        = bool
   default     = true
