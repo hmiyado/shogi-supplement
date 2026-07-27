@@ -101,9 +101,12 @@ targets:
           "FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]": "$(SRCROOT)/../ui/build/bin/iosSimulatorArm64/debugFramework"
           "FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]": "$(SRCROOT)/../ui/build/bin/iosArm64/debugFramework"
           OTHER_LDFLAGS: "-framework SharedUi -lsqlite3 -lc++"
+          # Swift側のエンジン依存コード（DEBUG用EngineView等）を#if !ENGINELESSで外すためのフラグ
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DEBUG ENGINELESS"
         Release-Engineless:
           "FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]": "$(SRCROOT)/../ui/build/bin/iosSimulatorArm64/releaseFramework"
           "FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]": "$(SRCROOT)/../ui/build/bin/iosArm64/releaseFramework"
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) ENGINELESS"
           OTHER_LDFLAGS: "-framework SharedUi -lsqlite3 -lc++"
     preBuildScripts:
       - name: "Build Shared+UI Kotlin Framework (gradlew :ui:linkDebugFramework<Target>)"
@@ -179,6 +182,19 @@ targets:
           cd "$SRCROOT/.."
           JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home ./gradlew :ui:syncComposeResourcesForIos
         basedOnDependencyAnalysis: false
+    postBuildScripts:
+      # engineless構成では評価関数（eval/nn.bin=GPL）もバンドルから外す。
+      # Why not sourcesの条件分岐: XcodeGenのresources定義は構成別に出し分けられないため、
+      # 全構成でバンドルしたあとengineless側だけ削る。
+      - name: "Strip GPL eval resources (Engineless only)"
+        script: |
+          set -e
+          case "$CONFIGURATION" in
+            *-Engineless)
+              rm -rf "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH/eval"
+              ;;
+          esac
+        basedOnDependencyAnalysis: false
   # 実機スモークテスト用 XCUITest ターゲット。iosApp と同じ Team/署名設定で自動署名する。
   # フィクスチャ（Fixtures/wars_game3.kif）は app/shared/src/jvmTest/resources からのコピーで、
   # .gitignore 済み（リポジトリに新たな棋譜を追加しない方針のため）。
@@ -221,7 +237,12 @@ schemes:
     build:
       targets:
         iosApp: all
+        iosAppUITests: [test]
     run:
       config: Debug-Engineless
+    test:
+      config: Debug-Engineless
+      targets:
+        - iosAppUITests
     archive:
       config: Release-Engineless

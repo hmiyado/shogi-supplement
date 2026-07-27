@@ -1,3 +1,4 @@
+#if !ENGINELESS
 import SharedUi
 import SwiftUI
 
@@ -150,3 +151,4 @@ enum EngineSmokeRunner {
         Bundle.main.url(forResource: "eval", withExtension: nil)?.path
     }
 }
+#endif

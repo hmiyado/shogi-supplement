@@ -33,9 +33,11 @@ struct ContentView: View {
                 .tabItem { Label("CMP", systemImage: "square.grid.3x3") }
                 .tag(1)
 
+            #if !ENGINELESS
             EngineView()
                 .tabItem { Label("Engine", systemImage: "cpu") }
                 .tag(2)
+            #endif
         }
         #else
         ComposeView()
