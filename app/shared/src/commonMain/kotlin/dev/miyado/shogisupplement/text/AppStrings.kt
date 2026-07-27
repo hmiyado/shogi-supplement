@@ -391,6 +391,13 @@ object AppStrings {
     const val KIF_FILE_EMPTY = "選択したファイルにテキストがありません"
     const val KIF_FILE_INVALID = "選択したファイルに棋譜（KIF）が見つかりませんでした"
 
+    /**
+     * engineless（サーバー解析専用）フレーバーで ANALYSIS_BASE_URL 未設定のまま
+     * 取込が開始されたときのエラー（[IosMainController.confirmSideAndAnalyze] 参照）。
+     * 端末エンジンへのフォールバック手段が無いビルドのため、通常は出荷前の設定漏れでのみ発生する。
+     */
+    const val ANALYSIS_SERVER_NOT_CONFIGURED = "サーバー解析の設定が読み込めませんでした。時間をおいて再度お試しください"
+
     // ─── ヘルプ画面（Settings → ヘルプ / 推定棋力カードの「?」）───────────────
     // 推定棋力カードの「?」は説明ダイアログではなくヘルプ画面（推定棋力の節）へ
     // 直接遷移する。

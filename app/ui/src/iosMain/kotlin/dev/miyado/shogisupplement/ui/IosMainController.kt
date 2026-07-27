@@ -402,6 +402,16 @@ class IosMainController(
             val auth = authRepository
             val baseUrl = analysisBaseUrl
 
+            // engineless（サーバー解析専用）フレーバーはANALYSIS_BASE_URL未設定時に
+            // 端末エンジンへフォールバックする手段が無い（IosEngineHostのengineless実装は
+            // 常にnull/例外を返すダミー）。フォールバック分岐（下のelse節）へ進んで
+            // AnalysisOrchestrator経由で不可解な例外を出す前に、ここで専用エラーを出して
+            // 中止する（通常は出荷前の設定漏れでのみ到達する経路）。
+            if (!IosEngineHost.ENGINE_LINKED && baseUrl == null) {
+                _importState.value = ImportState.Error(AppStrings.ANALYSIS_SERVER_NOT_CONFIGURED)
+                return@launch
+            }
+
             // サーバー解析はJWTでユーザーを識別するため、未ログインならここで匿名サインインする。
             // signInAnonymously の自動呼び出しはここ（明示的なサーバー解析経路）に限定し、
             // 既存アカウントがある場合は currentUser が非null のため再発行されない。
