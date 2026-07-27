@@ -73,6 +73,26 @@ final class PasteboardImportSmokeTests: XCTestCase {
         handlePastePermissionAlertIfNeeded()
         attachScreenshot(named: "02_after_paste_permission")
 
+        // 4b. 初回取込（アカウント名未設定）は棋力設定ダイアログが先に出る
+        //     （ImportState.RatingSetup）。既定選択のまま「保存」で先へ進む。
+        //     Why not キャンセル: キャンセルは取込フローごと中止する仕様のため。
+        let ratingDialog = element(labeled: "棋力設定", timeout: 5)
+        if ratingDialog.exists {
+            let saveButton = element(labeled: "保存", timeout: 5)
+            XCTAssertTrue(saveButton.exists, "棋力設定の「保存」が見つかりません")
+            saveButton.tap()
+            // ダイアログ表示アニメーション中のタップは空振りすることがあるため、
+            // 閉じたことを確認できなければ1回だけ再タップする。
+            if !waitForDisappearance(of: ratingDialog, timeout: 5) {
+                saveButton.tap()
+                XCTAssertTrue(
+                    waitForDisappearance(of: ratingDialog, timeout: 5),
+                    "棋力設定ダイアログが閉じません",
+                )
+            }
+            attachScreenshot(named: "02b_rating_saved")
+        }
+
         // 5. 先後選択ダイアログ →「後手」ラジオをタップ → 「解析開始」で確定。
         // ダイアログ見出し「先手: … 後手: …」も「後手」を含むため、ラジオ行の
         // ラベル「後手（プレイヤー名）」に前方一致で絞る。
@@ -93,23 +113,15 @@ final class PasteboardImportSmokeTests: XCTestCase {
             "先後選択ダイアログが閉じません（ラジオ選択が反映されていない可能性）",
         )
 
-        // 6. 解析完了（または重複検出）でホームに戻るまで待つ（A12実機の解析は数分かかる・上限10分）。
-        let addKifButtonAgain = element(labeled: "棋譜を追加する", timeout: 600)
-        XCTAssertTrue(addKifButtonAgain.exists, "解析完了後にホーム画面へ戻りませんでした（10分待機）")
-        attachScreenshot(named: "04_home_after_analysis")
-
-        // 7. 対局カード（場所=将棋ウォーズ）をタップ → レポート画面。
-        let gameCard = element(labeledContains: "将棋ウォーズ", timeout: 15)
-        XCTAssertTrue(gameCard.exists, "対局カード（将棋ウォーズ）が見つかりません")
-        gameCard.tap()
-
-        // 8. レポート画面: 悪手カード or 推定棋力行のいずれかが存在することを確認する。
+        // 6. 解析完了（または重複検出）でレポート画面へ直行する
+        //    （IosMainController.completedGameId → DemoRoute.Report。ホームには戻らない）。
+        //    レポート画面の内容（推定棋力行 or 悪手なし表示）が出るまで待つ（上限10分）。
         let reportIndicator = element(
             labeledContainsAny: ["この一局からの推定棋力", "悪手は見つかりませんでした"],
-            timeout: 20,
+            timeout: 600,
         )
-        XCTAssertTrue(reportIndicator.exists, "レポート画面の内容（推定棋力/悪手カード）が確認できません")
-        attachScreenshot(named: "05_report")
+        XCTAssertTrue(reportIndicator.exists, "解析完了後にレポート画面が表示されませんでした（10分待機）")
+        attachScreenshot(named: "04_report_after_analysis")
     }
 
     // MARK: - Helpers
