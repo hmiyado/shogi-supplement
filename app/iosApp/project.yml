@@ -3,6 +3,16 @@ options:
   bundleIdPrefix: dev.miyado.shogisupplement
   deploymentTarget:
     iOS: "17.0"
+# 既定のDebug/Releaseに加え、エンジン・評価関数を一切リンクしないengineless configuration
+# （GPL×App Store回避のためのフレーバー）。Debug/Releaseの挙動・既定スキーム（iosApp）は不変で、
+# engineless系はビルド設定として追加されるだけ。
+# ${CONFIGURATION}をそのままgradleタスク名の一部に使うpreBuildScripts（下記）の都合上、
+# "-Engineless"サフィックス方式にしている（ハイフン抜きのタスク名にstripして解決する）。
+configs:
+  Debug: debug
+  Release: release
+  Debug-Engineless: debug
+  Release-Engineless: release
 targets:
   iosApp:
     type: application
@@ -84,21 +94,42 @@ targets:
         Release:
           "FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]": "$(SRCROOT)/../ui/build/bin/iosSimulatorArm64/releaseFramework"
           "FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]": "$(SRCROOT)/../ui/build/bin/iosArm64/releaseFramework"
+        # engineless: フレームワーク出力先はDebug/Releaseと同じ（:uiのGradleタスク名・出力パスは
+        # iosEngineless有無で変わらない。中身が違うだけ）。OTHER_LDFLAGSだけ -lshogiengine を外す
+        # （リンク自体を外すのが目的のため、baseの値を丸ごと上書きする）。
+        Debug-Engineless:
+          "FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]": "$(SRCROOT)/../ui/build/bin/iosSimulatorArm64/debugFramework"
+          "FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]": "$(SRCROOT)/../ui/build/bin/iosArm64/debugFramework"
+          OTHER_LDFLAGS: "-framework SharedUi -lsqlite3 -lc++"
+        Release-Engineless:
+          "FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]": "$(SRCROOT)/../ui/build/bin/iosSimulatorArm64/releaseFramework"
+          "FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]": "$(SRCROOT)/../ui/build/bin/iosArm64/releaseFramework"
+          OTHER_LDFLAGS: "-framework SharedUi -lsqlite3 -lc++"
     preBuildScripts:
       - name: "Build Shared+UI Kotlin Framework (gradlew :ui:linkDebugFramework<Target>)"
         # シミュレータ/実機どちらでビルドされるかで:uiのK/Nターゲットを、
         # Debug/Releaseで:uiのリンクタスクを、それぞれ切り替える
         # （$PLATFORM_NAMEはXcodeがSDKに応じて設定する。iphoneos=実機/iphonesimulator=シミュレータ。
         # $CONFIGURATIONは"Debug"/"Release"がそのままgradleタスク名に一致する）。
+        #
+        # engineless configuration（Debug-Engineless/Release-Engineless）は末尾の
+        # "-Engineless" を取り除いた名前がgradleタスク名（linkDebugFramework等）に対応する。
+        # gradleタスク自体は常に同じ（:ui:linkDebugFrameworkIos...）で、エンジンの有無は
+        # -PiosEngineless=true の有無だけで切り替わる（shared/build.gradle.kts参照）。
         script: |
           set -e
           cd "$SRCROOT/.."
-          if [ "$PLATFORM_NAME" = "iphoneos" ]; then
-            TASK=":ui:link${CONFIGURATION}FrameworkIosArm64"
-          else
-            TASK=":ui:link${CONFIGURATION}FrameworkIosSimulatorArm64"
+          BASE_CONFIGURATION="${CONFIGURATION%-Engineless}"
+          GRADLE_ARGS=()
+          if [ "$BASE_CONFIGURATION" != "$CONFIGURATION" ]; then
+            GRADLE_ARGS+=("-PiosEngineless=true")
           fi
-          JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home ./gradlew "$TASK"
+          if [ "$PLATFORM_NAME" = "iphoneos" ]; then
+            TASK=":ui:link${BASE_CONFIGURATION}FrameworkIosArm64"
+          else
+            TASK=":ui:link${BASE_CONFIGURATION}FrameworkIosSimulatorArm64"
+          fi
+          JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home ./gradlew "$TASK" "${GRADLE_ARGS[@]}"
         basedOnDependencyAnalysis: false
       # Supabase接続設定（URL/anonキー）とサーバー解析のベースURLを app/local.properties
       # から読んで SupabaseConfig.properties としてバンドルへ直接生成する（Androidの
@@ -183,3 +214,14 @@ schemes:
       config: Debug
       targets:
         - iosAppUITests
+  # エンジン・評価関数を一切リンクしないフレーバー（GPL×App Store回避）。
+  # iosAppスキームには一切手を入れず、こちらは別スキームとして追加するだけ
+  # （既定のiosAppスキームの挙動は不変）。
+  iosApp-Engineless:
+    build:
+      targets:
+        iosApp: all
+    run:
+      config: Debug-Engineless
+    archive:
+      config: Release-Engineless
