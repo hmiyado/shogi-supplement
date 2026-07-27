@@ -18,6 +18,8 @@ import dev.miyado.shogisupplement.judge.Judgement
  * @property cpBefore      悪手前局面の評価値（手番側視点 cp。BlunderJudge.toCp 準拠。NULL可）
  * @property cpAfter       悪手後局面の評価値（次手番側視点 cp。BlunderJudge.toCp 準拠。NULL可）
  *                         損失 cp = cpBefore + cpAfter（cpAfter は相手視点なので加算）
+ * @property secondUsi     悪手前局面の pv2（次善手）の指し手 USI（NULL可＝MultiPV=2出力なし）
+ * @property secondCp      悪手前局面の pv2 の評価値（手番側視点 cp。cpBefore と同じ toCp 準拠。NULL可）
  */
 data class BlunderReport(
     val ply: Int,
@@ -31,4 +33,6 @@ data class BlunderReport(
     val punishPv: String? = null,
     val cpBefore: Int? = null,
     val cpAfter: Int? = null,
+    val secondUsi: String? = null,
+    val secondCp: Int? = null,
 )

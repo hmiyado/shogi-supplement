@@ -109,6 +109,8 @@ class GameRepository(private val database: ShogiSupplementDatabase) {
                     punish_pv = report.punishPv,
                     cp_before = report.cpBefore?.toLong(),
                     cp_after = report.cpAfter?.toLong(),
+                    second_usi = report.secondUsi,
+                    second_cp = report.secondCp?.toLong(),
                 )
             }
 
@@ -182,6 +184,8 @@ class GameRepository(private val database: ShogiSupplementDatabase) {
                 punish_pv = report.punishPv,
                 cp_before = report.cpBefore?.toLong(),
                 cp_after = report.cpAfter?.toLong(),
+                second_usi = report.secondUsi,
+                second_cp = report.secondCp?.toLong(),
             )
 
             gameId
@@ -383,6 +387,8 @@ internal fun Blunder_report.toBlunderRecord() = BlunderRecord(
     punishPv = punish_pv,
     cpBefore = cp_before,
     cpAfter = cp_after,
+    secondUsi = second_usi,
+    secondCp = second_cp,
 )
 
 /**
@@ -526,6 +532,16 @@ data class BlunderRecord(
      * 損失 cp = cpBefore + cpAfter（cpAfter は相手視点なので加算して手番側の損失量になる）。
      */
     val cpAfter: Long? = null,
+    /**
+     * 悪手前局面（sfenBefore）の pv2（次善手）の指し手 USI。
+     * ドリルの一次判定（端末内・保存済みデータのみでの正誤判定）に使う。
+     * 旧解析（MultiPV=2導入前）のレコードは null（→ 一次判定をスキップし二次判定＝エンジンへ流す）。
+     */
+    val secondUsi: String? = null,
+    /**
+     * 悪手前局面の pv2 の評価値（手番側視点 cp。cpBefore と同じ toCp 準拠）。
+     */
+    val secondCp: Long? = null,
 )
 
 /**

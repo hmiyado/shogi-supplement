@@ -97,10 +97,17 @@ class AnalysisOrchestrator(
 
             val allPv = analyzer.analyzeGame(game.moves, onProgress)
 
-            // PvInfo → PositionEval 変換
+            // PvInfo → PositionEval 変換（MultiPV=2 で解析済みのため pv2 も保持する。
+            // ドリルの一次判定＝pv1/pv2 圏内かどうかの端末内判定に使う）
             val evals = allPv.map { pvList ->
                 val pv1 = pvList.firstOrNull { it.multipv == 1 }
-                PositionEval(score = pv1?.score, pv = pv1?.pv ?: emptyList())
+                val pv2 = pvList.firstOrNull { it.multipv == 2 }
+                PositionEval(
+                    score = pv1?.score,
+                    pv = pv1?.pv ?: emptyList(),
+                    pv2Score = pv2?.score,
+                    pv2MoveUsi = pv2?.pv?.firstOrNull(),
+                )
             }
 
             // 過去局の累計手数・悪手数を取得（userSide が設定されている局のみ）

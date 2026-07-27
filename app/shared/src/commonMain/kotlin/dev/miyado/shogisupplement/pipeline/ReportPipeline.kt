@@ -117,6 +117,11 @@ object ReportPipeline {
                     ),
                     cpBefore = cpBefore,
                     cpAfter = cpAfter,
+                    // ドリルの一次判定用。cur（悪手前局面）の pv2 をそのまま引き継ぐ
+                    // （cpBefore と同じ toCp 正規化にすることで、DrillJudge 側は cpBefore/secondCp
+                    // を同一視点の値として直接比較できる）。
+                    secondUsi = cur.pv2MoveUsi,
+                    secondCp = cur.pv2Score?.let { BlunderJudge.toCp(it) },
                 )
             )
         }
@@ -148,6 +153,8 @@ object ReportPipeline {
                 punishPv = b.punishPv,
                 cpBefore = b.cpBefore,
                 cpAfter = b.cpAfter,
+                secondUsi = b.secondUsi,
+                secondCp = b.secondCp,
             )
         }
 
@@ -174,5 +181,9 @@ object ReportPipeline {
         val cpBefore: Int,
         /** 悪手後局面の評価値（次手番側視点 cp）。BlunderReport.cpAfter 参照。 */
         val cpAfter: Int,
+        /** 悪手前局面の pv2 の指し手。BlunderReport.secondUsi 参照。 */
+        val secondUsi: String? = null,
+        /** 悪手前局面の pv2 の評価値（手番側視点 cp）。BlunderReport.secondCp 参照。 */
+        val secondCp: Int? = null,
     )
 }
