@@ -33,6 +33,13 @@ kotlin {
     // - 一方、静的framework（Shared / :uiのSharedUi）は最終リンクを消費側に委ねるため、
     //   ここのframework linkerOptsだけではシンボルは埋め込まれない。iosApp（Xcode）側の
     //   OTHER_LDFLAGS/LIBRARY_SEARCH_PATHSでも -lshogiengine を通す（iosApp/project.yml参照）。
+    //
+    // engineless（GPL×App Store回避のためエンジン・評価関数を一切リンクしないフレーバー）:
+    // `-PiosEngineless=true` を渡すと、この節のcinterop登録・engine系linkerOptsを
+    // 一切追加しない。エンジン依存のiOSソース（UsiEngineInProcess/IosEngineHost）も
+    // コンパイル対象から外す（下の iosMain.get().kotlin.srcDir 切り替え参照）。
+    // 既定（フラグ無し）は従来どおりエンジンを同梱する＝この節の挙動は不変。
+    val iosEngineless = (project.findProperty("iosEngineless") as? String).toBoolean()
     val engineWrapperDir = rootProject.projectDir.resolve("iosApp/engine/wrapper")
     // ktor-client-darwin導入後、cryptography-kotlinのCryptoKit Swift interopが要求する
     // Swift ABI互換シム（libswiftCompatibility56.a等）をリンカが見つけられず
@@ -64,25 +71,34 @@ kotlin {
         val swiftSdkName = if (iosTarget.name == "iosArm64") "iphoneos" else "iphonesimulator"
         val swiftCompatLibDir =
             "$xcodeDeveloperDir/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$swiftSdkName"
-        val engineLinkerOpts = listOf(
-            "-L${engineLibDir.absolutePath}", "-lshogiengine", "-lc++",
-            "-L$swiftCompatLibDir",
-        )
+        // Swift互換シム側（cryptography-kotlinのCryptoKit interop対策）はengineの有無と無関係
+        // （ktor-client-darwin依存で発生するため、engineless時も変わらず必要）。
+        // engine側（-lshogiengine等）だけをiosEnginelessで空にする。
+        val swiftCompatLinkerOpts = listOf("-L$swiftCompatLibDir")
+        val engineLinkerOpts = if (iosEngineless) {
+            emptyList()
+        } else {
+            listOf("-L${engineLibDir.absolutePath}", "-lshogiengine", "-lc++")
+        }
 
         iosTarget.binaries.framework {
             baseName = "Shared"
             isStatic = true
-            linkerOpts.addAll(engineLinkerOpts)
+            linkerOpts.addAll(engineLinkerOpts + swiftCompatLinkerOpts)
         }
         // iosSimulatorArm64Test（回帰4系統の1つ）はmain+testを1つの実行体としてリンクする
-        // ため、cinterop実体（libshogiengine.a）へのリンカフラグを test バイナリにも通す。
-        iosTarget.binaries.getTest("DEBUG").linkerOpts.addAll(engineLinkerOpts)
+        // ため、cinterop実体（libshogiengine.a）へのリンカフラグを test バイナリにも通す
+        // （iosEngineless時はengineLinkerOptsが空なのでSwift互換シムのみ）。
+        iosTarget.binaries.getTest("DEBUG").linkerOpts.addAll(engineLinkerOpts + swiftCompatLinkerOpts)
 
-        iosTarget.compilations.getByName("main") {
-            cinterops.create("engine_wrapper") {
-                defFile(project.file("src/nativeInterop/cinterop/engine_wrapper.def"))
-                packageName("dev.miyado.shogisupplement.engine.wrapper")
-                includeDirs(engineWrapperDir)
+        // engineless時はcinterop自体を登録しない（wrapperシンボルへの依存を一切生成しない）。
+        if (!iosEngineless) {
+            iosTarget.compilations.getByName("main") {
+                cinterops.create("engine_wrapper") {
+                    defFile(project.file("src/nativeInterop/cinterop/engine_wrapper.def"))
+                    packageName("dev.miyado.shogisupplement.engine.wrapper")
+                    includeDirs(engineWrapperDir)
+                }
             }
         }
     }
@@ -131,6 +147,17 @@ kotlin {
             // Android側は androidApp/build.gradle.kts の ktor-client-okhttp が担う。
             implementation(libs.ktor.client.darwin)
         }
+
+        // エンジン依存のiOSソース（UsiEngineInProcess/IosEngineHost。cinteropシンボルを参照する）は
+        // src/iosMain 直下に置かず、フラグに応じて選ぶディレクトリ（iosEngineMain/
+        // iosEnginelessMain）へ分離してある。iosMain は iosArm64/iosSimulatorArm64 共通の
+        // 中間ソースセット（applyDefaultHierarchyTemplateが生成）のため、ここに srcDir を
+        // 足せば両ターゲットに効く。どちらのディレクトリも IosEngineHost という同名・同一公開APIの
+        // オブジェクトを提供するため、:ui iosMain 側は無変更でどちらのフレーバーでもコンパイルが通る
+        // （engineless版は shared/src/iosEnginelessMain/.../IosEngineHost.kt 参照）。
+        iosMain.get().kotlin.srcDir(
+            if (iosEngineless) "src/iosEnginelessMain/kotlin" else "src/iosEngineMain/kotlin",
+        )
     }
 }
 

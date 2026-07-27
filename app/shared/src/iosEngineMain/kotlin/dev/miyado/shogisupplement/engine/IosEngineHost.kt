@@ -11,13 +11,33 @@ import platform.Foundation.NSBundle
  * 共有する必要がある。2つの独立したホルダーが存在すると、2つ目の getOrCreate() が
  * `UsiEngineInProcess.create()` の二重起動ガードに引っかかって例外になるため、
  * 単一インスタンスであることが重要。
+ *
+ * これが :ui iosMain（IosMainController/DrillDemoFactory）から見た「エンジン提供の唯一の窓口」
+ * になっている。engineless フレーバー（-PiosEngineless=true）ではこのファイル自体が
+ * コンパイル対象から外れ、同名・同一公開APIの別実装
+ * （shared/src/iosEnginelessMain/.../IosEngineHost.kt。常にnull/例外を返すダミー）に
+ * 差し替わる（shared/build.gradle.ktsのiosMain srcDir切り替え参照）。呼び出し側の
+ * :ui iosMain はソース変更なしで両フレーバーともコンパイルが通る。
+ *
+ * @property ENGINE_LINKED 呼び出し側が「エンジンが実際にリンクされているか」を
+ *   事前に判定するためのフラグ。engineless版では false 固定（IosMainController が
+ *   ANALYSIS_BASE_URL 未設定時にエンジンへフォールバックせずエラー表示するのに使う）。
  */
 object IosEngineHost {
-    private var engine: UsiEngineInProcess? = null
+    /** true = UsiEngineInProcess をリンクした既定ビルド。engineless版では false 固定。 */
+    val ENGINE_LINKED: Boolean = true
+
+    private var engine: Engine? = null
     private var attempted = false
 
-    /** エンジンを取得する。初回呼び出し時のみ実際に起動する（以降はキャッシュを返す）。 */
-    fun getOrCreate(): UsiEngineInProcess? {
+    /**
+     * エンジンを取得する。初回呼び出し時のみ実際に起動する（以降はキャッシュを返す）。
+     *
+     * 戻り値を具象型 UsiEngineInProcess ではなく commonMain の [Engine] インターフェースに
+     * しているのは、engineless版の同名メソッドが UsiEngineInProcess型を持たないため
+     * （呼び出し側 :ui iosMain は元々 [Engine] のメソッドしか使っていない）。
+     */
+    fun getOrCreate(): Engine? {
         if (!attempted) {
             attempted = true
             val evalDir = NSBundle.mainBundle.pathForResource("eval", ofType = null)
