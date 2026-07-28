@@ -22,7 +22,7 @@ private const val APP_CHECK_HEADER = "X-Firebase-AppCheck"
 
 // HTTP変換の薄い層のみを担い、認可・冪等・解析の実処理は[AnalysisService]に委譲する。
 fun Routing.registerAnalysisRoutes(service: AnalysisService) {
-    get("/healthz") {
+    get("/health") {
         call.respond(HttpStatusCode.OK, mapOf("status" to "ok"))
     }
 

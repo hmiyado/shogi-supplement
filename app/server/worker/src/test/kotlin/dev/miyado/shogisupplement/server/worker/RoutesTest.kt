@@ -55,12 +55,12 @@ class RoutesTest {
     )
 
     @Test
-    fun `healthz returns 200`() = testApplication {
+    fun `health returns 200`() = testApplication {
         application {
             install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
             routing { registerAnalysisRoutes(buildService()) }
         }
-        val response = client.get("/healthz")
+        val response = client.get("/health")
         assertEquals(HttpStatusCode.OK, response.status)
     }
 
