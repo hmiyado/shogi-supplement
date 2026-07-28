@@ -31,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import dev.miyado.shogisupplement.rating.RankScale
 import dev.miyado.shogisupplement.rating.ShogiRank
 import dev.miyado.shogisupplement.text.AppStrings
 
@@ -41,35 +42,17 @@ private val KIOU_RULES: List<Pair<String, String>> get() = AppStrings.kiouRules
 
 // ─── 将棋ウォーズ/棋桜 段級位ヘルパー ──────────────────────────────────────
 
-private val WARS_RANK_LABELS: List<String> = run {
-    val kyuList = (30 downTo 1).map { "${it}級" }
-    val kanjiDan = listOf("初", "二", "三", "四", "五", "六", "七", "八", "九")
-    val danList = kanjiDan.map { "${it}段" }
-    kyuList + danList
-}
-
-/** ピッカーのインデックス（0=30級 … 29=1級, 30=初段 … 38=九段）→ ShogiRank。 */
-private fun warsRankFromIndex(index: Int): ShogiRank {
-    return if (index < 30) {
-        ShogiRank.Kyu(30 - index)
-    } else {
-        ShogiRank.Dan(index - 29)
-    }
-}
-
-/** ShogiRank → ピッカーのインデックス。 */
-private fun warsRankToIndex(rank: ShogiRank): Int = when (rank) {
-    is ShogiRank.Kyu -> 30 - rank.kyu
-    is ShogiRank.Dan -> 29 + rank.dan
-}
+private val WARS_SCALE = RankScale(maxKyu = 30)
+// 棋桜はどのルールも最低10級（サービス仕様）
+private val KIOU_SCALE = RankScale(maxKyu = 10)
 
 /**
- * 段級位ピッカーの初期表示インデックス。
+ * 段級位ピッカーの初期表示インデックス（どちらも1級）。
  * 保存済み rank がある場合はこの既定値より呼び出し元での `?:` 優先が勝つ
  * （既存挙動維持）。
  */
-private const val WARS_RANK_DEFAULT_INDEX = 29  // 将棋ウォーズ: 1級
-private const val KIOU_RANK_DEFAULT_INDEX = 29  // 棋桜: 1級
+private val WARS_RANK_DEFAULT_INDEX = WARS_SCALE.toIndex(ShogiRank.Kyu(1))
+private val KIOU_RANK_DEFAULT_INDEX = KIOU_SCALE.toIndex(ShogiRank.Kyu(1))
 
 /**
  * 棋力設定ダイアログ。
@@ -105,7 +88,7 @@ fun RatingSettingsDialog(
         mutableStateMapOf<String, Int>().also { map ->
             savedServiceRanks["shogi_wars"]?.forEach { (rule, raw) ->
                 val rank = ShogiRank.fromRaw(raw) ?: return@forEach
-                map[rule] = warsRankToIndex(rank)
+                map[rule] = WARS_SCALE.toIndex(rank)
             }
         }
     }
@@ -113,7 +96,7 @@ fun RatingSettingsDialog(
         mutableStateMapOf<String, Int>().also { map ->
             savedServiceRanks["kiou"]?.forEach { (rule, raw) ->
                 val rank = ShogiRank.fromRaw(raw) ?: return@forEach
-                map[rule] = warsRankToIndex(rank)
+                map[rule] = KIOU_SCALE.toIndex(rank)
             }
         }
     }
@@ -169,6 +152,7 @@ fun RatingSettingsDialog(
                         WARS_RULES.forEach { (ruleId, ruleLabel) ->
                             ServiceRuleRankRow(
                                 ruleLabel = ruleLabel,
+                                scale = WARS_SCALE,
                                 currentIdx = warsRankIndices[ruleId] ?: WARS_RANK_DEFAULT_INDEX,
                                 onIdxChange = { warsRankIndices[ruleId] = it },
                             )
@@ -179,6 +163,7 @@ fun RatingSettingsDialog(
                         KIOU_RULES.forEach { (ruleId, ruleLabel) ->
                             ServiceRuleRankRow(
                                 ruleLabel = ruleLabel,
+                                scale = KIOU_SCALE,
                                 currentIdx = kiouRankIndices[ruleId] ?: KIOU_RANK_DEFAULT_INDEX,
                                 onIdxChange = { kiouRankIndices[ruleId] = it },
                             )
@@ -191,9 +176,9 @@ fun RatingSettingsDialog(
             TextButton(onClick = {
                 // ルール別 rankRaw を収集して serviceRanks Map を作る
                 val builtServiceRanks = buildMap<String, Map<String, Int>> {
-                    val warsMap = warsRankIndices.mapValues { (_, idx) -> warsRankFromIndex(idx).toRaw() }
+                    val warsMap = warsRankIndices.mapValues { (_, idx) -> WARS_SCALE.fromIndex(idx).toRaw() }
                     if (warsMap.isNotEmpty()) put("shogi_wars", warsMap)
-                    val kiouMap = kiouRankIndices.mapValues { (_, idx) -> warsRankFromIndex(idx).toRaw() }
+                    val kiouMap = kiouRankIndices.mapValues { (_, idx) -> KIOU_SCALE.fromIndex(idx).toRaw() }
                     if (kiouMap.isNotEmpty()) put("kiou", kiouMap)
                 }
                 // lishogi のレートは savedRatingRaw/ratingText で扱う（ルール別ではなく単一値）
@@ -233,6 +218,7 @@ fun RatingSettingsDialog(
 @Composable
 private fun ServiceRuleRankRow(
     ruleLabel: String,
+    scale: RankScale,
     currentIdx: Int,
     onIdxChange: (Int) -> Unit,
 ) {
@@ -251,14 +237,14 @@ private fun ServiceRuleRankRow(
             enabled = currentIdx > 0,
         ) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "下げる") }
         Text(
-            WARS_RANK_LABELS[currentIdx],
+            scale.labels[currentIdx],
             modifier = Modifier.width(56.dp),
             textAlign = TextAlign.Center,
             style = MaterialTheme.typography.bodySmall,
         )
         TextButton(
-            onClick = { if (currentIdx < WARS_RANK_LABELS.lastIndex) onIdxChange(currentIdx + 1) },
-            enabled = currentIdx < WARS_RANK_LABELS.lastIndex,
+            onClick = { if (currentIdx < scale.labels.lastIndex) onIdxChange(currentIdx + 1) },
+            enabled = currentIdx < scale.labels.lastIndex,
         ) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "上げる") }
     }
 }
