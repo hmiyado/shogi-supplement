@@ -28,8 +28,8 @@ resource "google_cloud_run_v2_service" "analysis_worker" {
 
       resources {
         limits = {
-          cpu    = "1"
-          memory = "1Gi"
+          cpu    = var.worker_cpu
+          memory = var.worker_memory
         }
       }
 
@@ -50,6 +50,10 @@ resource "google_cloud_run_v2_service" "analysis_worker" {
       env {
         name  = "FIREBASE_PROJECT_NUMBER"
         value = var.firebase_project_number
+      }
+      env {
+        name  = "ANALYSIS_WORKERS"
+        value = var.analysis_workers
       }
 
       # SAにsecretAccessorを付けるだけでは値は届かない（ワーカーはSecret Manager APIを

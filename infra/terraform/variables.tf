@@ -56,6 +56,24 @@ variable "request_timeout_seconds" {
   description = "1リクエストのタイムアウト秒数。90局面×約30〜40秒の解析を余裕を持って収める"
 }
 
+variable "worker_cpu" {
+  type        = string
+  default     = "4"
+  description = "Cloud Runコンテナに割り当てるCPU数。analysis_workers本のエンジンプロセスがThreads=1で並列動作するため、本数と揃える"
+}
+
+variable "worker_memory" {
+  type        = string
+  default     = "2Gi"
+  description = "Cloud Runコンテナに割り当てるメモリ。エンジンプロセスanalysis_workers本分（USI_Hash 128MB＋評価関数）とJVMのヒープを合わせて収める"
+}
+
+variable "analysis_workers" {
+  type        = string
+  default     = "4"
+  description = "1局面ずつ解析するエンジンプロセスの並列本数（コンテナ環境変数ANALYSIS_WORKERSとして注入）。worker_cpuと揃えること"
+}
+
 variable "billing_account_id" {
   type        = string
   description = "予算アラートの対象請求先アカウントID（例: 012345-6789AB-CDEF01）。人間がプロジェクト作成時に紐付けたものを渡す"
