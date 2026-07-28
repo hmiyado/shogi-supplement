@@ -14,7 +14,14 @@ import dev.miyado.shogisupplement.util.formatResetAtJst
  */
 object RemoteAnalysisErrorMapper {
     fun map(e: RemoteAnalysisException): String = when (e) {
-        is RemoteAnalysisException.Unauthorized -> AppStrings.SERVER_ANALYSIS_ERROR_UNAUTHORIZED
+        // 401の理由はワーカーのエラー本文で区別する。App Check起因（トークン欠落・無効）は
+        // セッションと無関係で、リトライやセッション再取得では直らないため専用文言にする
+        is RemoteAnalysisException.Unauthorized ->
+            if (e.message?.contains("app check") == true) {
+                AppStrings.SERVER_ANALYSIS_ERROR_APP_CHECK
+            } else {
+                AppStrings.SERVER_ANALYSIS_ERROR_UNAUTHORIZED
+            }
         is RemoteAnalysisException.Banned -> AppStrings.SERVER_ANALYSIS_ERROR_BANNED
         is RemoteAnalysisException.QuotaExceeded ->
             AppStrings.serverAnalysisErrorQuotaExceeded(formatResetAtJst(e.resetAt))

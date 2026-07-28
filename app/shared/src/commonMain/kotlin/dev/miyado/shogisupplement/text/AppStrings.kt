@@ -606,6 +606,8 @@ object AppStrings {
 
     /** 401: セッション再取得（AuthRetryingAnalyzer）を試みても解決しなかった場合。 */
     const val SERVER_ANALYSIS_ERROR_UNAUTHORIZED = "セッションの更新に失敗しました。時間をおいてお試しください"
+    const val SERVER_ANALYSIS_ERROR_APP_CHECK =
+        "アプリの検証に失敗しました。App Storeの最新版でお試しください"
 
     /** 403: user_bans 登録済み（BAN）。 */
     const val SERVER_ANALYSIS_ERROR_BANNED = "このアカウントはサーバー解析を利用できません"
