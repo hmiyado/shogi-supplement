@@ -627,7 +627,7 @@ object AppStrings {
 
     const val CONSENT_TITLE = "はじめに"
     const val CONSENT_INTRO =
-        "将棋サプリは棋譜をサーバーで解析し、レート帯相応の悪手をドリルとして出題します。" +
+        "将棋サプリは棋譜をサーバーで解析し、棋力帯相応の悪手をドリルとして出題します。" +
         "解析にはサーバーを使うため、匿名のアカウントを作成します。名前・メールアドレスの入力は必要ありません。"
     const val CONSENT_BETA_NOTICE = "ベータ期間中は無料で利用できます。正式版では有料化を予定しています。"
     const val CONSENT_RESEARCH_UPLOAD_TEXT =
