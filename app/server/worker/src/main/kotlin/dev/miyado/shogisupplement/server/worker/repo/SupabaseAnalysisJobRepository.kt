@@ -43,6 +43,7 @@ class SupabaseAnalysisJobRepository(
         @SerialName("result_json") val resultJson: JsonElement? = null,
         @SerialName("engine_meta") val engineMeta: JsonElement? = null,
         val error: String? = null,
+        @SerialName("created_at") val createdAt: String,
     )
 
     private fun JobRow.toRecord() = AnalysisJobRecord(
@@ -53,13 +54,14 @@ class SupabaseAnalysisJobRepository(
         resultJson = resultJson,
         engineMeta = engineMeta,
         error = error,
+        createdAt = Instant.parse(createdAt),
     )
 
     override suspend fun find(userId: String, movesHash: String): AnalysisJobRecord? {
         val response = httpClient.get(restUrl(supabaseUrl, "analysis_jobs")) {
             parameter("user_id", "eq.$userId")
             parameter("moves_hash", "eq.$movesHash")
-            parameter("select", "id,user_id,moves_hash,status,result_json,engine_meta,error")
+            parameter("select", "id,user_id,moves_hash,status,result_json,engine_meta,error,created_at")
             supabaseServiceRoleHeaders(serviceRoleKey)
         }
         check(response.status.isSuccess()) { "analysis_jobs find failed: ${response.status}" }

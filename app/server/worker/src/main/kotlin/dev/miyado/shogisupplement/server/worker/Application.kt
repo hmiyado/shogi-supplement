@@ -99,6 +99,7 @@ fun Application.module(config: WorkerConfig) {
         },
         analysisWorkers = config.analysisWorkers,
         positionDailyLimit = config.analysisPositionDailyLimit,
+        staleRunningTimeoutMs = config.staleRunningTimeoutMs,
     )
 
     routing {

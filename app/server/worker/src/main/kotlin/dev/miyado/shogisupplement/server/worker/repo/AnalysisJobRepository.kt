@@ -1,6 +1,7 @@
 package dev.miyado.shogisupplement.server.worker.repo
 
 import kotlinx.serialization.json.JsonElement
+import java.time.Instant
 
 enum class AnalysisJobStatus {
     RUNNING, DONE, ERROR;
@@ -27,6 +28,8 @@ data class AnalysisJobRecord(
     val resultJson: JsonElement?,
     val engineMeta: JsonElement?,
     val error: String?,
+    // RUNNING行のstale判定（AnalysisService.resolveExisting）に使う。
+    val createdAt: Instant,
 )
 
 sealed class CreateRunningResult {

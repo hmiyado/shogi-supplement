@@ -14,6 +14,7 @@ data class WorkerConfig(
     val analysisWorkers: Int,
     val isolatePositions: Boolean,
     val analysisPositionDailyLimit: Int,
+    val staleRunningTimeoutMs: Long,
     // 空文字列＝App Check検証を無効化する（段階導入）。ベータ初期は未設定のまま運用し、
     // クライアントのFirebase SDK組み込みが揃った後にenv投入して有効化する（古いアプリ
     // バージョンを一斉に締め出さないため。有効化のタイミングはenv投入そのものが制御する）。
@@ -44,6 +45,11 @@ data class WorkerConfig(
                 // クォータ（quota_limits.daily_limit、既定30）とは別枠かつDB管理外
                 // （ユーザーごとの調整が必要になったらDB化を検討する。現時点では固定値で十分）。
                 analysisPositionDailyLimit = (env("ANALYSIS_POSITION_DAILY_LIMIT") ?: "100").toInt(),
+                // running のまま止まった行をstaleとみなす経過時間。クライアント切断で解析
+                // コルーチンごとキャンセルされmarkError/markDoneに到達できなかった行を検知し、
+                // 短すぎるとまだ解析中の行まで誤ってリセットしてしまうため、通常の解析時間
+                // （pollTimeoutMsの既定280秒）に対して十分な余裕を持たせた既定値にする。
+                staleRunningTimeoutMs = (env("STALE_RUNNING_TIMEOUT_MS") ?: "600000").toLong(),
                 firebaseProjectNumber = env("FIREBASE_PROJECT_NUMBER") ?: "",
             )
         }

@@ -67,6 +67,7 @@ class AnalysisServiceTest {
         engineFactory: () -> Engine = { engine },
         positionDailyLimit: Int = 100,
         appCheckVerifier: FakeAppCheckVerifier? = null,
+        staleRunningTimeoutMs: Long = 600_000,
     ) = AnalysisService(
         authVerifier = authVerifier,
         banRepository = banRepository,
@@ -80,6 +81,7 @@ class AnalysisServiceTest {
         analysisWorkers = analysisWorkers,
         positionDailyLimit = positionDailyLimit,
         appCheckVerifier = appCheckVerifier,
+        staleRunningTimeoutMs = staleRunningTimeoutMs,
     )
 
     private suspend fun AnalysisRequestOutcome.Stream.collectLines(): List<String> {
@@ -188,6 +190,7 @@ class AnalysisServiceTest {
                     resultJson = null,
                     engineMeta = null,
                     error = null,
+                    createdAt = fixedInstant,
                 ),
             )
         }
@@ -228,6 +231,7 @@ class AnalysisServiceTest {
                 resultJson = json.encodeToJsonElement(cachedResult.result),
                 engineMeta = json.encodeToJsonElement(cachedResult.engineMeta),
                 error = null,
+                createdAt = fixedInstant,
             ),
         )
         repeat(2) { i ->
@@ -240,6 +244,7 @@ class AnalysisServiceTest {
                     resultJson = null,
                     engineMeta = null,
                     error = null,
+                    createdAt = fixedInstant,
                 ),
             )
         }
@@ -273,6 +278,7 @@ class AnalysisServiceTest {
                     resultJson = null,
                     engineMeta = null,
                     error = null,
+                    createdAt = fixedInstant,
                 ),
             )
         }
@@ -297,6 +303,7 @@ class AnalysisServiceTest {
                 resultJson = null,
                 engineMeta = null,
                 error = "engine crashed",
+                createdAt = fixedInstant,
             ),
         )
         val service = buildService(
@@ -322,6 +329,7 @@ class AnalysisServiceTest {
                 resultJson = null,
                 engineMeta = null,
                 error = null,
+                createdAt = fixedInstant,
             ),
             mode = "game",
         )
@@ -351,6 +359,7 @@ class AnalysisServiceTest {
                 resultJson = null,
                 engineMeta = null,
                 error = null,
+                createdAt = fixedInstant,
             ),
             mode = "position",
         )
@@ -403,6 +412,7 @@ class AnalysisServiceTest {
                 resultJson = json.encodeToJsonElement(cachedResult.result),
                 engineMeta = json.encodeToJsonElement(cachedResult.engineMeta),
                 error = null,
+                createdAt = fixedInstant,
             ),
         )
         val engine = FakeEngine()
@@ -469,6 +479,7 @@ class AnalysisServiceTest {
                 resultJson = null,
                 engineMeta = null,
                 error = null,
+                createdAt = fixedInstant,
             ),
         )
         val finalResult = AnalysisResultJson(
@@ -488,6 +499,7 @@ class AnalysisServiceTest {
                 resultJson = json.encodeToJsonElement(finalResult.result),
                 engineMeta = json.encodeToJsonElement(finalResult.engineMeta),
                 error = null,
+                createdAt = fixedInstant,
             ),
         )
         val engine = FakeEngine()
@@ -502,6 +514,99 @@ class AnalysisServiceTest {
         assertEquals(finalResult, decoded)
         assertEquals(0, engine.analyzeCallCount, "waiting request must not run its own engine")
         assertTrue(jobs.findCallCount.get() >= 3, "must have polled find() at least until completion")
+    }
+
+    // ── 実行中の同一ジョブ: staleなrunning行の自己修復 ───────────────────
+
+    @Test
+    fun `retrying a stale RUNNING job past the timeout resets it and re-analyzes instead of waiting`() = runTest {
+        val movesUsi = listOf("7g7f")
+        val movesHash = sha256Hex(movesUsi.joinToString(" "))
+        val staleTimeoutMs = 600_000L
+        val jobs = FakeAnalysisJobRepository()
+        jobs.seed(
+            AnalysisJobRecord(
+                id = "job-stuck",
+                userId = "user-1",
+                movesHash = movesHash,
+                status = AnalysisJobStatus.RUNNING,
+                resultJson = null,
+                engineMeta = null,
+                error = null,
+                // fixedClockの「今」から見て閾値を超えて古いcreated_at。切断でmarkErrorに
+                // 到達できないまま止まった行を模す。
+                createdAt = fixedInstant.minusMillis(staleTimeoutMs + 1_000),
+            ),
+        )
+        val engine = FakeEngine()
+        val service = buildService(
+            analysisJobRepository = jobs,
+            engine = engine,
+            staleRunningTimeoutMs = staleTimeoutMs,
+        )
+
+        val outcome = service.handle("Bearer valid-token", AnalysisRequest(movesUsi = movesUsi))
+        assertIs<AnalysisRequestOutcome.Stream>(outcome)
+        val lines = outcome.collectLines()
+
+        assertTrue(engine.analyzeCallCount > 0, "stale行はwaitForCompletionではなく自分で再解析するはず")
+        val finalLine = lines.last()
+        json.decodeFromString(AnalysisResultJson.serializer(), finalLine)
+        assertEquals(AnalysisJobStatus.DONE, jobs.find("user-1", movesHash)?.status)
+    }
+
+    @Test
+    fun `retrying a RUNNING job within the timeout still waits for completion`() = runTest {
+        val movesUsi = listOf("7g7f")
+        val movesHash = sha256Hex(movesUsi.joinToString(" "))
+        val staleTimeoutMs = 600_000L
+        val jobs = FakeAnalysisJobRepository()
+        jobs.seed(
+            AnalysisJobRecord(
+                id = "job-running-young",
+                userId = "user-1",
+                movesHash = movesHash,
+                status = AnalysisJobStatus.RUNNING,
+                resultJson = null,
+                engineMeta = null,
+                error = null,
+                // 閾値未満なのでまだ解析中とみなし、待つ側の分岐に回るはず。
+                createdAt = fixedInstant.minusMillis(staleTimeoutMs - 1_000),
+            ),
+        )
+        val finalResult = AnalysisResultJson(
+            result = listOf(listOf(PvInfoJson(1, ScoreJson("cp", 1), listOf("7g7f"), 400_000))),
+            engineMeta = engineMeta(),
+        )
+        jobs.completeAfter(
+            userId = "user-1",
+            movesHash = movesHash,
+            calls = 2,
+            result = AnalysisJobRecord(
+                id = "job-running-young",
+                userId = "user-1",
+                movesHash = movesHash,
+                status = AnalysisJobStatus.DONE,
+                resultJson = json.encodeToJsonElement(finalResult.result),
+                engineMeta = json.encodeToJsonElement(finalResult.engineMeta),
+                error = null,
+                createdAt = fixedInstant.minusMillis(staleTimeoutMs - 1_000),
+            ),
+        )
+        val engine = FakeEngine()
+        val service = buildService(
+            analysisJobRepository = jobs,
+            engine = engine,
+            staleRunningTimeoutMs = staleTimeoutMs,
+        )
+
+        val outcome = service.handle("Bearer valid-token", AnalysisRequest(movesUsi = movesUsi))
+        assertIs<AnalysisRequestOutcome.Stream>(outcome)
+        val lines = outcome.collectLines()
+
+        assertEquals(0, engine.analyzeCallCount, "閾値未満はwaitForCompletionに回り自分では解析しないはず")
+        assertEquals(1, lines.size)
+        assertEquals(finalResult, json.decodeFromString(AnalysisResultJson.serializer(), lines.single()))
     }
 
     // ── 正常系: NDJSON progress行 → 最終行にresult ───────────────────────
@@ -569,5 +674,43 @@ class AnalysisServiceTest {
         val error = json.decodeFromString(ErrorJson.serializer(), lines.single())
         assertTrue(error.error.isNotBlank())
         assertTrue(engine.quitCalled)
+    }
+
+    // ── 切断耐性: writeが失敗しても解析はリクエストと独立して完走する ─────────
+
+    @Test
+    fun `write failure on every line does not stop a successful analysis from marking the job done`() = runTest {
+        val movesUsi = listOf("7g7f", "3c3d")
+        val movesHash = sha256Hex(movesUsi.joinToString(" "))
+        val jobs = FakeAnalysisJobRepository()
+        val engine = FakeEngine()
+        val service = buildService(analysisJobRepository = jobs, engine = engine)
+
+        val outcome = service.handle("Bearer valid-token", AnalysisRequest(movesUsi = movesUsi))
+        assertIs<AnalysisRequestOutcome.Stream>(outcome)
+
+        // クライアント切断を模す: どの行のwriteも例外を投げる。
+        outcome.emit { _ -> throw IllegalStateException("client disconnected") }
+
+        assertTrue(engine.quitCalled, "write失敗でも解析asyncは独立して完走するはず")
+        val record = jobs.find("user-1", movesHash)
+        assertEquals(AnalysisJobStatus.DONE, record?.status, "write失敗でもmarkDoneまで到達するはず")
+    }
+
+    @Test
+    fun `write failure combined with an engine failure still marks the job as error`() = runTest {
+        val movesUsi = listOf("7g7f")
+        val movesHash = sha256Hex(movesUsi.joinToString(" "))
+        val jobs = FakeAnalysisJobRepository()
+        val engine = FakeEngine(fail = true)
+        val service = buildService(analysisJobRepository = jobs, engine = engine)
+
+        val outcome = service.handle("Bearer valid-token", AnalysisRequest(movesUsi = movesUsi))
+        assertIs<AnalysisRequestOutcome.Stream>(outcome)
+
+        outcome.emit { _ -> throw IllegalStateException("client disconnected") }
+
+        val record = jobs.find("user-1", movesHash)
+        assertEquals(AnalysisJobStatus.ERROR, record?.status, "write失敗と解析失敗が重なってもmarkErrorされるはず")
     }
 }

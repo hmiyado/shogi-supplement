@@ -25,10 +25,12 @@ import dev.miyado.shogisupplement.server.worker.repo.QUOTA_RESET_ZONE
 import dev.miyado.shogisupplement.server.worker.repo.QuotaLimitRepository
 import dev.miyado.shogisupplement.util.sha256Hex
 import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -39,6 +41,7 @@ import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.put
 import java.time.Clock
+import java.time.Duration
 import java.time.Instant
 
 sealed class AnalysisRequestOutcome {
@@ -76,6 +79,15 @@ class AnalysisService(
     // nullは段階導入の無効状態（FIREBASE_PROJECT_NUMBER未設定）を表す。この場合ヘッダの
     // 有無に関わらず検証自体をスキップする（古いアプリバージョンを締め出さないため）。
     private val appCheckVerifier: AppCheckVerifier? = null,
+    // RUNNING行をstale（自己修復対象）とみなす経過時間（環境変数 STALE_RUNNING_TIMEOUT_MS
+    // 由来。WorkerConfig参照）。resolveExistingのRUNNING分岐でのみ使う。
+    private val staleRunningTimeoutMs: Long = 600_000,
+    // 解析（analyzeGame/analyzePosition＋markDone/markError）をリクエストのライフサイクルから
+    // 切り離すためのスコープ。SupervisorJobなので子（1解析）の失敗は他の解析に伝播しない。
+    // Why not リクエストのcoroutineScopeをそのまま使う: クライアント切断でリクエスト側の
+    // スコープがキャンセルされると、そこにぶら下がる解析コルーチンもキャンセルされ、
+    // markDone/markErrorまで到達できないままrunningの行が残ってしまうため。
+    private val analysisScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) {
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -148,10 +160,20 @@ class AnalysisService(
     ): AnalysisRequestOutcome = when (existing.status) {
         AnalysisJobStatus.DONE -> AnalysisRequestOutcome.Stream(cachedEmitter(existing))
         AnalysisJobStatus.RUNNING -> {
-            val finished = waitForCompletion(userId, movesHash)
-            when (finished.status) {
-                AnalysisJobStatus.DONE -> AnalysisRequestOutcome.Stream(cachedEmitter(finished))
-                else -> AnalysisRequestOutcome.Stream(errorEmitter(finished.error ?: "analysis failed"))
+            val ageMs = Duration.between(existing.createdAt, clock.instant()).toMillis()
+            if (ageMs > staleRunningTimeoutMs) {
+                // Why not このままwaitForCompletionへ進める: 解析側が切断時のキャンセルに
+                // 巻き込まれてmarkDone/markErrorへ到達できなかった行は、待っても
+                // running のまま変化しないためタイムアウトし続ける。created_atで停止を
+                // 検知し、resetして自分のリクエストで解析をやり直す方が復旧できる。
+                analysisJobRepository.resetToRunning(existing.id)
+                AnalysisRequestOutcome.Stream(runEmitter(existing.id, input))
+            } else {
+                val finished = waitForCompletion(userId, movesHash)
+                when (finished.status) {
+                    AnalysisJobStatus.DONE -> AnalysisRequestOutcome.Stream(cachedEmitter(finished))
+                    else -> AnalysisRequestOutcome.Stream(errorEmitter(finished.error ?: "analysis failed"))
+                }
             }
         }
         AnalysisJobStatus.ERROR -> {
@@ -174,31 +196,53 @@ class AnalysisService(
         }
     }
 
-    /** 新規解析を実行し、進捗→最終行をNDJSONで書き出すエミッタ。 */
+    /**
+     * 新規解析を実行し、進捗→最終行をNDJSONで書き出すエミッタ。
+     *
+     * 解析本体＋markDone/markErrorは[analysisScope]のasyncで実行し、リクエスト側の[write]とは
+     * 独立させる。進捗は非suspendコールバックからChannelへ送るだけにし、writeへの転送は
+     * このリクエスト側コルーチンが担う。write失敗（クライアント切断）はここで握りつぶし、
+     * 転送を打ち切るだけにとどめる（analysisScope側は別スコープのため、伝播させなくても
+     * 独立してmarkDone/markErrorまで完走する）。
+     */
     private fun runEmitter(jobId: String, input: EngineInput): suspend (suspend (String) -> Unit) -> Unit =
         { write ->
-            try {
-                val resultDto = when (input) {
-                    is EngineInput.Game -> analyzeGame(input, write)
-                    is EngineInput.Position -> analyzePosition(input, write)
+            val progressChannel = Channel<String>(Channel.UNLIMITED)
+            val analysisJob = analysisScope.async {
+                try {
+                    val resultDto = when (input) {
+                        is EngineInput.Game ->
+                            analyzeGame(input) { line -> progressChannel.trySend(line) }
+                        is EngineInput.Position ->
+                            analyzePosition(input) { line -> progressChannel.trySend(line) }
+                    }
+                    analysisJobRepository.markDone(
+                        jobId,
+                        resultJson = json.encodeToJsonElement(resultDto.result),
+                        engineMeta = json.encodeToJsonElement(resultDto.engineMeta),
+                    )
+                    json.encodeToString(resultDto) + "\n"
+                } catch (e: Exception) {
+                    val message = e.message ?: e::class.simpleName ?: "engine error"
+                    analysisJobRepository.markError(jobId, message)
+                    json.encodeToString(ErrorJson(message)) + "\n"
+                } finally {
+                    progressChannel.close()
                 }
-                analysisJobRepository.markDone(
-                    jobId,
-                    resultJson = json.encodeToJsonElement(resultDto.result),
-                    engineMeta = json.encodeToJsonElement(resultDto.engineMeta),
-                )
-                write(json.encodeToString(resultDto) + "\n")
-            } catch (e: Exception) {
-                val message = e.message ?: e::class.simpleName ?: "engine error"
-                analysisJobRepository.markError(jobId, message)
-                write(json.encodeToString(ErrorJson(message)) + "\n")
             }
+
+            for (line in progressChannel) {
+                runCatching { write(line) }
+            }
+            // write失敗時は握りつぶす（切断後なので届け先がない）。resultDto/ErrorJsonは
+            // analysisJob内で既にmarkDone/markErrorへ反映済みのため、ここで失っても実害はない。
+            runCatching { write(analysisJob.await()) }
         }
 
     private suspend fun analyzeGame(
         input: EngineInput.Game,
-        write: suspend (String) -> Unit,
-    ): AnalysisResultJson = coroutineScope {
+        onProgress: (String) -> Unit,
+    ): AnalysisResultJson {
         // エンジンプロセスの生成と終了はAnalysisRunnerに任せる（プールに最大analysisWorkers本まで
         // 作り、局の解析が終わったら全部quitする）。Threads=1のまま本数で並列度を上げる形なので、
         // 解析条件は1本のときと同一で結果も変わらない。
@@ -207,23 +251,10 @@ class AnalysisService(
             crashReporter = NoopCrashReporter,
             engineFactory = engineFactory,
         )
-        // AnalysisRunner.onProgressは非suspendコールバックのため、suspendなwrite（NDJSON書き込み）
-        // を直接呼べない。Channelで一方向にブリッジし、書き込みは専用コルーチンに直列化する。
-        val progressChannel = Channel<ProgressJson>(Channel.UNLIMITED)
-        val writerJob = launch {
-            for (p in progressChannel) {
-                write(json.encodeToString(p) + "\n")
-            }
+        val allPv: List<List<PvInfo>> = runner.analyzeGame(input.movesUsi) { done, total ->
+            onProgress(json.encodeToString(ProgressJson(done, total)) + "\n")
         }
-        val allPv: List<List<PvInfo>> = try {
-            runner.analyzeGame(input.movesUsi) { done, total ->
-                progressChannel.trySend(ProgressJson(done, total))
-            }
-        } finally {
-            progressChannel.close()
-        }
-        writerJob.join()
-        AnalysisResultJson(
+        return AnalysisResultJson(
             result = allPv.map { pvList -> pvList.map { it.toJson() } },
             engineMeta = engineMetaProvider(),
         )
@@ -231,16 +262,16 @@ class AnalysisService(
 
     private suspend fun analyzePosition(
         input: EngineInput.Position,
-        write: suspend (String) -> Unit,
+        onProgress: (String) -> Unit,
     ): AnalysisResultJson {
-        write(json.encodeToString(ProgressJson(0, 1)) + "\n")
+        onProgress(json.encodeToString(ProgressJson(0, 1)) + "\n")
         val engine = engineFactory()
         val pvList = try {
             engine.analyzeSfen(input.sfen, input.moves)
         } finally {
             runCatching { engine.quit() }
         }
-        write(json.encodeToString(ProgressJson(1, 1)) + "\n")
+        onProgress(json.encodeToString(ProgressJson(1, 1)) + "\n")
         return AnalysisResultJson(
             result = listOf(pvList.map { it.toJson() }),
             engineMeta = engineMetaProvider(),

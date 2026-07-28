@@ -12,6 +12,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import java.time.Instant
 import java.util.concurrent.atomic.AtomicInteger
 
 class FakeBanRepository(private val bannedUserIds: Set<String> = emptySet()) : BanRepository {
@@ -100,6 +101,10 @@ class FakeAnalysisJobRepository : AnalysisJobRepository {
             resultJson = null,
             engineMeta = null,
             error = null,
+            // 実DBはcreated_atをinsert時刻で自動設定する。フェイクもテスト実行時刻を使えば
+            // 十分で、staleRunningTimeoutMs判定用の値をここで明示的に仕込む必要があるテストは
+            // seed()経由でcreatedAtを直接指定する。
+            createdAt = Instant.now(),
         )
         records[key] = record
         // 実DBのmoves_usi jsonb同様、mode はストレージペイロード内のフィールドから取り出す

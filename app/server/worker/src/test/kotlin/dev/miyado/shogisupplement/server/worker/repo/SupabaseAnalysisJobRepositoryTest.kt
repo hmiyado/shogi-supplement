@@ -144,6 +144,7 @@ class SupabaseAnalysisJobRepositoryTest {
                         "status" -> JsonPrimitive("done")
                         "result_json", "engine_meta" -> JsonNull
                         "error" -> JsonNull
+                        "created_at" -> JsonPrimitive("2026-07-26T10:00:00Z")
                         else -> error("unexpected select column: $column")
                     }
                 },
@@ -197,7 +198,8 @@ class SupabaseAnalysisJobRepositoryTest {
             body = request.bodyText()
             respond(
                 content = ByteReadChannel(
-                    """[{"id":"job-1","user_id":"user-1","moves_hash":"hash-1","status":"running"}]""",
+                    """[{"id":"job-1","user_id":"user-1","moves_hash":"hash-1","status":"running",""" +
+                        """"created_at":"2026-07-26T10:00:00Z"}]""",
                 ),
                 status = HttpStatusCode.Created,
                 headers = headersOf(HttpHeaders.ContentType, "application/json"),
