@@ -10,6 +10,7 @@ import dev.miyado.shogisupplement.db.PositionEvalRow
 import dev.miyado.shogisupplement.judge.CoefficientTable
 import dev.miyado.shogisupplement.kifu.KifParser
 import dev.miyado.shogisupplement.kifu.KifuDecomposer
+import dev.miyado.shogisupplement.kifu.KifuParseException
 import dev.miyado.shogisupplement.pipeline.PositionEval
 import dev.miyado.shogisupplement.pipeline.ReportPipeline
 import dev.miyado.shogisupplement.text.AppStrings
@@ -173,8 +174,13 @@ class AnalysisOrchestrator(
             // RemoteAnalysisException はサーバーが理由を明示して返した想定内の失敗
             // （401/403/429/400=クライアント起因、EngineFailure=サーバー側で記録済み、
             // ConnectionLost=ネットワーク事情）のため、二重報告を避けてcaptureExceptionしない。
-            // それ以外の例外（KIFパース失敗・DB保存失敗・端末エンジン内部エラー等）は従来どおり送信する。
-            if (e !is RemoteAnalysisException && !e.isAlreadyReported()) {
+            // KifuParseException も送信しない: 想定内のユーザー入力エラーであることに加え、
+            // メッセージに問題のKIF行（棋譜の断片）を含むため、クラッシュレポートに
+            // 棋譜データを乗せない誓約（プライバシーポリシー）に反する。
+            // ローカルのエラーダイアログには従来どおり行を含むメッセージを表示する。
+            // それ以外の例外（DB保存失敗・端末エンジン内部エラー等）は従来どおり送信する。
+            val expected = e is RemoteAnalysisException || e is KifuParseException
+            if (!expected && !e.isAlreadyReported()) {
                 crashReporter.captureException(e)
             }
             val message = if (e is RemoteAnalysisException) {
