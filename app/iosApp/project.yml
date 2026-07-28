@@ -100,6 +100,9 @@ targets:
         OTHER_LDFLAGS: "-framework SharedUi -lsqlite3 -lc++ -lshogiengine -ObjC"
         # アプリアイコン（駒型二色カプセル。androidApp のアダプティブアイコンと同意匠）。
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # App Attest（Firebase App Check）に必須のentitlements。無いとRelease実機で
+        # トークン取得に失敗し、サーバーがApp Check必須のときに解析が401になる
+        CODE_SIGN_ENTITLEMENTS: iosApp/iosApp.entitlements
         "LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*]": "$(SRCROOT)/engine/build/sim"
         "LIBRARY_SEARCH_PATHS[sdk=iphoneos*]": "$(SRCROOT)/engine/build/device"
         # SharedUi.framework（:ui の Kotlin/Native成果物）はApple Siliconホストでは

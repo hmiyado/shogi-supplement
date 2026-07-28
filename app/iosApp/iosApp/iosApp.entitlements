@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Firebase App CheckのApp Attestプロバイダに必須。
+	     productionを指定するとdevelopment署名ビルドではsandbox環境が使われ、
+	     App Store/TestFlight配布では本番環境が使われる（Appleが署名種別で切り替える）。 -->
+	<key>com.apple.developer.devicecheck.appattest-environment</key>
+	<string>production</string>
+</dict>
+</plist>
