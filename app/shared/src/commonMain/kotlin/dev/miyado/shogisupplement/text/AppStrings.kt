@@ -143,6 +143,12 @@ object AppStrings {
         "short" to "短時間",
     )
 
+    // 匿名アカウント作成の事前確認。アカウント削除後など未ログインで棋譜を追加すると、
+    // 解析時に匿名アカウントが新規作成されるため、追加の入口で伝えて確認を取る
+    const val IMPORT_ACCOUNT_NOTICE_TITLE = "アカウントの作成"
+    const val IMPORT_ACCOUNT_NOTICE_BODY = "棋譜を追加すると匿名アカウントを作成します"
+    const val IMPORT_ACCOUNT_NOTICE_CONTINUE = "続ける"
+
     const val SIDE_DIALOG_TITLE = "自分の側"
     fun sideSente(senteName: String?): String = if (senteName != null) "先手（$senteName）" else "先手"
     fun sideGote(goteName: String?): String = if (goteName != null) "後手（$goteName）" else "後手"

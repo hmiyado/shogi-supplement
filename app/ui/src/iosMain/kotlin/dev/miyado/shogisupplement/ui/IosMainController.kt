@@ -79,6 +79,17 @@ class IosMainController(
         object Idle : ImportState()
 
         /**
+         * 匿名アカウント作成の事前確認ダイアログ。未ログインで棋譜を追加したとき
+         * （アカウント削除後の再追加など）に、解析時のアカウント新規作成を伝える。
+         */
+        data class AccountCreationConfirm(
+            val kifText: String,
+            val senteName: String?,
+            val goteName: String?,
+            val sourceFileName: String?,
+        ) : ImportState()
+
+        /**
          * KIF検証OKだがアカウント名が未設定。先に棋力設定ダイアログを出す
          * （androidApp の KifImportFlow と同じ初回導線。保存後に先後選択へ進む）。
          */
@@ -270,6 +281,27 @@ class IosMainController(
      * 3. それ以外 → 先後選択ダイアログ（推定側を初期選択に）
      */
     private fun proceedAfterKifValidated(
+        kifText: String,
+        senteName: String?,
+        goteName: String?,
+        sourceFileName: String?,
+    ) {
+        // 未ログインのまま進むと解析時（confirmSideAndAnalyze）に匿名アカウントが
+        // 新規作成される。黙って作らず、追加の入口で確認を取る
+        if (authRepository != null && analysisBaseUrl != null && authRepository.currentUser.value == null) {
+            _importState.value = ImportState.AccountCreationConfirm(kifText, senteName, goteName, sourceFileName)
+            return
+        }
+        continueImportAfterAccountNotice(kifText, senteName, goteName, sourceFileName)
+    }
+
+    /** [ImportState.AccountCreationConfirm] の「続ける」。取込フローを続行する。 */
+    fun confirmAccountCreation() {
+        val s = _importState.value as? ImportState.AccountCreationConfirm ?: return
+        continueImportAfterAccountNotice(s.kifText, s.senteName, s.goteName, s.sourceFileName)
+    }
+
+    private fun continueImportAfterAccountNotice(
         kifText: String,
         senteName: String?,
         goteName: String?,

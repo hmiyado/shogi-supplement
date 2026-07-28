@@ -282,6 +282,23 @@ private fun DemoApp(
                 onDismiss = { controller.dismissImport() },
             )
         }
+        is IosMainController.ImportState.AccountCreationConfirm -> {
+            AlertDialog(
+                onDismissRequest = { controller.dismissImport() },
+                title = { Text(AppStrings.IMPORT_ACCOUNT_NOTICE_TITLE) },
+                text = { Text(AppStrings.IMPORT_ACCOUNT_NOTICE_BODY) },
+                confirmButton = {
+                    TextButton(onClick = { controller.confirmAccountCreation() }) {
+                        Text(AppStrings.IMPORT_ACCOUNT_NOTICE_CONTINUE)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { controller.dismissImport() }) {
+                        Text(AppStrings.CANCEL)
+                    }
+                },
+            )
+        }
         is IosMainController.ImportState.Error -> {
             AlertDialog(
                 onDismissRequest = { controller.dismissImport() },
