@@ -212,8 +212,13 @@ grant select, insert, update on public.analysis_jobs to service_role;
 grant select on public.user_bans to service_role;
 grant select on public.quota_limits to service_role;
 
--- 関数: PostgreSQL既定のPUBLIC実行権を外し、必要な相手だけに戻す
-revoke execute on function public.delete_user() from public;
+-- 関数: 実行権を必要な相手だけに絞る。
+-- Why not `from public`だけ: default privilegesが各ロールへ明示付与する環境では
+-- PUBLICからのrevokeでは剥がれないため、ロールも列挙して両方の環境で同じ結果にする
+revoke execute on function public.delete_user()
+  from public, anon, authenticated, service_role;
 grant execute on function public.delete_user() to authenticated;
-revoke execute on function public.analysis_jobs_ttl_sweep() from public;
-revoke execute on function public.uploaded_games_daily_limit() from public;
+revoke execute on function public.analysis_jobs_ttl_sweep()
+  from public, anon, authenticated, service_role;
+revoke execute on function public.uploaded_games_daily_limit()
+  from public, anon, authenticated, service_role;
