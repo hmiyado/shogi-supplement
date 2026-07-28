@@ -34,8 +34,10 @@ fun GameCard(
     game: GameRecord,
     onClick: () -> Unit,
 ) {
-    // sourcePlace をタイトルとして優先表示
-    val displayTitle = game.sourcePlace ?: game.fileName
+    // sourcePlace をタイトルとして優先表示（正規化コードのまま出さず表示ラベルへ変換する。
+    // ReportScreenのトップバーと同じ変換で、ホームとレポートの表記を一致させる）
+    val sourcePlaceLabel = AppStrings.sourcePlaceLabel(game.sourcePlace)
+    val displayTitle = sourcePlaceLabel ?: game.fileName
     // 勝敗バッジ（userSide & gameWinner が揃っている場合のみ）
     val resultLabel: String? = when {
         game.userSide != null && game.gameWinner != null ->
@@ -105,7 +107,7 @@ fun GameCard(
                 )
             }
             // sourcePlace をタイトルに使った場合は fileName をサブテキストで表示
-            if (game.sourcePlace != null) {
+            if (sourcePlaceLabel != null) {
                 Spacer(Modifier.height(2.dp))
                 Text(
                     game.fileName,
