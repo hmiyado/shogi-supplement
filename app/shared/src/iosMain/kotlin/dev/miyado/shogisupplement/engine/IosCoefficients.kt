@@ -19,9 +19,9 @@ import platform.posix.ftell
 import platform.posix.rewind
 
 /**
- * iOSバンドル同梱の係数表（coefficients_hao_v1.json）読み込み。
+ * iOSバンドル同梱の係数表（coefficients_hao_isolate_v1.json）読み込み。
  *
- * androidApp/src/main/assets/coefficients_hao_v1.json をiosApp/project.ymlの
+ * androidApp/src/main/assets/coefficients_hao_isolate_v1.json をiosApp/project.ymlの
  * resourcesとして参照パスで共有している（複製しない。evalディレクトリと同じ方式）。
  * 判定ロジック・係数表の値そのものは一切変更しない（Androidと完全に同一のJSONを読む）。
  *
@@ -36,12 +36,12 @@ object IosCoefficients {
     /** 係数表を返す（初回のみバンドルから読み込み、以降はキャッシュを返す）。 */
     fun getInstance(): CoefficientTable {
         cached?.let { return it }
-        val path = NSBundle.mainBundle.pathForResource("coefficients_hao_v1", ofType = "json")
-            ?: error("coefficients_hao_v1.json not found in bundle")
+        val path = NSBundle.mainBundle.pathForResource("coefficients_hao_isolate_v1", ofType = "json")
+            ?: error("coefficients_hao_isolate_v1.json not found in bundle")
         val json = readFile(path)
             ?: run {
-                Logger.e("IosCoefficients", "failed to read coefficients_hao_v1.json at $path")
-                error("failed to read coefficients_hao_v1.json")
+                Logger.e("IosCoefficients", "failed to read coefficients_hao_isolate_v1.json at $path")
+                error("failed to read coefficients_hao_isolate_v1.json")
             }
         return CoefficientTable.fromJson(json).also { cached = it }
     }

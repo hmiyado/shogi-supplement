@@ -5,23 +5,23 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * 係数表 v2（Háo 版 coefficients_hao_v1.json）の同梱確認テスト。
- * タスク1: data/coefficients_hao_v1.json がテストリソースとして読み込めること。
+ * 係数表 v2（Háo 版 coefficients_hao_isolate_v1.json）の同梱確認テスト。
+ * タスク1: data/coefficients_hao_isolate_v1.json がテストリソースとして読み込めること。
  */
 class CoefficientsHaoTest {
 
     private fun loadTable(): CoefficientTable {
         val text = checkNotNull(
-            javaClass.classLoader.getResourceAsStream("coefficients_hao_v1.json")
-        ) { "coefficients_hao_v1.json not found in test resources" }
+            javaClass.classLoader.getResourceAsStream("coefficients_hao_isolate_v1.json")
+        ) { "coefficients_hao_isolate_v1.json not found in test resources" }
             .readBytes().decodeToString()
         return CoefficientTable.fromJson(text)
     }
 
     @Test
-    fun `coefficients_hao_v1がロードできる`() {
+    fun `coefficients_hao_isolate_v1がロードできる`() {
         val table = loadTable()
-        assertEquals("v1", table.version)
+        assertEquals("v1-isolate", table.version)
         assertEquals(11547, table.built_from.games)
         assertEquals(5, table.band_names.size)
         assertEquals(6, table.band_edges.size)
@@ -35,10 +35,10 @@ class CoefficientsHaoTest {
 
     @Test
     fun `帯1600-1899の駒損タクティクスレートがスポットチェック値と一致する`() {
-        // タスク1 検収基準: 1600-1899帯 × 「駒損（タクティクス）」= 6.318258632431205
+        // タスク1 検収基準（isolate版）: 1600-1899帯 × 「駒損（タクティクス）」= 6.968641114982578
         val table = loadTable()
         val rate = table.ratePer1000("1600-1899", "駒損（タクティクス）")
-        assertEquals(6.318258632431205, rate, 1e-9)
+        assertEquals(6.968641114982578, rate, 1e-9)
     }
 
     @Test

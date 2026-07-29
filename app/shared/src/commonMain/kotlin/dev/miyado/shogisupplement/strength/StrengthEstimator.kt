@@ -91,7 +91,7 @@ object StrengthEstimator {
      * 各帯のアンカー（レート中点, 帯別全カテゴリ悪手率合計）。
      * 悪手率は高レート帯ほど小さい（単調減少）ため、rateDesc 降順に並べる。
      *
-     * 値は data/coefficients_hao_v1.json から算出（CoefficientsHaoTest でスポットチェック済み）。
+     * 値は data/coefficients_hao_isolate_v1.json から算出（CoefficientsHaoTest でスポットチェック済み）。
      */
     internal data class Anchor(val ratingMidpoint: Int, val totalRatePer1000: Double)
 

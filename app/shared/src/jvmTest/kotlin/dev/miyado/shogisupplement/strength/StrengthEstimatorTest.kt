@@ -8,19 +8,19 @@ import kotlin.test.assertTrue
 /**
  * StrengthEstimator のテスト。
  *
- * 係数表の帯別悪手率合計（coefficients_hao_v1.json より）:
- *   <1300     → 92.8 件/1000手 (中点 1150)
- *   1300-1599 → 71.6           (中点 1450)
- *   1600-1899 → 61.9           (中点 1750)
- *   1900-2199 → 49.1           (中点 2050)
- *   2200+     → 26.0           (中点 2350)
+ * 係数表の帯別悪手率合計（coefficients_hao_isolate_v1.json より）:
+ *   <1300     → 95.8 件/1000手 (中点 1150)
+ *   1300-1599 → 75.3           (中点 1450)
+ *   1600-1899 → 65.6           (中点 1750)
+ *   1900-2199 → 53.1           (中点 2050)
+ *   2200+     → 28.1           (中点 2350)
  */
 class StrengthEstimatorTest {
 
     private fun loadTable(): CoefficientTable {
         val text = checkNotNull(
-            javaClass.classLoader.getResourceAsStream("coefficients_hao_v1.json"),
-        ) { "coefficients_hao_v1.json not found in test resources" }
+            javaClass.classLoader.getResourceAsStream("coefficients_hao_isolate_v1.json"),
+        ) { "coefficients_hao_isolate_v1.json not found in test resources" }
             .readBytes().decodeToString()
         return CoefficientTable.fromJson(text)
     }

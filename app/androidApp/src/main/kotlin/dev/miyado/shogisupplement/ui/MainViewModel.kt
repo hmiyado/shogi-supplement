@@ -83,7 +83,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val coefTable: CoefficientTable by lazy {
         val json = getApplication<ShogiApp>().assets
-            .open("coefficients_hao_v1.json").readBytes().decodeToString()
+            .open("coefficients_hao_isolate_v1.json").readBytes().decodeToString()
         CoefficientTable.fromJson(json)
     }
 

@@ -94,7 +94,7 @@ class AnalysisService : Service() {
             val repository = AppDatabase.gameRepository(this)
 
             // 係数読み込み
-            val coefJson = assets.open("coefficients_hao_v1.json").readBytes().decodeToString()
+            val coefJson = assets.open("coefficients_hao_isolate_v1.json").readBytes().decodeToString()
             val coef = CoefficientTable.fromJson(coefJson)
 
             // eval dir 準備

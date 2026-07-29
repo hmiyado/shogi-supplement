@@ -46,7 +46,7 @@ class AnalysisOrchestratorTest {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         ShogiSupplementDatabase.Schema.create(driver)
         val repository = GameRepository(ShogiSupplementDatabase(driver))
-        val coefTable = CoefficientTable.fromJson(resource("coefficients_hao_v1.json"))
+        val coefTable = CoefficientTable.fromJson(resource("coefficients_hao_isolate_v1.json"))
         val orchestrator = AnalysisOrchestrator(
             repository = repository,
             coefTable = coefTable,

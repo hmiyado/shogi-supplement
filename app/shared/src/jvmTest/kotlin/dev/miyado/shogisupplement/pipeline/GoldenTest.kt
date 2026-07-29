@@ -86,7 +86,7 @@ class GoldenTest {
         json.decodeFromString<List<PyEntry>>(resource(jsonName))
 
     private fun loadHaoCoef(): CoefficientTable =
-        CoefficientTable.fromJson(resource("coefficients_hao_v1.json"))
+        CoefficientTable.fromJson(resource("coefficients_hao_isolate_v1.json"))
 
     // ── ゴールデンテスト本体 ─────────────────────────────────────────────────
 

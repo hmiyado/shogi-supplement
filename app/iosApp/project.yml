@@ -67,9 +67,9 @@ targets:
         buildPhase: resources
       # 係数表（判定ロジックの不変条件）をiOS取込フロー（AnalysisOrchestrator）でも
       # 使うためバンドルする。androidApp/src/main/assets 側と複製せず参照パスで共有する
-      # （evalディレクトリと同じ方式）。Bundle.main.pathForResource("coefficients_hao_v1",
+      # （evalディレクトリと同じ方式）。Bundle.main.pathForResource("coefficients_hao_isolate_v1",
       # ofType:"json") で参照する。
-      - path: ../androidApp/src/main/assets/coefficients_hao_v1.json
+      - path: ../androidApp/src/main/assets/coefficients_hao_isolate_v1.json
         buildPhase: resources
     settings:
       base:

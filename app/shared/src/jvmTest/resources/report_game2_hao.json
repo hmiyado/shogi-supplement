@@ -1,78 +1,6 @@
 [
  {
   "file": "miyado_game2.kif",
-  "ply": 56,
-  "side": "gote",
-  "move_usi": "4c5d",
-  "best_usi": "4c3d",
-  "loss_wp": 0.13,
-  "sfen_before": "ln1g1S2l/1r1k1+P3/p1pppbppp/1s3p3/1p7/2P1P1P2/PPSP4P/5S3/LN1GKG2L w BGr2np 56",
-  "category": "玉の危険（寄せ）",
-  "diff_material": -4,
-  "punish_checks": 3,
-  "took_moved_piece": 0,
-  "missed_mate_in": "",
-  "verdict": "○ 出題対象",
-  "note": "自帯6.3件/1000手 (上帯5.6件)。帯として典型的なミス",
-  "problem": "玉の早逃げ・受けの問題",
-  "priority": 2.7448687251198725
- },
- {
-  "file": "miyado_game2.kif",
-  "ply": 93,
-  "side": "sente",
-  "move_usi": "9g9f",
-  "best_usi": "6b7b",
-  "loss_wp": 0.278,
-  "sfen_before": "ln6+R/1gnG5/pkpp2ppp/1ss1+Bp3/b2n5/2P1P4/PS1Pp3P/1pG2S3/LN1K1G2L b L3Prp 93",
-  "category": "玉の危険（寄せ）",
-  "diff_material": 9,
-  "punish_checks": 2,
-  "took_moved_piece": 0,
-  "missed_mate_in": "",
-  "verdict": "○ 出題対象",
-  "note": "自帯6.3件/1000手 (上帯5.6件)。帯として典型的なミス",
-  "problem": "玉の早逃げ・受けの問題",
-  "priority": 2.7448687251198725
- },
- {
-  "file": "miyado_game2.kif",
-  "ply": 50,
-  "side": "gote",
-  "move_usi": "5a6b",
-  "best_usi": "R*2i",
-  "loss_wp": 0.24,
-  "sfen_before": "ln1gkS+P1l/1r2g4/p1pppPppp/1s2bp3/1p2N4/2P1P1P2/PPSP4P/5S3/LN1GKG2L w Brn 50",
-  "category": "駒損（即取り）",
-  "diff_material": -10,
-  "punish_checks": 1,
-  "took_moved_piece": 0,
-  "missed_mate_in": "",
-  "verdict": "○ 出題対象",
-  "note": "自帯8.5件/1000手 (上帯6.7件)。帯として典型的なミス",
-  "problem": "駒の利き・紐の確認問題",
-  "priority": 2.631056107182926
- },
- {
-  "file": "miyado_game2.kif",
-  "ply": 76,
-  "side": "gote",
-  "move_usi": "6a6b",
-  "best_usi": "P*6f",
-  "loss_wp": 0.212,
-  "sfen_before": "ln1r4l/2nG2+B2/pkpG2ppp/1ss2p3/1p7/2P1P4/PPSP4P/5S3/LN1GKG2L w 2Prbn3p 76",
-  "category": "駒損（即取り）",
-  "diff_material": -6,
-  "punish_checks": 0,
-  "took_moved_piece": 1,
-  "missed_mate_in": "",
-  "verdict": "○ 出題対象",
-  "note": "自帯8.5件/1000手 (上帯6.7件)。帯として典型的なミス",
-  "problem": "駒の利き・紐の確認問題",
-  "priority": 2.631056107182926
- },
- {
-  "file": "miyado_game2.kif",
   "ply": 48,
   "side": "gote",
   "move_usi": "4b5b",
@@ -85,9 +13,9 @@
   "took_moved_piece": 0,
   "missed_mate_in": "",
   "verdict": "○ 出題対象",
-  "note": "自帯32.1件/1000手 (上帯24.7件)。帯として典型的なミス",
+  "note": "自帯34.0件/1000手 (上帯26.8件)。帯として典型的なミス",
   "problem": "形勢判断・大局観 (要人力レビュー)",
-  "priority": 2.4110467627344367
+  "priority": 2.4557227642732
  },
  {
   "file": "miyado_game2.kif",
@@ -103,9 +31,45 @@
   "took_moved_piece": 0,
   "missed_mate_in": "",
   "verdict": "○ 出題対象",
-  "note": "自帯32.1件/1000手 (上帯24.7件)。帯として典型的なミス",
+  "note": "自帯34.0件/1000手 (上帯26.8件)。帯として典型的なミス",
   "problem": "形勢判断・大局観 (要人力レビュー)",
-  "priority": 2.4110467627344367
+  "priority": 2.4557227642732
+ },
+ {
+  "file": "miyado_game2.kif",
+  "ply": 50,
+  "side": "gote",
+  "move_usi": "5a6b",
+  "best_usi": "R*2i",
+  "loss_wp": 0.24,
+  "sfen_before": "ln1gkS+P1l/1r2g4/p1pppPppp/1s2bp3/1p2N4/2P1P1P2/PPSP4P/5S3/LN1GKG2L w Brn 50",
+  "category": "駒損（即取り）",
+  "diff_material": -10,
+  "punish_checks": 1,
+  "took_moved_piece": 0,
+  "missed_mate_in": "",
+  "verdict": "○ 出題対象",
+  "note": "自帯8.9件/1000手 (上帯7.3件)。帯として典型的なミス",
+  "problem": "駒の利き・紐の確認問題",
+  "priority": 3.1810705239040655
+ },
+ {
+  "file": "miyado_game2.kif",
+  "ply": 56,
+  "side": "gote",
+  "move_usi": "4c5d",
+  "best_usi": "4c3d",
+  "loss_wp": 0.13,
+  "sfen_before": "ln1g1S2l/1r1k1+P3/p1pppbppp/1s3p3/1p7/2P1P1P2/PPSP4P/5S3/LN1GKG2L w BGr2np 56",
+  "category": "玉の危険（寄せ）",
+  "diff_material": -4,
+  "punish_checks": 3,
+  "took_moved_piece": 0,
+  "missed_mate_in": "",
+  "verdict": "○ 出題対象",
+  "note": "自帯6.6件/1000手 (上帯5.5件)。帯として典型的なミス",
+  "problem": "玉の早逃げ・受けの問題",
+  "priority": 2.750779227876486
  },
  {
   "file": "miyado_game2.kif",
@@ -121,9 +85,27 @@
   "took_moved_piece": 0,
   "missed_mate_in": "",
   "verdict": "○ 出題対象",
-  "note": "自帯32.1件/1000手 (上帯24.7件)。帯として典型的なミス",
+  "note": "自帯34.0件/1000手 (上帯26.8件)。帯として典型的なミス",
   "problem": "形勢判断・大局観 (要人力レビュー)",
-  "priority": 2.4110467627344367
+  "priority": 2.4557227642732
+ },
+ {
+  "file": "miyado_game2.kif",
+  "ply": 76,
+  "side": "gote",
+  "move_usi": "6a6b",
+  "best_usi": "P*6f",
+  "loss_wp": 0.212,
+  "sfen_before": "ln1r4l/2nG2+B2/pkpG2ppp/1ss2p3/1p7/2P1P4/PPSP4P/5S3/LN1GKG2L w 2Prbn3p 76",
+  "category": "駒損（即取り）",
+  "diff_material": -6,
+  "punish_checks": 0,
+  "took_moved_piece": 1,
+  "missed_mate_in": "",
+  "verdict": "○ 出題対象",
+  "note": "自帯8.9件/1000手 (上帯7.3件)。帯として典型的なミス",
+  "problem": "駒の利き・紐の確認問題",
+  "priority": 3.1810705239040655
  },
  {
   "file": "miyado_game2.kif",
@@ -139,9 +121,9 @@
   "took_moved_piece": 0,
   "missed_mate_in": "",
   "verdict": "○ 出題対象",
-  "note": "自帯32.1件/1000手 (上帯24.7件)。帯として典型的なミス",
+  "note": "自帯34.0件/1000手 (上帯26.8件)。帯として典型的なミス",
   "problem": "形勢判断・大局観 (要人力レビュー)",
-  "priority": 2.4110467627344367
+  "priority": 2.4557227642732
  },
  {
   "file": "miyado_game2.kif",
@@ -157,9 +139,9 @@
   "took_moved_piece": 0,
   "missed_mate_in": "",
   "verdict": "○ 出題対象",
-  "note": "自帯32.1件/1000手 (上帯24.7件)。帯として典型的なミス",
+  "note": "自帯34.0件/1000手 (上帯26.8件)。帯として典型的なミス",
   "problem": "形勢判断・大局観 (要人力レビュー)",
-  "priority": 2.4110467627344367
+  "priority": 2.4557227642732
  },
  {
   "file": "miyado_game2.kif",
@@ -175,9 +157,9 @@
   "took_moved_piece": 0,
   "missed_mate_in": "",
   "verdict": "○ 出題対象",
-  "note": "自帯32.1件/1000手 (上帯24.7件)。帯として典型的なミス",
+  "note": "自帯34.0件/1000手 (上帯26.8件)。帯として典型的なミス",
   "problem": "形勢判断・大局観 (要人力レビュー)",
-  "priority": 2.4110467627344367
+  "priority": 2.4557227642732
  },
  {
   "file": "miyado_game2.kif",
@@ -193,9 +175,27 @@
   "took_moved_piece": 0,
   "missed_mate_in": "",
   "verdict": "○ 出題対象",
-  "note": "自帯32.1件/1000手 (上帯24.7件)。帯として典型的なミス",
+  "note": "自帯34.0件/1000手 (上帯26.8件)。帯として典型的なミス",
   "problem": "形勢判断・大局観 (要人力レビュー)",
-  "priority": 2.4110467627344367
+  "priority": 2.4557227642732
+ },
+ {
+  "file": "miyado_game2.kif",
+  "ply": 93,
+  "side": "sente",
+  "move_usi": "9g9f",
+  "best_usi": "6b7b",
+  "loss_wp": 0.278,
+  "sfen_before": "ln6+R/1gnG5/pkpp2ppp/1ss1+Bp3/b2n5/2P1P4/PS1Pp3P/1pG2S3/LN1K1G2L b L3Prp 93",
+  "category": "玉の危険（寄せ）",
+  "diff_material": 9,
+  "punish_checks": 2,
+  "took_moved_piece": 0,
+  "missed_mate_in": "",
+  "verdict": "○ 出題対象",
+  "note": "自帯6.6件/1000手 (上帯5.5件)。帯として典型的なミス",
+  "problem": "玉の早逃げ・受けの問題",
+  "priority": 2.750779227876486
  },
  {
   "file": "miyado_game2.kif",
@@ -210,9 +210,9 @@
   "punish_checks": 4,
   "took_moved_piece": 0,
   "missed_mate_in": "",
-  "verdict": "△ 見送り",
-  "note": "自帯でも1.9件/1000手しか起きない (うっかりの可能性)",
+  "verdict": "○ 出題対象",
+  "note": "自帯2.1件/1000手 (上帯1.5件)。帯として典型的なミス",
   "problem": "受け・危険察知の問題",
-  "priority": 0.0
+  "priority": 3.7053161239777777
  }
 ]

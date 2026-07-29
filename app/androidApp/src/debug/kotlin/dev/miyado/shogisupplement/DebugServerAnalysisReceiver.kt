@@ -79,7 +79,7 @@ class DebugServerAnalysisReceiver : BroadcastReceiver() {
         Log.i(TAG, "ログイン済み: uid=${app.authRepository.currentUser.value?.id}")
 
         val kifContent = context.assets.open(kifName).readBytes().decodeToString()
-        val coefJson = context.assets.open("coefficients_hao_v1.json").readBytes().decodeToString()
+        val coefJson = context.assets.open("coefficients_hao_isolate_v1.json").readBytes().decodeToString()
 
         // 解析は1リクエストで全局面を返すまでストリームを保持するため、既定のタイムアウトでは
         // 途中で切れる。ワーカー側の上限（Cloud Runのリクエストタイムアウト）より長く取る。
