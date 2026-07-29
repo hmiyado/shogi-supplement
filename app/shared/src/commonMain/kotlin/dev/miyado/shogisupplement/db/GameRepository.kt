@@ -321,6 +321,9 @@ class GameRepository(private val database: ShogiSupplementDatabase) {
                     ply = row.ply.toLong(),
                     score_cp = row.scoreCp?.toLong(),
                     mate_in = row.mateIn?.toLong(),
+                    best_usi = row.bestUsi,
+                    second_score_cp = row.secondScoreCp?.toLong(),
+                    second_mate_in = row.secondMateIn?.toLong(),
                 )
             }
         }
@@ -555,4 +558,17 @@ data class PositionEvalRow(
     val ply: Int,
     val scoreCp: Int?,
     val mateIn: Int?,
+    /**
+     * pv1（最善手）の指し手（USI）。正規化はしない。
+     * pv1一致率（実際の指し手がこの手と一致した割合）算出の材料として保存するのみで、
+     * 現時点では読み出し側の新機能は作らない（新規解析分から埋まる。既存レコードはnull）。
+     */
+    val bestUsi: String? = null,
+    /**
+     * pv2（次善手）の評価値 cp（scoreCp と同じ先手視点正規化の規約）。
+     * pv1-pv2 差の再計算材料として保存するのみで、現時点では読み出し側の新機能は作らない。
+     */
+    val secondScoreCp: Int? = null,
+    /** pv2 の詰み手数（mateIn と同じ先手視点正規化の規約）。 */
+    val secondMateIn: Int? = null,
 )

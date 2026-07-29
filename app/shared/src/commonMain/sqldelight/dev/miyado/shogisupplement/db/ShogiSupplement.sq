@@ -257,6 +257,13 @@ CREATE TABLE IF NOT EXISTS position_eval (
     ply INTEGER NOT NULL,
     score_cp INTEGER,
     mate_in INTEGER,
+    -- best_usi/second_score_cp/second_mate_in: pv1（最善手）の指し手とpv2（次善手）の評価値。
+    -- 保存済み局に遡ってpv1一致率（実際の指し手が最善手の先頭手と一致した割合）を
+    -- 計算できるようにするための材料。best_usi は正規化しない（USI表記のまま）。
+    -- second_score_cp/second_mate_in は score_cp/mate_in と同じ先手視点正規化の規約に従う。
+    best_usi TEXT,
+    second_score_cp INTEGER,
+    second_mate_in INTEGER,
     PRIMARY KEY(game_id, ply)
 );
 
@@ -282,8 +289,8 @@ UPDATE user_settings SET skip_side_confirm = ? WHERE id = 1;
 -- mate_in: 詰みまでの手数（先手視点: 正 = 先手が詰ます、負 = 後手が詰ます）。非詰み局面は NULL。
 
 insertPositionEval:
-INSERT OR REPLACE INTO position_eval (game_id, ply, score_cp, mate_in)
-VALUES (?, ?, ?, ?);
+INSERT OR REPLACE INTO position_eval (game_id, ply, score_cp, mate_in, best_usi, second_score_cp, second_mate_in)
+VALUES (?, ?, ?, ?, ?, ?, ?);
 
 getPositionEvalsByGameId:
 SELECT * FROM position_eval WHERE game_id = ? ORDER BY ply;

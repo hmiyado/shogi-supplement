@@ -151,19 +151,33 @@ class AnalysisOrchestrator(
 
             // 全局面の評価値を sente 視点に正規化して保存
             // t=0: 先手番（評価値そのまま）、t=1: 後手番（評価値を反転）
+            // best_usi/second_score_cp/second_mate_in: pv1一致率など将来の推定器改善に
+            // 必要な材料を、再解析なしで後から計算できるようこの時点で保存しておく。
             val positionEvalRows = evals.mapIndexedNotNull { t, posEval ->
                 val score = posEval.score ?: return@mapIndexedNotNull null
                 val flip = t % 2 == 1 // 後手番なら反転
+                val bestUsi = posEval.pv.firstOrNull()
+                val (secondScoreCp, secondMateIn) = when (val pv2Score = posEval.pv2Score) {
+                    null -> null to null
+                    is Score.Cp -> BlunderJudge.toCp(pv2Score).let { if (flip) -it else it } to null
+                    is Score.Mate -> null to pv2Score.plies.let { if (flip) -it else it }
+                }
                 when (score) {
                     is Score.Cp -> PositionEvalRow(
                         ply = t,
                         scoreCp = BlunderJudge.toCp(score).let { if (flip) -it else it },
                         mateIn = null,
+                        bestUsi = bestUsi,
+                        secondScoreCp = secondScoreCp,
+                        secondMateIn = secondMateIn,
                     )
                     is Score.Mate -> PositionEvalRow(
                         ply = t,
                         scoreCp = null,
                         mateIn = score.plies.let { if (flip) -it else it },
+                        bestUsi = bestUsi,
+                        secondScoreCp = secondScoreCp,
+                        secondMateIn = secondMateIn,
                     )
                 }
             }

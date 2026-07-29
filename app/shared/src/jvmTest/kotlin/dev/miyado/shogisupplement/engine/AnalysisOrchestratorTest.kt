@@ -100,4 +100,77 @@ class AnalysisOrchestratorTest {
         val kif = singleMoveKif(listOf("手合割：平手", "先手：太郎", "後手：花子"))
         assertEquals("other", analyzeAndGetSourcePlace(kif, "other.kif"))
     }
+
+    /**
+     * pv1（最善手）とpv2（次善手）を区別して返す FakeEngine。
+     * ply=0（先手番・prefixが空）と ply=1（後手番・prefixが1手）で異なる値を返すことで、
+     * 先手視点への正規化（反転）が ply ごとに正しく効いているかを検証できるようにする。
+     */
+    private class PvAwareFakeEngine : Engine {
+        override fun analyze(moves: List<String>, nodes: Int): List<PvInfo> = if (moves.isEmpty()) {
+            listOf(
+                PvInfo(multipv = 1, score = Score.Cp(100), pv = listOf("7g7f"), nodes = 0L),
+                PvInfo(multipv = 2, score = Score.Cp(50), pv = listOf("2g2f"), nodes = 0L),
+            )
+        } else {
+            listOf(
+                PvInfo(multipv = 1, score = Score.Cp(10), pv = listOf("3c3d"), nodes = 0L),
+                PvInfo(multipv = 2, score = Score.Cp(30), pv = listOf("8c8d"), nodes = 0L),
+            )
+        }
+
+        override fun analyzeSfen(sfen: String, additionalMoves: List<String>, nodes: Int): List<PvInfo> =
+            analyze(additionalMoves, nodes)
+
+        override fun quit() = Unit
+        override fun newGame() = Unit
+    }
+
+    private fun newPvAwareOrchestrator(): Triple<AnalysisOrchestrator, GameRepository, ShogiSupplementDatabase> {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        ShogiSupplementDatabase.Schema.create(driver)
+        val database = ShogiSupplementDatabase(driver)
+        val repository = GameRepository(database)
+        val coefTable = CoefficientTable.fromJson(resource("coefficients_hao_isolate_v1.json"))
+        val orchestrator = AnalysisOrchestrator(
+            repository = repository,
+            coefTable = coefTable,
+            analyzer = AnalysisRunner(
+                workers = 1,
+                crashReporter = NoopCrashReporter,
+                engineFactory = { PvAwareFakeEngine() },
+            ),
+        )
+        return Triple(orchestrator, repository, database)
+    }
+
+    @Test
+    fun `解析後にposition_evalへbest_usiとpv2評価値が保存される`() {
+        val (orchestrator, _, database) = newPvAwareOrchestrator()
+        val kif = singleMoveKif(listOf("手合割：平手", "先手：太郎", "後手：花子"))
+        val outcome = runBlocking { orchestrator.analyzeAndSave(kif, fileName = "pv.kif") }
+        val completed = outcome as? AnalysisOrchestrator.Outcome.Completed
+            ?: fail("解析に失敗した: ${(outcome as AnalysisOrchestrator.Outcome.Failed).message}")
+
+        val rows = database.shogiSupplementQueries.getPositionEvalsByGameId(completed.gameId).executeAsList()
+        val ply0 = rows.first { it.ply == 0L }
+        assertEquals("7g7f", ply0.best_usi)
+        assertEquals(50L, ply0.second_score_cp)
+    }
+
+    @Test
+    fun `後手番の局面ではpv2評価値が先手視点へ反転されて保存される`() {
+        val (orchestrator, _, database) = newPvAwareOrchestrator()
+        val kif = singleMoveKif(listOf("手合割：平手", "先手：太郎", "後手：花子"))
+        val outcome = runBlocking { orchestrator.analyzeAndSave(kif, fileName = "pv-flip.kif") }
+        val completed = outcome as? AnalysisOrchestrator.Outcome.Completed
+            ?: fail("解析に失敗した: ${(outcome as AnalysisOrchestrator.Outcome.Failed).message}")
+
+        val rows = database.shogiSupplementQueries.getPositionEvalsByGameId(completed.gameId).executeAsList()
+        val ply1 = rows.first { it.ply == 1L }
+        // PvAwareFakeEngine は ply=1（後手番）で second_score_cp=30（手番=後手視点）を返す。
+        // position_eval は先手視点正規化のため、保存値は反転して -30 になる。
+        assertEquals("3c3d", ply1.best_usi)
+        assertEquals(-30L, ply1.second_score_cp)
+    }
 }
