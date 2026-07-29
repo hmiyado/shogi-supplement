@@ -238,6 +238,12 @@ private fun DemoApp(
         }
     }
 
+    // Why not 同意ゲート通過後の条件を明示的に確認する: DemoAppはshowConsent=falseの時だけ
+    // 組み立てられるため、ここに置くだけで自然に満たせる。
+    LaunchedEffect(controller) {
+        controller.resumeIfPending()
+    }
+
     val homeData by controller.homeData.collectAsState()
     val importState by controller.importState.collectAsState()
 

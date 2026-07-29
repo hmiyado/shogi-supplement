@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.androidLibrary)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
+    alias(libs.plugins.kotlinSerialization)
 }
 
 kotlin {
@@ -53,6 +54,7 @@ kotlin {
         iosMain.dependencies {
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.client.darwin)
+            implementation(libs.kotlinx.serialization.json)
         }
     }
 }

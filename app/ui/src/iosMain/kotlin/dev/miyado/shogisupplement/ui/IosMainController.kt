@@ -26,10 +26,13 @@ import dev.miyado.shogisupplement.ui.home.HomeViewModel
 import dev.miyado.shogisupplement.ui.report.ReportViewModel
 import dev.miyado.shogisupplement.ui.report.StudyState
 import dev.miyado.shogisupplement.upload.UploadOrchestrator
+import dev.miyado.shogisupplement.util.currentEpochSeconds
+import dev.miyado.shogisupplement.util.sha256Hex
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.darwin.Darwin
 import io.ktor.client.plugins.HttpTimeout
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -37,6 +40,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import platform.Foundation.NSDate
 import platform.Foundation.NSDateFormatter
+import platform.Foundation.NSNotificationCenter
+import platform.Foundation.NSOperationQueue
+import platform.UIKit.UIApplicationWillEnterForegroundNotification
 import platform.UIKit.UIPasteboard
 
 /**
@@ -60,6 +66,12 @@ import platform.UIKit.UIPasteboard
  * ため、quit() を no-op にする委譲ラッパー（[IosEngineHost.studyEngineFactory] 内部実装）で
  * 常駐エンジンを守っている（ドリル判定・取込解析と検討モード・読み筋延長は同一の常駐エンジンを
  * 共有する）。
+ *
+ * **解析の再開**: サーバー解析は1本のNDJSONストリーミングPOSTを完了まで受信する構成のため、
+ * バックグラウンド遷移でプロセスがサスペンド/キルされるとストリームが失われる。サーバー側は
+ * 切断されても解析を完走して結果を保持する（moves_hash冪等）ため、[PendingAnalysisStore] に
+ * 直前の申告情報を保存しておき、(1) フォアグラウンド復帰時（[onWillEnterForeground]）と
+ * (2) 起動時（[resumeIfPending]）に同じ内容で解析を再実行して復旧する。
  */
 class IosMainController(
     private val gameRepository: GameRepository,
@@ -177,6 +189,15 @@ class IosMainController(
     private val _importState = MutableStateFlow<ImportState>(ImportState.Idle)
     val importState: StateFlow<ImportState> = _importState.asStateFlow()
 
+    /** 現在進行中の解析コルーチン（再開時に前回分をキャンセルするため保持する）。 */
+    private var currentAnalysisJob: Job? = null
+
+    /**
+     * 直近の進捗更新（[ImportState.Analyzing] への遷移を含む）のエポック秒。
+     * [onWillEnterForeground] の「5秒条件」判定に使う（[shouldResumeAfterForeground] 参照）。
+     */
+    private var lastProgressAtEpochSeconds: Long? = null
+
     /**
      * 解析が完了した直後のゲームID。UI側（MainViewController）がレポート画面への遷移に
      * 使い、遷移したら [consumeCompletedGameId] で消費する（androidApp の
@@ -204,10 +225,50 @@ class IosMainController(
         scope.launch { _evalDisplay.value = settingsRepository.getEvalDisplay() }
         scope.launch { _skipSideConfirm.value = settingsRepository.getSkipSideConfirm() }
         reloadHome()
+        // Why not registering this in MainViewController(Swift/Composeの外側)ではなく
+        // ここに置くか: IosMainControllerはアプリのプロセス生存期間中ずっと1個しか
+        // remember されない（MainViewController.kt参照）ため、observer解除を別途書かなくても
+        // 二重登録が起きない。登録解除APIを持たない代わりに、生成が1回きりであることに依存する。
+        NSNotificationCenter.defaultCenter.addObserverForName(
+            UIApplicationWillEnterForegroundNotification,
+            null,
+            NSOperationQueue.mainQueue,
+        ) { onWillEnterForeground() }
     }
 
     fun reloadHome() {
         scope.launch { _homeData.value = homeViewModel.loadHomeData() }
+    }
+
+    /**
+     * 起動時の自動再開（同意ゲート通過後・[MainViewController] の `LaunchedEffect` から
+     * 一度だけ呼ばれる想定）。pendingファイルが有り、そのKIFがローカルDBへ未保存なら解析を
+     * 再実行する。既にDB保存済み（完了直後のpending削除だけ失敗したケース）なら、
+     * 二重解析でUIを再びAnalyzing表示にする理由が無いため、pendingを削除するだけに留める。
+     */
+    fun resumeIfPending() {
+        scope.launch {
+            val pending = PendingAnalysisStore.load() ?: return@launch
+            if (gameRepository.getByHash(sha256Hex(pending.kifText)) != null) {
+                PendingAnalysisStore.clear()
+                return@launch
+            }
+            launchAnalysis(pending)
+        }
+    }
+
+    /**
+     * フォアグラウンド復帰時の再問い合わせ。解析中かつ最終進捗更新から一定時間
+     * （[shouldResumeAfterForeground] の閾値）経過している場合に限り、実行中のジョブを
+     * キャンセルして同じ解析を再実行する。短時間のバックグラウンドでストリームが生きている
+     * ケースまで再送すると二重POSTになるため、無条件の再実行にはしない。
+     */
+    private fun onWillEnterForeground() {
+        if (!shouldResumeAfterForeground(_importState.value, lastProgressAtEpochSeconds, currentEpochSeconds())) {
+            return
+        }
+        val pending = PendingAnalysisStore.load() ?: return
+        launchAnalysis(pending)
     }
 
     /** 特定のゲームIDのレポート表示状態をDBから読み込む（ReportViewModel へ委譲）。 */
@@ -396,6 +457,13 @@ class IosMainController(
 
     /** 取込フローを閉じる（ダイアログの「キャンセル」/エラーダイアログの確認）。 */
     fun dismissImport() {
+        // エラーダイアログを閉じる=取込の破棄なので、再開対象として残す理由が無いpendingを消す。
+        // SideConfirm/RatingSetup/AccountCreationConfirmのキャンセルはconfirmSideAndAnalyze
+        // （pending保存の唯一の書き込み元）より前の状態なので、ここで消しても実害はないが
+        // Error限定にしているのは「何を破棄したか」をこの関数の中で明確にするため。
+        if (_importState.value is ImportState.Error) {
+            PendingAnalysisStore.clear()
+        }
         _importState.value = ImportState.Idle
     }
 
@@ -428,83 +496,119 @@ class IosMainController(
         if (current !is ImportState.SideConfirm) return
         // 次回の先後推定のフォールバックに使う（androidApp の startAnalysis と同じ）。
         settingsRepository.saveLastUserSide(userSide)
+
+        val fileName = current.sourceFileName ?: AppStrings.clipboardFileName(currentDateTimeLabel())
+        val pending = PendingAnalysis(
+            kifText = current.kifText,
+            userSide = userSide,
+            fileName = fileName,
+            createdAtEpochSeconds = currentEpochSeconds(),
+        )
+        // 解析を開始する直前に申告情報を保存する: バックグラウンド遷移でストリームが死んでも
+        // （[PendingAnalysisStore] KDoc参照）ここで保存した内容から再開できるようにするため。
+        PendingAnalysisStore.save(pending)
+        launchAnalysis(pending)
+    }
+
+    /**
+     * 解析実行部の共通化: 通常の取込フロー（[confirmSideAndAnalyze]）・フォアグラウンド復帰時の
+     * 再問い合わせ（[onWillEnterForeground]）・起動時の自動再開（[resumeIfPending]）の
+     * 3経路すべてがここを通る。実行中のジョブがあれば先にキャンセルしてから起動するため、
+     * 「同じ解析をもう一度」呼んでも二重に走ることはない。
+     */
+    private fun launchAnalysis(pending: PendingAnalysis) {
+        currentAnalysisJob?.cancel()
+        lastProgressAtEpochSeconds = currentEpochSeconds()
         _importState.value = ImportState.Analyzing(0, 0)
 
-        scope.launch {
-            val auth = authRepository
-            val baseUrl = analysisBaseUrl
-
-            // engineless（サーバー解析専用）フレーバーはANALYSIS_BASE_URL未設定時に
-            // 端末エンジンへフォールバックする手段が無い（IosEngineHostのengineless実装は
-            // 常にnull/例外を返すダミー）。フォールバック分岐（下のelse節）へ進んで
-            // AnalysisOrchestrator経由で不可解な例外を出す前に、ここで専用エラーを出して
-            // 中止する（通常は出荷前の設定漏れでのみ到達する経路）。
-            if (!IosEngineHost.ENGINE_LINKED && baseUrl == null) {
-                _importState.value = ImportState.Error(AppStrings.ANALYSIS_SERVER_NOT_CONFIGURED)
-                return@launch
-            }
-
-            // サーバー解析はJWTでユーザーを識別するため、未ログインならここで匿名サインインする。
-            // signInAnonymously の自動呼び出しはここ（明示的なサーバー解析経路）に限定し、
-            // 既存アカウントがある場合は currentUser が非null のため再発行されない。
-            if (auth != null && baseUrl != null && auth.currentUser.value == null) {
-                val signInResult = auth.signInAnonymously()
-                if (signInResult.isFailure) {
-                    _importState.value = ImportState.Error(AppStrings.AUTH_ERROR_ANON_SIGN_IN_GENERIC)
-                    return@launch
-                }
-            }
-
-            val analyzer: GameAnalyzer = if (auth != null && baseUrl != null) {
-                AuthRetryingAnalyzer(
-                    delegate = RemoteAnalysisRunner(
-                        baseUrl = baseUrl,
-                        accessTokenProvider = {
-                            checkNotNull(auth.accessToken()) { "アクセストークンが取得できない" }
-                        },
-                        httpClient = checkNotNull(analysisHttpClient),
-                        appCheckTokenProvider = AppCheckTokenBridge::getToken,
-                    ),
-                    authRepository = auth,
-                )
-            } else {
-                // ANALYSIS_BASE_URL未設定ビルドでの graceful degradation（従来の端末エンジン）。
-                AnalysisRunner(
-                    // iOS はプロセス内で1エンジンのみ（in-process制約）のため workers=1。
-                    workers = 1,
-                    crashReporter = NoopCrashReporter,
-                    // 1局の中で複数局面を続けて解析しても局面ごとに置換表がクリアされるよう
-                    // IsolatedEngine で包む（解析結果が解析順に依存しないようにするため）。
-                    engineFactory = { IsolatedEngine(IosEngineHost.newGameEngineFactory()()) },
-                    disposeEngine = IosEngineHost.keepAliveDispose,
-                )
-            }
-
-            val orchestrator = AnalysisOrchestrator(
-                repository = gameRepository,
-                coefTable = coefTable,
-                analyzer = analyzer,
-            )
-            val outcome = orchestrator.analyzeAndSave(
-                kifContent = current.kifText,
-                fileName = current.sourceFileName ?: AppStrings.clipboardFileName(currentDateTimeLabel()),
-                userSide = userSide,
-                onProgress = { done, total -> _importState.value = ImportState.Analyzing(done, total) },
-            )
+        currentAnalysisJob = scope.launch {
+            val outcome = runAnalysis(pending)
             when (outcome) {
                 is AnalysisOrchestrator.Outcome.Completed -> {
                     // 自動アップロード設定ON＋ログイン中のときだけ実行される
                     // （androidApp の AnalysisService と同じ配線・失敗はサイレント）。
                     uploadOrchestrator?.maybeAutoUpload(outcome.gameId)
                     reloadHome()
+                    PendingAnalysisStore.clear()
                     _importState.value = ImportState.Idle
                     _completedGameId.value = outcome.gameId
                 }
                 is AnalysisOrchestrator.Outcome.Failed -> {
+                    // pendingはここでは消さない: エラーダイアログを閉じる（dismissImport）まで
+                    // 「再開すべき解析」として残しておく（切断が実は継続中でも、後で復帰した
+                    // ときに再問い合わせできるようにするため）。
                     _importState.value = ImportState.Error(outcome.message)
                 }
             }
         }
+    }
+
+    /** analyzer構築〜orchestrator実行のみを担う（状態遷移は呼び出し元 [launchAnalysis] の責務）。 */
+    private suspend fun runAnalysis(pending: PendingAnalysis): AnalysisOrchestrator.Outcome {
+        val auth = authRepository
+        val baseUrl = analysisBaseUrl
+
+        // engineless（サーバー解析専用）フレーバーはANALYSIS_BASE_URL未設定時に
+        // 端末エンジンへフォールバックする手段が無い（IosEngineHostのengineless実装は
+        // 常にnull/例外を返すダミー）。フォールバック分岐（下のelse節）へ進んで
+        // AnalysisOrchestrator経由で不可解な例外を出す前に、ここで専用エラーを出して
+        // 中止する（通常は出荷前の設定漏れでのみ到達する経路）。
+        if (!IosEngineHost.ENGINE_LINKED && baseUrl == null) {
+            return AnalysisOrchestrator.Outcome.Failed(AppStrings.ANALYSIS_SERVER_NOT_CONFIGURED)
+        }
+
+        // サーバー解析はJWTでユーザーを識別するため、未ログインならここで匿名サインインする。
+        // signInAnonymously の自動呼び出しはここ（明示的なサーバー解析経路）に限定し、
+        // 既存アカウントがある場合は currentUser が非null のため再発行されない。
+        if (auth != null && baseUrl != null && auth.currentUser.value == null) {
+            val signInResult = auth.signInAnonymously()
+            if (signInResult.isFailure) {
+                return AnalysisOrchestrator.Outcome.Failed(AppStrings.AUTH_ERROR_ANON_SIGN_IN_GENERIC)
+            }
+        }
+
+        val analyzer: GameAnalyzer = if (auth != null && baseUrl != null) {
+            AuthRetryingAnalyzer(
+                delegate = RemoteAnalysisRunner(
+                    baseUrl = baseUrl,
+                    accessTokenProvider = {
+                        checkNotNull(auth.accessToken()) { "アクセストークンが取得できない" }
+                    },
+                    httpClient = checkNotNull(analysisHttpClient),
+                    appCheckTokenProvider = AppCheckTokenBridge::getToken,
+                ),
+                authRepository = auth,
+            )
+        } else {
+            // ANALYSIS_BASE_URL未設定ビルドでの graceful degradation（従来の端末エンジン）。
+            AnalysisRunner(
+                // iOS はプロセス内で1エンジンのみ（in-process制約）のため workers=1。
+                workers = 1,
+                crashReporter = NoopCrashReporter,
+                // 1局の中で複数局面を続けて解析しても局面ごとに置換表がクリアされるよう
+                // IsolatedEngine で包む（解析結果が解析順に依存しないようにするため）。
+                engineFactory = { IsolatedEngine(IosEngineHost.newGameEngineFactory()()) },
+                disposeEngine = IosEngineHost.keepAliveDispose,
+            )
+        }
+
+        val orchestrator = AnalysisOrchestrator(
+            repository = gameRepository,
+            coefTable = coefTable,
+            analyzer = analyzer,
+        )
+        return orchestrator.analyzeAndSave(
+            kifContent = pending.kifText,
+            fileName = pending.fileName,
+            userSide = pending.userSide,
+            ratingService = pending.ratingService,
+            ratingRaw = pending.ratingRaw,
+            ratingRule = pending.ratingRule,
+            onProgress = { done, total ->
+                lastProgressAtEpochSeconds = currentEpochSeconds()
+                _importState.value = ImportState.Analyzing(done, total)
+            },
+        )
     }
 
     private fun currentDateTimeLabel(): String {
@@ -552,5 +656,29 @@ class IosMainController(
         // Android の DebugServerAnalysisReceiver と同じ値（Cloud Runのリクエストタイムアウトより長く取る）。
         private const val SERVER_ANALYSIS_REQUEST_TIMEOUT_MS = 10 * 60 * 1000L
         private const val SERVER_ANALYSIS_SOCKET_TIMEOUT_MS = 5 * 60 * 1000L
+
+        /**
+         * フォアグラウンド復帰時に再問い合わせするまでの無進捗時間（秒）。
+         * 短時間のバックグラウンドはストリームが生きたまま復帰することが多く、その間隔で
+         * 再送すると同じ解析を二重にPOSTしてしまう。値を大きく取るほど二重POSTの
+         * リスクは下がるが、実際にプロセスが死んでいた場合の復旧が遅れるトレードオフになる。
+         */
+        internal const val FOREGROUND_RESUME_IDLE_THRESHOLD_SECONDS = 5L
     }
+}
+
+/**
+ * [IosMainController.onWillEnterForeground] の「5秒条件」判定を切り出した純粋関数。
+ * NSNotificationCenter・PendingAnalysisStore に依存しないため、閾値やタイミングの単体テストを
+ * IosMainController本体のインスタンス化なしに書ける。
+ */
+internal fun shouldResumeAfterForeground(
+    importState: IosMainController.ImportState,
+    lastProgressAtEpochSeconds: Long?,
+    nowEpochSeconds: Long,
+    idleThresholdSeconds: Long = IosMainController.FOREGROUND_RESUME_IDLE_THRESHOLD_SECONDS,
+): Boolean {
+    if (importState !is IosMainController.ImportState.Analyzing) return false
+    if (lastProgressAtEpochSeconds == null) return false
+    return nowEpochSeconds - lastProgressAtEpochSeconds >= idleThresholdSeconds
 }
