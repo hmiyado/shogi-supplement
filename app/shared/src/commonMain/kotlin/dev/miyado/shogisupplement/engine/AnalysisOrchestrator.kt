@@ -177,6 +177,10 @@ class AnalysisOrchestrator(
             repository.savePositionEvals(gameId, positionEvalRows)
 
             Outcome.Completed(gameId, alreadyExisted = false)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            // キャンセルは失敗ではなくコルーチンの中断。Failedに変換すると呼び出し側が
+            // ユーザー向けエラーとして表示してしまうため、必ず再throwして伝播させる
+            throw e
         } catch (e: Exception) {
             // RemoteAnalysisException はサーバーが理由を明示して返した想定内の失敗
             // （401/403/429/400=クライアント起因、EngineFailure=サーバー側で記録済み、

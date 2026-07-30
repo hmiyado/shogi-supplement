@@ -31,6 +31,7 @@ import dev.miyado.shogisupplement.util.sha256Hex
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.darwin.Darwin
 import io.ktor.client.plugins.HttpTimeout
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -502,6 +503,9 @@ class IosMainController(
 
         currentAnalysisJob = scope.launch {
             val outcome = runAnalysis(pending)
+            // 再開でキャンセルされた旧ジョブが結果を持ち帰っても状態を触らせない
+            // （新ジョブの表示をキャンセル起因のエラーで上書きさせないため）
+            if (!isActive) return@launch
             when (outcome) {
                 is AnalysisOrchestrator.Outcome.Completed -> {
                     // 自動アップロード設定ON＋ログイン中のときだけ実行される

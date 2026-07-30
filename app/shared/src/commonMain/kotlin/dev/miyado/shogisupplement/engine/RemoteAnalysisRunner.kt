@@ -92,6 +92,10 @@ class RemoteAnalysisRunner(
             } catch (e: RemoteAnalysisException) {
                 // 認可・クォータ・不正リクエスト・エンジン失敗はリトライしても直らないため即座に伝播する。
                 throw e
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                // キャンセルをConnectionLost扱いでリトライすると、キャンセル済みスコープで
+                // 再POSTを試みることになる。中断はそのまま伝播させる
+                throw e
             } catch (e: Exception) {
                 // ネットワーク断・ストリームが終端行なしで終わった場合のみここに来る。再POSTで復旧を試みる。
                 lastDisconnect = e
