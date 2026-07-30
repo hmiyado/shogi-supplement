@@ -10,7 +10,7 @@ import kotlin.math.roundToInt
  * @param clamped クランプされたかどうか（上限/下限の区別）
  * @param errorMargin 表示用の誤差幅（±点）。集計対象手数から
  *   [StrengthEstimator.errorMarginFor] でルックアップする。
- *   手数を積んでも±560程度で頭打ちになるため、常時表示する。
+ *   手数を積んでも±280程度（偏差値±11）で頭打ちになるため、常時表示する。
  * @param totalMoves 推定に使った集計対象手数（自分の手のみ）。
  *   rating は手数を積むほど収束するため、単独では意味が薄い。必ずこの値とセットで
  *   保存・比較すること（DB game.rating_sample_moves 参照）。
@@ -24,7 +24,7 @@ data class StrengthEstimate(
 
 /** 推定値のクランプ状態。 */
 enum class ClampState {
-    /** クランプなし（線形式は範囲を持たないため、v2推定では常にこれになる）。 */
+    /** クランプなし（線形式には範囲がないため常にこの状態になる）。 */
     NONE,
 
     /** 悪手率が最高帯よりさらに低い（最強側クランプ）。表示例: "77+ ±22"。 */
@@ -38,8 +38,7 @@ enum class ClampState {
  * 偏差値換算の基準集団（norm v2）。
  *
  * 較正サンプル（lishogi レート対局者・プレイヤー単位 n=1880）の推定器v2予測値の
- * 平均と標準偏差（research/data/estimator_v2_spec.json の strength_norm_v2）。
- * 偏差値はこの集団内での相対位置（平均50・SD10）。
+ * 平均と標準偏差。偏差値はこの集団内での相対位置（平均50・SD10）。
  *
  * 内部推定はレート軸のまま維持し、表示直前でのみ換算する。推定自体を偏差値軸に
  * しない理由: アンカー・誤差幅・係数表がレート軸で較正済みで、換算は単調な線形写像
@@ -63,10 +62,9 @@ object StrengthNorm {
     /**
      * レート幅（±点）→ 偏差値幅（四捨五入）。
      *
-     * Why not [SD]で割る: 誤差幅は真レート軸（申告レートとの差）で見積もられており、
-     * 偏差値幅への換算も同じ軸の分布幅[TRUE_SCALE_SD]で行うのが分位点整合。
-     * 予測分布のSD（縮小写像で真レートより狭い）で割ると、縮小率のぶんだけ
-     * 幅が実態より大きく表示されてしまう。
+     * Why not [SD]で割る: 誤差幅は真レート軸で見積もられているため、換算も同じ軸の
+     * 分布幅[TRUE_SCALE_SD]で行うのが正しい。予測分布のSD（縮小写像で真レートより狭い）
+     * で割ると、幅が実態より大きく表示されてしまう。
      */
     fun deviationWidth(ratingPoints: Int): Int = round(10.0 * ratingPoints / TRUE_SCALE_SD).toInt()
 }
@@ -74,11 +72,9 @@ object StrengthNorm {
 /**
  * 実測特徴量（[RawFeaturesV2]）から lishogi 相当レートを推定する（推定器v2・G-sparse線形式）。
  *
- * アルゴリズム: rating = intercept + Σ standardized_coefficient_i × (raw_i − mean_i) / sd_i。
- * 係数・標準化パラメータは research/data/estimator_v2_spec.json の凍結値
- * （nested CV MAE ≈162.5、隣接帯以内95.1%で検証済み）をそのまま埋め込む。
- * 欠損特徴量（null）は標準化平均を代入する——標準化後の値が0になり、モデルへの寄与が
- * ちょうどゼロになるため、欠損を「集団の平均的な手」として扱うのと同じ効果になる。
+ * rating = intercept + Σ standardized_coefficient_i × (raw_i − mean_i) / sd_i。
+ * 欠損特徴量（null）は標準化平均を代入する: 標準化後の値が0になり、モデルへの寄与が
+ * ちょうどゼロになる（欠損を「集団の平均的な手」として扱うのと同じ効果）。
  */
 object StrengthEstimator {
 
@@ -86,19 +82,11 @@ object StrengthEstimator {
      * 累計手数から表示用誤差幅（±点）をルックアップする（保守側丸め）。
      *
      * 復元抽出ブートストラップの90% half-width を保守側に丸めた値で、
-     * 手数を積んでも±560程度で頭打ちになる（個人レベルの系統誤差が支配的なため）。
-     *
-     * 境界（累計手数）:
-     *   〜300手   → ±700
-     *   〜1000手  → ±650
-     *   〜2000手  → ±600
-     *   2000手〜  → ±560
+     * 手数を積んでも±280程度で頭打ちになる（個人レベルの系統誤差が支配的なため）。
      */
     internal fun errorMarginFor(totalMoves: Int): Int = when {
-        totalMoves <= 300 -> 700
-        totalMoves <= 1000 -> 650
-        totalMoves <= 2000 -> 600
-        else -> 560
+        totalMoves <= 300 -> 290
+        else -> 280
     }
 
     private const val INTERCEPT = 1724.495669870962
@@ -129,23 +117,17 @@ object StrengthEstimator {
             contribution(MATE_MISS_RATE1000, features.mateMissRate1000)
 
     /**
-     * 帯割り当ての境界（推奨: mapped_sample。research/data/estimator_v2_spec.json の
-     * band_assignment.recommended_full_edges）。
-     *
-     * v2予測には平均への縮小（regression-to-the-mean）があるため、生の帯境界
-     * {1300,1600,1900,2200} をそのまま使うと極端帯にほぼ割り当てられなくなる。
-     * 1局単位（サンプルレベル）のOOF予測分布を基準にした写像境界を使うことで、
-     * 相応判定（帯別係数表の参照）の入力粒度と整合させる。
+     * 帯割り当ての境界。v2予測には平均への縮小（regression-to-the-mean）があるため、
+     * 生の帯境界{1300,1600,1900,2200}をそのまま使うと極端帯にほぼ割り当てられなくなる。
+     * そのためOOF予測分布を基準にした写像境界を使う。
      */
     private val BAND_EDGES = listOf(
         0.0, 1604.272205993674, 1702.7952271705592, 1801.3182483474445, 1899.8412695243296, 99999.0,
     )
 
     /**
-     * レート → 帯index（0-4）。[BAND_EDGES] による区分線形の帯判定。
-     * 下限(0.0)未満・上限(99999.0)以上は最寄りの端の帯に丸める
-     * （v2予測は理論上どちらの方向にも値域を持たないため、範囲外は無帯扱いにせず既存の
-     * 最弱/最強帯に含めるのが Judge の入力として自然なため）。
+     * レート → 帯index（0-4）。範囲外は最寄りの端の帯に丸める
+     * （無帯扱いにせず最弱/最強帯に含めるのが Judge の入力として自然なため）。
      */
     fun bandIndex(rating: Double): Int {
         if (rating < BAND_EDGES[0]) return 0
@@ -164,7 +146,6 @@ object StrengthEstimator {
         val rating = predict(features)
         return StrengthEstimate(
             rating = rating.roundToInt(),
-            // 線形式は値域を持たないため、v1のアンカー補間のようなクランプ概念が無い。
             clamped = ClampState.NONE,
             errorMargin = errorMarginFor(features.nMoves),
             totalMoves = features.nMoves,
@@ -172,15 +153,10 @@ object StrengthEstimator {
     }
 
     /**
-     * 複数局の推定値（それぞれ [estimate] で計算済みの game.rating）を平均して
-     * 表示用の強さ指標を組み立てる。
+     * 複数局のレート（各 [estimate] の結果）を平均して表示用の強さ指標を組み立てる。
      *
-     * 推定器v2は1局単位の予測のため、複数局の集約は特徴量を積み上げて再度線形式を
-     * 通すのではなく、既に確定した各局のレートを平均する（誤差が特徴量側で相殺し合う
-     * 複雑な合成より、確定値の単純平均の方が挙動を説明しやすいため）。
-     *
-     * @param ratings 集約対象の各局のレート（[estimate] の結果を保存したもの）
-     * @param totalMoves 誤差幅表示用の集計対象手数（通常は対象局の自分の手数合計）
+     * Why not 特徴量を積み上げて再度線形式を通す: 推定器v2は1局単位の予測のため、
+     * 確定済みの各局レートを単純平均する方が挙動を説明しやすい。
      */
     fun aggregate(ratings: List<Int>, totalMoves: Int): StrengthEstimate {
         require(ratings.isNotEmpty()) { "ratings must not be empty" }

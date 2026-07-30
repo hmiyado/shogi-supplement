@@ -5,10 +5,8 @@ import kotlin.test.assertEquals
 
 /**
  * StrengthEstimator（推定器v2）のテスト。
- *
- * 線形式そのものの数値的な正しさは [EstimatorV2GoldenTest]（research/data/estimator_v2_golden.json
- * との突合）で検証する。本テストは欠損時フォールバック・帯割り当て・誤差幅・複数局集約など
- * 線形式の周辺ロジックを対象にする。
+ * 線形式そのものの数値的正しさは [EstimatorV2GoldenTest] で検証する。本テストは
+ * 欠損時フォールバック・帯割り当て・誤差幅・複数局集約など周辺ロジックを対象にする。
  */
 class StrengthEstimatorTest {
 
@@ -31,7 +29,7 @@ class StrengthEstimatorTest {
         assertEquals(1724.495669870962, rating, 1e-9)
     }
 
-    // ─── 帯割り当て（band_assignment.recommended_full_edges） ────────────────
+    // ─── 帯割り当て ────────────────────────────────────────────────────────
 
     @Test
     fun `帯境界ちょうどは上の帯に入る`() {
@@ -60,13 +58,10 @@ class StrengthEstimatorTest {
 
     @Test
     fun `誤差幅は集計対象手数の境界で切り替わる`() {
-        assertEquals(700, StrengthEstimator.estimate(allMissing.copy(nMoves = 300)).errorMargin)
-        assertEquals(650, StrengthEstimator.estimate(allMissing.copy(nMoves = 301)).errorMargin)
-        assertEquals(650, StrengthEstimator.estimate(allMissing.copy(nMoves = 1000)).errorMargin)
-        assertEquals(600, StrengthEstimator.estimate(allMissing.copy(nMoves = 1001)).errorMargin)
-        assertEquals(600, StrengthEstimator.estimate(allMissing.copy(nMoves = 2000)).errorMargin)
-        assertEquals(560, StrengthEstimator.estimate(allMissing.copy(nMoves = 2001)).errorMargin)
-        assertEquals(700, StrengthEstimator.estimate(allMissing.copy(nMoves = 0)).errorMargin)
+        assertEquals(290, StrengthEstimator.estimate(allMissing.copy(nMoves = 300)).errorMargin)
+        assertEquals(280, StrengthEstimator.estimate(allMissing.copy(nMoves = 301)).errorMargin)
+        assertEquals(280, StrengthEstimator.estimate(allMissing.copy(nMoves = 2001)).errorMargin)
+        assertEquals(290, StrengthEstimator.estimate(allMissing.copy(nMoves = 0)).errorMargin)
     }
 
     @Test
@@ -80,7 +75,7 @@ class StrengthEstimatorTest {
     fun `aggregateは各局レートの単純平均を丸める`() {
         val result = StrengthEstimator.aggregate(listOf(1700, 1750, 1800), totalMoves = 300)
         assertEquals(1750, result.rating)
-        assertEquals(700, result.errorMargin)
+        assertEquals(290, result.errorMargin)
         assertEquals(300, result.totalMoves)
         assertEquals(ClampState.NONE, result.clamped)
     }
@@ -96,6 +91,6 @@ class StrengthEstimatorTest {
     @Test
     fun `norm平均付近のレートは偏差値50になる`() {
         val result = StrengthEstimator.aggregate(listOf(1718), totalMoves = 1000)
-        assertEquals("50 ±25", result.toDisplayString())
+        assertEquals("50 ±11", result.toDisplayString())
     }
 }
