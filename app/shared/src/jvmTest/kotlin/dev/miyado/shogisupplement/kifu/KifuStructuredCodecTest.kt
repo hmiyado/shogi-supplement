@@ -178,7 +178,7 @@ class KifuStructuredCodecTest {
 
     @Test
     fun `場所ヘッダがlishogiのURL形式ならlishogiと判定される`() {
-        // research/scripts/collect_lishogi.py の抽出正規表現（場所：https://lishogi.org/{id}）を
+        // lishogi対局URL（場所：https://lishogi.org/{id}）の抽出仕様を
         // 根拠にした合成サンプル。リポジトリ内に実サンプルが無いため合成データで固定する。
         val kif = """
             開始日時：2026/01/01 00:00:00

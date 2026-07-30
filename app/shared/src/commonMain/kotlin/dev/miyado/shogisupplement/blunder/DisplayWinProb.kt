@@ -7,7 +7,7 @@ import kotlin.math.exp
  *
  * 悪手判定系（BlunderJudge / 悪手抽出 / 係数表）が使う s=600 とは別物。
  * こちらは実対局データへのフィット値 s=1254 を使い、UI への損失表示に専用する。
- * 出典: research/docs/winrate-calibration.md
+ * lishogi較正データで較正した換算。
  *
  * ⚠️ 判定系（BlunderJudge.SIGMOID_SCALE = 600）は係数表 v3 まで変更禁止。
  *    表示（このオブジェクト）と判定を混在させないこと。
@@ -17,7 +17,7 @@ object DisplayWinProb {
     /**
      * 表示用シグモイドスケール（実測較正値）。
      * 1/(1+exp(-cp / DISPLAY_SIGMOID_SCALE)) で勝率に換算する。
-     * 出典: research/docs/winrate-calibration.md
+     * lishogi較正データで較正した値。
      */
     const val DISPLAY_SIGMOID_SCALE = 1254.0
 

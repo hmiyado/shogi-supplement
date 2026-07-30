@@ -52,7 +52,7 @@ class StrengthEstimatorTest {
     }
 
     // ─── 誤差幅（errorMargin）境界 ─────────────────────────────────────────
-    // 正となる資料: research/docs/strength-convergence.md
+    // lishogi較正データの収束実測に基づく境界値。
     // 「アプリの誤差表示への適用」表（保守側丸め）:
     //   〜300手 → ±700／〜1000手 → ±650／〜2000手 → ±600／2000手〜 → ±560
 

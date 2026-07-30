@@ -11,7 +11,7 @@
 # 出力:
 #   app/iosApp/engine/build/<target>/libyaneuraou.a
 #
-# 参考: research/scripts/android/build_yaneura_android.sh（Android NDKビルド。同じソース選定・
+# AndroidのNDKビルドと同じソース選定・
 # YANEURAOU_ENGINE_NNUEの構成をiOS向けclangに移植したもの）
 set -euo pipefail
 
@@ -51,7 +51,7 @@ else
   echo "=== Using existing upstream checkout: $(git -C "$UPSTREAM_DIR" describe --tags 2>/dev/null || echo unknown) ==="
 fi
 
-# --- 2. コンパイル対象（YANEURAOU_ENGINE_NNUE構成。research/scripts/android/build_yaneura_android.sh と同じ選定） ---
+# --- 2. コンパイル対象（YANEURAOU_ENGINE_NNUE構成。Android版ビルドと同じ選定） ---
 SRCS=(
   main.cpp types.cpp bitboard.cpp misc.cpp movegen.cpp position.cpp
   usi.cpp usi_option.cpp thread.cpp tt.cpp movepick.cpp timeman.cpp
@@ -71,7 +71,7 @@ SRCS=(
 SDKROOT="$(xcrun --sdk "$SDK" --show-sdk-path)"
 CXX="xcrun --sdk $SDK clang++"
 
-# Apple Silicon(NEON)向けフラグ。research/engine/YaneuraOu-NNUE-m1 と同系統（Makefile TARGET_CPU=M1）
+# Apple Silicon(NEON)向けフラグ（やねうら王Makefileの TARGET_CPU=M1 と同系統）
 # だが-mcpu=apple-m1は実機（旧世代Aシリーズ）非互換のため汎用armv8.2-a系に変更。
 # main()はwrapperのyaneuraou_main()としてリンクするため -Dmain=yaneuraou_main でリネーム。
 CXXFLAGS="-std=c++17 -fno-exceptions -fno-rtti -O3 -DNDEBUG -fPIC \

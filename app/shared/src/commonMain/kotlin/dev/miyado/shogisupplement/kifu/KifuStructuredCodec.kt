@@ -134,7 +134,7 @@ object KifuDecomposer {
 
     /**
      * 出典サービスの正規化。lishogi判定（`https://lishogi.org/`プレフィックス）は
-     * research/scripts/collect_lishogi.py の抽出正規表現を参考にした値。
+     * lishogi対局URL（場所ヘッダ）の実データから定めた値。
      *
      * Why not [decompose] 内部限定にしない: [dev.miyado.shogisupplement.engine.AnalysisOrchestrator]
      * のローカルDB保存経路からも呼ぶため public。判定ロジックを1箇所に集約し、アップロード用の
