@@ -46,7 +46,7 @@ class AnalysisOrchestratorTest {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         ShogiSupplementDatabase.Schema.create(driver)
         val repository = GameRepository(ShogiSupplementDatabase(driver))
-        val coefTable = CoefficientTable.fromJson(resource("coefficients_hao_isolate_v1.json"))
+        val coefTable = CoefficientTable.fromJson(resource(CoefficientTable.COEFFICIENTS_FILE_NAME))
         val orchestrator = AnalysisOrchestrator(
             repository = repository,
             coefTable = coefTable,
@@ -101,11 +101,7 @@ class AnalysisOrchestratorTest {
         assertEquals("other", analyzeAndGetSourcePlace(kif, "other.kif"))
     }
 
-    /**
-     * pv1（最善手）とpv2（次善手）を区別して返す FakeEngine。
-     * ply=0（先手番・prefixが空）と ply=1（後手番・prefixが1手）で異なる値を返すことで、
-     * 先手視点への正規化（反転）が ply ごとに正しく効いているかを検証できるようにする。
-     */
+    /** pv1/pv2を区別して返すFakeEngine。plyごとに異なる値を返し、先手視点への正規化を検証する。 */
     private class PvAwareFakeEngine : Engine {
         override fun analyze(moves: List<String>, nodes: Int): List<PvInfo> = if (moves.isEmpty()) {
             listOf(
@@ -131,7 +127,7 @@ class AnalysisOrchestratorTest {
         ShogiSupplementDatabase.Schema.create(driver)
         val database = ShogiSupplementDatabase(driver)
         val repository = GameRepository(database)
-        val coefTable = CoefficientTable.fromJson(resource("coefficients_hao_isolate_v1.json"))
+        val coefTable = CoefficientTable.fromJson(resource(CoefficientTable.COEFFICIENTS_FILE_NAME))
         val orchestrator = AnalysisOrchestrator(
             repository = repository,
             coefTable = coefTable,
@@ -168,8 +164,7 @@ class AnalysisOrchestratorTest {
 
         val rows = database.shogiSupplementQueries.getPositionEvalsByGameId(completed.gameId).executeAsList()
         val ply1 = rows.first { it.ply == 1L }
-        // PvAwareFakeEngine は ply=1（後手番）で second_score_cp=30（手番=後手視点）を返す。
-        // position_eval は先手視点正規化のため、保存値は反転して -30 になる。
+        // ply=1(後手)はsecond_score_cp=30を返すが、先手視点正規化のため保存値は-30に反転する。
         assertEquals("3c3d", ply1.best_usi)
         assertEquals(-30L, ply1.second_score_cp)
     }

@@ -71,7 +71,7 @@ class ReportE2ETest {
         }
 
         // 係数読み込み (mainアプリのassets)
-        val coefJson = targetCtx.assets.open("coefficients_hao_isolate_v1.json").readBytes().decodeToString()
+        val coefJson = targetCtx.assets.open(CoefficientTable.COEFFICIENTS_FILE_NAME).readBytes().decodeToString()
         val coef = CoefficientTable.fromJson(coefJson)
 
         // レポート生成

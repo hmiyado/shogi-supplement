@@ -11,9 +11,10 @@ import kotlin.test.assertTrue
 class CoefficientsHaoTest {
 
     private fun loadTable(): CoefficientTable {
+        val fileName = CoefficientTable.COEFFICIENTS_FILE_NAME
         val text = checkNotNull(
-            javaClass.classLoader.getResourceAsStream("coefficients_hao_isolate_v1.json")
-        ) { "coefficients_hao_isolate_v1.json not found in test resources" }
+            javaClass.classLoader.getResourceAsStream(fileName)
+        ) { "$fileName not found in test resources" }
             .readBytes().decodeToString()
         return CoefficientTable.fromJson(text)
     }

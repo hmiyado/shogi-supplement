@@ -41,6 +41,9 @@ data class CoefficientTable(
         mate_miss[band]?.get(bucket)?.rate
 
     companion object {
+        /** Why not 各参照箇所にファイル名リテラルを直書き: 変更時の追随漏れを防ぐため、全参照箇所はこの定数を使う。 */
+        const val COEFFICIENTS_FILE_NAME = "coefficients_hao_isolate_v1.json"
+
         private val json = Json { ignoreUnknownKeys = true }
 
         fun fromJson(text: String): CoefficientTable = json.decodeFromString(text)

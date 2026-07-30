@@ -174,3 +174,10 @@ android {
         minSdk = 29
     }
 }
+
+// jvmTestはリソースを複製せず、androidApp/src/main/assetsの正本からコピーする。
+// Why not シンボリックリンク: ホストのOS/git設定によっては復元される保証がなく、
+// CIや開発機の差でテストが壊れうるため。
+tasks.named<org.gradle.language.jvm.tasks.ProcessResources>("jvmTestProcessResources") {
+    from(rootProject.file("androidApp/src/main/assets/coefficients_hao_isolate_v1.json"))
+}

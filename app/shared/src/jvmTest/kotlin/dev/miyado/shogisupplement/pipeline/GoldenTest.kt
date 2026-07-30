@@ -86,7 +86,7 @@ class GoldenTest {
         json.decodeFromString<List<PyEntry>>(resource(jsonName))
 
     private fun loadHaoCoef(): CoefficientTable =
-        CoefficientTable.fromJson(resource("coefficients_hao_isolate_v1.json"))
+        CoefficientTable.fromJson(resource(CoefficientTable.COEFFICIENTS_FILE_NAME))
 
     // ── ゴールデンテスト本体 ─────────────────────────────────────────────────
 
@@ -118,9 +118,7 @@ class GoldenTest {
         val evals = loadEvals(evalsName)
         val pyReport = loadPyReport(pyReportName)
 
-        // 推定器v2は1局単位の予測のため、過去累計の指定は不要（Python側 report_kifu.py も
-        // 同じ evals ダンプから同じ6特徴量→レート→帯を計算し、report_game*_hao.json を
-        // 再生成済み。バンドはPython/Kotlin双方が同じ計算で導く）。
+        // 推定器v2は1局単位の予測のため、過去累計の指定は不要。Python/Kotlin双方が同じ計算でバンドを導く。
         val ktResult = ReportPipeline.analyze(
             moves = moves,
             evals = evals,
