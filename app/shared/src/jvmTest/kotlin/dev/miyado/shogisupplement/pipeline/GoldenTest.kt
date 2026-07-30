@@ -118,15 +118,14 @@ class GoldenTest {
         val evals = loadEvals(evalsName)
         val pyReport = loadPyReport(pyReportName)
 
-        // 推定値が 1750 帯（1600-1899）に収まるよう、過去累計を 619/10000 ≈ 61.9件/1000手 に固定。
-        // これは Python 版 rating=1750 と同じ帯 (bandIdx) を選ばせ、相応判定が一致することを保証する。
+        // 推定器v2は1局単位の予測のため、過去累計の指定は不要（Python側 report_kifu.py も
+        // 同じ evals ダンプから同じ6特徴量→レート→帯を計算し、report_game*_hao.json を
+        // 再生成済み。バンドはPython/Kotlin双方が同じ計算で導く）。
         val ktResult = ReportPipeline.analyze(
             moves = moves,
             evals = evals,
             sides = setOf("sente", "gote"),
             coef = coef,
-            prevTotalMoves = 10000,
-            prevTotalBlunders = 619,
         )
         val ktReport = ktResult.reports
 

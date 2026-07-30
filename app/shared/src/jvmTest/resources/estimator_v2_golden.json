@@ -1,0 +1,482 @@
+[
+  {
+    "game_id": "1NHG4b1C",
+    "side": "gote",
+    "note": "短手数",
+    "n_moves": 10,
+    "true_rating": 1785.0,
+    "raw_features": {
+      "pv1_match_rate": 0.2,
+      "opening_mean_loss": 0.0068459,
+      "own_log_rate": 0.0,
+      "middle_mean_loss": 0.050515917597618,
+      "max_lead_drop": 0.055383,
+      "mate_miss_rate1000": 0.0
+    },
+    "standardized_features": {
+      "pv1_match_rate": -1.7017135935418322,
+      "opening_mean_loss": -0.9700348278443145,
+      "own_log_rate": -1.785280523012206,
+      "middle_mean_loss": -7.040402401719584e-16,
+      "max_lead_drop": -1.4835891482503685,
+      "mate_miss_rate1000": -0.1012216225854842
+    },
+    "predicted_rating": 1689.9922480420346
+  },
+  {
+    "game_id": "1NHG4b1C",
+    "side": "sente",
+    "note": "",
+    "n_moves": 10,
+    "true_rating": 1750.0,
+    "raw_features": {
+      "pv1_match_rate": 0.0,
+      "opening_mean_loss": 0.0093867,
+      "own_log_rate": 0.0,
+      "middle_mean_loss": 0.050515917597618,
+      "max_lead_drop": 0.0548609999999999,
+      "mate_miss_rate1000": 0.0
+    },
+    "standardized_features": {
+      "pv1_match_rate": -3.64501890287079,
+      "opening_mean_loss": -0.8173716258824252,
+      "own_log_rate": -1.785280523012206,
+      "middle_mean_loss": -7.040402401719584e-16,
+      "max_lead_drop": -1.4853764708248054,
+      "mate_miss_rate1000": -0.1012216225854842
+    },
+    "predicted_rating": 1567.1367890774436
+  },
+  {
+    "game_id": "5MsVrRQT",
+    "side": "gote",
+    "note": "ランダム抽出",
+    "n_moves": 39,
+    "true_rating": 1663.0,
+    "raw_features": {
+      "pv1_match_rate": 0.2564102564102564,
+      "opening_mean_loss": 0.01928465,
+      "own_log_rate": 4.355722146787147,
+      "middle_mean_loss": 0.0395262631578947,
+      "max_lead_drop": 0.606827,
+      "mate_miss_rate1000": 0.0
+    },
+    "standardized_features": {
+      "pv1_match_rate": -1.1536018396285368,
+      "opening_mean_loss": -0.22265628431335938,
+      "own_log_rate": 0.5943740108607911,
+      "middle_mean_loss": -0.2787605293544304,
+      "max_lead_drop": 0.40454937615098246,
+      "mate_miss_rate1000": -0.1012216225854842
+    },
+    "predicted_rating": 1648.6784836894783
+  },
+  {
+    "game_id": "5MsVrRQT",
+    "side": "sente",
+    "note": "",
+    "n_moves": 39,
+    "true_rating": 1671.0,
+    "raw_features": {
+      "pv1_match_rate": 0.4871794871794871,
+      "opening_mean_loss": 0.0182878,
+      "own_log_rate": 0.0,
+      "middle_mean_loss": 0.0157617368421052,
+      "max_lead_drop": 0.117444,
+      "mate_miss_rate1000": 0.0
+    },
+    "standardized_features": {
+      "pv1_match_rate": 1.0886735172894906,
+      "opening_mean_loss": -0.2825517160182198,
+      "own_log_rate": -1.785280523012206,
+      "middle_mean_loss": -0.8815649188811275,
+      "max_lead_drop": -1.2710929292999906,
+      "mate_miss_rate1000": -0.1012216225854842
+    },
+    "predicted_rating": 1845.2752997354542
+  },
+  {
+    "game_id": "CgOnBot5",
+    "side": "gote",
+    "note": "",
+    "n_moves": 41,
+    "true_rating": 1680.0,
+    "raw_features": {
+      "pv1_match_rate": 0.3902439024390244,
+      "opening_mean_loss": 0.01866745,
+      "own_log_rate": 4.306369620973057,
+      "middle_mean_loss": 0.0625517499999999,
+      "max_lead_drop": 0.743384,
+      "mate_miss_rate1000": 0.0
+    },
+    "standardized_features": {
+      "pv1_match_rate": 0.14679633484424934,
+      "opening_mean_loss": -0.2597405602307391,
+      "own_log_rate": 0.5674113264071442,
+      "middle_mean_loss": 0.3052975896659448,
+      "max_lead_drop": 0.8721191248048356,
+      "mate_miss_rate1000": -0.1012216225854842
+    },
+    "predicted_rating": 1722.4927529986112
+  },
+  {
+    "game_id": "CgOnBot5",
+    "side": "sente",
+    "note": "詰み機会なし",
+    "n_moves": 41,
+    "true_rating": 1707.0,
+    "raw_features": {
+      "pv1_match_rate": 0.5365853658536586,
+      "opening_mean_loss": 0.0043482,
+      "own_log_rate": 3.234365001910661,
+      "middle_mean_loss": 0.0536923999999999,
+      "max_lead_drop": 0.193521,
+      "mate_miss_rate1000": 0.0
+    },
+    "standardized_features": {
+      "pv1_match_rate": 1.5687270489873892,
+      "opening_mean_loss": -1.1201083793006317,
+      "own_log_rate": -0.01825519825083621,
+      "middle_mean_loss": 0.08057377243567783,
+      "max_lead_drop": -1.0106060720291135,
+      "mate_miss_rate1000": -0.1012216225854842
+    },
+    "predicted_rating": 1858.9894591515035
+  },
+  {
+    "game_id": "DDIzOLMK",
+    "side": "gote",
+    "note": "長手数",
+    "n_moves": 281,
+    "true_rating": 1169.0,
+    "raw_features": {
+      "pv1_match_rate": 0.1672597864768683,
+      "opening_mean_loss": 0.047047,
+      "own_log_rate": 6.01677323583361,
+      "middle_mean_loss": 0.1401818,
+      "max_lead_drop": 1.0,
+      "mate_miss_rate1000": 28.469750889679716
+    },
+    "standardized_features": {
+      "pv1_match_rate": -2.01983474738216,
+      "opening_mean_loss": 1.4454361452311373,
+      "own_log_rate": 1.5018533269966226,
+      "middle_mean_loss": 2.2744399271711213,
+      "max_lead_drop": 1.7507696415894538,
+      "mate_miss_rate1000": 13.184169299590017
+    },
+    "predicted_rating": 1453.1414416137086
+  },
+  {
+    "game_id": "DDIzOLMK",
+    "side": "sente",
+    "note": "",
+    "n_moves": 281,
+    "true_rating": 1037.0,
+    "raw_features": {
+      "pv1_match_rate": 0.1814946619217081,
+      "opening_mean_loss": 0.0651206,
+      "own_log_rate": 5.401057013004231,
+      "middle_mean_loss": 0.1364298,
+      "max_lead_drop": 1.0,
+      "mate_miss_rate1000": 28.469750889679716
+    },
+    "standardized_features": {
+      "pv1_match_rate": -1.8815212022341923,
+      "opening_mean_loss": 2.531382952133846,
+      "own_log_rate": 1.1654700932047615,
+      "middle_mean_loss": 2.1792677348265403,
+      "max_lead_drop": 1.7507696415894538,
+      "mate_miss_rate1000": 13.184169299590017
+    },
+    "predicted_rating": 1438.4173565733902
+  },
+  {
+    "game_id": "PyV6VR8V",
+    "side": "gote",
+    "note": "",
+    "n_moves": 37,
+    "true_rating": 1575.0,
+    "raw_features": {
+      "pv1_match_rate": 0.6756756756756757,
+      "opening_mean_loss": 0.05117705,
+      "own_log_rate": 3.3331692955853027,
+      "middle_mean_loss": 0.0117568823529411,
+      "max_lead_drop": 0.484705,
+      "mate_miss_rate1000": 0.0
+    },
+    "standardized_features": {
+      "pv1_match_rate": 2.9202017367540667,
+      "opening_mean_loss": 1.693588954292339,
+      "own_log_rate": 0.035724389400871324,
+      "middle_mean_loss": -0.9831509481334685,
+      "max_lead_drop": -0.013595082537373557,
+      "mate_miss_rate1000": -0.1012216225854842
+    },
+    "predicted_rating": 1862.4720033390238
+  },
+  {
+    "game_id": "PyV6VR8V",
+    "side": "sente",
+    "note": "咎め機会なし",
+    "n_moves": 38,
+    "true_rating": 1823.0,
+    "raw_features": {
+      "pv1_match_rate": 0.6842105263157895,
+      "opening_mean_loss": 0.03506065,
+      "own_log_rate": 0.0,
+      "middle_mean_loss": 0.002228,
+      "max_lead_drop": 0.1040849999999999,
+      "mate_miss_rate1000": 0.0
+    },
+    "standardized_features": {
+      "pv1_match_rate": 3.003130839570381,
+      "opening_mean_loss": 0.7252399193039128,
+      "own_log_rate": -1.785280523012206,
+      "middle_mean_loss": -1.2248579375052675,
+      "max_lead_drop": -1.3168340064492168,
+      "mate_miss_rate1000": -0.1012216225854842
+    },
+    "predicted_rating": 1937.158282542598
+  },
+  {
+    "game_id": "R5VZm7wC",
+    "side": "gote",
+    "note": "ランダム抽出",
+    "n_moves": 45,
+    "true_rating": 1842.0,
+    "raw_features": {
+      "pv1_match_rate": 0.5111111111111111,
+      "opening_mean_loss": 0.0361505,
+      "own_log_rate": 5.053410934562461,
+      "middle_mean_loss": 0.0775978,
+      "max_lead_drop": 0.617363,
+      "mate_miss_rate1000": 0.0
+    },
+    "standardized_features": {
+      "pv1_match_rate": 1.3212057765254346,
+      "opening_mean_loss": 0.7907232279697526,
+      "own_log_rate": 0.9755411815643941,
+      "middle_mean_loss": 0.6869515248008559,
+      "max_lead_drop": 0.4406245306419056,
+      "mate_miss_rate1000": -0.1012216225854842
+    },
+    "predicted_rating": 1759.6387451880464
+  },
+  {
+    "game_id": "R5VZm7wC",
+    "side": "sente",
+    "note": "",
+    "n_moves": 46,
+    "true_rating": 1788.0,
+    "raw_features": {
+      "pv1_match_rate": 0.3478260869565217,
+      "opening_mean_loss": 0.0194694,
+      "own_log_rate": 3.795000550022477,
+      "middle_mean_loss": 0.087305,
+      "max_lead_drop": 0.247286,
+      "mate_miss_rate1000": 0.0
+    },
+    "standardized_features": {
+      "pv1_match_rate": -0.26535749534216874,
+      "opening_mean_loss": -0.21155563626453255,
+      "own_log_rate": 0.288035900895312,
+      "middle_mean_loss": 0.9331816701972613,
+      "max_lead_drop": -0.8265152708517706,
+      "mate_miss_rate1000": -0.1012216225854842
+    },
+    "predicted_rating": 1710.4020939038835
+  },
+  {
+    "game_id": "abHfDJhU",
+    "side": "gote",
+    "note": "",
+    "n_moves": 10,
+    "true_rating": 1094.0,
+    "raw_features": {
+      "pv1_match_rate": 0.5,
+      "opening_mean_loss": 0.009298,
+      "own_log_rate": 4.61512051684126,
+      "middle_mean_loss": 0.050515917597618,
+      "max_lead_drop": 0.0,
+      "mate_miss_rate1000": 0.0
+    },
+    "standardized_features": {
+      "pv1_match_rate": 1.213244370451604,
+      "opening_mean_loss": -0.8227011386398321,
+      "own_log_rate": 0.7360906967687408,
+      "middle_mean_loss": -7.040402401719584e-16,
+      "max_lead_drop": -1.673219964610543,
+      "mate_miss_rate1000": -0.1012216225854842
+    },
+    "predicted_rating": 1821.7123230863895
+  },
+  {
+    "game_id": "abHfDJhU",
+    "side": "sente",
+    "note": "最低レート",
+    "n_moves": 10,
+    "true_rating": 761.0,
+    "raw_features": {
+      "pv1_match_rate": 0.0,
+      "opening_mean_loss": 0.0610888,
+      "own_log_rate": 4.61512051684126,
+      "middle_mean_loss": 0.050515917597618,
+      "max_lead_drop": 0.517909,
+      "mate_miss_rate1000": 0.0
+    },
+    "standardized_features": {
+      "pv1_match_rate": -3.64501890287079,
+      "opening_mean_loss": 2.2891334647007753,
+      "own_log_rate": 0.7360906967687408,
+      "middle_mean_loss": -7.040402401719584e-16,
+      "max_lead_drop": 0.10009506834689098,
+      "mate_miss_rate1000": -0.1012216225854842
+    },
+    "predicted_rating": 1426.3295814805383
+  },
+  {
+    "game_id": "eYc4bkLC",
+    "side": "gote",
+    "note": "ランダム抽出",
+    "n_moves": 65,
+    "true_rating": 1851.0,
+    "raw_features": {
+      "pv1_match_rate": 0.3538461538461538,
+      "opening_mean_loss": 0.0184052,
+      "own_log_rate": 5.303304908059076,
+      "middle_mean_loss": 0.09100755,
+      "max_lead_drop": 0.952262,
+      "mate_miss_rate1000": 0.0
+    },
+    "standardized_features": {
+      "pv1_match_rate": -0.20686335559648075,
+      "opening_mean_loss": -0.27549777241371504,
+      "own_log_rate": 1.1120653460952723,
+      "middle_mean_loss": 1.027099527544124,
+      "max_lead_drop": 1.5873152257686785,
+      "mate_miss_rate1000": -0.1012216225854842
+    },
+    "predicted_rating": 1682.0048631039492
+  },
+  {
+    "game_id": "eYc4bkLC",
+    "side": "sente",
+    "note": "",
+    "n_moves": 66,
+    "true_rating": 1935.0,
+    "raw_features": {
+      "pv1_match_rate": 0.3333333333333333,
+      "opening_mean_loss": 0.0184468,
+      "own_log_rate": 4.340652088535195,
+      "middle_mean_loss": 0.1095218,
+      "max_lead_drop": 0.559687,
+      "mate_miss_rate1000": 0.0
+    },
+    "standardized_features": {
+      "pv1_match_rate": -0.40617672065586086,
+      "opening_mean_loss": -0.27299824895590075,
+      "own_log_rate": 0.5861408106619583,
+      "middle_mean_loss": 1.4967268628627945,
+      "max_lead_drop": 0.24314250611471477,
+      "mate_miss_rate1000": -0.1012216225854842
+    },
+    "predicted_rating": 1686.613947609654
+  },
+  {
+    "game_id": "lyNWKmFI",
+    "side": "gote",
+    "note": "ランダム抽出",
+    "n_moves": 36,
+    "true_rating": 1763.0,
+    "raw_features": {
+      "pv1_match_rate": 0.4166666666666667,
+      "opening_mean_loss": 0.01044955,
+      "own_log_rate": 0.0,
+      "middle_mean_loss": 0.036323625,
+      "max_lead_drop": 0.2821319999999999,
+      "mate_miss_rate1000": 0.0
+    },
+    "standardized_features": {
+      "pv1_match_rate": 0.4035338248978718,
+      "opening_mean_loss": -0.7535106040762247,
+      "own_log_rate": -1.785280523012206,
+      "middle_mean_loss": -0.35999776143685264,
+      "max_lead_drop": -0.7072029290341258,
+      "mate_miss_rate1000": -0.1012216225854842
+    },
+    "predicted_rating": 1808.7667539492388
+  },
+  {
+    "game_id": "lyNWKmFI",
+    "side": "sente",
+    "note": "",
+    "n_moves": 37,
+    "true_rating": 1805.0,
+    "raw_features": {
+      "pv1_match_rate": 0.4594594594594595,
+      "opening_mean_loss": 0.013589,
+      "own_log_rate": 0.0,
+      "middle_mean_loss": 0.0175348235294117,
+      "max_lead_drop": 0.149787,
+      "mate_miss_rate1000": 0.0
+    },
+    "standardized_features": {
+      "pv1_match_rate": 0.8193311320741128,
+      "opening_mean_loss": -0.5648776973542263,
+      "own_log_rate": -1.785280523012206,
+      "middle_mean_loss": -0.8365892932819938,
+      "max_lead_drop": -1.1603508334666641,
+      "mate_miss_rate1000": -0.1012216225854842
+    },
+    "predicted_rating": 1835.3823370280268
+  },
+  {
+    "game_id": "oaM2yhWr",
+    "side": "gote",
+    "note": "最高レート",
+    "n_moves": 32,
+    "true_rating": 2589.0,
+    "raw_features": {
+      "pv1_match_rate": 0.4375,
+      "opening_mean_loss": 0.0137351499999999,
+      "own_log_rate": 0.0,
+      "middle_mean_loss": 0.0329591666666666,
+      "max_lead_drop": 0.169112,
+      "mate_miss_rate1000": 0.0
+    },
+    "standardized_features": {
+      "pv1_match_rate": 0.6059614612863047,
+      "opening_mean_loss": -0.5560963186677045,
+      "own_log_rate": -1.785280523012206,
+      "middle_mean_loss": -0.4453396792501078,
+      "max_lead_drop": -1.094182234326849,
+      "mate_miss_rate1000": -0.1012216225854842
+    },
+    "predicted_rating": 1819.2795512789942
+  },
+  {
+    "game_id": "oaM2yhWr",
+    "side": "sente",
+    "note": "",
+    "n_moves": 32,
+    "true_rating": 1251.0,
+    "raw_features": {
+      "pv1_match_rate": 0.3125,
+      "opening_mean_loss": 0.0188603,
+      "own_log_rate": 4.5512418439625355,
+      "middle_mean_loss": 0.0675763333333333,
+      "max_lead_drop": 0.562939,
+      "mate_miss_rate1000": 0.0
+    },
+    "standardized_features": {
+      "pv1_match_rate": -0.6086043570442937,
+      "opening_mean_loss": -0.2481532261240205,
+      "own_log_rate": 0.7011919662228151,
+      "middle_mean_loss": 0.4327497782190843,
+      "max_lead_drop": 0.2542773203140769,
+      "mate_miss_rate1000": -0.1012216225854842
+    },
+    "predicted_rating": 1677.7755464356417
+  }
+]
