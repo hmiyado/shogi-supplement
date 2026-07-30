@@ -101,9 +101,6 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 getBlundersByGameId:
 SELECT * FROM blunder_report WHERE game_id = ? ORDER BY ply;
 
-getBlunderCountBySide:
-SELECT COUNT(*) FROM blunder_report WHERE game_id = ? AND side = ?;
-
 updateBestPv:
 UPDATE blunder_report SET best_pv = ? WHERE id = ?;
 
@@ -186,27 +183,6 @@ ORDER BY
 getDrillAttemptCountAll:
 SELECT blunder_report_id, COUNT(*) AS attempt_count FROM drill_attempt GROUP BY blunder_report_id;
 
--- ─── 強さ推定用: 過去局の累計手数・悪手数 ────────────────────────────────────
--- user_side が設定されている局のみ集計。自分の手番の手数のみカウント。
--- sente → (move_count + 1) / 2、gote → move_count / 2（整数除算）
-
-getPrevTotalMoves:
-SELECT COALESCE(SUM(
-    CASE
-        WHEN user_side = 'sente' THEN (move_count + 1) / 2
-        WHEN user_side = 'gote' THEN move_count / 2
-        ELSE 0
-    END
-), 0) AS total_moves
-FROM game
-WHERE user_side IS NOT NULL;
-
-getPrevTotalBlunders:
-SELECT COUNT(*) AS total_blunders
-FROM blunder_report b
-JOIN game g ON g.id = b.game_id
-WHERE g.user_side IS NOT NULL AND b.side = g.user_side;
-
 -- ─── service_rank ───────────────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS service_rank (
@@ -257,10 +233,8 @@ CREATE TABLE IF NOT EXISTS position_eval (
     ply INTEGER NOT NULL,
     score_cp INTEGER,
     mate_in INTEGER,
-    -- best_usi/second_score_cp/second_mate_in: pv1（最善手）の指し手とpv2（次善手）の評価値。
-    -- 保存済み局に遡ってpv1一致率（実際の指し手が最善手の先頭手と一致した割合）を
-    -- 計算できるようにするための材料。best_usi は正規化しない（USI表記のまま）。
-    -- second_score_cp/second_mate_in は score_cp/mate_in と同じ先手視点正規化の規約に従う。
+    -- best_usi: pv1（最善手）のUSI表記（正規化しない）。
+    -- second_score_cp/second_mate_in: pv2（次善手）の評価値。score_cp/mate_in と同じ正規化規約。
     best_usi TEXT,
     second_score_cp INTEGER,
     second_mate_in INTEGER,

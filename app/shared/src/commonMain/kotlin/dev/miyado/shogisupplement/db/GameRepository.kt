@@ -263,14 +263,6 @@ class GameRepository(private val database: ShogiSupplementDatabase) {
             .map { it.toBlunderRecord() }
     }
 
-    /** 指定ゲームの指定サイドの悪手件数を返す。 */
-    fun getBlunderCountBySide(gameId: Long, side: String): Int {
-        return database.shogiSupplementQueries
-            .getBlunderCountBySide(gameId, side)
-            .executeAsOne()
-            .toInt()
-    }
-
     /**
      * best_pv をオンデマンド延長後に更新する。
      * @param blunderId blunder_report.id
@@ -278,28 +270,6 @@ class GameRepository(private val database: ShogiSupplementDatabase) {
      */
     fun updateBestPv(blunderId: Long, newPv: String) {
         database.shogiSupplementQueries.updateBestPv(newPv, blunderId)
-    }
-
-    /**
-     * 過去の累計自分の手数を返す（user_side が設定されている局のみ、自分の手番分のみ）。
-     * 初回解析（過去局なし）は 0 を返す。
-     */
-    fun getPrevTotalMoves(): Int {
-        return database.shogiSupplementQueries
-            .getPrevTotalMoves()
-            .executeAsOne()
-            .toInt()
-    }
-
-    /**
-     * 過去の累計自分の悪手数を返す（user_side が設定されている局のみ）。
-     * 初回解析（過去局なし）は 0 を返す。
-     */
-    fun getPrevTotalBlunders(): Int {
-        return database.shogiSupplementQueries
-            .getPrevTotalBlunders()
-            .executeAsOne()
-            .toInt()
     }
 
     // ─── position_eval（全局面評価値）────────────────────────────────────────────
@@ -558,17 +528,10 @@ data class PositionEvalRow(
     val ply: Int,
     val scoreCp: Int?,
     val mateIn: Int?,
-    /**
-     * pv1（最善手）の指し手（USI）。正規化はしない。
-     * pv1一致率（実際の指し手がこの手と一致した割合）算出の材料として保存するのみで、
-     * 現時点では読み出し側の新機能は作らない（新規解析分から埋まる。既存レコードはnull）。
-     */
+    /** pv1（最善手）のUSI表記。正規化はしない。 */
     val bestUsi: String? = null,
-    /**
-     * pv2（次善手）の評価値 cp（scoreCp と同じ先手視点正規化の規約）。
-     * pv1-pv2 差の再計算材料として保存するのみで、現時点では読み出し側の新機能は作らない。
-     */
+    /** pv2（次善手）の評価値 cp。scoreCp と同じ先手視点正規化。 */
     val secondScoreCp: Int? = null,
-    /** pv2 の詰み手数（mateIn と同じ先手視点正規化の規約）。 */
+    /** pv2 の詰み手数。mateIn と同じ先手視点正規化。 */
     val secondMateIn: Int? = null,
 )

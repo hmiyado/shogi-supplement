@@ -16,7 +16,6 @@ import dev.miyado.shogisupplement.db.RatingSettings
 import dev.miyado.shogisupplement.db.SettingsRepository
 import dev.miyado.shogisupplement.engine.Engine
 import dev.miyado.shogisupplement.engine.UsiEngineProcess
-import dev.miyado.shogisupplement.judge.CoefficientTable
 import dev.miyado.shogisupplement.kifu.KifParser
 import dev.miyado.shogisupplement.kifu.SideSuggestion
 import dev.miyado.shogisupplement.kifu.UserSideSuggester
@@ -81,19 +80,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      */
     private var pendingNotificationGameId: Long? = null
 
-    private val coefTable: CoefficientTable by lazy {
-        val json = getApplication<ShogiApp>().assets
-            .open("coefficients_hao_isolate_v1.json").readBytes().decodeToString()
-        CoefficientTable.fromJson(json)
-    }
-
     /** ホーム画面（games一覧・推定棋力カード・今日の1問）のロードを担う協力オブジェクト。 */
     private val homeViewModel: HomeViewModel by lazy {
         HomeViewModel(
             gameRepository = gameRepository,
             drillRepository = drillRepository,
             settingsRepository = settingsRepository,
-            coefTable = coefTable,
         )
     }
 
@@ -102,7 +94,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         ReportViewModel(
             scope = viewModelScope,
             repository = gameRepository,
-            coefTable = coefTable,
             engineFactory = ::createEngine,
             evalDisplayProvider = { _evalDisplay.value },
         )

@@ -111,10 +111,6 @@ class AnalysisOrchestrator(
                 )
             }
 
-            // 過去局の累計手数・悪手数を取得（userSide が設定されている局のみ）
-            val prevTotalMoves = if (userSide != null) repository.getPrevTotalMoves() else 0
-            val prevTotalBlunders = if (userSide != null) repository.getPrevTotalBlunders() else 0
-
             // 悪手レポート生成（2パス: 悪手抽出 → 強さ推定 → 相応判定）
             val sides = if (userSide != null) setOf(userSide) else setOf("sente", "gote")
             val analysisResult = ReportPipeline.analyze(
@@ -122,8 +118,6 @@ class AnalysisOrchestrator(
                 evals = evals,
                 sides = sides,
                 coef = coefTable,
-                prevTotalMoves = prevTotalMoves,
-                prevTotalBlunders = prevTotalBlunders,
             )
 
             // DB保存（kif_text + moves_usi も保存、game.rating は推定値）
@@ -151,8 +145,7 @@ class AnalysisOrchestrator(
 
             // 全局面の評価値を sente 視点に正規化して保存
             // t=0: 先手番（評価値そのまま）、t=1: 後手番（評価値を反転）
-            // best_usi/second_score_cp/second_mate_in: pv1一致率など将来の推定器改善に
-            // 必要な材料を、再解析なしで後から計算できるようこの時点で保存しておく。
+            // best_usi/second_score_cp/second_mate_in: 再解析せず後から計算できるよう、この時点で保存しておく。
             val positionEvalRows = evals.mapIndexedNotNull { t, posEval ->
                 val score = posEval.score ?: return@mapIndexedNotNull null
                 val flip = t % 2 == 1 // 後手番なら反転

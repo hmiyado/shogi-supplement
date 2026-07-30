@@ -6,7 +6,6 @@ import dev.miyado.shogisupplement.db.GameRepository
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.PositionEvalRow
 import dev.miyado.shogisupplement.engine.Engine
-import dev.miyado.shogisupplement.judge.CoefficientTable
 import dev.miyado.shogisupplement.strength.StrengthEstimator
 import dev.miyado.shogisupplement.strength.toDisplayString
 import dev.miyado.shogisupplement.board.PieceType
@@ -34,14 +33,12 @@ import kotlinx.coroutines.withContext
  * @param scope 非同期処理に使うスコープ（呼び出し元の viewModelScope を注入）
  * @param ioDispatcher DB/エンジン処理用ディスパッチャ（テスト時はUnconfinedを注入）
  * @param repository DB操作用リポジトリ
- * @param coefTable 強さ推定用係数表
  * @param engineFactory 読み筋延長・検討評価が必要な場合に呼ばれるエンジン生成関数
  * @param evalDisplayProvider 形勢の表示単位（'cp'/'wp'）を都度取得する関数
  */
 class ReportViewModel(
     private val scope: CoroutineScope,
     private val repository: GameRepository,
-    private val coefTable: CoefficientTable,
     private val engineFactory: () -> Engine,
     private val evalDisplayProvider: () -> String,
     private val ioDispatcher: CoroutineDispatcher = defaultIoDispatcher,
@@ -102,19 +99,22 @@ class ReportViewModel(
         val g = games.firstOrNull { it.id == gameId }
         val r = if (g != null) repository.getReports(gameId) else emptyList()
         val fl = g?.userSide == "gote"
-        val st = if (g?.userSide != null) computeSingleGameStrengthText(g, r) else null
+        val st = if (g?.userSide != null) computeSingleGameStrengthText(g) else null
         val pe = if (g != null) repository.getPositionEvals(gameId) else emptyList()
         ReportResult(g, r, fl, st, pe)
     }
 
-    /** 1局の強さ指標テキストを計算する。 */
-    fun computeSingleGameStrengthText(game: GameRecord, reports: List<BlunderRecord>): String? {
+    /**
+     * 1局の強さ指標テキストを計算する。
+     *
+     * Why not 悪手レポート一覧から再計算する: v2の6特徴量は再現できないため、
+     * 解析時にReportPipelineが計算済みのgame.ratingをそのまま使う。
+     */
+    fun computeSingleGameStrengthText(game: GameRecord): String? {
         val side = game.userSide ?: return null
         val userMoves = userMoveCount(game.moveCount, side)
         if (userMoves == 0) return null
-        val blunders = reports.count { it.side == side }
-        val ratePer1000 = blunders * 1000.0 / userMoves
-        val estimate = StrengthEstimator.estimate(ratePer1000, userMoves, coefTable)
+        val estimate = StrengthEstimator.aggregate(listOf(game.rating.toInt()), userMoves)
         return estimate.toDisplayString()
     }
 

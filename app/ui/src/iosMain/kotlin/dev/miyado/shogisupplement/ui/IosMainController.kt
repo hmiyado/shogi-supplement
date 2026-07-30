@@ -67,11 +67,8 @@ import platform.UIKit.UIPasteboard
  * 常駐エンジンを守っている（ドリル判定・取込解析と検討モード・読み筋延長は同一の常駐エンジンを
  * 共有する）。
  *
- * **解析の再開**: サーバー解析は1本のNDJSONストリーミングPOSTを完了まで受信する構成のため、
- * バックグラウンド遷移でプロセスがサスペンド/キルされるとストリームが失われる。サーバー側は
- * 切断されても解析を完走して結果を保持する（moves_hash冪等）ため、[PendingAnalysisStore] に
- * 直前の申告情報を保存しておき、(1) フォアグラウンド復帰時（[onWillEnterForeground]）と
- * (2) 起動時（[resumeIfPending]）に同じ内容で解析を再実行して復旧する。
+ * **解析の再開**: バックグラウンド遷移でストリームが失われても、サーバー側は解析を完走する
+ * （moves_hash冪等）ため、[PendingAnalysisStore] に保存した申告情報から再実行して復旧する。
  */
 class IosMainController(
     private val gameRepository: GameRepository,
@@ -161,7 +158,6 @@ class IosMainController(
         gameRepository = gameRepository,
         drillRepository = drillRepository,
         settingsRepository = settingsRepository,
-        coefTable = coefTable,
     )
 
     /** 形勢の表示単位（'cp'/'wp'）。DBから読み込み、以後は即時反映する。 */
@@ -172,7 +168,6 @@ class IosMainController(
     val reportViewModel: ReportViewModel = ReportViewModel(
         scope = scope,
         repository = gameRepository,
-        coefTable = coefTable,
         engineFactory = IosEngineHost.studyEngineFactory(),
         evalDisplayProvider = { _evalDisplay.value },
     )
@@ -192,10 +187,7 @@ class IosMainController(
     /** 現在進行中の解析コルーチン（再開時に前回分をキャンセルするため保持する）。 */
     private var currentAnalysisJob: Job? = null
 
-    /**
-     * 直近の進捗更新（[ImportState.Analyzing] への遷移を含む）のエポック秒。
-     * [onWillEnterForeground] の「5秒条件」判定に使う（[shouldResumeAfterForeground] 参照）。
-     */
+    /** 直近の進捗更新のエポック秒。[onWillEnterForeground] の無進捗判定に使う。 */
     private var lastProgressAtEpochSeconds: Long? = null
 
     /**
@@ -225,10 +217,8 @@ class IosMainController(
         scope.launch { _evalDisplay.value = settingsRepository.getEvalDisplay() }
         scope.launch { _skipSideConfirm.value = settingsRepository.getSkipSideConfirm() }
         reloadHome()
-        // Why not registering this in MainViewController(Swift/Composeの外側)ではなく
-        // ここに置くか: IosMainControllerはアプリのプロセス生存期間中ずっと1個しか
-        // remember されない（MainViewController.kt参照）ため、observer解除を別途書かなくても
-        // 二重登録が起きない。登録解除APIを持たない代わりに、生成が1回きりであることに依存する。
+        // Why not MainViewController側で登録: IosMainControllerはプロセス生存期間中1個しか
+        // rememberされないため、ここに置くだけで観察者の二重登録が起きない。
         NSNotificationCenter.defaultCenter.addObserverForName(
             UIApplicationWillEnterForegroundNotification,
             null,
@@ -241,10 +231,8 @@ class IosMainController(
     }
 
     /**
-     * 起動時の自動再開（同意ゲート通過後・[MainViewController] の `LaunchedEffect` から
-     * 一度だけ呼ばれる想定）。pendingファイルが有り、そのKIFがローカルDBへ未保存なら解析を
-     * 再実行する。既にDB保存済み（完了直後のpending削除だけ失敗したケース）なら、
-     * 二重解析でUIを再びAnalyzing表示にする理由が無いため、pendingを削除するだけに留める。
+     * 起動時の自動再開。pendingがありローカルDB未保存なら解析を再実行する。
+     * 既にDB保存済み（pending削除だけ失敗したケース）なら、二重解析を避けpendingを削除するだけに留める。
      */
     fun resumeIfPending() {
         scope.launch {
@@ -258,10 +246,9 @@ class IosMainController(
     }
 
     /**
-     * フォアグラウンド復帰時の再問い合わせ。解析中かつ最終進捗更新から一定時間
-     * （[shouldResumeAfterForeground] の閾値）経過している場合に限り、実行中のジョブを
-     * キャンセルして同じ解析を再実行する。短時間のバックグラウンドでストリームが生きている
-     * ケースまで再送すると二重POSTになるため、無条件の再実行にはしない。
+     * フォアグラウンド復帰時の再問い合わせ。無進捗時間が閾値を超えた場合のみ再実行する。
+     * Why not 無条件に再実行: 短時間のバックグラウンドはストリームが生きていることが多く、
+     * 再送すると二重POSTになるため。
      */
     private fun onWillEnterForeground() {
         if (!shouldResumeAfterForeground(_importState.value, lastProgressAtEpochSeconds, currentEpochSeconds())) {
@@ -457,10 +444,8 @@ class IosMainController(
 
     /** 取込フローを閉じる（ダイアログの「キャンセル」/エラーダイアログの確認）。 */
     fun dismissImport() {
-        // エラーダイアログを閉じる=取込の破棄なので、再開対象として残す理由が無いpendingを消す。
-        // SideConfirm/RatingSetup/AccountCreationConfirmのキャンセルはconfirmSideAndAnalyze
-        // （pending保存の唯一の書き込み元）より前の状態なので、ここで消しても実害はないが
-        // Error限定にしているのは「何を破棄したか」をこの関数の中で明確にするため。
+        // Why not 全ケースでpendingを消す: SideConfirm等のキャンセルはpending保存より前の状態で
+        // 実害はないが、Error限定にすることで「何を破棄したか」をここで明確にする。
         if (_importState.value is ImportState.Error) {
             PendingAnalysisStore.clear()
         }
@@ -504,18 +489,12 @@ class IosMainController(
             fileName = fileName,
             createdAtEpochSeconds = currentEpochSeconds(),
         )
-        // 解析を開始する直前に申告情報を保存する: バックグラウンド遷移でストリームが死んでも
-        // （[PendingAnalysisStore] KDoc参照）ここで保存した内容から再開できるようにするため。
+        // バックグラウンド遷移でストリームが死んでも再開できるよう、解析開始前に保存する。
         PendingAnalysisStore.save(pending)
         launchAnalysis(pending)
     }
 
-    /**
-     * 解析実行部の共通化: 通常の取込フロー（[confirmSideAndAnalyze]）・フォアグラウンド復帰時の
-     * 再問い合わせ（[onWillEnterForeground]）・起動時の自動再開（[resumeIfPending]）の
-     * 3経路すべてがここを通る。実行中のジョブがあれば先にキャンセルしてから起動するため、
-     * 「同じ解析をもう一度」呼んでも二重に走ることはない。
-     */
+    /** 3経路（通常取込・フォアグラウンド復帰・起動時再開）が共通で通る。既存ジョブは先にキャンセルするため二重に走らない。 */
     private fun launchAnalysis(pending: PendingAnalysis) {
         currentAnalysisJob?.cancel()
         lastProgressAtEpochSeconds = currentEpochSeconds()
@@ -534,9 +513,8 @@ class IosMainController(
                     _completedGameId.value = outcome.gameId
                 }
                 is AnalysisOrchestrator.Outcome.Failed -> {
-                    // pendingはここでは消さない: エラーダイアログを閉じる（dismissImport）まで
-                    // 「再開すべき解析」として残しておく（切断が実は継続中でも、後で復帰した
-                    // ときに再問い合わせできるようにするため）。
+                    // Why not pendingをここで消す: dismissImportまで「再開すべき解析」として
+                    // 残しておくことで、切断が実は継続中でも後で再問い合わせできる。
                     _importState.value = ImportState.Error(outcome.message)
                 }
             }
@@ -657,21 +635,12 @@ class IosMainController(
         private const val SERVER_ANALYSIS_REQUEST_TIMEOUT_MS = 10 * 60 * 1000L
         private const val SERVER_ANALYSIS_SOCKET_TIMEOUT_MS = 5 * 60 * 1000L
 
-        /**
-         * フォアグラウンド復帰時に再問い合わせするまでの無進捗時間（秒）。
-         * 短時間のバックグラウンドはストリームが生きたまま復帰することが多く、その間隔で
-         * 再送すると同じ解析を二重にPOSTしてしまう。値を大きく取るほど二重POSTの
-         * リスクは下がるが、実際にプロセスが死んでいた場合の復旧が遅れるトレードオフになる。
-         */
+        /** 閾値秒。大きくすると二重POSTのリスクは下がるが、プロセス死亡時の復旧が遅れる。 */
         internal const val FOREGROUND_RESUME_IDLE_THRESHOLD_SECONDS = 5L
     }
 }
 
-/**
- * [IosMainController.onWillEnterForeground] の「5秒条件」判定を切り出した純粋関数。
- * NSNotificationCenter・PendingAnalysisStore に依存しないため、閾値やタイミングの単体テストを
- * IosMainController本体のインスタンス化なしに書ける。
- */
+/** 純粋関数として切り出し、IosMainController本体のインスタンス化なしに単体テストできるようにする。 */
 internal fun shouldResumeAfterForeground(
     importState: IosMainController.ImportState,
     lastProgressAtEpochSeconds: Long?,

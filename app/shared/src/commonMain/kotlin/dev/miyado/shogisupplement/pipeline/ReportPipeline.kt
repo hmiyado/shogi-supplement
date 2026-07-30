@@ -8,6 +8,7 @@ import dev.miyado.shogisupplement.classify.ClassificationResult
 import dev.miyado.shogisupplement.judge.CoefficientTable
 import dev.miyado.shogisupplement.judge.Judge
 import dev.miyado.shogisupplement.judge.JudgeInput
+import dev.miyado.shogisupplement.strength.FeatureExtractorV2
 import dev.miyado.shogisupplement.strength.StrengthEstimate
 import dev.miyado.shogisupplement.strength.StrengthEstimator
 
@@ -19,7 +20,8 @@ import dev.miyado.shogisupplement.strength.StrengthEstimator
  * 2パス構造:
  *   第1パス: 悪手抽出・分類（BlunderJudge / BlunderClassifier）
  *   第2パス: 強さ推定 → 帯決定 → 相応判定（StrengthEstimator / Judge）
- * 申告レートは帯決定に使わない。過去の累計手数・悪手数を使って実測悪手率を算出する。
+ * 申告レートは帯決定に使わない。今局の解析結果（[FeatureExtractorV2] の6特徴量）から
+ * 直接レートを推定する（過去局の累計は使わない）。
  */
 object ReportPipeline {
 
@@ -27,7 +29,7 @@ object ReportPipeline {
      * パイプラインの解析結果。
      *
      * @param reports 悪手ごとのレポートリスト（元の手順順）
-     * @param strengthEstimate 今局＋過去実績から推定した強さ指標
+     * @param strengthEstimate 今局の解析結果から推定した強さ指標
      * @param thisGameMoves    今局の自分の手数（sides に含まれる側の合計）
      * @param thisGameBlunders 今局の自分の悪手数
      */
@@ -49,10 +51,8 @@ object ReportPipeline {
      *
      * @param moves USI 手列（KIF パーサ出力そのもの）
      * @param evals 各局面のエンジン評価（サイズ = moves.size + 1。evals[t] が moves[t] 指す前の評価）
-     * @param sides  解析対象 ("sente" / "gote" / 両方)
+     * @param sides  解析対象 ("sente" / "gote" / 両方)。強さ推定の「own」側集合としても使う
      * @param coef   係数表
-     * @param prevTotalMoves    過去の累計自分の手数（今局を除く）
-     * @param prevTotalBlunders 過去の累計自分の悪手数（今局を除く）
      * @return [AnalysisResult]（悪手リスト＋強さ推定）
      */
     fun analyze(
@@ -60,8 +60,6 @@ object ReportPipeline {
         evals: List<PositionEval>,
         sides: Set<String> = setOf("sente", "gote"),
         coef: CoefficientTable,
-        prevTotalMoves: Int = 0,
-        prevTotalBlunders: Int = 0,
     ): AnalysisResult {
         require(evals.size == moves.size + 1) {
             "evals.size (${evals.size}) must equal moves.size + 1 (${moves.size + 1})"
@@ -129,16 +127,9 @@ object ReportPipeline {
         val thisGameBlunders = intermediate.size
 
         // ── 第2パス: 強さ推定 → 帯決定 → 相応判定 ──────────────────────────
-        val totalMoves = prevTotalMoves + thisGameMoves
-        val totalBlunders = prevTotalBlunders + thisGameBlunders
-        val observedRate = if (totalMoves > 0) {
-            totalBlunders * 1000.0 / totalMoves
-        } else {
-            // 手数がゼロ（初回・全手スコアなし）は中央帯の悪手率にフォールバック
-            coef.rates_per_1000_moves["1600-1899"]?.values?.sum() ?: 61.9
-        }
-        val strengthEstimate = StrengthEstimator.estimate(observedRate, totalMoves, coef)
-        val (bandIdx, _) = coef.bandOf(strengthEstimate.rating)
+        val features = FeatureExtractorV2.extract(moves, evals, sides)
+        val strengthEstimate = StrengthEstimator.estimate(features)
+        val bandIdx = StrengthEstimator.bandIndex(strengthEstimate.rating.toDouble())
 
         val reports = intermediate.map { b ->
             BlunderReport(
