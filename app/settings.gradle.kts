@@ -24,7 +24,4 @@ rootProject.name = "shogi-supplement"
 include(":shared")
 include(":ui")
 include(":androidApp")
-
-// サーバー解析ワーカー（Cloud Run/Ktor）。androidApp/iosAppのどちらからも依存されない
-// 独立モジュール。app/server/worker に配置。
 include(":server:worker")

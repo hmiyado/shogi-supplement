@@ -11,18 +11,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.fail
 
-/**
- * AnalysisOrchestrator の保存経路テスト。
- *
- * 実エンジンは使わず固定スコアを返す FakeEngine で解析パイプライン全体
- * （KIFパース→解析→悪手判定→DB保存）を素通しし、[GameRepository] に保存された
- * source_place が [dev.miyado.shogisupplement.kifu.KifuDecomposer.classifySource] の
- * 正規化値（wireValue）になっていることを確認する。
- *
- * 出典判定ロジック自体の網羅テスト（実KIFサンプルでの判定）は KifuStructuredCodecTest 側が
- * 担う。ここで検証したいのは「保存経路（AnalysisOrchestrator）が分解処理（KifuDecomposer）と
- * 同じ判定ロジックを実際に使っている」という配線であり、判定ロジックを再検証するものではない。
- */
 class AnalysisOrchestratorTest {
 
     private class FakeEngine : Engine {
@@ -59,8 +47,6 @@ class AnalysisOrchestratorTest {
         return orchestrator to repository
     }
 
-    // KifParser が要求する最低限のヘッダ + 1手だけのミニマムKIF。
-    // KifuStructuredCodecTest の合成サンプル（lishogi判定・other判定のテスト）と同じ形。
     private fun singleMoveKif(headerLines: List<String>): String =
         (headerLines + listOf("手数----指手---------消費時間--", "   1 ７六歩(77)")).joinToString("\n")
 

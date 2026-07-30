@@ -4,10 +4,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/**
- * 係数表 v2（Háo 版 coefficients_hao_isolate_v1.json）の同梱確認テスト。
- * タスク1: data/coefficients_hao_isolate_v1.json がテストリソースとして読み込めること。
- */
 class CoefficientsHaoTest {
 
     private fun loadTable(): CoefficientTable {
