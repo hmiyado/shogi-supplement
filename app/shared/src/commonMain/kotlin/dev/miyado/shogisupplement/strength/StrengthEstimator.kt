@@ -51,11 +51,24 @@ object StrengthNorm {
     const val MEAN = 1718.0852941473634
     const val SD = 61.43099285964464
 
+    /**
+     * 真レート分布のSD（較正集団の申告レート・プレイヤー単位）。
+     * 誤差幅の偏差値換算にのみ使う。
+     */
+    const val TRUE_SCALE_SD = 256.0
+
     /** レート値 → 偏差値（四捨五入）。 */
     fun deviationScore(rating: Int): Int = round(50.0 + 10.0 * (rating - MEAN) / SD).toInt()
 
-    /** レート幅（±点）→ 偏差値幅（四捨五入）。 */
-    fun deviationWidth(ratingPoints: Int): Int = round(10.0 * ratingPoints / SD).toInt()
+    /**
+     * レート幅（±点）→ 偏差値幅（四捨五入）。
+     *
+     * Why not [SD]で割る: 誤差幅は真レート軸（申告レートとの差）で見積もられており、
+     * 偏差値幅への換算も同じ軸の分布幅[TRUE_SCALE_SD]で行うのが分位点整合。
+     * 予測分布のSD（縮小写像で真レートより狭い）で割ると、縮小率のぶんだけ
+     * 幅が実態より大きく表示されてしまう。
+     */
+    fun deviationWidth(ratingPoints: Int): Int = round(10.0 * ratingPoints / TRUE_SCALE_SD).toInt()
 }
 
 /**
