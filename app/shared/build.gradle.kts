@@ -9,6 +9,12 @@ sqldelight {
     databases {
         create("ShogiSupplementDatabase") {
             packageName.set("dev.miyado.shogisupplement.db")
+            // 新規作成スキーマ（CREATE TABLE群）と .sqm を積み上げてマイグレーションした
+            // スキーマが一致することをビルド時に機械検証する（verifySqlDelightMigration*タスク）。
+            // verifyMigrationsは比較対象のスキーマスナップショット（.db）の出力先が必要なため
+            // schemaOutputDirectoryも合わせて指定する。
+            verifyMigrations.set(true)
+            schemaOutputDirectory.set(file("src/commonMain/sqldelight/databases"))
         }
     }
 }
