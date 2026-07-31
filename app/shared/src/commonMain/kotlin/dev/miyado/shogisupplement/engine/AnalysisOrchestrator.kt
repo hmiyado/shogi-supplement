@@ -145,7 +145,7 @@ class AnalysisOrchestrator(
 
             // 全局面の評価値を sente 視点に正規化して保存
             // t=0: 先手番（評価値そのまま）、t=1: 後手番（評価値を反転）
-            // best_usi/second_score_cp/second_mate_in: 再解析せず後から計算できるよう、この時点で保存しておく。
+            // best_usi/second_score_cp/second_mate_in/second_usi: 再解析せず後から計算できるよう、この時点で保存しておく。
             val positionEvalRows = evals.mapIndexedNotNull { t, posEval ->
                 val score = posEval.score ?: return@mapIndexedNotNull null
                 val flip = t % 2 == 1 // 後手番なら反転
@@ -163,6 +163,7 @@ class AnalysisOrchestrator(
                         bestUsi = bestUsi,
                         secondScoreCp = secondScoreCp,
                         secondMateIn = secondMateIn,
+                        secondUsi = posEval.pv2MoveUsi,
                     )
                     is Score.Mate -> PositionEvalRow(
                         ply = t,
@@ -171,6 +172,7 @@ class AnalysisOrchestrator(
                         bestUsi = bestUsi,
                         secondScoreCp = secondScoreCp,
                         secondMateIn = secondMateIn,
+                        secondUsi = posEval.pv2MoveUsi,
                     )
                 }
             }

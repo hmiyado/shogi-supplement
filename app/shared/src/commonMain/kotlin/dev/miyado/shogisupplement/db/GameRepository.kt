@@ -294,6 +294,7 @@ class GameRepository(private val database: ShogiSupplementDatabase) {
                     best_usi = row.bestUsi,
                     second_score_cp = row.secondScoreCp?.toLong(),
                     second_mate_in = row.secondMateIn?.toLong(),
+                    second_usi = row.secondUsi,
                 )
             }
         }
@@ -301,12 +302,24 @@ class GameRepository(private val database: ShogiSupplementDatabase) {
 
     /**
      * 指定ゲームの全局面評価値を ply 昇順で返す。
+     *
+     * best_usi/second_usi はエンジン一致率算出に使うため含める。score_cp/mate_in 以外の
+     * 値を追加で読んでも、既存の呼び出し側（評価値の手送り表示）は参照しないフィールドが
+     * 増えるだけで影響しない。
      */
     fun getPositionEvals(gameId: Long): List<PositionEvalRow> {
         return database.shogiSupplementQueries
             .getPositionEvalsByGameId(gameId)
             .executeAsList()
-            .map { PositionEvalRow(ply = it.ply.toInt(), scoreCp = it.score_cp?.toInt(), mateIn = it.mate_in?.toInt()) }
+            .map {
+                PositionEvalRow(
+                    ply = it.ply.toInt(),
+                    scoreCp = it.score_cp?.toInt(),
+                    mateIn = it.mate_in?.toInt(),
+                    bestUsi = it.best_usi,
+                    secondUsi = it.second_usi,
+                )
+            }
     }
 }
 
@@ -534,4 +547,9 @@ data class PositionEvalRow(
     val secondScoreCp: Int? = null,
     /** pv2 の詰み手数。mateIn と同じ先手視点正規化。 */
     val secondMateIn: Int? = null,
+    /**
+     * pv2（次善手）のUSI表記。bestUsi と同じく正規化しない。
+     * 列追加前に保存された旧レコードは null（一致率計算では best_usi のみで判定される）。
+     */
+    val secondUsi: String? = null,
 )

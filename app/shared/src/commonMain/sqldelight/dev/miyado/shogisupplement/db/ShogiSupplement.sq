@@ -238,6 +238,9 @@ CREATE TABLE IF NOT EXISTS position_eval (
     best_usi TEXT,
     second_score_cp INTEGER,
     second_mate_in INTEGER,
+    -- second_usi: pv2（次善手）のUSI表記（best_usiと同じく正規化しない）。
+    -- エンジン一致率（best/2nd best一致）の算出に使う。
+    second_usi TEXT,
     PRIMARY KEY(game_id, ply)
 );
 
@@ -263,8 +266,8 @@ UPDATE user_settings SET skip_side_confirm = ? WHERE id = 1;
 -- mate_in: 詰みまでの手数（先手視点: 正 = 先手が詰ます、負 = 後手が詰ます）。非詰み局面は NULL。
 
 insertPositionEval:
-INSERT OR REPLACE INTO position_eval (game_id, ply, score_cp, mate_in, best_usi, second_score_cp, second_mate_in)
-VALUES (?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO position_eval (game_id, ply, score_cp, mate_in, best_usi, second_score_cp, second_mate_in, second_usi)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
 
 getPositionEvalsByGameId:
 SELECT * FROM position_eval WHERE game_id = ? ORDER BY ply;
