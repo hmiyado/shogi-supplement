@@ -653,4 +653,15 @@ object AppStrings {
         "画面の写真やメモアプリなど、安全な場所に控えてください。"
     const val TRANSFER_CODE_COPY_BUTTON = "コピー"
     const val TRANSFER_CODE_COPIED = "コピーしました"
+
+    // ═══ 33. 評価値グラフ・エンジン一致率（レポート画面）══════════════════════════
+
+    /** 評価値グラフのカード見出し。先手視点であることを明示する（自分が後手でも符号は変わらないため）。 */
+    const val EVAL_GRAPH_TITLE = "形勢の推移（先手視点）"
+
+    /** エンジン一致率行のプレフィックス（値は Mono で続く）。 */
+    const val MATCH_RATE_PREFIX = "エンジン一致率（最善/次善）: "
+
+    /** エンジン一致率の値表示。例: 62 → "あなた62%" */
+    fun matchRateYou(pct: Int): String = "あなた${pct}%"
 }

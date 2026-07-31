@@ -117,6 +117,8 @@ fun ReportScreen(
     evalDisplay: String = "cp",
     /** 全局面評価値（先手視点 cp・ply昇順）。空 = 評価値表示なし。 */
     positionEvals: List<PositionEvalRow> = emptyList(),
+    /** エンジン一致率の表示値（例:「あなた62%」）。null = 非表示（データ不足時など）。 */
+    matchRateDisplayText: String? = null,
     onBack: () -> Unit,
     /** 読み筋延長の状態 Map（blunderId → PvExtState）。 */
     pvExtState: Map<Long, PvExtState> = emptyMap(),
@@ -190,6 +192,10 @@ fun ReportScreen(
     val scope = rememberCoroutineScope()
 
     val selectedBlunder = selectedIdx?.let { reports.getOrNull(it) }
+
+    // 評価値グラフ用データ（本譜/最善の変化タブの切替とは独立。対局全体のplyで固定）。
+    val evalGraphPoints = remember(positionEvals) { buildEvalGraphPoints(positionEvals) }
+    val blunderPlies = remember(reports) { reports.map { it.ply.toInt() }.toSet() }
 
     // ── 検討モードの終了処理（呼び出し側でエンジンquit・状態破棄した上で、
     //    元のタブ/plyIndex/選択悪手インデックスに完全復帰する）────────────────────
@@ -850,6 +856,25 @@ fun ReportScreen(
 
                 // ── スクロールエリア（悪手カード一覧） ──────────────────────────
 
+                // 評価値グラフ（手数×評価値の推移。悪手位置に朱マーカー）。
+                // positionEvals が無い（旧解析・保存前）局は非表示——件数ガードは
+                // EvalGraphCard 側（points.isEmpty()）に任せる。
+                if (evalGraphPoints.isNotEmpty()) {
+                    EvalGraphCard(
+                        points = evalGraphPoints,
+                        maxPly = game.movesUsi.size,
+                        blunderPlies = blunderPlies,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        onPlyTapped = { ply ->
+                            // 検討中はタブ/局面の切替不可（悪手カードタップと同じ制約）。
+                            if (studyState == null) {
+                                viewerMode = ViewerMode.MAINLINE
+                                plyIndex = ply
+                            }
+                        },
+                    )
+                }
+
                 // この一局の指し手の強さ（caption・Mono 数値、悪手カードリスト先頭）
                 if (strengthDisplayText != null) {
                     Row(
@@ -865,6 +890,29 @@ fun ReportScreen(
                         )
                         Text(
                             strengthDisplayText,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontFamily = IbmPlexMonoFamily,
+                            ),
+                            color = MaterialTheme.shogiColors.ink2,
+                        )
+                    }
+                }
+
+                // エンジン一致率（caption・Mono 数値。strengthDisplayText 行と同じ構成）。
+                if (matchRateDisplayText != null) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            AppStrings.MATCH_RATE_PREFIX,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.shogiColors.ink2,
+                        )
+                        Text(
+                            matchRateDisplayText,
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontFamily = IbmPlexMonoFamily,
                             ),

@@ -35,6 +35,7 @@ fun ReportHost(vm: MainViewModel, state: MainUiState.ShowReport) {
         strengthDisplayText = state.strengthDisplayText,
         evalDisplay = state.evalDisplay,
         positionEvals = state.positionEvals,
+        matchRateDisplayText = state.matchRateDisplayText,
         onBack = { vm.loadHome() },
         pvExtState = pvExtState,
         onExtendBestPv = { blunderId, sfenAtEnd, currentPv ->

@@ -2,13 +2,16 @@ package dev.miyado.shogisupplement.ui.report
 
 import dev.miyado.shogisupplement.board.ShogiSquare
 import dev.miyado.shogisupplement.db.BlunderRecord
+import dev.miyado.shogisupplement.db.EngineMatchRate
 import dev.miyado.shogisupplement.db.GameRepository
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.PositionEvalRow
 import dev.miyado.shogisupplement.engine.Engine
 import dev.miyado.shogisupplement.strength.StrengthEstimator
 import dev.miyado.shogisupplement.strength.toDisplayString
+import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.board.PieceType
+import kotlin.math.roundToInt
 import dev.miyado.shogisupplement.ui.common.PvExtState
 import dev.miyado.shogisupplement.ui.common.PvExtensionRunner
 import dev.miyado.shogisupplement.ui.common.defaultIoDispatcher
@@ -91,6 +94,8 @@ class ReportViewModel(
         val flip: Boolean,
         val strengthText: String?,
         val positionEvals: List<PositionEvalRow>,
+        /** エンジン一致率の表示値（例:「あなた62%」）。算出不能（データ不足）なら null。 */
+        val matchRateText: String? = null,
     )
 
     /** 特定のゲームIDのレポート表示状態をDBから読み込む。 */
@@ -101,7 +106,17 @@ class ReportViewModel(
         val fl = g?.userSide == "gote"
         val st = if (g?.userSide != null) computeSingleGameStrengthText(g) else null
         val pe = if (g != null) repository.getPositionEvals(gameId) else emptyList()
-        ReportResult(g, r, fl, st, pe)
+        val mr = if (g != null) computeMatchRateText(g, pe) else null
+        ReportResult(g, r, fl, st, pe, mr)
+    }
+
+    /**
+     * エンジン一致率（対 pv1/pv2）の表示テキストを計算する。
+     * データ不足（userSide不明・positionEval未保存等）なら null（非表示）。
+     */
+    fun computeMatchRateText(game: GameRecord, positionEvals: List<PositionEvalRow>): String? {
+        val result = EngineMatchRate.compute(game.movesUsi, positionEvals, game.userSide) ?: return null
+        return AppStrings.matchRateYou((result.rate * 100).roundToInt())
     }
 
     /**

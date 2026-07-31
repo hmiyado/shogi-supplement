@@ -26,6 +26,8 @@ sealed class MainUiState {
         val evalDisplay: String = "cp",
         /** 全局面評価値（手送り時の形勢表示。空 = 非表示）。 */
         val positionEvals: List<PositionEvalRow> = emptyList(),
+        /** エンジン一致率の表示値（例:「あなた62%」）。null = 非表示。 */
+        val matchRateDisplayText: String? = null,
     ) : MainUiState()
     data class Error(val message: String, val pastGames: List<GameRecord> = emptyList()) : MainUiState()
     /** ドリル画面に遷移する。 */

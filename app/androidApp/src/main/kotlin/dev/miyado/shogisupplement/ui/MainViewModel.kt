@@ -271,6 +271,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     strengthDisplayText = result.strengthText,
                     evalDisplay = _evalDisplay.value,
                     positionEvals = result.positionEvals,
+                    matchRateDisplayText = result.matchRateText,
                 )
             } else {
                 _state.value = MainUiState.Error(AppStrings.gameNotFound(gameId))
