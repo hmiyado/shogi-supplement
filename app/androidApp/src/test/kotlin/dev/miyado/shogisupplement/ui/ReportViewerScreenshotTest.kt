@@ -26,6 +26,8 @@ import org.robolectric.annotation.GraphicsMode
  * - report_viewer_mainline: 本譜モード・初期局面
  * - report_viewer_mainline_ply41: 本譜モード・41手目（悪手直前）
  * - report_viewer_selected_card: 悪手カードが選択状態
+ * - report_viewer_eval_graph_and_match_rate: 評価値グラフ＋エンジン一致率行
+ *   （悪手位置の朱マーカー・詰み絡み点のクランプ表示を含む）
  * - report_viewer_best_pv_end: 最善の変化タブ・ライン末尾（ナビラベルに形勢サフィックス、
  *   ▶ボタンが「▶+」primary色に変わる）
  * - report_viewer_best_pv_mid: 最善の変化タブ・中間局面（ナビラベルに形勢サフィックス）
@@ -183,6 +185,41 @@ class ReportViewerScreenshotTest {
                         positionEvals = listOf(
                             PositionEvalRow(ply = 0, scoreCp = 120, mateIn = null),
                             PositionEvalRow(ply = 1, scoreCp = -80, mateIn = null),
+                        ),
+                        onBack = {},
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * 評価値グラフ＋エンジン一致率（悪手位置に朱マーカー・詰み絡みの点はクランプ上限/下限に張り付く）。
+     * positionEvals は bestUsi を持たせ、実運用（EngineMatchRate.compute 経由）に近い形にする。
+     */
+    @Test
+    fun report_viewer_eval_graph_and_match_rate() {
+        val blunder = sampleBlunder().copy(ply = 3L)
+        captureRoboImage(
+            filePath = "src/test/snapshots/report_viewer_eval_graph_and_match_rate.png",
+            roborazziOptions = roborazziOptions,
+        ) {
+            ShogiTheme {
+                Surface {
+                    ReportScreen(
+                        game = sampleGame(),
+                        reports = listOf(blunder),
+                        flip = false,
+                        strengthDisplayText = "52 ±27",
+                        matchRateDisplayText = "あなた62%",
+                        positionEvals = listOf(
+                            PositionEvalRow(ply = 0, scoreCp = 50, mateIn = null, bestUsi = "7g7f"),
+                            PositionEvalRow(ply = 1, scoreCp = -30, mateIn = null, bestUsi = "8c8d"),
+                            PositionEvalRow(ply = 2, scoreCp = 180, mateIn = null, bestUsi = "2g2f"),
+                            // 悪手（ply=3）直後の下落点＝グラフ上の朱マーカー位置
+                            PositionEvalRow(ply = 3, scoreCp = -620, mateIn = null, bestUsi = "8b3b"),
+                            // 詰み絡み（クランプ下限に張り付く）
+                            PositionEvalRow(ply = 4, scoreCp = null, mateIn = -7, bestUsi = "2f2e"),
                         ),
                         onBack = {},
                     )
