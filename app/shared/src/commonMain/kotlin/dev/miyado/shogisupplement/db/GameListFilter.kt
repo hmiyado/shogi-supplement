@@ -19,8 +19,16 @@ data class GameListFilter(
     /** 解析日時の下限（epoch秒・含む）。 */
     val dateFrom: Long? = null,
 ) {
+    /**
+     * 指定されている軸の数。絞り込みボタンのバッジ表示に使う。
+     * バッジは数値だけを見せれば足り、どの軸かの内訳は絞り込み条件シート側で確認できるため、
+     * ここでは軸数のみを返す（各軸の値そのものは呼び出し側で個別に参照可能）。
+     */
+    val activeCount: Int
+        get() = listOfNotNull(source, userSide, result, dateFrom).size
+
     val isActive: Boolean
-        get() = source != null || userSide != null || result != null || dateFrom != null
+        get() = activeCount > 0
 }
 
 /**

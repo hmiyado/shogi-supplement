@@ -238,11 +238,15 @@ object AppStrings {
     const val GAME_LIST_FILTER_SOURCE_OTHER = "その他"
     const val GAME_LIST_FILTER_PERIOD_7D = "直近7日"
     const val GAME_LIST_FILTER_PERIOD_30D = "直近30日"
-    /** 絞り込み解除ボタン（フィルタ適用中のみ表示）。 */
     const val GAME_LIST_FILTER_CLEAR = "絞り込みを解除"
     /** 絞り込み適用中の件数表示。全件と一致する場合は呼び出し側で使わない想定。 */
     fun gameListFilteredCount(shown: Int, total: Int): String = "${shown} / ${total}件"
     fun gameListTotalCount(total: Int): String = "${total}件"
+    /** 一覧上部の絞り込みボタンのラベル・アイコンのcontentDescription。 */
+    const val GAME_LIST_FILTER_BUTTON = "絞り込み"
+    const val GAME_LIST_FILTER_SHEET_TITLE = "絞り込み条件"
+    /** 絞り込み条件ボトムシートの適用ボタン（条件を確定して一覧に反映する）。 */
+    const val GAME_LIST_FILTER_APPLY = "検索"
 
     // ═══ 20. ドリル結果ビューア ══════════════════════════════════════════════
 

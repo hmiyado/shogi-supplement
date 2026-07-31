@@ -41,6 +41,28 @@ class GameListFilterTest {
         assertEquals(true, GameListFilter(dateFrom = 100L).isActive)
     }
 
+    // ─── activeCount ─────────────────────────────────────────────────────────
+
+    @Test
+    fun `activeCountは全軸未指定なら0`() {
+        assertEquals(0, GameListFilter().activeCount)
+    }
+
+    @Test
+    fun `activeCountは指定されている軸の数を返す`() {
+        assertEquals(1, GameListFilter(source = "wars").activeCount)
+        assertEquals(2, GameListFilter(source = "wars", userSide = "sente").activeCount)
+        assertEquals(
+            4,
+            GameListFilter(
+                source = "wars",
+                userSide = "sente",
+                result = GameResultFilter.WIN,
+                dateFrom = 100L,
+            ).activeCount,
+        )
+    }
+
     // ─── filterGames: 未指定時はそのまま返す ────────────────────────────────────
 
     @Test
