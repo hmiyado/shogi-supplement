@@ -3,7 +3,6 @@ package dev.miyado.shogisupplement.ui.gamelist
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -20,14 +19,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.db.GameListFilter
@@ -39,6 +36,10 @@ import dev.miyado.shogisupplement.ui.common.GameCard
 /**
  * 棋譜一覧画面。VM/Android 非依存の純Composable。GameRecord/GameCard/AppStrings のみに依存し、
  * MainViewModel・Android API への依存はない。GameCard は ui.common（HomeScreen とも共用）。
+ *
+ * 絞り込み条件はボトムシートで編集する。一覧側は常に絞り込みボタンと件数表示だけの
+ * 固定レイアウトで、条件チップの出し入れによる一覧側のレイアウト変化は起きない
+ * （DESIGN.md No-jitter原則）。
  *
  * 絞り込み状態はこの画面のローカル state で保持し、画面再訪時には保持しない。
  * 画面を離れて戻ると必ず未フィルタから始まる。
@@ -54,7 +55,11 @@ fun GameListScreen(
     onGameClick: (GameRecord) -> Unit,
     onUpload: () -> Unit = {},
 ) {
+    // filter: 一覧に反映済みの条件。draftFilter: シート内で編集中の条件（「検索」タップまで
+    // filterには反映しない。スワイプ/スクリムでシートを閉じた場合は draftFilter を破棄する）。
     var filter by remember { mutableStateOf(GameListFilter()) }
+    var draftFilter by remember { mutableStateOf(GameListFilter()) }
+    var showFilterSheet by remember { mutableStateOf(false) }
     val filteredGames = games.filterGames(filter)
 
     Scaffold(
@@ -81,25 +86,15 @@ fun GameListScreen(
         ) {
             if (games.isNotEmpty()) {
                 item {
-                    GameListFilterBar(
-                        allGames = games,
-                        filter = filter,
-                        onFilterChange = { filter = it },
+                    GameListFilterHeader(
+                        activeCount = filter.activeCount,
+                        shownCount = filteredGames.size,
+                        totalCount = games.size,
+                        onOpenFilter = {
+                            draftFilter = filter
+                            showFilterSheet = true
+                        },
                     )
-                }
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        GameListCountText(shownCount = filteredGames.size, totalCount = games.size)
-                        if (filter.isActive) {
-                            TextButton(onClick = { filter = GameListFilter() }) {
-                                Text(AppStrings.GAME_LIST_FILTER_CLEAR)
-                            }
-                        }
-                    }
                 }
             }
             // 未アップロード一括アップロードボタン（提供有効＋未アップロードあり時のみ表示）
@@ -131,12 +126,34 @@ fun GameListScreen(
                     }
                 }
             }
-            items(filteredGames) { game ->
+            // key = game.id: 絞り込みで件数が変わってもComposeがカードの同一性を
+            // インデックスではなくgame_idで追跡できるようにする（キー無し=位置ベースの
+            // 暗黙キーだと、絞り込み適用時に別ゲームのコンポジション状態を誤って
+            // 引き継ぎうる。件数表示の切り替えと合わせてガタつきの一因だったため付与する）。
+            items(filteredGames, key = { it.id }) { game ->
                 GameCard(
                     game = game,
                     onClick = { onGameClick(game) },
                 )
             }
         }
+    }
+
+    if (showFilterSheet) {
+        GameListFilterSheet(
+            allGames = games,
+            filter = draftFilter,
+            onFilterChange = { draftFilter = it },
+            onApply = {
+                filter = draftFilter
+                showFilterSheet = false
+            },
+            onClear = {
+                filter = GameListFilter()
+                draftFilter = GameListFilter()
+                showFilterSheet = false
+            },
+            onDismiss = { showFilterSheet = false },
+        )
     }
 }

@@ -8,15 +8,27 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.db.GameListFilter
@@ -33,13 +45,151 @@ import dev.miyado.shogisupplement.util.currentEpochSeconds
 private const val SECONDS_PER_DAY = 24L * 60 * 60
 
 /**
- * 棋譜一覧の絞り込みバー。
+ * 棋譜一覧の絞り込みヘッダー（絞り込みボタン＋件数表示）。
+ *
+ * 軸チップ列を常設すると一覧の場所を取りすぎるためボトムシートへ移した。
+ * このヘッダーは軸の数に関わらず常に同じ2要素（ボタン・件数テキスト）だけを
+ * 描画するため、フィルタ適用状態が変わってもこの行の高さは変化しない
+ * （DESIGN.md No-jitter原則: 条件付きの行の出現・削除は禁止）。
+ * バッジはコンテンツのレイアウトサイズに影響しないオーバーレイのため、
+ * 0件↔1件以上の切り替えでもボタン自体の大きさは変わらない。
+ */
+@Composable
+fun GameListFilterHeader(
+    activeCount: Int,
+    shownCount: Int,
+    totalCount: Int,
+    onOpenFilter: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        GameListFilterButton(activeCount = activeCount, onClick = onOpenFilter)
+        GameListCountText(shownCount = shownCount, totalCount = totalCount)
+    }
+}
+
+@Composable
+private fun GameListFilterButton(
+    activeCount: Int,
+    onClick: () -> Unit,
+) {
+    val shogiColors = MaterialTheme.shogiColors
+    // 適用中（activeCount > 0）は判定チップと同じ紺青系（primarySoft）で強調する。
+    // バッジの数字だけでなくボタン自体の色でも「絞り込み中」が一目で分かるようにするため。
+    val active = activeCount > 0
+    val containerColor = if (active) shogiColors.primarySoft else MaterialTheme.colorScheme.surface
+    val contentColor = if (active) MaterialTheme.colorScheme.primary else shogiColors.ink2
+    val borderColor = if (active) MaterialTheme.colorScheme.primary else shogiColors.line
+    val shape = RoundedCornerShape(8.dp) // ボタンの角丸は8dp。チップの999dp（ピル型）とは意図的に別形状。
+
+    Row(
+        modifier = Modifier
+            .testTag("filter_open_button")
+            .clip(shape)
+            .background(containerColor)
+            .border(1.dp, borderColor, shape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        BadgedBox(
+            badge = {
+                // 朱（loss）は損失専用色のため、絞り込み中バッジには使わない。
+                // 「いま選択中」を表す紺青（primary）で統一する（選択チップと同じ意味付け）。
+                if (active) {
+                    Badge(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                    ) {
+                        Text("$activeCount")
+                    }
+                }
+            },
+        ) {
+            Icon(
+                imageVector = Icons.Filled.FilterList,
+                contentDescription = null,
+                tint = contentColor,
+            )
+        }
+        Spacer(Modifier.width(6.dp))
+        Text(
+            AppStrings.GAME_LIST_FILTER_BUTTON,
+            style = MaterialTheme.typography.labelLarge,
+            color = contentColor,
+        )
+    }
+}
+
+/**
+ * 絞り込み条件ボトムシート。
+ *
+ * [filter]はシート専用のドラフト状態（呼び出し側がシートを開く直前に現在の適用済み
+ * フィルタで初期化する想定）。「検索」タップで初めて[onApply]により一覧へ反映され、
+ * スワイプ/スクリムタップでの閉じ（[onDismiss]）は変更を破棄する
+ * （一般的なボトムシートの条件設定パターン: 確定操作を挟むまで一覧に影響しない）。
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun GameListFilterSheet(
+    allGames: List<GameRecord>,
+    filter: GameListFilter,
+    onFilterChange: (GameListFilter) -> Unit,
+    onApply: () -> Unit,
+    onClear: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Text(
+                AppStrings.GAME_LIST_FILTER_SHEET_TITLE,
+                style = MaterialTheme.typography.titleLarge,
+            )
+            GameListFilterBar(
+                allGames = allGames,
+                filter = filter,
+                onFilterChange = onFilterChange,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                TextButton(
+                    onClick = onClear,
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("filter_clear_button"),
+                ) {
+                    Text(AppStrings.GAME_LIST_FILTER_CLEAR)
+                }
+                Button(
+                    onClick = onApply,
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("filter_apply_button"),
+                ) {
+                    Text(AppStrings.GAME_LIST_FILTER_APPLY)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 軸ごとの絞り込みチップ列（ボトムシート内でのみ使用）。
  *
  * 表示する軸・チップは[allGames]（絞り込み前の全件）から実在する値のみを組み立てる
  * （データが無い軸・値のチップは作らない。miyadoさん指示）。
- *
- * 件数表示・全解除は[GameListScreen]側に置く
- * （このバーは軸ごとのチップ選択のみを担当し、結果表示とは責務を分ける）。
  *
  * 期間チップの基準時刻（「いま」）はバーの初回コンポジション時に1回だけ固定する
  * （[remember]）。再コンポジションのたびに再計算すると、選択済みチップの
@@ -162,13 +312,20 @@ private fun FilterChipItem(
     val containerColor = if (selected) shogiColors.primarySoft else MaterialTheme.colorScheme.surface
     val contentColor = if (selected) MaterialTheme.colorScheme.primary else shogiColors.ink2
     val borderColor = if (selected) MaterialTheme.colorScheme.primary else shogiColors.line
+    val shape = RoundedCornerShape(999.dp)
 
     Row(
         // testTag は視覚に影響しないため golden 画像には無関係（VRTからの一意なチップ特定用）。
+        //
+        // clip はクリック領域のリップル（indication）を丸チップの外形にクリップするために
+        // background/border より前（外側）に置く必要がある。Compose のモディファイアは
+        // 左のものが右を包む構造のため、clipを内側（clickableの後ろ）に置くとクリック時の
+        // リップル描画がクリップされず角丸の外にはみ出す（実機で確認された不具合の原因）。
         modifier = Modifier
             .testTag(testTag)
-            .background(containerColor, RoundedCornerShape(999.dp))
-            .border(1.dp, borderColor, RoundedCornerShape(999.dp))
+            .clip(shape)
+            .background(containerColor)
+            .border(1.dp, borderColor, shape)
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
