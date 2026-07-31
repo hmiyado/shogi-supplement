@@ -101,6 +101,7 @@ class EngineMatchRateTest {
             userSide = "sente",
         )
         assertEquals(3, result?.sampleMoves)
+        assertEquals(2, result?.matched)
         assertEquals(2.0 / 3.0, result?.rate)
     }
 }

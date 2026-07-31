@@ -272,6 +272,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     evalDisplay = _evalDisplay.value,
                     positionEvals = result.positionEvals,
                     matchRateDisplayText = result.matchRateText,
+                    blunderRateDisplayText = result.blunderRateText,
                 )
             } else {
                 _state.value = MainUiState.Error(AppStrings.gameNotFound(gameId))

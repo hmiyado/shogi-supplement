@@ -683,26 +683,26 @@ object AppStrings {
     const val TRANSFER_CODE_COPY_BUTTON = "コピー"
     const val TRANSFER_CODE_COPIED = "コピーしました"
 
-    // ═══ 33. 評価値グラフ・エンジン一致率（レポート画面）══════════════════════════
+    // ═══ 33. 評価値グラフ・悪手率・エンジン一致率（レポート画面）══════════════════
 
     /** 評価値グラフのカード見出し。ユーザーの先後で符号を反転済み（自分視点で統一）であることを明示する。 */
     const val EVAL_GRAPH_TITLE = "形勢の推移（自分視点）"
 
-    /** エンジン一致率行のプレフィックス（値は Mono で続く）。 */
-    const val MATCH_RATE_PREFIX = "エンジン一致率（最善/次善）: "
+    /** 悪手率行のラベル（値は Mono で続く）。分母は MATCH_RATE_LABEL と同じ n（自分の手数）。 */
+    const val BLUNDER_RATE_LABEL = "悪手率: "
 
-    /** エンジン一致率の値表示。例: 62 → "あなた62%" */
-    fun matchRateYou(pct: Int): String = "あなた${pct}%"
+    /** 悪手率の値表示。例: pct=12, m=3, n=25 → "12%(3/25)" */
+    fun blunderRateValue(pct: Int, m: Int, n: Int): String = "${pct}%(${m}/${n})"
+
+    /** エンジン一致率行のラベル（値は Mono で続く）。 */
+    const val MATCH_RATE_LABEL = "一致率（最善・次善）: "
+
+    /** エンジン一致率の値表示。例: pct=62, l=31, n=50 → "62%(31/50)" */
+    fun matchRateValue(pct: Int, l: Int, n: Int): String = "${pct}%(${l}/${n})"
 
     // ═══ 34. レポート画面: サマリー/悪手一覧の切替 ══════════════════════════════
     // 既定表示はグラフ＋サマリー。悪手（グラフの朱マーカー）を選ぶか、
     // 「悪手一覧を見る」で悪手一覧（既存のカードリスト）に切り替わる。
-
-    /** サマリーカードの見出し（悪手が1件以上あるときのみ表示）。 */
-    const val BLUNDER_SUMMARY_TITLE = "見つかった悪手"
-
-    /** 件数の単位（Mono数値の直後に付ける）。 */
-    const val COUNT_UNIT = "件"
 
     const val VIEW_BLUNDER_LIST = "悪手一覧を見る"
 

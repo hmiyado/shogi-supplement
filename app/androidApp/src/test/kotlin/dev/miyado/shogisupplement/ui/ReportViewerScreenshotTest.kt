@@ -219,7 +219,8 @@ class ReportViewerScreenshotTest {
                         reports = listOf(blunder),
                         flip = false,
                         strengthDisplayText = "52 ±27",
-                        matchRateDisplayText = "あなた62%",
+                        matchRateDisplayText = "62%(31/50)",
+                        blunderRateDisplayText = "12%(3/25)",
                         positionEvals = listOf(
                             PositionEvalRow(ply = 0, scoreCp = 50, mateIn = null, bestUsi = "7g7f"),
                             PositionEvalRow(ply = 1, scoreCp = -30, mateIn = null, bestUsi = "8c8d"),

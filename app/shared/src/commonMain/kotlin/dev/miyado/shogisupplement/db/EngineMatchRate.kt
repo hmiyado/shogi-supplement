@@ -10,9 +10,10 @@ package dev.miyado.shogisupplement.db
 object EngineMatchRate {
 
     /**
-     * @param result 一致率（0.0-1.0）
+     * @param rate 一致率（0.0-1.0）
+     * @param matched 一致した手数（分子）。レポート画面の「Y%(l/n)」表示に使う
      */
-    data class Result(val rate: Double, val sampleMoves: Int)
+    data class Result(val rate: Double, val matched: Int, val sampleMoves: Int)
 
     /**
      * @param positionEvals 保存済み局面評価（ply = movesUsi のインデックスに対応する着手前局面）
@@ -39,6 +40,6 @@ object EngineMatchRate {
             }
         }
         if (total == 0) return null
-        return Result(rate = matched.toDouble() / total, sampleMoves = total)
+        return Result(rate = matched.toDouble() / total, matched = matched, sampleMoves = total)
     }
 }

@@ -94,8 +94,10 @@ class ReportViewModel(
         val flip: Boolean,
         val strengthText: String?,
         val positionEvals: List<PositionEvalRow>,
-        /** エンジン一致率の表示値（例:「あなた62%」）。算出不能（データ不足）なら null。 */
+        /** エンジン一致率の値表示（例:「62%(31/50)」）。算出不能（データ不足）なら null。 */
         val matchRateText: String? = null,
+        /** 悪手率の値表示（例:「12%(3/25)」）。一致率と同じ分母（n）を使う。算出不能なら null。 */
+        val blunderRateText: String? = null,
     )
 
     /** 特定のゲームIDのレポート表示状態をDBから読み込む。 */
@@ -106,17 +108,15 @@ class ReportViewModel(
         val fl = g?.userSide == "gote"
         val st = if (g?.userSide != null) computeSingleGameStrengthText(g) else null
         val pe = if (g != null) repository.getPositionEvals(gameId) else emptyList()
-        val mr = if (g != null) computeMatchRateText(g, pe) else null
-        ReportResult(g, r, fl, st, pe, mr)
-    }
-
-    /**
-     * エンジン一致率（対 pv1/pv2）の表示テキストを計算する。
-     * データ不足（userSide不明・positionEval未保存等）なら null（非表示）。
-     */
-    fun computeMatchRateText(game: GameRecord, positionEvals: List<PositionEvalRow>): String? {
-        val result = EngineMatchRate.compute(game.movesUsi, positionEvals, game.userSide) ?: return null
-        return AppStrings.matchRateYou((result.rate * 100).roundToInt())
+        // 悪手率・一致率は同じ分母（n=エンジン評価が使えた自分の手数）を共有するため、
+        // 一致率の算出は1回だけ呼んで両方を導出する。
+        val mrResult = if (g != null) EngineMatchRate.compute(g.movesUsi, pe, g.userSide) else null
+        val mr = mrResult?.let { AppStrings.matchRateValue((it.rate * 100).roundToInt(), it.matched, it.sampleMoves) }
+        val br = mrResult?.takeIf { it.sampleMoves > 0 }?.let {
+            val pct = (r.size.toDouble() / it.sampleMoves * 100).roundToInt()
+            AppStrings.blunderRateValue(pct, r.size, it.sampleMoves)
+        }
+        ReportResult(g, r, fl, st, pe, mr, br)
     }
 
     /**

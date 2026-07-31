@@ -82,6 +82,7 @@ fun EvalGraphCard(
     val lineColor = MaterialTheme.colorScheme.onSurface
     val zeroLineColor = shogiColors.line
     val markerColor = shogiColors.loss
+    val markerHaloColor = MaterialTheme.colorScheme.surface
     val currentPlyLineColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
     val effectiveMaxPly = maxOf(maxPly, points.maxOf { it.ply }, 1)
 
@@ -132,15 +133,16 @@ fun EvalGraphCard(
                     )
                 }
 
-                // 悪手マーカー（朱）。
+                // 悪手マーカー（朱）。実機確認で視認しづらいとの指摘のため、線より
+                // ひとまわり大きい半径にし、周囲に面色のハロー（縁取り）を敷いて
+                // 線・ゼロ基準線との重なりでも輪郭が埋もれないようにする
+                // （ハロー自体は surface 色＝無彩色なので朱=損失専用ルールに抵触しない）。
                 val byPly = points.associateBy { it.ply }
                 for (ply in blunderPlies) {
                     val p = byPly[ply] ?: continue
-                    drawCircle(
-                        color = markerColor,
-                        radius = 2.5.dp.toPx(),
-                        center = Offset(xOf(p.ply), yOf(p.clampedCp)),
-                    )
+                    val center = Offset(xOf(p.ply), yOf(p.clampedCp))
+                    drawCircle(color = markerHaloColor, radius = 6.dp.toPx(), center = center)
+                    drawCircle(color = markerColor, radius = 4.dp.toPx(), center = center)
                 }
 
                 // 現在手ライン（ビューアのナビ行と同期。中立色・縦線でゼロ基準線と区別する）。

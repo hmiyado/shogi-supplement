@@ -654,6 +654,7 @@ private fun IosReportScreenHost(
     var strengthText by remember(gameId) { mutableStateOf<String?>(null) }
     var positionEvals by remember(gameId) { mutableStateOf<List<dev.miyado.shogisupplement.db.PositionEvalRow>>(emptyList()) }
     var matchRateText by remember(gameId) { mutableStateOf<String?>(null) }
+    var blunderRateText by remember(gameId) { mutableStateOf<String?>(null) }
     var loaded by remember(gameId) { mutableStateOf(false) }
 
     LaunchedEffect(gameId) {
@@ -664,6 +665,7 @@ private fun IosReportScreenHost(
         strengthText = result.strengthText
         positionEvals = result.positionEvals
         matchRateText = result.matchRateText
+        blunderRateText = result.blunderRateText
         loaded = true
     }
 
@@ -687,6 +689,7 @@ private fun IosReportScreenHost(
         evalDisplay = evalDisplay,
         positionEvals = positionEvals,
         matchRateDisplayText = matchRateText,
+        blunderRateDisplayText = blunderRateText,
         onBack = onBack,
         pvExtState = pvExtState,
         // iOSは読み筋延長のUI導線を非表示にする（決定済み・機能自体は消さない。Androidは不変）。

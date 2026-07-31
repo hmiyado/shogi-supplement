@@ -23,8 +23,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
@@ -89,7 +87,6 @@ import dev.miyado.shogisupplement.ui.common.formatFixed1
 import dev.miyado.shogisupplement.ui.theme.IbmPlexMonoFamily
 import dev.miyado.shogisupplement.ui.theme.ShipporiMinchoFamily
 import dev.miyado.shogisupplement.ui.theme.TextStyleData
-import dev.miyado.shogisupplement.ui.theme.TextStyleDataLarge
 import dev.miyado.shogisupplement.ui.theme.TextStyleDataMove
 import dev.miyado.shogisupplement.ui.theme.shogiColors
 import kotlin.math.abs
@@ -120,8 +117,10 @@ fun ReportScreen(
     evalDisplay: String = "cp",
     /** 全局面評価値（先手視点 cp・ply昇順）。空 = 評価値表示なし。 */
     positionEvals: List<PositionEvalRow> = emptyList(),
-    /** エンジン一致率の表示値（例:「あなた62%」）。null = 非表示（データ不足時など）。 */
+    /** エンジン一致率の値表示（例:「62%(31/50)」）。null = 非表示（データ不足時など）。 */
     matchRateDisplayText: String? = null,
+    /** 悪手率の値表示（例:「12%(3/25)」）。一致率と同じ分母nを使う。null = 非表示。 */
+    blunderRateDisplayText: String? = null,
     onBack: () -> Unit,
     /** 読み筋延長の状態 Map（blunderId → PvExtState）。 */
     pvExtState: Map<Long, PvExtState> = emptyMap(),
@@ -493,9 +492,10 @@ fun ReportScreen(
                         SfenPosition.parse(studyCurrentSfen ?: currentSfen).isBlackTurn
                     }
 
-                    // ── 検討中バナー（タブ行の代わり。タブ切替は不可） ─────────
-                    // タブ行（padding h8/v2 + 36dp ボタン = トータル40dp）と高さを完全一致させ、
-                    // 検討モード切替時に罫線・カード一覧のY座標が動かないようにする。
+                    // ── 検討中バナー（非検討時の40dpスペーサーの代わり。タブ切替は不可） ──
+                    // 非検討時分岐にある Spacer(40.dp) と高さを完全一致させ、
+                    // 検討モード切替時に罫線・サマリー/一覧のY座標が動かないようにする
+                    // （バナー40dp＋下の検討ナビ行40dp＝非検討時のスペーサー40dp＋ナビ行40dp）。
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -627,6 +627,16 @@ fun ReportScreen(
                 // 本譜/最善の変化タブは悪手一覧側（ReportBodyMode.LIST）へ移動した
                 // （実機確認: 一覧の表示エリアが狭すぎるとの指摘に伴う画面構成変更）。
                 // hasBestPv はタブ側と共有するためトップレベルで算出済み。
+                //
+                // 盤直下の固定エリアの高さは studyState != null 分岐（検討中バナー40dp＋
+                // 検討ナビ行40dp＝計80dp）と揃える必要がある（この2分岐はどちらか一方だけが
+                // 描画される排他スロットで、罫線から下のY座標が検討モード切替で動かないことを
+                // 前提にしている。DESIGN.md No-jitter原則）。タブ行（40dp）をLIST側へ
+                // 移設した際にこの高さの帳尻を崩してしまい、検討モードへの出入りで
+                // 罫線・サマリー/一覧のY座標が40dp跳ねる実機バグが発生した。
+                // タブ行の跡地としてこのスペーサーで高さを埋め、対称性を明示的に保証する
+                // （中身が空でも「固定高さのスロット」自体は両分岐で必ず存在させる）。
+                Spacer(Modifier.height(40.dp))
 
                 // ナビゲーション + 現在手表示（1行統合: |◀ ◀ 現在手（形勢） ▶/▶+ ▶|）
                 // ラベルは「N手目 ▲同　銀成」のみ（最大12文字設計）。
@@ -878,12 +888,11 @@ fun ReportScreen(
 
                 when (bodyMode) {
                     ReportBodyMode.SUMMARY -> {
-                        // ── サマリー（既定表示）: グラフ＋件数・棋力・一致率 ──────────
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .verticalScroll(rememberScrollState()),
-                        ) {
+                        // ── サマリー（既定表示）: グラフ＋悪手率・一致率・棋力 ────────
+                        // 固定表示（スクロール対象外）。スクロールするのは LIST 側
+                        // （悪手一覧）だけにする（実機確認: サマリーがスクロール領域に
+                        // 入っていると一覧との境界が分かりにくいとの指摘）。
+                        Column(modifier = Modifier.fillMaxSize()) {
                             // 評価値グラフ（手数×評価値の推移。悪手位置に朱マーカー・
                             // 現在手にライン）。positionEvals が無い（旧解析・保存前）局は
                             // 非表示——件数ガードはグラフ側（points.isEmpty()）に任せる。
@@ -899,12 +908,18 @@ fun ReportScreen(
                                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                     onPlyTapped = { ply ->
                                         if (studyState == null) {
+                                            // タップ位置の手へ現在手を移動する（盤・ナビ共通。
+                                            // 悪手マーカータップでも同様——マーカー＝タップ位置の
+                                            // plyなので、下の選択処理では plyIndex を上書きしない）。
                                             viewerMode = ViewerMode.MAINLINE
                                             plyIndex = ply
                                             // タップ位置が悪手のplyと一致すれば、その悪手を
                                             // 選んで一覧へ（マーカーの選択導線）。
                                             val idx = reports.indexOfFirst { it.ply.toInt() == ply }
-                                            if (idx >= 0) selectBlunderAndShowList(idx)
+                                            if (idx >= 0) {
+                                                selectedIdx = idx
+                                                bodyMode = ReportBodyMode.LIST
+                                            }
                                         }
                                     },
                                 )
@@ -914,6 +929,7 @@ fun ReportScreen(
                                 noBlundersMessage = noBlundersMessage,
                                 strengthDisplayText = strengthDisplayText,
                                 matchRateDisplayText = matchRateDisplayText,
+                                blunderRateDisplayText = blunderRateDisplayText,
                                 onViewList = {
                                     if (studyState == null) bodyMode = ReportBodyMode.LIST
                                 },
@@ -1242,19 +1258,15 @@ private fun ReportViewerTab(
 }
 
 /**
- * 悪手サマリーカード（サマリー表示の主要コンテンツ）。
- *
- * 件数（大きなMono数値。StrengthCard と同じ「大きな数値+単位」パターン）・判定別内訳チップ
- * （BlunderCard の判定チップと同じ primary-soft スタイル）・この一局の棋力/一致率・
- * 「悪手一覧を見る」導線をまとめる。悪手ゼロの対局では件数行の代わりに
- * noBlundersMessage を表示し、一覧導線ボタンも出さない。
- */
-@Composable
+ * 悪手ゼロの対局でも悪手率・一致率は算出できるため、noBlundersMessage の下に
+ * 続けて表示する（一覧への導線ボタンだけ出さない）。
+ */@Composable
 private fun BlunderSummaryCard(
     reports: List<BlunderRecord>,
     noBlundersMessage: String,
     strengthDisplayText: String?,
     matchRateDisplayText: String?,
+    blunderRateDisplayText: String?,
     onViewList: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -1265,59 +1277,24 @@ private fun BlunderSummaryCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
-            if (reports.isNotEmpty()) {
-                Text(
-                    AppStrings.BLUNDER_SUMMARY_TITLE,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = shogiColors.ink2,
-                )
-                Spacer(Modifier.height(4.dp))
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text(
-                        "${reports.size}",
-                        style = TextStyleDataLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        AppStrings.COUNT_UNIT,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = shogiColors.ink2,
-                        modifier = Modifier.padding(start = 2.dp, bottom = 4.dp),
-                    )
-                }
-                Spacer(Modifier.height(6.dp))
-                // 判定（◎/○/△）別の内訳チップ。0件の判定は表示しない
-                // （対局ごとに内訳は変わるため——固定枠にする理由が無い）。
-                val verdictCounts = reports.groupingBy { it.verdict }.eachCount()
-                val verdictOrder = listOf(
-                    AppStrings.VERDICT_PRIORITY,
-                    AppStrings.VERDICT_TARGET,
-                    AppStrings.VERDICT_SKIP,
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    for (verdict in verdictOrder) {
-                        val count = verdictCounts[verdict] ?: 0
-                        if (count == 0) continue
-                        Surface(
-                            color = shogiColors.primarySoft,
-                            shape = MaterialTheme.shapes.extraSmall,
-                        ) {
-                            Text(
-                                text = "$verdict $count${AppStrings.COUNT_UNIT}",
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
-                        }
-                    }
-                }
-                Spacer(Modifier.height(8.dp))
-            } else {
+            if (reports.isEmpty()) {
                 Text(noBlundersMessage, style = MaterialTheme.typography.bodyMedium)
                 Spacer(Modifier.height(8.dp))
             }
 
+            // 悪手率・一致率（同格のフォントサイズ・2行。ラベルは通常書体、値のみMono）。
+            if (blunderRateDisplayText != null) {
+                StatLine(AppStrings.BLUNDER_RATE_LABEL, blunderRateDisplayText)
+            }
+            if (matchRateDisplayText != null) {
+                if (blunderRateDisplayText != null) Spacer(Modifier.height(2.dp))
+                StatLine(AppStrings.MATCH_RATE_LABEL, matchRateDisplayText)
+            }
+
             if (strengthDisplayText != null) {
+                if (blunderRateDisplayText != null || matchRateDisplayText != null) {
+                    Spacer(Modifier.height(8.dp))
+                }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         AppStrings.GAME_STRENGTH_PREFIX,
@@ -1326,21 +1303,6 @@ private fun BlunderSummaryCard(
                     )
                     Text(
                         strengthDisplayText,
-                        style = MaterialTheme.typography.labelSmall.copy(fontFamily = IbmPlexMonoFamily),
-                        color = shogiColors.ink2,
-                    )
-                }
-                Spacer(Modifier.height(4.dp))
-            }
-            if (matchRateDisplayText != null) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        AppStrings.MATCH_RATE_PREFIX,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = shogiColors.ink2,
-                    )
-                    Text(
-                        matchRateDisplayText,
                         style = MaterialTheme.typography.labelSmall.copy(fontFamily = IbmPlexMonoFamily),
                         color = shogiColors.ink2,
                     )
@@ -1355,6 +1317,23 @@ private fun BlunderSummaryCard(
             }
         }
     }
+}
+
+/**
+ * 「ラベル: 値」の1行（同格のフォントサイズ。値のみMono）。
+ * 悪手率・エンジン一致率の2行で共有するスタイル。
+ */
+@Composable
+private fun StatLine(label: String, value: String) {
+    val text = buildAnnotatedString {
+        append(label)
+        withStyle(SpanStyle(fontFamily = IbmPlexMonoFamily)) { append(value) }
+    }
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodyLarge,
+        color = MaterialTheme.colorScheme.onSurface,
+    )
 }
 
 /** 悪手カード（ミニ盤なし・テキスト情報のみ）。 */
