@@ -118,3 +118,11 @@ fun buildInitialStudyState(
 
 /** 棋譜ビューア モード（ReportScreen 内部の本譜/最善の変化タブ切替）。 */
 internal enum class ViewerMode { MAINLINE, BEST_PV }
+
+/**
+ * レポート画面下部の表示モード（ReportScreen 内部）。
+ * SUMMARY = グラフ＋悪手サマリー（既定）。LIST = 悪手一覧（既存のカードリスト）。
+ * 悪手一覧はグラフ＋サマリーより表示エリアを要するため排他表示にする
+ * （常時表示だと一覧の可視領域が狭くなりすぎるため。miyadoさん実機確認での指摘）。
+ */
+internal enum class ReportBodyMode { SUMMARY, LIST }

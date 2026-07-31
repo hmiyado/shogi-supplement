@@ -23,6 +23,8 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
@@ -87,6 +89,7 @@ import dev.miyado.shogisupplement.ui.common.formatFixed1
 import dev.miyado.shogisupplement.ui.theme.IbmPlexMonoFamily
 import dev.miyado.shogisupplement.ui.theme.ShipporiMinchoFamily
 import dev.miyado.shogisupplement.ui.theme.TextStyleData
+import dev.miyado.shogisupplement.ui.theme.TextStyleDataLarge
 import dev.miyado.shogisupplement.ui.theme.TextStyleDataMove
 import dev.miyado.shogisupplement.ui.theme.shogiColors
 import kotlin.math.abs
@@ -175,6 +178,12 @@ fun ReportScreen(
     /** VRT用: 対局情報ダイアログを開いた状態から始める（本番呼び出しでは常に未指定＝false）。 */
     initialShowGameInfoDialog: Boolean = false,
     /**
+     * VRT用: 初期表示を悪手一覧モードにする（本番呼び出しでは常に未指定＝false）。
+     * initialSelectedIndex を指定した場合は自動的に一覧モードになるため、選択なしで
+     * 一覧モードだけを再現したい場合（「悪手一覧を見る」導線）にのみ指定する。
+     */
+    initialBodyModeList: Boolean = false,
+    /**
      * 駒台配置（実機評価用デバッグトグル）。DEBUGビルドの設定画面から
      * 変更できる（本番リリースビルドでは常に TOP_BOTTOM）。
      */
@@ -185,6 +194,13 @@ fun ReportScreen(
     }
     var plyIndex by remember { mutableIntStateOf(initialPlyIndex) }
     var selectedIdx by remember { mutableStateOf(initialSelectedIndex) }
+    // 悪手を選んだ（グラフの朱マーカータップ・カードタップ）か「悪手一覧を見る」を押すと
+    // LIST に切り替わる。initialSelectedIndex 指定時は選択済み状態を再現するため自動的に LIST。
+    var bodyMode by remember {
+        mutableStateOf(
+            if (initialBodyModeList || initialSelectedIndex != null) ReportBodyMode.LIST else ReportBodyMode.SUMMARY,
+        )
+    }
     var showMoveList by remember { mutableStateOf(false) }
     // ▶で読み筋延長をトリガーした後、延長成功で自動的に1手進めるためのフラグ。
     var pendingExtendAdvance by remember { mutableStateOf(false) }
@@ -192,9 +208,15 @@ fun ReportScreen(
     val scope = rememberCoroutineScope()
 
     val selectedBlunder = selectedIdx?.let { reports.getOrNull(it) }
+    // タブ（本譜/最善の変化。ReportBodyMode.LIST 側）・ナビ行どちらからも参照するため
+    // トップレベルで算出する。
+    val hasBestPv = selectedBlunder?.bestPv != null
 
     // 評価値グラフ用データ（本譜/最善の変化タブの切替とは独立。対局全体のplyで固定）。
-    val evalGraphPoints = remember(positionEvals) { buildEvalGraphPoints(positionEvals) }
+    // 自分視点に統一する（game.userSide=="gote" のとき符号反転。他の表示と同じ規約）。
+    val evalGraphPoints = remember(positionEvals, game.userSide) {
+        buildEvalGraphPoints(positionEvals, userIsGote = game.userSide == "gote")
+    }
     val blunderPlies = remember(reports) { reports.map { it.ply.toInt() }.toSet() }
 
     // ── 検討モードの終了処理（呼び出し側でエンジンquit・状態破棄した上で、
@@ -602,33 +624,9 @@ fun ReportScreen(
                     }
                 } else {
 
-                // タブ：本譜｜最善の変化
-                val hasBestPv = selectedBlunder?.bestPv != null
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 2.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    ReportViewerTab(
-                        label = AppStrings.TAB_MAINLINE,
-                        isActive = viewerMode == ViewerMode.MAINLINE,
-                        enabled = true,
-                        modifier = Modifier.weight(1f).height(36.dp),
-                    ) {
-                        viewerMode = ViewerMode.MAINLINE
-                        plyIndex = clampedPly.coerceAtMost(game.movesUsi.size)
-                    }
-                    ReportViewerTab(
-                        label = AppStrings.TAB_BEST_PV,
-                        isActive = viewerMode == ViewerMode.BEST_PV,
-                        enabled = hasBestPv,
-                        modifier = Modifier.weight(1f).height(36.dp),
-                    ) {
-                        viewerMode = ViewerMode.BEST_PV
-                        plyIndex = 0
-                    }
-                }
+                // 本譜/最善の変化タブは悪手一覧側（ReportBodyMode.LIST）へ移動した
+                // （実機確認: 一覧の表示エリアが狭すぎるとの指摘に伴う画面構成変更）。
+                // hasBestPv はタブ側と共有するためトップレベルで算出済み。
 
                 // ナビゲーション + 現在手表示（1行統合: |◀ ◀ 現在手（形勢） ▶/▶+ ▶|）
                 // ラベルは「N手目 ▲同　銀成」のみ（最大12文字設計）。
@@ -854,110 +852,152 @@ fun ReportScreen(
 
                 HorizontalDivider(color = MaterialTheme.shogiColors.line)
 
-                // ── スクロールエリア（悪手カード一覧） ──────────────────────────
+                // 悪手ゼロ時のメッセージ: 勝敗・理由に応じて分岐（SUMMARY・LIST両方の
+                // 空表示で使うため一度だけ計算する）。
+                val noBlundersMessage = when {
+                    game.userSide != null && game.gameWinner != null ->
+                        if (game.gameWinner == game.userSide) {
+                            AppStrings.NO_BLUNDERS_WIN
+                        } else {
+                            AppStrings.noBlundersLoss(game.endReason ?: "負け")
+                        }
+                    else -> AppStrings.NO_BLUNDERS_UNKNOWN
+                }
 
-                // 評価値グラフ（手数×評価値の推移。悪手位置に朱マーカー）。
-                // positionEvals が無い（旧解析・保存前）局は非表示——件数ガードは
-                // EvalGraphCard 側（points.isEmpty()）に任せる。
-                if (evalGraphPoints.isNotEmpty()) {
-                    EvalGraphCard(
-                        points = evalGraphPoints,
-                        maxPly = game.movesUsi.size,
-                        blunderPlies = blunderPlies,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                        onPlyTapped = { ply ->
-                            // 検討中はタブ/局面の切替不可（悪手カードタップと同じ制約）。
-                            if (studyState == null) {
-                                viewerMode = ViewerMode.MAINLINE
-                                plyIndex = ply
+                // 悪手を選んで LIST へ切り替える共通処理（グラフの朱マーカータップ・
+                // 悪手カードタップの両方から呼ぶ）。検討中は選択・切替不可
+                // （「終了」してから選び直す。既存のカードタップ制約と同じ）。
+                val selectBlunderAndShowList: (Int) -> Unit = { idx ->
+                    if (studyState == null) {
+                        selectedIdx = idx
+                        viewerMode = ViewerMode.MAINLINE
+                        plyIndex = (reports[idx].ply - 1).toInt()
+                        bodyMode = ReportBodyMode.LIST
+                    }
+                }
+
+                when (bodyMode) {
+                    ReportBodyMode.SUMMARY -> {
+                        // ── サマリー（既定表示）: グラフ＋件数・棋力・一致率 ──────────
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .verticalScroll(rememberScrollState()),
+                        ) {
+                            // 評価値グラフ（手数×評価値の推移。悪手位置に朱マーカー・
+                            // 現在手にライン）。positionEvals が無い（旧解析・保存前）局は
+                            // 非表示——件数ガードはグラフ側（points.isEmpty()）に任せる。
+                            if (evalGraphPoints.isNotEmpty()) {
+                                EvalGraphCard(
+                                    points = evalGraphPoints,
+                                    maxPly = game.movesUsi.size,
+                                    blunderPlies = blunderPlies,
+                                    // SUMMARY 表示中は viewerMode が常に MAINLINE
+                                    // （タブは LIST 側にしか無いため）。plyIndex がそのまま
+                                    // 対局全体のplyに対応する。
+                                    currentPly = clampedPly,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    onPlyTapped = { ply ->
+                                        if (studyState == null) {
+                                            viewerMode = ViewerMode.MAINLINE
+                                            plyIndex = ply
+                                            // タップ位置が悪手のplyと一致すれば、その悪手を
+                                            // 選んで一覧へ（マーカーの選択導線）。
+                                            val idx = reports.indexOfFirst { it.ply.toInt() == ply }
+                                            if (idx >= 0) selectBlunderAndShowList(idx)
+                                        }
+                                    },
+                                )
                             }
-                        },
-                    )
-                }
-
-                // この一局の指し手の強さ（caption・Mono 数値、悪手カードリスト先頭）
-                if (strengthDisplayText != null) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            AppStrings.GAME_STRENGTH_PREFIX,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.shogiColors.ink2,
-                        )
-                        Text(
-                            strengthDisplayText,
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontFamily = IbmPlexMonoFamily,
-                            ),
-                            color = MaterialTheme.shogiColors.ink2,
-                        )
-                    }
-                }
-
-                // エンジン一致率（caption・Mono 数値。strengthDisplayText 行と同じ構成）。
-                if (matchRateDisplayText != null) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            AppStrings.MATCH_RATE_PREFIX,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.shogiColors.ink2,
-                        )
-                        Text(
-                            matchRateDisplayText,
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontFamily = IbmPlexMonoFamily,
-                            ),
-                            color = MaterialTheme.shogiColors.ink2,
-                        )
-                    }
-                }
-
-                if (reports.isEmpty()) {
-                    // 悪手ゼロ時のメッセージ: 勝敗・理由に応じて分岐（item 10）
-                    val noBlundersMessage = when {
-                        game.userSide != null && game.gameWinner != null ->
-                            if (game.gameWinner == game.userSide) {
-                                AppStrings.NO_BLUNDERS_WIN
-                            } else {
-                                AppStrings.noBlundersLoss(game.endReason ?: "負け")
-                            }
-                        else -> AppStrings.NO_BLUNDERS_UNKNOWN
-                    }
-                    Text(
-                        noBlundersMessage,
-                        modifier = Modifier.padding(16.dp),
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
-                    ) {
-                        itemsIndexed(reports) { idx, report ->
-                            BlunderCard(
-                                report = report,
-                                isSelected = selectedIdx == idx,
-                                evalDisplay = evalDisplay,
-                                onClick = {
-                                    // 検討中はタブ/局面の切替不可（「終了」してから選び直す）。
-                                    if (studyState == null) {
-                                        selectedIdx = idx
-                                        viewerMode = ViewerMode.MAINLINE
-                                        // 悪手直前の局面へジャンプ
-                                        plyIndex = (report.ply - 1).toInt()
-                                    }
+                            BlunderSummaryCard(
+                                reports = reports,
+                                noBlundersMessage = noBlundersMessage,
+                                strengthDisplayText = strengthDisplayText,
+                                matchRateDisplayText = matchRateDisplayText,
+                                onViewList = {
+                                    if (studyState == null) bodyMode = ReportBodyMode.LIST
                                 },
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                             )
+                        }
+                    }
+                    ReportBodyMode.LIST -> {
+                        // ── 悪手一覧: サマリーへ戻る導線＋本譜/最善の変化タブ＋カード一覧 ──
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 4.dp)
+                                    .height(32.dp)
+                                    .clickable(enabled = studyState == null) {
+                                        bodyMode = ReportBodyMode.SUMMARY
+                                        // グラフの現在手ラインと矛盾しないよう MAINLINE に戻す
+                                        // （LIST 側でBEST_PVを見ていた場合の後始末）。
+                                        viewerMode = ViewerMode.MAINLINE
+                                    },
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = AppStrings.BACK_TO_SUMMARY,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    AppStrings.BACK_TO_SUMMARY,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.shogiColors.ink2,
+                                )
+                            }
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 8.dp, vertical = 2.dp),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                ReportViewerTab(
+                                    label = AppStrings.TAB_MAINLINE,
+                                    isActive = viewerMode == ViewerMode.MAINLINE,
+                                    enabled = true,
+                                    modifier = Modifier.weight(1f).height(36.dp),
+                                ) {
+                                    viewerMode = ViewerMode.MAINLINE
+                                    plyIndex = clampedPly.coerceAtMost(game.movesUsi.size)
+                                }
+                                ReportViewerTab(
+                                    label = AppStrings.TAB_BEST_PV,
+                                    isActive = viewerMode == ViewerMode.BEST_PV,
+                                    enabled = hasBestPv,
+                                    modifier = Modifier.weight(1f).height(36.dp),
+                                ) {
+                                    viewerMode = ViewerMode.BEST_PV
+                                    plyIndex = 0
+                                }
+                            }
+
+                            if (reports.isEmpty()) {
+                                Text(
+                                    noBlundersMessage,
+                                    modifier = Modifier.padding(16.dp),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                )
+                            } else {
+                                LazyColumn(
+                                    modifier = Modifier.fillMaxSize(),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+                                ) {
+                                    itemsIndexed(reports) { idx, report ->
+                                        BlunderCard(
+                                            report = report,
+                                            isSelected = selectedIdx == idx,
+                                            evalDisplay = evalDisplay,
+                                            onClick = { selectBlunderAndShowList(idx) },
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -1198,6 +1238,122 @@ private fun ReportViewerTab(
         ),
     ) {
         Text(label, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+    }
+}
+
+/**
+ * 悪手サマリーカード（サマリー表示の主要コンテンツ）。
+ *
+ * 件数（大きなMono数値。StrengthCard と同じ「大きな数値+単位」パターン）・判定別内訳チップ
+ * （BlunderCard の判定チップと同じ primary-soft スタイル）・この一局の棋力/一致率・
+ * 「悪手一覧を見る」導線をまとめる。悪手ゼロの対局では件数行の代わりに
+ * noBlundersMessage を表示し、一覧導線ボタンも出さない。
+ */
+@Composable
+private fun BlunderSummaryCard(
+    reports: List<BlunderRecord>,
+    noBlundersMessage: String,
+    strengthDisplayText: String?,
+    matchRateDisplayText: String?,
+    onViewList: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val shogiColors = MaterialTheme.shogiColors
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            if (reports.isNotEmpty()) {
+                Text(
+                    AppStrings.BLUNDER_SUMMARY_TITLE,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = shogiColors.ink2,
+                )
+                Spacer(Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        "${reports.size}",
+                        style = TextStyleDataLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        AppStrings.COUNT_UNIT,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = shogiColors.ink2,
+                        modifier = Modifier.padding(start = 2.dp, bottom = 4.dp),
+                    )
+                }
+                Spacer(Modifier.height(6.dp))
+                // 判定（◎/○/△）別の内訳チップ。0件の判定は表示しない
+                // （対局ごとに内訳は変わるため——固定枠にする理由が無い）。
+                val verdictCounts = reports.groupingBy { it.verdict }.eachCount()
+                val verdictOrder = listOf(
+                    AppStrings.VERDICT_PRIORITY,
+                    AppStrings.VERDICT_TARGET,
+                    AppStrings.VERDICT_SKIP,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    for (verdict in verdictOrder) {
+                        val count = verdictCounts[verdict] ?: 0
+                        if (count == 0) continue
+                        Surface(
+                            color = shogiColors.primarySoft,
+                            shape = MaterialTheme.shapes.extraSmall,
+                        ) {
+                            Text(
+                                text = "$verdict $count${AppStrings.COUNT_UNIT}",
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+            } else {
+                Text(noBlundersMessage, style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(8.dp))
+            }
+
+            if (strengthDisplayText != null) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        AppStrings.GAME_STRENGTH_PREFIX,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = shogiColors.ink2,
+                    )
+                    Text(
+                        strengthDisplayText,
+                        style = MaterialTheme.typography.labelSmall.copy(fontFamily = IbmPlexMonoFamily),
+                        color = shogiColors.ink2,
+                    )
+                }
+                Spacer(Modifier.height(4.dp))
+            }
+            if (matchRateDisplayText != null) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        AppStrings.MATCH_RATE_PREFIX,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = shogiColors.ink2,
+                    )
+                    Text(
+                        matchRateDisplayText,
+                        style = MaterialTheme.typography.labelSmall.copy(fontFamily = IbmPlexMonoFamily),
+                        color = shogiColors.ink2,
+                    )
+                }
+            }
+
+            if (reports.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(onClick = onViewList, modifier = Modifier.fillMaxWidth()) {
+                    Text(AppStrings.VIEW_BLUNDER_LIST, style = MaterialTheme.typography.labelMedium)
+                }
+            }
+        }
     }
 }
 

@@ -23,16 +23,27 @@ import org.robolectric.annotation.GraphicsMode
 /**
  * 棋譜ビューア型レポート画面の VRT（スクリーンショットテスト）。
  *
- * - report_viewer_mainline: 本譜モード・初期局面
- * - report_viewer_mainline_ply41: 本譜モード・41手目（悪手直前）
- * - report_viewer_selected_card: 悪手カードが選択状態
- * - report_viewer_eval_graph_and_match_rate: 評価値グラフ＋エンジン一致率行
- *   （悪手位置の朱マーカー・詰み絡み点のクランプ表示を含む）
- * - report_viewer_best_pv_end: 最善の変化タブ・ライン末尾（ナビラベルに形勢サフィックス、
+ * 画面下部（罫線より下）は ReportBodyMode で排他表示: 既定は SUMMARY（グラフ＋
+ * 悪手サマリー）。悪手（グラフの朱マーカー・悪手カード）を選ぶか「悪手一覧を見る」で
+ * LIST（本譜/最善の変化タブ＋既存のカードリスト）に切り替わる。initialSelectedIndex
+ * 指定時は自動的に LIST（選択済み状態を再現するため）。選択なしで LIST だけを
+ * 再現したいときは initialBodyModeList = true を使う。
+ *
+ * - report_viewer_mainline: 既定表示（SUMMARY）・初期局面
+ * - report_viewer_mainline_flipped: 既定表示（SUMMARY）・後手視点（flip=true）
+ * - report_viewer_no_blunders: 既定表示（SUMMARY）・悪手なし
+ * - report_viewer_with_eval: 既定表示（SUMMARY）・評価値グラフあり
+ * - report_viewer_eval_graph_and_match_rate: 評価値グラフ＋エンジン一致率
+ *   （悪手位置の朱マーカー・詰み絡み点のクランプ表示・現在手ライン=2手目を含む）
+ * - report_viewer_eval_graph_flipped_gote: 後手ユーザーでのグラフ符号反転
+ *   （上=自分有利になることを確認）
+ * - report_viewer_list_no_selection: 「悪手一覧を見る」導線で選択なしに LIST へ
+ *   （サマリーへ戻る行＋タブ＋一覧）
+ * - report_viewer_best_pv_end: LIST・最善の変化タブ・ライン末尾（ナビラベルに形勢サフィックス、
  *   ▶ボタンが「▶+」primary色に変わる）
- * - report_viewer_best_pv_mid: 最善の変化タブ・中間局面（ナビラベルに形勢サフィックス）
- * - report_viewer_best_pv_mate: 最善の変化タブ・中間局面・詰み絡み cp_before（「詰み」規約表示。
- *   ナビラベルのサフィックスとして表示）
+ * - report_viewer_best_pv_mid: LIST・最善の変化タブ・中間局面（ナビラベルに形勢サフィックス）
+ * - report_viewer_best_pv_mate: LIST・最善の変化タブ・中間局面・詰み絡み cp_before
+ *   （「詰み」規約表示。ナビラベルのサフィックスとして表示）
  * - report_viewer_study_selection: 検討モード・選択マス＋合法手ドット表示（着手前・
  *   検討ナビラベルに手番ヒントをサフィックス表示）
  * - report_viewer_study_eval: 検討モード・1手指した後の評価値表示（ナビラベルに統合）
@@ -193,10 +204,7 @@ class ReportViewerScreenshotTest {
         }
     }
 
-    /**
-     * 評価値グラフ＋エンジン一致率（悪手位置に朱マーカー・詰み絡みの点はクランプ上限/下限に張り付く）。
-     * positionEvals は bestUsi を持たせ、実運用（EngineMatchRate.compute 経由）に近い形にする。
-     */
+    /** positionEvals には bestUsi を持たせ、一致率計算で参照される値に近い形にする。 */
     @Test
     fun report_viewer_eval_graph_and_match_rate() {
         val blunder = sampleBlunder().copy(ply = 3L)
@@ -221,7 +229,61 @@ class ReportViewerScreenshotTest {
                             // 詰み絡み（クランプ下限に張り付く）
                             PositionEvalRow(ply = 4, scoreCp = null, mateIn = -7, bestUsi = "2f2e"),
                         ),
+                        // 現在手ライン（グラフ）とナビ行の同期を確認するため、
+                        // マーカー位置（ply=3）とは別の位置（ply=2）に置く。
+                        initialPlyIndex = 2,
                         onBack = {},
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * 後手ユーザーでのグラフ符号反転確認。score_cp は先手視点保存で ply=0 が -400
+     * （先手劣勢＝後手/自分優勢）のため、自分視点に正規化すると +400 でゼロ基準線の
+     * 上側に描かれる（「上=自分有利」になっていることを確認する）。
+     */
+    @Test
+    fun report_viewer_eval_graph_flipped_gote() {
+        captureRoboImage(
+            filePath = "src/test/snapshots/report_viewer_eval_graph_flipped_gote.png",
+            roborazziOptions = roborazziOptions,
+        ) {
+            ShogiTheme {
+                Surface {
+                    ReportScreen(
+                        game = sampleGame().copy(userSide = "gote"),
+                        reports = emptyList(),
+                        flip = true,
+                        strengthDisplayText = null,
+                        positionEvals = listOf(
+                            PositionEvalRow(ply = 0, scoreCp = -400, mateIn = null),
+                            PositionEvalRow(ply = 1, scoreCp = -600, mateIn = null),
+                        ),
+                        onBack = {},
+                    )
+                }
+            }
+        }
+    }
+
+    /** 最善の変化タブは選択中の悪手が無いため無効表示になる。 */
+    @Test
+    fun report_viewer_list_no_selection() {
+        captureRoboImage(
+            filePath = "src/test/snapshots/report_viewer_list_no_selection.png",
+            roborazziOptions = roborazziOptions,
+        ) {
+            ShogiTheme {
+                Surface {
+                    ReportScreen(
+                        game = sampleGame(),
+                        reports = listOf(sampleBlunder()),
+                        flip = false,
+                        strengthDisplayText = "52 ±27",
+                        onBack = {},
+                        initialBodyModeList = true,
                     )
                 }
             }

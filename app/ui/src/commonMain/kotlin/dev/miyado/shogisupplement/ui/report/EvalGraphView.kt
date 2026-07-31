@@ -21,8 +21,8 @@ import dev.miyado.shogisupplement.ui.theme.shogiColors
 import kotlin.math.roundToInt
 
 /**
- * 評価値グラフ用に正規化した1点。先手視点・クランプ済みの値のみ持つ
- * （表示側は符号や勝率換算を一切行わない。DESIGN.md「先手視点で統一」）。
+ * 評価値グラフ用に正規化した1点。自分視点・クランプ済みの値のみ持つ
+ * （表示側は符号や勝率換算を一切行わない。正 = 自分優勢で統一）。
  */
 data class EvalGraphPoint(val ply: Int, val clampedCp: Int)
 
@@ -31,21 +31,26 @@ data class EvalGraphPoint(val ply: Int, val clampedCp: Int)
 const val EVAL_GRAPH_CLAMP_CP = 2000
 
 /**
- * [PositionEvalRow] を評価値グラフ用の点列に変換する（ply昇順ソート・クランプ適用）。
+ * [PositionEvalRow] を評価値グラフ用の点列に変換する（ply昇順ソート・クランプ適用・自分視点への正規化）。
  * mateIn は符号のみ使い、クランプ上限/下限に張り付ける（実際の詰み手数は表示に使わない。
  * グラフは形勢の推移の概観が目的で、詰み手数の精緻な表現は他の表示（ナビ行等）が担うため）。
+ *
+ * @param userIsGote ユーザーが後手なら true（符号反転）。position_eval は先手視点保存のため、
+ *   この画面の他の表示と同じ規約で自分視点に揃える
+ *   （上=自分有利で統一。実機確認で先手視点固定は違和感があるとの指摘）。
  */
-fun buildEvalGraphPoints(positionEvals: List<PositionEvalRow>): List<EvalGraphPoint> =
+fun buildEvalGraphPoints(positionEvals: List<PositionEvalRow>, userIsGote: Boolean = false): List<EvalGraphPoint> =
     positionEvals
         .sortedBy { it.ply }
         .mapNotNull { row ->
             val mateIn = row.mateIn
             val scoreCp = row.scoreCp
-            val cp = when {
+            val senteCp = when {
                 mateIn != null -> if (mateIn > 0) EVAL_GRAPH_CLAMP_CP else -EVAL_GRAPH_CLAMP_CP
                 scoreCp != null -> scoreCp.coerceIn(-EVAL_GRAPH_CLAMP_CP, EVAL_GRAPH_CLAMP_CP)
                 else -> return@mapNotNull null
             }
+            val cp = if (userIsGote) -senteCp else senteCp
             EvalGraphPoint(ply = row.ply, clampedCp = cp)
         }
 
@@ -59,6 +64,8 @@ fun buildEvalGraphPoints(positionEvals: List<PositionEvalRow>): List<EvalGraphPo
  * @param points [buildEvalGraphPoints] 済みの点列（空なら何も描画しない＝呼び出し側で件数ガードする）
  * @param maxPly 横軸の最大値（対局の総手数）。points の最大ply未満にはしない
  * @param blunderPlies 悪手マーカーを打つ ply の集合（position_eval に対応データがない ply は無視）
+ * @param currentPly ビューア（ナビ行）が現在表示している ply。null なら現在手ラインを描かない
+ *   （検討モード等、本譜の ply と対応が取れない状態を表す）
  * @param onPlyTapped タップした位置に最も近い ply。呼び出し側でナビゲーション（該当手へジャンプ）に使う
  */
 @Composable
@@ -66,6 +73,7 @@ fun EvalGraphCard(
     points: List<EvalGraphPoint>,
     maxPly: Int,
     blunderPlies: Set<Int>,
+    currentPly: Int? = null,
     modifier: Modifier = Modifier,
     onPlyTapped: (Int) -> Unit = {},
 ) {
@@ -74,6 +82,7 @@ fun EvalGraphCard(
     val lineColor = MaterialTheme.colorScheme.onSurface
     val zeroLineColor = shogiColors.line
     val markerColor = shogiColors.loss
+    val currentPlyLineColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
     val effectiveMaxPly = maxOf(maxPly, points.maxOf { it.ply }, 1)
 
     Card(
@@ -131,6 +140,17 @@ fun EvalGraphCard(
                         color = markerColor,
                         radius = 2.5.dp.toPx(),
                         center = Offset(xOf(p.ply), yOf(p.clampedCp)),
+                    )
+                }
+
+                // 現在手ライン（ビューアのナビ行と同期。中立色・縦線でゼロ基準線と区別する）。
+                if (currentPly != null) {
+                    val x = xOf(currentPly.coerceIn(0, effectiveMaxPly))
+                    drawLine(
+                        color = currentPlyLineColor,
+                        start = Offset(x, 0f),
+                        end = Offset(x, h),
+                        strokeWidth = 1.dp.toPx(),
                     )
                 }
             }
