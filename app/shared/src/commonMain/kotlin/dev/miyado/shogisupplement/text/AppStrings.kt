@@ -227,6 +227,23 @@ object AppStrings {
     /** ゲームカードの敗北バッジ。 */
     const val GAME_RESULT_LOSS = "負け"
 
+    // ─── 棋譜一覧の絞り込み ────────────────────────────────────────────────
+
+    const val GAME_LIST_FILTER_SOURCE = "出典"
+    const val GAME_LIST_FILTER_SIDE = "先後"
+    const val PLAYER_SIDE_SENTE = "先手"
+    const val PLAYER_SIDE_GOTE = "後手"
+    const val GAME_LIST_FILTER_RESULT = "勝敗"
+    const val GAME_LIST_FILTER_PERIOD = "期間"
+    const val GAME_LIST_FILTER_SOURCE_OTHER = "その他"
+    const val GAME_LIST_FILTER_PERIOD_7D = "直近7日"
+    const val GAME_LIST_FILTER_PERIOD_30D = "直近30日"
+    /** 絞り込み解除ボタン（フィルタ適用中のみ表示）。 */
+    const val GAME_LIST_FILTER_CLEAR = "絞り込みを解除"
+    /** 絞り込み適用中の件数表示。全件と一致する場合は呼び出し側で使わない想定。 */
+    fun gameListFilteredCount(shown: Int, total: Int): String = "${shown} / ${total}件"
+    fun gameListTotalCount(total: Int): String = "${total}件"
+
     // ═══ 20. ドリル結果ビューア ══════════════════════════════════════════════
 
     /** ドリル結果 KifuLineViewer のタブ: ユーザーの手筋。 */
@@ -342,6 +359,14 @@ object AppStrings {
         "kiou" -> "棋桜"
         else -> null
     }
+
+    /**
+     * 出典フィルタチップ用のラベル。他の出典表示と異なり "other" にも専用のラベルを
+     * 割り当てる（フィルタチップは選択肢として常にラベルが要るため、
+     * フォールバック用途の表示関数とは別にする）。
+     */
+    fun sourceFilterLabel(sourcePlace: String): String =
+        sourcePlaceLabel(sourcePlace) ?: GAME_LIST_FILTER_SOURCE_OTHER
 
     /** ルールIDから表示名（warsRules / kiouRules から検索）。 */
     fun ruleLabel(serviceId: String, ruleId: String): String {
