@@ -1,9 +1,10 @@
 package dev.miyado.shogisupplement.ui
 
 import androidx.compose.material3.Surface
+import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
 import com.github.takahirom.roborazzi.RoborazziOptions
@@ -18,21 +19,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-/**
- * 棋譜一覧画面（絞り込み機能）の VRT（スクリーンショットテスト）。
- *
- * 検証観点:
- *   ①フィルタバー（出典・先後・勝敗・期間の各軸チップ）の初期表示
- *   ②チップ選択時の強調表示・件数表示の切り替え（N件 → M / N件）・解除ボタンの出現
- *   ③絞り込み結果0件でもクラッシュせずリストが空になる
- *   ④出典・先後・勝敗のデータが1件も無いゲーム群では該当軸のチップ自体を作らない
- *     （期間軸のみ表示される）
- *
- * フィルタ状態は GameListScreen 内部の remember state のため、テストからは
- * チップを直接タップできない代わりに、フィルタ選択済み画面を screenshotForOptions で
- * 再現するのではなく、実際にタップ操作を行った上でキャプチャする
- * （Roborazzi は Compose の状態変化後の再コンポジションをそのままキャプチャできるため）。
- */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(
@@ -50,6 +36,18 @@ class GameListScreenScreenshotTest {
         recordOptions = RoborazziOptions.RecordOptions(resizeScale = 0.5),
         compareOptions = RoborazziOptions.CompareOptions(changeThreshold = 0.01f),
     )
+
+    /**
+     * ModalBottomSheetは独自のPopupウィンドウ（別root）で描画されるため、シートが
+     * 開いている間は`onRoot()`（root=1件前提）が「2件見つかった」で失敗する。
+     * 最後に追加されたroot（＝シートが開いていればシート、閉じていればメイン画面）を
+     * 常に取得することで、シート開閉どちらの状態でも同じキャプチャ処理を使えるようにする。
+     */
+    private fun topRoot(): SemanticsNodeInteraction {
+        val allRoots = composeRule.onAllNodes(isRoot())
+        val count = allRoots.fetchSemanticsNodes().size
+        return allRoots[count - 1]
+    }
 
     private fun gamesWithFullData() = listOf(
         GameRecord(
@@ -110,11 +108,10 @@ class GameListScreenScreenshotTest {
         ),
     )
 
-    /** 初期表示: フィルタ未選択。出典・先後・勝敗・期間の全軸が表示され、件数は「N件」表記。 */
     @Test
-    fun gameList_noFilterActive() {
+    fun gameList_headerNoFilter() {
         captureRoboImage(
-            filePath = "src/test/snapshots/game_list_no_filter.png",
+            filePath = "src/test/snapshots/game_list_header_no_filter.png",
             roborazziOptions = roborazziOptions,
         ) {
             ShogiTheme {
@@ -129,26 +126,6 @@ class GameListScreenScreenshotTest {
         }
     }
 
-    /** 出典・先後・勝敗のデータが無いゲーム群: 期間軸のみ表示され、他軸のチップは作られない。 */
-    @Test
-    fun gameList_onlyPeriodAxisWhenNoOtherData() {
-        captureRoboImage(
-            filePath = "src/test/snapshots/game_list_only_period_axis.png",
-            roborazziOptions = roborazziOptions,
-        ) {
-            ShogiTheme {
-                Surface {
-                    GameListScreen(
-                        games = gamesWithoutSourceOrSideData(),
-                        onBack = {},
-                        onGameClick = {},
-                    )
-                }
-            }
-        }
-    }
-
-    /** ゲーム0件: フィルタバー自体を表示しない（データが無い状態でチップを出さない）。 */
     @Test
     fun gameList_emptyGames() {
         captureRoboImage(
@@ -167,14 +144,8 @@ class GameListScreenScreenshotTest {
         }
     }
 
-    /**
-     * 出典チップ「将棋ウォーズ」をタップした後: チップが強調表示され、件数が
-     * 「M / N件」表記に切り替わり、「絞り込みを解除」ボタンが現れ、非該当のゲームカードが消える。
-     * フィルタ状態は GameListScreen 内部の remember state のため、composeRule でタップしてから
-     * 同じコンポジションをキャプチャする（他の golden とは異なり performClick を経由する）。
-     */
     @Test
-    fun gameList_filterActive_sourceSelected() {
+    fun gameList_filterSheetOpen() {
         composeRule.setContent {
             ShogiTheme {
                 Surface {
@@ -186,10 +157,76 @@ class GameListScreenScreenshotTest {
                 }
             }
         }
+        composeRule.onNodeWithTag("filter_open_button").performClick()
+
+        topRoot().captureRoboImage(
+            filePath = "src/test/snapshots/game_list_filter_sheet_open.png",
+            roborazziOptions = roborazziOptions,
+        )
+    }
+
+    @Test
+    fun gameList_filterSheetChipSelected() {
+        composeRule.setContent {
+            ShogiTheme {
+                Surface {
+                    GameListScreen(
+                        games = gamesWithFullData(),
+                        onBack = {},
+                        onGameClick = {},
+                    )
+                }
+            }
+        }
+        composeRule.onNodeWithTag("filter_open_button").performClick()
         composeRule.onNodeWithTag("filter_chip_source_wars").performClick()
 
-        composeRule.onRoot().captureRoboImage(
-            filePath = "src/test/snapshots/game_list_filter_active.png",
+        topRoot().captureRoboImage(
+            filePath = "src/test/snapshots/game_list_filter_sheet_chip_selected.png",
+            roborazziOptions = roborazziOptions,
+        )
+    }
+
+    @Test
+    fun gameList_filterApplied() {
+        composeRule.setContent {
+            ShogiTheme {
+                Surface {
+                    GameListScreen(
+                        games = gamesWithFullData(),
+                        onBack = {},
+                        onGameClick = {},
+                    )
+                }
+            }
+        }
+        composeRule.onNodeWithTag("filter_open_button").performClick()
+        composeRule.onNodeWithTag("filter_chip_source_wars").performClick()
+        composeRule.onNodeWithTag("filter_apply_button").performClick()
+
+        topRoot().captureRoboImage(
+            filePath = "src/test/snapshots/game_list_filter_applied.png",
+            roborazziOptions = roborazziOptions,
+        )
+    }
+
+    @Test
+    fun gameList_filterSheetOnlyPeriodAxisWhenNoOtherData() {
+        composeRule.setContent {
+            ShogiTheme {
+                Surface {
+                    GameListScreen(
+                        games = gamesWithoutSourceOrSideData(),
+                        onBack = {},
+                        onGameClick = {},
+                    )
+                }
+            }
+        }
+        composeRule.onNodeWithTag("filter_open_button").performClick()
+
+        topRoot().captureRoboImage(
+            filePath = "src/test/snapshots/game_list_filter_sheet_only_period_axis.png",
             roborazziOptions = roborazziOptions,
         )
     }
