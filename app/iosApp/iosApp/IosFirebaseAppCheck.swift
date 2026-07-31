@@ -23,6 +23,19 @@ enum IosFirebaseAppCheck {
         }
 
         #if DEBUG
+        // Xcodeスキームの環境変数にしないのは、ホーム画面からの単体起動では効かないため。
+        // ソースへのハードコードにしないのは、公開リポジトリではトークン所持者が
+        // App Checkを素通りできてしまうため。ファイルが無いビルドはSDK既定の
+        // 端末生成トークンにフォールバックする（インストールごとに要再登録）。
+        if let url = Bundle.main.url(forResource: "AppCheckDebugToken", withExtension: "txt"),
+           let fixedToken = (try? String(contentsOf: url, encoding: .utf8))?
+               .trimmingCharacters(in: .whitespacesAndNewlines),
+           !fixedToken.isEmpty {
+            setenv("AppCheckDebugToken", fixedToken, 1)
+            // 環境変数はNSProcessInfoのスナップショットタイミング次第で読まれない
+            // 可能性が残るため、SDKの保存キーにも直接書いて確実にする。
+            UserDefaults.standard.set(fixedToken, forKey: "FIRAAppCheckDebugToken")
+        }
         let providerFactory: AppCheckProviderFactory = AppCheckDebugProviderFactory()
         #else
         let providerFactory: AppCheckProviderFactory = AppAttestProviderFactory()
