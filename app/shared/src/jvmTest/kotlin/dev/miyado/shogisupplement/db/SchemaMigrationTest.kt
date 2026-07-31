@@ -11,14 +11,17 @@ import kotlin.test.assertEquals
 /**
  * SQLDelight正式マイグレーション（1.sqm）の単体テスト。
  *
- * second_usi列追加前の実DB（TestFlight初回配布分等。version=1）を手動DDLで再現し、
+ * 実DB（TestFlight初回配布分等。version=1）を手動DDLで再現し、
  * Schema.migrate(driver, 1, 2) 適用後にGameRepositoryの公開APIでINSERT/SELECTの
  * 往復が成功することを確認する（スキーマ構造の一致は別途機械検証されるため、
  * ここでは「実際にmigrateを呼んだときアプリの実利用経路が壊れないか」を確認する）。
+ *
+ * v1のblunder_reportは既にsecond_usi/second_cpを持つ一方、position_evalのみが
+ * 移行対象という非対称な状態がある。これを正確に再現しないと、テストが実機と
+ * 異なる前提で「たまたま成功する」だけの検証になってしまう。
  */
 class SchemaMigrationTest {
 
-    /** version=1（second_usi列追加前）のDDL。game/blunder_report/position_evalのみ。 */
     private fun createV1Schema(driver: JdbcSqliteDriver) {
         driver.execute(
             null,
@@ -73,6 +76,7 @@ class SchemaMigrationTest {
                 punish_pv TEXT,
                 cp_before INTEGER,
                 cp_after INTEGER,
+                second_usi TEXT,
                 second_cp INTEGER
             )
             """.trimIndent(),

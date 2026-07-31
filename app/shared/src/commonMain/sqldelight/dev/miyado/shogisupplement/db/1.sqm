@@ -1,3 +1,1 @@
 ALTER TABLE position_eval ADD COLUMN second_usi TEXT;
-
-ALTER TABLE blunder_report ADD COLUMN second_usi TEXT;

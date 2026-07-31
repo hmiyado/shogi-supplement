@@ -43,12 +43,12 @@ CREATE TABLE blunder_report (
     punish_pv TEXT,
     cp_before INTEGER,
     cp_after INTEGER,
-    -- second_cp/second_usi: 出題局面（sfen_before）の pv2（次善手）の評価値・指し手
+    -- second_usi/second_cp: 出題局面（sfen_before）の pv2（次善手）の指し手・評価値
     -- （手番側視点 cp。cp_before と同じ toCp 正規化）。ドリルの一次判定（端末内・保存済み
     -- データのみでの正誤判定）に使う。旧解析（MultiPV=2導入前）のレコードは両方 NULL のため、
     -- DrillJudge は一次判定をスキップして二次判定（エンジン）へ流す。
-    second_cp INTEGER,
-    second_usi TEXT
+    second_usi TEXT,
+    second_cp INTEGER
 );
 
 CREATE TABLE user_settings (
@@ -95,7 +95,7 @@ resetAllUploadedAt:
 UPDATE game SET uploaded_at = NULL;
 
 insertBlunderReport:
-INSERT INTO blunder_report (game_id, ply, side, move_usi, best_usi, loss_wp, sfen_before, category, diff_material, punish_checks, took_moved_piece, missed_mate_in, verdict, note, problem_type, priority, best_pv, punish_pv, cp_before, cp_after, second_cp, second_usi)
+INSERT INTO blunder_report (game_id, ply, side, move_usi, best_usi, loss_wp, sfen_before, category, diff_material, punish_checks, took_moved_piece, missed_mate_in, verdict, note, problem_type, priority, best_pv, punish_pv, cp_before, cp_after, second_usi, second_cp)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 getBlundersByGameId:
