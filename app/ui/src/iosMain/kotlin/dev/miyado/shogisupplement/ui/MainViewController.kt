@@ -851,6 +851,7 @@ private fun IosSettingsScreenHost(
         onOpenHelp = { openUrl(IOS_HELP_URL) },
         onOpenFeedback = { openUrl(IOS_FEEDBACK_URL) },
         onOpenTerms = { openUrl(IOS_TERMS_URL) },
+        onOpenReleaseNotes = { openUrl(IOS_RELEASE_NOTES_URL) },
         onOpenLicenses = onOpenLicenses,
         // onOpenDebug: iOSにDEBUGビルド用デバッグ画面がまだ無いため常に null（非表示）。
         onOpenDebug = null,
@@ -917,6 +918,7 @@ private const val IOS_TERMS_URL = "https://shogi-supplement.miyado.dev/terms.htm
 private const val IOS_FEEDBACK_URL = "https://x.com/shogisupplement"
 private const val IOS_HELP_URL = "https://shogi-supplement.miyado.dev/help.html"
 private const val IOS_HELP_STRENGTH_URL = "$IOS_HELP_URL#strength"
+private const val IOS_RELEASE_NOTES_URL = "https://shogi-supplement.miyado.dev/release-notes.html"
 // LicenseInfoScreen の表示テキスト（AppStrings.LICENSE_SOURCE_URL）と同じ値。
 // 実際に開くURLはプラットフォーム側のこの定数を使う（TERMS/FEEDBACKと同じ複製パターン）。
 private const val IOS_SOURCE_REPO_URL = "https://github.com/hmiyado/shogi-supplement"

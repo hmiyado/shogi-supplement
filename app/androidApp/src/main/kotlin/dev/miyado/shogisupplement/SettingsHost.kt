@@ -45,6 +45,11 @@ fun SettingsHost(vm: MainViewModel, onOpenRatingSettings: () -> Unit) {
                 Intent(Intent.ACTION_VIEW, Uri.parse(LegalLinks.TERMS_URL)),
             )
         },
+        onOpenReleaseNotes = {
+            context.startActivity(
+                Intent(Intent.ACTION_VIEW, Uri.parse(LegalLinks.RELEASE_NOTES_URL)),
+            )
+        },
         onOpenLicenses = { vm.openLicenses() },
         // DEBUG ビルドのみデバッグセクションを設定画面最下部に表示
         onOpenDebug = if (BuildConfig.DEBUG) { { vm.openDebug() } } else null,

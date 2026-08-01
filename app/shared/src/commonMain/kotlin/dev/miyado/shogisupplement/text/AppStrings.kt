@@ -409,6 +409,7 @@ object AppStrings {
     const val SETTINGS_ROW_HELP = "ヘルプ"
     const val SETTINGS_ROW_FEEDBACK = "フィードバック（X）"
     const val SETTINGS_ROW_TERMS = "利用規約・プライバシーポリシー"
+    const val SETTINGS_ROW_RELEASE_NOTES = "リリースノート"
     const val SETTINGS_ROW_LICENSES = "オープンソースライセンス"
     const val SETTINGS_ROW_VERSION = "バージョン"
 

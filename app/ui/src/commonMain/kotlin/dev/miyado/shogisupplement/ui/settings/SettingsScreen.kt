@@ -74,6 +74,7 @@ fun SettingsScreen(
     onOpenHelp: () -> Unit,
     onOpenFeedback: () -> Unit,
     onOpenTerms: () -> Unit,
+    onOpenReleaseNotes: () -> Unit,
     onOpenLicenses: () -> Unit,
     /** DEBUG ビルドのみ非 null。null のときデバッグセクションは非表示。 */
     onOpenDebug: (() -> Unit)? = null,
@@ -202,6 +203,10 @@ fun SettingsScreen(
             SettingsRow(
                 label = AppStrings.SETTINGS_ROW_TERMS,
                 onClick = onOpenTerms,
+            )
+            SettingsRow(
+                label = AppStrings.SETTINGS_ROW_RELEASE_NOTES,
+                onClick = onOpenReleaseNotes,
             )
             SettingsRow(
                 label = AppStrings.SETTINGS_ROW_LICENSES,
@@ -387,6 +392,7 @@ private fun PreviewSettingsScreen() {
                 onOpenHelp = {},
                 onOpenFeedback = {},
                 onOpenTerms = {},
+                onOpenReleaseNotes = {},
                 onOpenLicenses = {},
             )
         }
@@ -410,6 +416,7 @@ private fun PreviewSettingsScreenDark() {
                 onOpenHelp = {},
                 onOpenFeedback = {},
                 onOpenTerms = {},
+                onOpenReleaseNotes = {},
                 onOpenLicenses = {},
             )
         }
