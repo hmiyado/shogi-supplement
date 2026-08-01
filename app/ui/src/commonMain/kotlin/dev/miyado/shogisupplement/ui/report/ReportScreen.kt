@@ -922,6 +922,15 @@ fun ReportScreen(
                                             }
                                         }
                                     },
+                                    // ドラッグ（スクラバー操作）は現在手を連続的に動かすだけで、
+                                    // タップと違い一覧への切替は発火させない（実機指示: マーカー上を
+                                    // ドラッグで通過・終了しても一覧に切り替わってほしくない）。
+                                    onPlyDragged = { ply ->
+                                        if (studyState == null) {
+                                            viewerMode = ViewerMode.MAINLINE
+                                            plyIndex = ply
+                                        }
+                                    },
                                 )
                             }
                             BlunderSummaryCard(

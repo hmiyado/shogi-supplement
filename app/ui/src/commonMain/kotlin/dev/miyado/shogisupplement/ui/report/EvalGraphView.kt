@@ -1,6 +1,7 @@
 package dev.miyado.shogisupplement.ui.report
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.db.PositionEvalRow
 import dev.miyado.shogisupplement.text.AppStrings
@@ -55,6 +57,21 @@ fun buildEvalGraphPoints(positionEvals: List<PositionEvalRow>, userIsGote: Boole
         }
 
 /**
+ * グラフ上のx座標（Canvas内のローカル座標・px）を ply に変換する。
+ * タップ・ドラッグ双方のポインタ処理で共有する。
+ * Composeに依存しない純粋関数のためユニットテスト可能。
+ *
+ * @param x タップ/ドラッグ位置のx座標（px）
+ * @param widthPx Canvasの幅（px）。0以下なら常に0を返す
+ * @param effectiveMaxPly 横軸の最大ply（呼び出し側のグラフ描画で使っている値と同じものを渡すこと）
+ */
+fun plyFromX(x: Float, widthPx: Int, effectiveMaxPly: Int): Int {
+    if (widthPx <= 0) return 0
+    val ratio = (x / widthPx).coerceIn(0f, 1f)
+    return (ratio * effectiveMaxPly).roundToInt().coerceIn(0, effectiveMaxPly)
+}
+
+/**
  * 評価値グラフカード（手数×評価値の折れ線。悪手位置にマーカー表示）。
  *
  * 色は意味の三色体系を厳守する: loss（朱）は「悪手・損失専用」のため、
@@ -66,7 +83,12 @@ fun buildEvalGraphPoints(positionEvals: List<PositionEvalRow>, userIsGote: Boole
  * @param blunderPlies 悪手マーカーを打つ ply の集合（position_eval に対応データがない ply は無視）
  * @param currentPly ビューア（ナビ行）が現在表示している ply。null なら現在手ラインを描かない
  *   （検討モード等、本譜の ply と対応が取れない状態を表す）
- * @param onPlyTapped タップした位置に最も近い ply。呼び出し側でナビゲーション（該当手へジャンプ）に使う
+ * @param onPlyTapped タップした位置に最も近い ply。呼び出し側でナビゲーション（該当手へジャンプ）・
+ *   悪手マーカーなら一覧への切替に使う
+ * @param onPlyDragged 横方向ドラッグ中（指を離すまでの全サンプル）に呼ばれる、現在の指位置に
+ *   対応する ply（スクラバー操作）。呼び出し側はタップと違い一覧への切替を発火させないこと
+ *   （このカード自身はタップ/ドラッグの種別を渡すだけで、悪手一覧への切替可否の判断は
+ *   呼び出し側の責務）。
  */
 @Composable
 fun EvalGraphCard(
@@ -76,6 +98,7 @@ fun EvalGraphCard(
     currentPly: Int? = null,
     modifier: Modifier = Modifier,
     onPlyTapped: (Int) -> Unit = {},
+    onPlyDragged: (Int) -> Unit = {},
 ) {
     if (points.isEmpty()) return
     val shogiColors = MaterialTheme.shogiColors
@@ -102,12 +125,42 @@ fun EvalGraphCard(
                     .fillMaxWidth()
                     .height(96.dp)
                     .padding(top = 8.dp)
+                    .testTag("eval_graph_canvas")
+                    // タップとドラッグを2つの pointerInput に分けて検出する（Compose の定石。
+                    // detectDragGestures はタッチスロップを越えて初めて onDragStart を発火し
+                    // その後の change を consume するため、スロップ未満で指を離す＝タップは
+                    // こちらに一切反応せず、隣の detectTapGestures 側にそのまま拾われる。
+                    // Why not 1つの pointerInput にまとめる: detectDragGestures と
+                    // detectTapGestures は排他のジェスチャー検出器で片方しか awaitPointerEventScope
+                    // を占有できないため、タップ専用/ドラッグ専用で分離するのが標準的な組み方）。
                     .pointerInput(effectiveMaxPly) {
                         detectTapGestures { offset: Offset ->
-                            val ratio = (offset.x / size.width).coerceIn(0f, 1f)
-                            val ply = (ratio * effectiveMaxPly).roundToInt().coerceIn(0, effectiveMaxPly)
-                            onPlyTapped(ply)
+                            onPlyTapped(plyFromX(offset.x, size.width, effectiveMaxPly))
                         }
+                    }
+                    .pointerInput(effectiveMaxPly) {
+                        // 連続更新の間引き: 生のポインタサンプル毎ではなく、算出した ply が
+                        // 前回から実際に変わったときだけ onPlyDragged を呼ぶ（ply の解像度は
+                        // 通常ワイド全体で高々数百程度なので、指の微小な揺れでの無駄な
+                        // 再コンポーズ・SFEN再計算を避けられる。数百手規模の対局でも
+                        // 1回あたりの計算量は軽いため、これに加えた時間ベースの間引き
+                        // （フレーム制限等）までは導入していない）。
+                        var lastReportedPly: Int? = null
+                        detectDragGestures(
+                            onDragStart = { offset ->
+                                val ply = plyFromX(offset.x, size.width, effectiveMaxPly)
+                                lastReportedPly = ply
+                                onPlyDragged(ply)
+                            },
+                            onDrag = { change, _ ->
+                                change.consume()
+                                val ply = plyFromX(change.position.x, size.width, effectiveMaxPly)
+                                if (ply != lastReportedPly) {
+                                    lastReportedPly = ply
+                                    onPlyDragged(ply)
+                                }
+                            },
+                        )
                     },
             ) {
                 val w = size.width
