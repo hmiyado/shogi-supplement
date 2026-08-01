@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>リリースノート — 将棋サプリ</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+      font-size: 16px;
+      line-height: 1.7;
+      color: #222;
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 1.5rem 1rem 4rem;
+    }
+    h1 {
+      font-size: 1.4rem;
+      border-bottom: 2px solid #ddd;
+      padding-bottom: 0.4rem;
+    }
+    h2 {
+      font-size: 1.15rem;
+      margin-top: 2.5rem;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 0.25rem;
+    }
+    p { margin: 0.6rem 0; }
+    ol, ul { margin: 0.6rem 0; padding-left: 1.6rem; }
+    li { margin: 0.4rem 0; }
+    strong { font-weight: bold; }
+    .meta { font-size: 0.85rem; color: #666; margin-bottom: 2rem; }
+    .version-date { font-size: 0.85rem; color: #666; font-weight: normal; }
+    .footer-links { font-size: 0.9rem; color: #666; margin-top: 3rem; }
+  </style>
+</head>
+<body>
+
+<h1>リリースノート — 将棋サプリ</h1>
+<p class="meta">最終更新日: 2026-07-31</p>
+
+<h2>1.0 <span class="version-date">— 2026-07-31</span></h2>
+<p>最初のリリースです。主な機能は次のとおりです。</p>
+<ul>
+  <li><strong>棋譜解析レポート</strong>: KIFファイル（将棋ウォーズ・lishogi等のコピーを含む）を
+    取り込むと、端末内の将棋エンジン（やねうら王＋Háo評価関数）が全局面を解析します。
+    対局ごとのレポートには、実戦の手・最善手・形勢の変化に加え、同じ棋力帯での
+    発生頻度を表示する悪手カードが並びます。盤面では本譜と最善の変化を再生でき、
+    任意の局面から先後どちらも指して検討できます。</li>
+  <li><strong>悪手ドリル</strong>: 検出した悪手を性質で分類し、あなたの棋力帯で標準的に
+    起きるミスだけを「今日の1問」として出題します。正解・不正解はエンジン評価で
+    判定されます。</li>
+  <li><strong>推定棋力（偏差値）</strong>: 実測の悪手率から強さを推定し、研究データの
+    対局者集団の中での相対位置を偏差値で表示します。各サービスの公式レートや
+    申告棋力とは独立した指標です。</li>
+  <li><strong>サーバー解析</strong>: データ提供に同意すると、匿名アカウントでの
+    棋譜アップロードとサーバー側解析に対応します。提供は任意で、いつでも
+    データごと削除できます。</li>
+</ul>
+
+<p class="footer-links">
+  <a href="./help.html">ヘルプ</a> ／
+  <a href="./terms.html">利用規約・プライバシーポリシー</a>
+</p>
+
+</body>
+</html>
