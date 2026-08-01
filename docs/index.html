@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>将棋サプリ — 根拠で語る、棋譜の学習</title>
+<meta name="description" content="実戦の棋譜を解析し、あなたの棋力帯で本当に消すべき悪手だけをデータで示す学習アプリ「将棋サプリ」。">
+<link rel="icon" href="assets/app-icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="assets/lp.css">
+</head>
+<body>
+<main class="lp-main">
+
+  <header class="hero">
+    <div class="hero-icon-wrap">
+      <img class="hero-icon" src="assets/app-icon.svg" alt="" width="92" height="114">
+    </div>
+    <h1>将棋サプリ</h1>
+    <p class="subtitle">根拠で語る、棋譜の学習</p>
+    <p class="lead prose centered">
+      実戦の棋譜を解析し、あなたの棋力帯で本当に消すべき悪手だけを、データに基づいて示します。
+      派手な演出ではなく、悪手率の推移という数字そのものが上達の手応えになるように作っています。
+    </p>
+    <div class="button-row">
+      <a class="btn btn-primary btn-lg" href="./kento.html">棋譜を検討する</a>
+    </div>
+    <p class="note">アカウント登録なし・ブラウザだけで今すぐ試せます</p>
+
+    <div class="instrument" aria-hidden="true">
+      <div class="instrument-chrome"><span></span><span></span><span></span></div>
+      <div class="instrument-stats">
+        <div class="stat-tile">
+          <span class="stat-value">91</span>
+          <span class="stat-label">解析局面</span>
+        </div>
+        <div class="stat-tile is-loss">
+          <span class="stat-value">3</span>
+          <span class="stat-label">悪手</span>
+        </div>
+        <div class="stat-tile is-primary">
+          <span class="stat-value">58</span>
+          <span class="stat-label">推定棋力</span>
+        </div>
+      </div>
+      <svg class="instrument-chart" viewBox="0 0 320 90" role="img" aria-label="評価値推移のイメージ図(様式化したもの・実データではありません)">
+        <line class="chart-zero" x1="0" y1="45" x2="320" y2="45"/>
+        <path class="chart-line" d="M0,48 L32,42 L64,50 L96,30 L128,58 L160,25 L192,62 L224,20 L256,55 L288,38 L320,28"/>
+        <circle class="chart-dot" cx="0" cy="48" r="2.5"/>
+        <circle class="chart-dot" cx="32" cy="42" r="2.5"/>
+        <circle class="chart-dot" cx="64" cy="50" r="2.5"/>
+        <circle class="chart-dot" cx="96" cy="30" r="2.5"/>
+        <circle class="chart-dot-loss" cx="128" cy="58" r="4.5"/>
+        <circle class="chart-dot" cx="160" cy="25" r="2.5"/>
+        <circle class="chart-dot-loss" cx="192" cy="62" r="4.5"/>
+        <circle class="chart-dot" cx="224" cy="20" r="2.5"/>
+        <circle class="chart-dot" cx="256" cy="55" r="2.5"/>
+        <circle class="chart-dot" cx="288" cy="38" r="2.5"/>
+        <circle class="chart-dot" cx="320" cy="28" r="2.5"/>
+      </svg>
+      <p class="instrument-caption">評価値の推移と悪手のイメージ(様式化した図)</p>
+    </div>
+  </header>
+
+  <section>
+    <h2 class="prose centered" style="margin-left:auto;margin-right:auto;">主な機能</h2>
+    <div class="feature-grid">
+      <article class="feature-card">
+        <svg class="feature-icon" viewBox="0 0 40 40" aria-hidden="true">
+          <rect x="3" y="3" width="34" height="34" rx="6" class="icon-frame"/>
+          <path d="M8,27 L15,20 L20,25 L26,14 L32,19" class="icon-line-primary"/>
+          <circle cx="26" cy="14" r="2.6" class="icon-dot-loss"/>
+        </svg>
+        <h3>棋譜解析レポート</h3>
+        <p>KIFファイル（将棋ウォーズ・lishogi等のコピーを含む）を取り込むと、端末内の将棋エンジンが
+          全局面を解析。実戦の手・最善手・形勢の変化に加え、同じ棋力帯での発生頻度を表示する
+          悪手カードが並びます。</p>
+      </article>
+      <article class="feature-card">
+        <svg class="feature-icon" viewBox="0 0 40 40" aria-hidden="true">
+          <rect x="6" y="9" width="24" height="17" rx="3" class="icon-frame"/>
+          <rect x="10" y="5" width="24" height="17" rx="3" class="icon-frame-soft"/>
+          <path d="M17,13.5 L21,13.5 M17,17.5 L27,17.5" class="icon-line-thin"/>
+        </svg>
+        <h3>悪手ドリル</h3>
+        <p>検出した悪手を性質で分類し、あなたの棋力帯で標準的に起きるミスだけを「今日の1問」として
+          出題します。正解・不正解はエンジン評価で判定されます。</p>
+      </article>
+      <article class="feature-card">
+        <svg class="feature-icon" viewBox="0 0 40 40" aria-hidden="true">
+          <rect x="7" y="24" width="6" height="10" rx="1.5" class="icon-bar"/>
+          <rect x="17" y="16" width="6" height="18" rx="1.5" class="icon-bar"/>
+          <rect x="27" y="7" width="6" height="27" rx="1.5" class="icon-bar-accent"/>
+        </svg>
+        <h3>推定棋力（偏差値）</h3>
+        <p>実測の悪手率から強さを推定し、研究データの対局者集団の中での相対位置を偏差値で表示。
+          各サービスの公式レートや申告棋力とは独立した指標です。</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="cta-section">
+    <h2>棋譜を検討する</h2>
+    <p class="prose centered" style="margin-left:auto;margin-right:auto;">
+      アカウント登録なしで、棋譜の解析をブラウザだけで試せます。内蔵の将棋エンジンが
+      その場で全局面を解析し、評価値の推移と大きく損した手をグラフと一覧で確認できます。
+    </p>
+    <div class="button-row">
+      <a class="btn btn-primary btn-lg" href="./kento.html">棋譜を検討する</a>
+    </div>
+    <p class="note">解析はお使いの端末内で完結します。棋譜が外部に送信されることはありません。</p>
+  </section>
+
+  <section>
+    <h2>このアプリについて</h2>
+    <p>
+      本アプリはオープンソース（GPLv3）で開発されており、ソースコードは
+      <a href="https://github.com/hmiyado/shogi-supplement">GitHub</a>で公開しています。
+      不具合報告・ご要望は X（<a href="https://x.com/shogisupplement">@shogisupplement</a>）へ
+      お寄せください。
+    </p>
+  </section>
+
+  <p class="footer-nav">
+    <a href="./help.html">ヘルプ</a>
+    <a href="./terms.html">利用規約・プライバシーポリシー</a>
+    <a href="./release-notes.html">リリースノート</a>
+  </p>
+</main>
+</body>
+</html>

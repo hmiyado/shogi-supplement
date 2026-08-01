@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="33 28 42 52" role="img" aria-label="将棋サプリのアプリアイコン(駒型の二色カプセル)">
+  <!-- app/androidApp/src/main/res/drawable/ic_launcher_foreground.xml のパス定義をそのまま
+       再構成(座標・色は変更していない)。viewBoxのみ駒が収まる範囲(strokeWidth込み)へトリム。
+       上=紺青#3A4B7C／下=卵黄#EEDD77／輪郭=墨#211E1A。 -->
+  <path
+    d="M54,30 L67.9,36.7 L70.5,55.5 L37.5,55.5 L40.1,36.7 Z"
+    fill="#3A4B7C"
+    stroke="#211E1A"
+    stroke-width="2"
+    stroke-linejoin="round"/>
+  <path
+    d="M37.5,55.5 L70.5,55.5 L72.75,78 L35.25,78 Z"
+    fill="#EEDD77"
+    stroke="#211E1A"
+    stroke-width="2"
+    stroke-linejoin="round"/>
+</svg>

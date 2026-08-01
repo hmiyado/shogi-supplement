@@ -1,0 +1,257 @@
+/* ランディングページ(docs/index.html)専用のスタイル。トークン・書体・基本要素は
+   docs/assets/style.css を前提にする(このファイルは差分のみ・kento.html等の他ページには
+   読み込まない)。
+   DESIGN.mdのアンチパターン厳守: グラデーション・紙吹雪・バッジ/レベル等の
+   ゲーミフィケーション記号・過剰な角丸・お祝い演出は使わない。色は三色体系＋無彩色のみ。 */
+
+main.lp-main {
+  max-width: 980px;
+}
+
+/* 本文だけは読みやすい行長に収める(見出し・カード類はmain幅いっぱいを使う) */
+.prose {
+  max-width: 640px;
+}
+.prose.centered {
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
+}
+
+/* --- ヒーロー --- */
+.hero {
+  text-align: center;
+  padding: 12px 0 8px;
+}
+
+.hero-icon-wrap {
+  position: relative;
+  width: 148px;
+  height: 148px;
+  margin: 0 auto 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 座布団(卵黄面)。円やバッジではなく、わずかに傾けた角丸の面にすることで
+   「今日の1問」の座布団と同じ語彙(highlight-soft)を使いつつ祝祭記号にしない。 */
+.hero-icon-wrap::before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  background: var(--highlight-soft);
+  border-radius: 22px;
+  transform: rotate(-4deg);
+}
+
+.hero-icon {
+  position: relative;
+  width: 92px;
+  height: auto;
+  display: block;
+}
+
+.hero h1 {
+  font-size: clamp(34px, 6vw, 52px);
+  margin-bottom: 8px;
+}
+
+.hero .subtitle {
+  font-size: clamp(16px, 2.4vw, 20px);
+  margin-bottom: 20px;
+}
+
+.hero .lead {
+  margin-left: auto;
+  margin-right: auto;
+  margin-bottom: 28px;
+}
+
+.hero .button-row {
+  justify-content: center;
+  margin-bottom: 10px;
+}
+
+.btn-lg {
+  font-size: 16px;
+  padding: 15px 34px;
+}
+
+.hero .note {
+  max-width: 480px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* --- 計器盤モチーフ(様式化したミニモック。実スクリーンショットは使わない) --- */
+.instrument {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 20px 20px 16px;
+  margin: 40px auto 0;
+  max-width: 640px;
+}
+
+.instrument-chrome {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.instrument-chrome span {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+.instrument-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.stat-tile {
+  background: var(--surface2);
+  border-radius: 8px;
+  padding: 10px 8px;
+  text-align: center;
+}
+.stat-tile .stat-value {
+  display: block;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: 22px;
+  line-height: 1.2;
+  color: var(--ink);
+}
+.stat-tile.is-loss .stat-value { color: var(--loss); }
+.stat-tile.is-primary .stat-value { color: var(--primary); }
+.stat-tile .stat-label {
+  display: block;
+  font-size: 11px;
+  color: var(--ink3);
+  margin-top: 2px;
+}
+
+.instrument-chart {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.instrument-chart .chart-zero { stroke: var(--line); stroke-width: 1; }
+.instrument-chart .chart-line { fill: none; stroke: var(--primary); stroke-width: 2; }
+.instrument-chart .chart-dot { fill: var(--primary); }
+.instrument-chart .chart-dot-loss { fill: var(--loss); }
+.instrument-caption {
+  font-size: 11px;
+  color: var(--ink3);
+  text-align: center;
+  margin: 10px 0 0;
+}
+
+/* --- 機能カード --- */
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.feature-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 22px 18px;
+}
+
+.feature-icon {
+  width: 40px;
+  height: 40px;
+  margin-bottom: 14px;
+}
+/* 機能カードのアイコンは三色体系(紺青/朱/卵黄)＋無彩色のみのシンプルな線画。
+   バッジ/トロフィー等のゲーミフィケーション記号にならないよう、幾何形と
+   評価値グラフのモチーフ(折れ線・棒)に留める。 */
+.feature-icon .icon-frame {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 1.5;
+}
+.feature-icon .icon-frame-soft {
+  fill: var(--highlight-soft);
+  stroke: var(--line);
+  stroke-width: 1.5;
+}
+.feature-icon .icon-line-primary {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 2.2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.feature-icon .icon-line-thin {
+  stroke: var(--ink3);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+.feature-icon .icon-dot-loss {
+  fill: var(--loss);
+}
+.feature-icon .icon-bar {
+  fill: var(--primary-soft);
+  stroke: var(--primary);
+  stroke-width: 1.5;
+}
+.feature-icon .icon-bar-accent {
+  fill: var(--primary);
+  stroke: var(--primary);
+  stroke-width: 1.5;
+}
+
+.feature-card h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 17px;
+  margin: 0 0 8px;
+}
+
+.feature-card p {
+  font-size: 13.5px;
+  color: var(--ink2);
+  margin: 0;
+}
+
+/* --- CTAセクション(下部の再掲) --- */
+.cta-section {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 32px 24px;
+  text-align: center;
+  margin-top: 8px;
+}
+.cta-section h2 {
+  margin-top: 0;
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.cta-section .button-row {
+  justify-content: center;
+  margin: 18px 0 8px;
+}
+
+@media (max-width: 720px) {
+  .feature-grid {
+    grid-template-columns: 1fr;
+  }
+  .instrument-stats {
+    gap: 8px;
+  }
+  .stat-tile .stat-value {
+    font-size: 18px;
+  }
+}
