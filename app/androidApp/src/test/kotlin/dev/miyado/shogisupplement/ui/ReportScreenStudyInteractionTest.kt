@@ -91,7 +91,7 @@ class ReportScreenStudyInteractionTest {
                         onBack = {},
                         studyState = getState(),
                         initialPlyIndex = initialPlyIndex,
-                        onStartStudy = { baseSfen, flip, bestPv, ply, idx, absPly, sq, pieceType ->
+                        onStartStudy = { baseSfen, flip, bestPv, ply, idx, absPly, origin, sq, pieceType ->
                             val board = ShogiBoard.fromSfen(baseSfen)
                             setState(
                                 buildInitialStudyState(
@@ -101,6 +101,7 @@ class ReportScreenStudyInteractionTest {
                                     originPlyIndex = ply,
                                     originSelectedIdx = idx,
                                     originAbsolutePly = absPly,
+                                    origin = origin,
                                     tappedSquare = sq,
                                     tappedHandPieceType = pieceType,
                                     board = board,
@@ -130,8 +131,8 @@ class ReportScreenStudyInteractionTest {
             "選択駒の合法手（７六）が legalDestinations に入ること",
             ShogiSquare(7, 6) in s.legalDestinations,
         )
-        // UI 反映: 検討中バナー（開始局面から・▲番）が表示される
-        composeRule.onNodeWithText(AppStrings.studyBanner(0, senteToMove = true))
+        // UI 反映: 検討ナビ行が「検討開始局面」を表示する
+        composeRule.onNodeWithText(AppStrings.STUDY_START_POSITION)
             .assertIsDisplayed()
     }
 

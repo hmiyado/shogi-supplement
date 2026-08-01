@@ -579,7 +579,6 @@ object AppStrings {
 
     // ═══ 35. 検討パネル（グラフ＋サマリー領域の排他表示・分岐チップ列）══════════════
 
-    /** 検討パネルの見出し（Shippori Mincho・primary）。 */
     const val STUDY_PANEL_TITLE = "検討中"
 
     /** 分岐元行。label = 分岐元の手＋形勢（例:「42手目 ▲３四飛（−320）」）。 */

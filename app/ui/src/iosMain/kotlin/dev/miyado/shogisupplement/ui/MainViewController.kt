@@ -700,10 +700,10 @@ private fun IosReportScreenHost(
             }
         },
         studyState = studyState,
-        onStartStudy = { baseSfen, sFlip, originIsBestPv, originPlyIndex, originSelectedIdx, originAbsolutePly, tappedSquare, tappedHandPieceType ->
+        onStartStudy = { baseSfen, sFlip, originIsBestPv, originPlyIndex, originSelectedIdx, originAbsolutePly, origin, tappedSquare, tappedHandPieceType ->
             controller.startStudy(
                 baseSfen, sFlip, originIsBestPv, originPlyIndex,
-                originSelectedIdx, originAbsolutePly, tappedSquare, tappedHandPieceType,
+                originSelectedIdx, originAbsolutePly, origin, tappedSquare, tappedHandPieceType,
             )
         },
         onStudySquareTapped = { sq -> controller.onStudySquareTapped(sq) },
@@ -712,6 +712,11 @@ private fun IosReportScreenHost(
         onStudyStepBack = { controller.studyStepBack() },
         onStudyResetToStart = { controller.studyResetToStart() },
         onStudyEnd = { controller.endStudy() },
+        onStudyChipTapped = { depth -> controller.onStudyChipTapped(depth) },
+        onStudyBranchChipTapped = { depth -> controller.onStudyBranchChipTapped(depth) },
+        onStudyBranchPopupDismiss = { controller.onStudyBranchPopupDismiss() },
+        onStudyBranchOptionSelected = { depth, moveUsi -> controller.onStudyBranchOptionSelected(depth, moveUsi) },
+        onStudyAnalyze = { controller.onStudyAnalyze() },
         // KIFコピー（トップバー⧉アイコン）。iOSはクリップボードへ直接書き込む
         // （Android版 ReportHost.kt の ClipboardManager 相当・snackbar表示は ReportScreen 側）。
         onCopyKif = { kifText -> UIPasteboard.generalPasteboard.string = kifText },

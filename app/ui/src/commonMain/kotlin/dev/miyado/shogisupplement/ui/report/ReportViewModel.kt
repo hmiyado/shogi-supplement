@@ -148,10 +148,11 @@ class ReportViewModel(
         originPlyIndex: Int,
         originSelectedIdx: Int?,
         originAbsolutePly: Int,
+        origin: StudyOrigin,
         tappedSquare: ShogiSquare? = null,
         tappedHandPieceType: PieceType? = null,
     ) = studyController.startStudy(
-        baseSfen, flip, originIsBestPv, originPlyIndex, originSelectedIdx, originAbsolutePly,
+        baseSfen, flip, originIsBestPv, originPlyIndex, originSelectedIdx, originAbsolutePly, origin,
         tappedSquare, tappedHandPieceType,
     )
 
@@ -161,6 +162,11 @@ class ReportViewModel(
     fun studyStepBack() = studyController.studyStepBack()
     fun studyResetToStart() = studyController.studyResetToStart()
     fun endStudy() = studyController.endStudy()
+    fun onStudyChipTapped(depth: Int) = studyController.onChipTapped(depth)
+    fun onStudyBranchChipTapped(depth: Int) = studyController.onBranchChipTapped(depth)
+    fun onStudyBranchPopupDismiss() = studyController.onBranchPopupDismiss()
+    fun onStudyBranchOptionSelected(depth: Int, moveUsi: String) = studyController.onBranchOptionSelected(depth, moveUsi)
+    fun onStudyAnalyze() = studyController.analyzeCurrentPosition()
 
     /** リーク厳禁: 呼び出し元（MainViewModel）の onCleared 相当のタイミングで呼ぶこと。 */
     fun dispose() {

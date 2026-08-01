@@ -43,10 +43,10 @@ fun ReportHost(vm: MainViewModel, state: MainUiState.ShowReport) {
             vm.extendBestPv(blunderId, sfenAtEnd, currentPv)
         },
         studyState = studyState,
-        onStartStudy = { baseSfen, flip, originIsBestPv, originPlyIndex, originSelectedIdx, originAbsolutePly, tappedSquare, tappedHandPieceType ->
+        onStartStudy = { baseSfen, flip, originIsBestPv, originPlyIndex, originSelectedIdx, originAbsolutePly, origin, tappedSquare, tappedHandPieceType ->
             vm.startStudy(
                 baseSfen, flip, originIsBestPv, originPlyIndex,
-                originSelectedIdx, originAbsolutePly, tappedSquare, tappedHandPieceType,
+                originSelectedIdx, originAbsolutePly, origin, tappedSquare, tappedHandPieceType,
             )
         },
         onStudySquareTapped = { sq -> vm.onStudySquareTapped(sq) },
@@ -55,6 +55,11 @@ fun ReportHost(vm: MainViewModel, state: MainUiState.ShowReport) {
         onStudyStepBack = { vm.studyStepBack() },
         onStudyResetToStart = { vm.studyResetToStart() },
         onStudyEnd = { vm.endStudy() },
+        onStudyChipTapped = { depth -> vm.onStudyChipTapped(depth) },
+        onStudyBranchChipTapped = { depth -> vm.onStudyBranchChipTapped(depth) },
+        onStudyBranchPopupDismiss = { vm.onStudyBranchPopupDismiss() },
+        onStudyBranchOptionSelected = { depth, moveUsi -> vm.onStudyBranchOptionSelected(depth, moveUsi) },
+        onStudyAnalyze = { vm.onStudyAnalyze() },
         // KIFコピー（ClipboardManager/Context 依存）の Android 実装。ReportScreen（共通コード）は
         // Android専用APIに依存できないためこちらにホイストしている。snackbar表示自体は
         // ReportScreen 側が行う。

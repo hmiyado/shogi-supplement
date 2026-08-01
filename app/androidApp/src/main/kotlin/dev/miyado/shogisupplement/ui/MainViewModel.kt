@@ -26,6 +26,7 @@ import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.PvExtState
 import dev.miyado.shogisupplement.ui.home.HomeViewModel
 import dev.miyado.shogisupplement.ui.report.ReportViewModel
+import dev.miyado.shogisupplement.ui.report.StudyOrigin
 import dev.miyado.shogisupplement.ui.report.StudyState
 import dev.miyado.shogisupplement.upload.UploadResult
 import java.io.File
@@ -470,10 +471,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         originPlyIndex: Int,
         originSelectedIdx: Int?,
         originAbsolutePly: Int,
+        origin: StudyOrigin,
         tappedSquare: ShogiSquare? = null,
         tappedHandPieceType: PieceType? = null,
     ) = reportViewModel.startStudy(
-        baseSfen, flip, originIsBestPv, originPlyIndex, originSelectedIdx, originAbsolutePly,
+        baseSfen, flip, originIsBestPv, originPlyIndex, originSelectedIdx, originAbsolutePly, origin,
         tappedSquare, tappedHandPieceType,
     )
 
@@ -483,6 +485,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun studyStepBack() = reportViewModel.studyStepBack()
     fun studyResetToStart() = reportViewModel.studyResetToStart()
     fun endStudy() = reportViewModel.endStudy()
+    fun onStudyChipTapped(depth: Int) = reportViewModel.onStudyChipTapped(depth)
+    fun onStudyBranchChipTapped(depth: Int) = reportViewModel.onStudyBranchChipTapped(depth)
+    fun onStudyBranchPopupDismiss() = reportViewModel.onStudyBranchPopupDismiss()
+    fun onStudyBranchOptionSelected(depth: Int, moveUsi: String) = reportViewModel.onStudyBranchOptionSelected(depth, moveUsi)
+    fun onStudyAnalyze() = reportViewModel.onStudyAnalyze()
 
     override fun onCleared() {
         super.onCleared()

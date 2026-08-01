@@ -426,6 +426,10 @@ class ReportViewerScreenshotTest {
                         studyState = dev.miyado.shogisupplement.ui.report.StudyState(
                             baseSfen = blunder.sfenBefore,
                             moves = emptyList(),
+                            origin = dev.miyado.shogisupplement.ui.report.StudyOrigin(
+                                label = "40手目 ▲３四飛（−320）",
+                                userCp = -320,
+                            ),
                             originIsBestPv = false,
                             originPlyIndex = 40,
                             originSelectedIdx = null,
@@ -459,13 +463,19 @@ class ReportViewerScreenshotTest {
                         studyState = dev.miyado.shogisupplement.ui.report.StudyState(
                             baseSfen = blunder.sfenBefore,
                             moves = listOf("7f7e"),
+                            origin = dev.miyado.shogisupplement.ui.report.StudyOrigin(
+                                label = "40手目 ▲３四飛（−320）",
+                                userCp = -320,
+                            ),
                             originIsBestPv = false,
                             originPlyIndex = 40,
                             originSelectedIdx = null,
                             originAbsolutePly = 40,
                             flip = false,
+                            branchFlags = listOf(false),
                             evalState = dev.miyado.shogisupplement.ui.report.StudyEvalState.Value(
                                 PositionEvalDisplay.EvalLabel(text = "+120", sign = 1),
+                                userCp = 120,
                             ),
                         ),
                     )
@@ -474,12 +484,15 @@ class ReportViewerScreenshotTest {
         }
     }
 
-    /** 検討中バナー（最善の変化タブ起点）＋解析中スピナー。タブ切替不可・ghost「終了」。 */
+    /**
+     * 検討パネル・分岐あり（下向きチェブロン付きチップ）＋解析中スピナー。最善の変化タブ起点。
+     * 手順チップ列の2手目に兄弟変化があることを KeyboardArrowDown アイコンで示す。
+     */
     @Test
-    fun report_viewer_study_banner() {
+    fun report_viewer_study_branch() {
         val blunder = sampleBlunder()
         captureRoboImage(
-            filePath = "src/test/snapshots/report_viewer_study_banner.png",
+            filePath = "src/test/snapshots/report_viewer_study_branch.png",
             roborazziOptions = roborazziOptions,
         ) {
             ShogiTheme {
@@ -492,12 +505,17 @@ class ReportViewerScreenshotTest {
                         onBack = {},
                         studyState = dev.miyado.shogisupplement.ui.report.StudyState(
                             baseSfen = blunder.sfenBefore,
-                            moves = listOf("7f7e"),
+                            moves = listOf("7f7e", "3c3d"),
+                            origin = dev.miyado.shogisupplement.ui.report.StudyOrigin(
+                                label = "44手目 △３二玉",
+                                userCp = null,
+                            ),
                             originIsBestPv = true,
                             originPlyIndex = 1,
                             originSelectedIdx = 0,
                             originAbsolutePly = 44,
                             flip = false,
+                            branchFlags = listOf(false, true),
                             evalState = dev.miyado.shogisupplement.ui.report.StudyEvalState.Loading,
                         ),
                     )
@@ -505,6 +523,11 @@ class ReportViewerScreenshotTest {
             }
         }
     }
+
+    // 兄弟変化ポップ（DropdownMenu）表示状態のVRTは録画時に断念した。
+    // captureRoboImage（ComposeTestRule非経由のトップレベル版）はPopupが別ウィンドウで
+    // 開くため取り込めず、NoMatchingViewException で失敗する。ポップの中身（未解析は「—」・
+    // 現在ラインへの「（いま）」付与・選択で切替）のロジック自体は別のユニットテストでカバーしている。
 
     // ═══ レポート画面トップバー圧縮 ════════════════════════════════════════════
 
