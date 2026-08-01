@@ -1,0 +1,69 @@
+name: Pages Deploy
+
+# GitHub Pages(shogi-supplement.miyado.dev)を、mainブランチのdocs/を素で配信する方式から
+# 「このワークフローがビルドした成果物」を配信する方式へ切り替えるためのワークフロー。
+#
+# 有効化の前提: リポジトリ設定(Settings > Pages > Build and deployment > Source)を
+# 「Deploy from a branch」から「GitHub Actions」へ切り替える必要がある(このワークフロー
+# ファイルをコミットしただけでは有効化されない)。切り替えるまでは、mainブランチの
+# docs/を素で配信する既存の方式のまま変化しない。
+#
+# なぜdocs/にビルド成果物(engine-wasm/のWASM本体・評価関数nn.bin、合計60MB超)を
+# コミットしないか: 検討ページが参照するエンジン資産はサイズが大きく再生成可能
+# なため、コミットせずデプロイのたびにビルドする。ローカルで確認するのと
+# 同一のコマンド列をCIでもそのまま実行する。
+#
+# なぜsetup-emsdk等の専用アクションを使わないか: engine-wasm/のビルドスクリプトは
+# Dockerイメージ(emscripten/emsdk:4.0.23)ベースで、GitHub Actionsのubuntu-latest
+# ランナーには標準でDocker Engineが入っている。ローカルで検証したのと全く同じ
+# コマンド(docker run ...)がそのまま動くため、追加のセットアップアクションは不要。
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "docs/**"
+      - "engine-wasm/**"
+      - "app/androidApp/src/main/assets/eval/nn.bin"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch: {}
+
+# 同時デプロイの競合を避けるため直列化する。Pagesデプロイは差分適用ではなく
+# 丸ごと入れ替えなので、前のデプロイを取り消さない(cancel-in-progress: false)。
+# 半ばでキャンセルすると中途半端な状態を生みうるため、待って順番に流す方が安全。
+# グループ名"pages"はGitHub公式テンプレートの慣例に合わせる。
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      - name: やねうら王の上流ソース取得+パッチ適用
+        run: ./engine-wasm/fetch_upstream.sh
+
+      - name: WASMビルド(simd/nosimd)
+        run: ./engine-wasm/build_wasm_browser.sh
+
+      - name: 検討ページの資産をdocs/kento-assets/へ配置
+        run: ./docs/copy-kento-assets.sh
+
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: docs
+
+      - id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0

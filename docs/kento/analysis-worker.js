@@ -7,9 +7,9 @@
 // JSが同期実行中でも即座に効く(ブラウザ実装の保証)ので、局面の区切りを待たずに止められる。
 
 self.onmessage = async (ev) => {
-  const { workerLabel, variant, baseSfenArg, jobs } = ev.data;
+  const { workerLabel, variant, baseSfenArg, jobs, assetDirUrl } = ev.data;
   try {
-    await runSequential(workerLabel, variant, baseSfenArg, jobs);
+    await runSequential(workerLabel, variant, baseSfenArg, jobs, assetDirUrl);
   } catch (err) {
     post({ type: "error", workerLabel, message: String((err && err.stack) || err) });
   }
@@ -61,10 +61,13 @@ const SETOPTIONS = [
 ];
 const GO_NODES = 400000;
 
-async function runSequential(workerLabel, variant, baseSfenArg, jobs) {
-  const jsUrl = new URL(`../kento-assets/yaneuraou-${variant}.js`, self.location.href).href;
-  const wasmUrl = new URL(`../kento-assets/yaneuraou-${variant}.wasm`, self.location.href).href;
-  const nnUrl = new URL(`../kento-assets/nn.bin`, self.location.href).href;
+async function runSequential(workerLabel, variant, baseSfenArg, jobs, assetDirUrl) {
+  // 資産の場所(assetDirUrl)は呼び出し側で「ベースURL(設定1箇所)＋/<エンジンバージョン>/」を
+  // 解決した絶対URLをpostMessageで受け取る。このWorkerは自分で相対パスを組み立てない
+  // (self.location.hrefは使わない。資産参照の設定箇所を一箇所に集約するため)。
+  const jsUrl = new URL(`yaneuraou-${variant}.js`, assetDirUrl).href;
+  const wasmUrl = new URL(`yaneuraou-${variant}.wasm`, assetDirUrl).href;
+  const nnUrl = new URL(`nn.bin`, assetDirUrl).href;
 
   post({ type: "stage", workerLabel, stage: "loading-module" });
   const tLoad0 = now();

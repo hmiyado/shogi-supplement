@@ -16,11 +16,29 @@
 | ファイル/ディレクトリ | 内容 |
 |---|---|
 | `patches/0001-wasm-build-fixes.patch` | やねうら王v7.00へのEmscripten向け最小パッチ（5ファイル・84行）。wasm32でのビット走査判定追加と、`-pthread`なしビルドのためのstd::thread同期実行フォールバック |
+| `VERSION` | エンジンビルドのバージョン識別子（後述）。`docs/kento/app.js`が実行時に読みに行く |
 | `fetch_upstream.sh` | やねうら王上流ソースを固定コミットへ取得し、パッチを適用する |
 | `build_wasm_browser.sh` | ブラウザ向けWASM（simd/nosimd 2変種）をビルドする。副産物としてスモークテスト専用のNode向けビルドも作る |
 | `smoke_test.mjs` | Node上でUSIプロトコル（usi→isready→position→go→bestmove）が一通り通ることを確認する最小テスト |
 | `upstream/`（.gitignore対象） | `fetch_upstream.sh`が取得するやねうら王のソース。コミットしない |
 | `out-browser/`（.gitignore対象） | ビルド成果物。コミットしない（サイズが大きく、`fetch_upstream.sh`→`build_wasm_browser.sh`で再現可能なため） |
+
+## VERSION（エンジンバージョン識別子）
+
+形式: `yo-<上流コミットSHA先頭7桁>-p<パッチ改訂番号>`。現在値は`yo-0640f43-p1`
+（上流コミット`0640f43c...`・パッチ改訂1）。上流コミットを変更した場合、または
+`patches/`の中身に互換性のない変更を加えた場合は、この値を更新すること
+（`fetch_upstream.sh`が起動時に不整合を警告する）。パッチの文言修正など出力に
+影響しない変更では上げなくてよい。
+
+`docs/kento.html`は資産の配置先を「ベースURL（1箇所の設定）＋`/<VERSION>/`」で
+組み立てる（`docs/kento/app.js`のASSET_BASE_URL、詳細はそちらのコメント参照）。
+`docs/copy-kento-assets.sh`がこのファイルを`docs/kento-assets/VERSION`へ複製し、
+ビルド成果物をバージョン付きサブディレクトリへ配置することで、ページ側は
+実行時に`docs/kento-assets/VERSION`を読んでどのサブディレクトリを使うか決める。
+これにより、将来資産をCloudFront+S3等へ移す場合もASSET_BASE_URLを1箇所
+差し替えるだけでよく（バージョン管理の仕組み自体は変わらない）、また
+複数バージョンの資産を同時に配置してロールバックする運用も可能になる。
 
 ## 上流バージョンとパッチ
 
@@ -57,7 +75,7 @@ node smoke_test.mjs        # Node向けスモークビルドでUSI疎通を確�
 まとめる目的でこのファイルを`out-browser/nn.bin`へ複製するが、リポジトリへ
 コミットする複製を新たに作るわけではない（`out-browser/`自体が.gitignore対象）。
 
-`docs/copy-kento-assets.sh`が`out-browser/`から`docs/kento-assets/`
+`docs/copy-kento-assets.sh`が`out-browser/`から`docs/kento-assets/<VERSION>/`
 （同じく.gitignore対象・GitHub Pagesが実際に配信するディレクトリ）へコピーする。
 
 ## 変種（simd / nosimd）

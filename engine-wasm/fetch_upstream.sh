@@ -52,4 +52,20 @@ for p in "${PATCHES[@]}"; do
 	fi
 done
 
+# --- 3. VERSIONファイルとの整合確認(食い違っていても止めない・警告のみ) ---
+# VERSIONの形式は "yo-<コミットSHA先頭7桁>-p<パッチ改訂番号>"。
+# YANEURAOU_COMMITを更新したのにVERSIONの更新を忘れた場合に気づけるようにする。
+VERSION_FILE="$SCRIPT_DIR/VERSION"
+if [ -f "$VERSION_FILE" ]; then
+	VERSION_CONTENT="$(tr -d '[:space:]' < "$VERSION_FILE")"
+	SHORT_COMMIT="${YANEURAOU_COMMIT:0:7}"
+	case "$VERSION_CONTENT" in
+	"yo-$SHORT_COMMIT-p"*) ;;
+	*)
+		echo "警告: VERSION($VERSION_CONTENT)が現在のピン止めコミット($SHORT_COMMIT)と整合していません。" >&2
+		echo "  上流コミットまたはパッチを変更した場合は engine-wasm/VERSION も更新してください。" >&2
+		;;
+	esac
+fi
+
 echo "=== 完了: $UPSTREAM_DIR (commit $ACTUAL_COMMIT・パッチ適用済み) ==="

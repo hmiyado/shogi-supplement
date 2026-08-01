@@ -132,6 +132,10 @@ done
 # — out-browser/自体がgitignore対象のビルド成果物)
 cp "$EVAL_NN_SRC" "$OUT_DIR/nn.bin"
 
-echo "=== 完了 ==="
-echo "生成物: $OUT_DIR/yaneuraou-{nosimd,simd}.{js,wasm}, $OUT_DIR/nn.bin"
+# VERSIONをout-browser/へ複製(後続の配置処理がバージョン付きパスへの配置に使う。
+# 将来CloudFront+S3等へ資産を移す場合も同じVERSIONの値をそのまま使う想定)
+cp "$SCRIPT_DIR/VERSION" "$OUT_DIR/VERSION"
+
+echo "=== 完了 (バージョン: $(cat "$SCRIPT_DIR/VERSION")) ==="
+echo "生成物: $OUT_DIR/yaneuraou-{nosimd,simd}.{js,wasm}, $OUT_DIR/nn.bin, $OUT_DIR/VERSION"
 echo "スモークテスト用: $OUT_DIR/node-smoke/yaneuraou-{nosimd,simd}.js"

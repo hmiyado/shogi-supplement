@@ -96,13 +96,45 @@ function setInputError(message) {
   inputError.hidden = !message;
 }
 
+// 設定箇所はASSET_BASE_URLの1行だけ。既定は相対パス(GH Pages配信)。将来この資産を
+// 外部ホストへ移す場合は、ここを絶対URL(例: "https://cdn.example.com/kento-assets")へ
+// 差し替えるだけでよい(バージョン付きパスの組み立て方自体は変わらない)。
+// document.baseURI基準で解決する(ドキュメントの実際の配信URLからの相対パスとして
+// 振る舞わせるため。import.meta.url基準にすると"./kento-assets"の意味がこのモジュール
+// 自身の場所基準にズレてしまう)。
+const ASSET_BASE_URL = "./kento-assets";
+
+// バージョンはビルドのたびに変わりうるため、ここにハードコードせず、ASSET_BASE_URL直下の
+// VERSIONファイルを実行時に読んで決める(ビルドプロセスがバージョン情報をそこへ複製する)。
+// これにより、バージョンが更新されてもこのファイルを手で同期する必要がない。
+let assetDirUrlPromise = null;
+function resolveAssetDirUrl() {
+  if (!assetDirUrlPromise) {
+    assetDirUrlPromise = (async () => {
+      const baseUrl = new URL(`${ASSET_BASE_URL}/`, document.baseURI);
+      const versionUrl = new URL("VERSION", baseUrl);
+      const resp = await fetch(versionUrl);
+      if (!resp.ok) {
+        throw new Error(`エンジンバージョン情報を取得できません: HTTP ${resp.status} (${versionUrl})`);
+      }
+      const version = (await resp.text()).trim();
+      if (!version) {
+        throw new Error(`エンジンバージョン情報が空です (${versionUrl})`);
+      }
+      return new URL(`${version}/`, baseUrl).href;
+    })();
+  }
+  return assetDirUrlPromise;
+}
+
 // 解析エンジン資産はビルド成果物(61MB級)のためリポジトリに含めず、ローカルコピーする
 // 運用(.gitignore対象)。コピーされていない状態でこのページを開いた利用者に、
 // 素の404ではなく分かりやすい案内を出す。
 async function checkAssetsAvailable() {
   try {
-    const wasmUrl = new URL(`../kento-assets/yaneuraou-${VARIANT}.wasm`, import.meta.url);
-    const nnUrl = new URL(`../kento-assets/nn.bin`, import.meta.url);
+    const assetDirUrl = await resolveAssetDirUrl();
+    const wasmUrl = new URL(`yaneuraou-${VARIANT}.wasm`, assetDirUrl);
+    const nnUrl = new URL(`nn.bin`, assetDirUrl);
     const [wasmResp, nnResp] = await Promise.all([
       fetch(wasmUrl, { method: "HEAD" }),
       fetch(nnUrl, { method: "HEAD" }),
@@ -304,9 +336,12 @@ async function startAnalysis() {
     cancelResolve = resolve;
   });
 
+  // 既にページ読み込み時に解決済み(キャッシュされたPromiseを再利用するだけで追加のfetchは発生しない)。
+  const assetDirUrl = await resolveAssetDirUrl();
+
   const runPromise = Promise.allSettled([
-    runWorker("W1", VARIANT, parsed.baseSfenArg, group1, onPosition),
-    runWorker("W2", VARIANT, parsed.baseSfenArg, group2, onPosition),
+    runWorker("W1", VARIANT, parsed.baseSfenArg, group1, onPosition, assetDirUrl),
+    runWorker("W2", VARIANT, parsed.baseSfenArg, group2, onPosition, assetDirUrl),
   ]).then((settled) => ({ cancelled: false, settled }));
 
   const outcome = await Promise.race([runPromise, cancelPromise]);
@@ -327,7 +362,7 @@ async function startAnalysis() {
   setStatus(`解析完了: ${total}局面・経過${fmtElapsed(startTime)}秒`);
 }
 
-function runWorker(workerLabel, variant, baseSfenArg, jobs, onPosition) {
+function runWorker(workerLabel, variant, baseSfenArg, jobs, onPosition, assetDirUrl) {
   return new Promise((resolve, reject) => {
     if (!jobs.length) {
       resolve({ workerLabel, results: [] });
@@ -350,7 +385,9 @@ function runWorker(workerLabel, variant, baseSfenArg, jobs, onPosition) {
     worker.onerror = (err) => {
       reject(new Error(`[${workerLabel}] Workerエラー: ${err.message || err}`));
     };
-    worker.postMessage({ workerLabel, variant, baseSfenArg, jobs });
+    // 資産の場所(assetDirUrl)は解決済みの絶対URLをそのまま渡す。Worker側は自分で相対パスを
+    // 組み立てない(資産参照の設定箇所を一箇所に集約するため)。
+    worker.postMessage({ workerLabel, variant, baseSfenArg, jobs, assetDirUrl });
   });
 }
 
