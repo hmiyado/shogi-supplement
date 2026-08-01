@@ -1,17 +1,14 @@
 package dev.miyado.shogisupplement.ui.report
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -22,7 +19,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
@@ -30,19 +26,15 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -66,13 +58,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.miyado.shogisupplement.blunder.DisplayWinProb
 import dev.miyado.shogisupplement.blunder.PositionEvalDisplay
 import dev.miyado.shogisupplement.board.PieceType
 import dev.miyado.shogisupplement.board.ShogiBoard
 import dev.miyado.shogisupplement.board.ShogiMove
 import dev.miyado.shogisupplement.board.ShogiSquare
-import dev.miyado.shogisupplement.classify.BlunderCategoryLabels
 import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.PositionEvalRow
@@ -84,13 +74,9 @@ import dev.miyado.shogisupplement.ui.common.ReportBackHandler
 import dev.miyado.shogisupplement.ui.common.SfenPosition
 import dev.miyado.shogisupplement.ui.common.ShogiBoardView
 import dev.miyado.shogisupplement.ui.common.formatDateTime
-import dev.miyado.shogisupplement.ui.common.formatFixed1
 import dev.miyado.shogisupplement.ui.theme.IbmPlexMonoFamily
 import dev.miyado.shogisupplement.ui.theme.ShipporiMinchoFamily
-import dev.miyado.shogisupplement.ui.theme.TextStyleData
-import dev.miyado.shogisupplement.ui.theme.TextStyleDataMove
 import dev.miyado.shogisupplement.ui.theme.shogiColors
-import kotlin.math.abs
 import kotlinx.coroutines.launch
 
 /**
@@ -1032,16 +1018,11 @@ fun ReportScreen(
 }  // ReportScreen
 
 /**
- * 非負の Double を小数点以下0桁で四捨五入して文字列化する（BlunderCard の勝率%表示用）。
+ * 指定ステップ数だけ進んだ局面の SFEN を返す。
  *
- * "%.0f".format(x)（java.lang.String.format）は Kotlin/Native commonMain では使えないため、
- * multiplatform-safe な実装にしている。呼び出し元（勝率パーセント）は常に非負のため
- * 符号は扱わない。
+ * 同ファイル内だけでなく別コンポーネントからも呼ぶため private ではなく internal にする。
  */
-private fun formatFixed0(value: Double): String = kotlin.math.round(value).toLong().toString()
-
-/** 指定ステップ数だけ進んだ局面の SFEN を返す。 */
-private fun computeSfenAtStep(startSfen: String?, moves: List<String>, steps: Int): String {
+internal fun computeSfenAtStep(startSfen: String?, moves: List<String>, steps: Int): String {
     val board = if (startSfen != null) {
         runCatching { ShogiBoard.fromSfen(startSfen) }.getOrElse { ShogiBoard() }
     } else {
@@ -1103,443 +1084,4 @@ private fun buildCurrentMoveLabel(
         text = "${AppStrings.viewerPlyLabel(gamePly)} $notation",
         isBlunder = isBlunder,
     )
-}
-
-/**
- * 棋譜リストシート（ModalBottomSheet 内コンテンツ）。
- * 本譜の全指し手を和式表記で縦に並べ、現在手をハイライトする。
- * 行タップで局面へ遷移してシートを閉じる。
- *
- * 各行末尾に position_eval から評価値/勝率を表示する（PositionEvalDisplay 再利用）。
- */
-@Composable
-fun MoveListSheet(
-    moves: List<String>,
-    currentPly: Int,
-    /** 全局面評価値（先手視点 cp・ply昇順）。空 = 評価値表示なし。 */
-    positionEvals: List<PositionEvalRow> = emptyList(),
-    /** 形勢の表示単位（"cp" or "wp"）。 */
-    evalDisplay: String = "cp",
-    /** ユーザーが後手なら true（PositionEvalDisplay の符号反転用）。 */
-    userIsGote: Boolean = false,
-    onSelectPly: (Int) -> Unit,
-) {
-    val listState = rememberLazyListState()
-    LaunchedEffect(currentPly) {
-        if (currentPly > 0 && moves.isNotEmpty()) {
-            listState.scrollToItem((currentPly - 1).coerceIn(0, moves.lastIndex))
-        }
-    }
-    val shogiColors = MaterialTheme.shogiColors
-    Column {
-        Text(
-            AppStrings.MOVE_LIST_TITLE,
-            style = MaterialTheme.typography.titleMedium,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-        )
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.fillMaxWidth(),
-            contentPadding = PaddingValues(bottom = 32.dp),
-        ) {
-            itemsIndexed(moves) { idx, usiStr ->
-                val ply = idx + 1
-                val isCurrentPly = ply == currentPly
-                val prevSfen = computeSfenAtStep(null, moves, idx)
-                val notation = runCatching {
-                    JapaneseNotation.format(usiStr, ShogiBoard.fromSfen(prevSfen))
-                }.getOrElse { usiStr }
-                val bgColor = if (isCurrentPly) shogiColors.highlightSoft else Color.Transparent
-                // 各手の評価値ラベル（その手を指した後の局面 = ply と同じ）
-                val evalLabel = remember(ply, positionEvals, evalDisplay, userIsGote) {
-                    positionEvals.firstOrNull { it.ply == ply }?.let { row ->
-                        PositionEvalDisplay.format(
-                            scoreCp = row.scoreCp,
-                            mateIn = row.mateIn,
-                            userIsGote = userIsGote,
-                            evalDisplay = evalDisplay,
-                            ply = ply,
-                        )
-                    }
-                }
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(bgColor)
-                        .clickable { onSelectPly(ply) }
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        "${ply}手目",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = shogiColors.ink3,
-                        modifier = Modifier.width(48.dp),
-                    )
-                    Text(
-                        notation,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = if (isCurrentPly) FontWeight.Bold else FontWeight.Normal,
-                        modifier = Modifier.weight(1f),
-                    )
-                    if (evalLabel != null) {
-                        Text(
-                            evalLabel.text,
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontFamily = IbmPlexMonoFamily,
-                            ),
-                            color = when {
-                                evalLabel.sign > 0 -> MaterialTheme.colorScheme.primary
-                                evalLabel.sign < 0 -> shogiColors.loss
-                                else -> MaterialTheme.colorScheme.onSurface
-                            },
-                        )
-                    }
-                }
-                HorizontalDivider(color = shogiColors.line.copy(alpha = 0.5f))
-            }
-        }
-    }
-}
-
-/** タブボタン（本譜 / 最善の変化）。 */
-@Composable
-private fun ReportViewerTab(
-    label: String,
-    isActive: Boolean,
-    enabled: Boolean,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit,
-) {
-    val containerColor = if (isActive) {
-        MaterialTheme.colorScheme.primaryContainer
-    } else {
-        MaterialTheme.colorScheme.surface
-    }
-    val contentColor = if (isActive) {
-        MaterialTheme.colorScheme.onPrimaryContainer
-    } else if (enabled) {
-        MaterialTheme.colorScheme.onSurface
-    } else {
-        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-    }
-    OutlinedButton(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = modifier,
-        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 4.dp),
-        colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
-            containerColor = containerColor,
-            contentColor = contentColor,
-        ),
-    ) {
-        Text(label, style = MaterialTheme.typography.labelSmall, maxLines = 1)
-    }
-}
-
-/**
- * 悪手ゼロの対局でも悪手率・一致率は算出できるため、noBlundersMessage の下に
- * 続けて表示する（一覧への導線ボタンだけ出さない）。
- */@Composable
-private fun BlunderSummaryCard(
-    reports: List<BlunderRecord>,
-    noBlundersMessage: String,
-    strengthDisplayText: String?,
-    matchRateDisplayText: String?,
-    blunderRateDisplayText: String?,
-    onViewList: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val shogiColors = MaterialTheme.shogiColors
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            if (reports.isEmpty()) {
-                Text(noBlundersMessage, style = MaterialTheme.typography.bodyMedium)
-                Spacer(Modifier.height(8.dp))
-            }
-
-            // 悪手率・一致率（同格のフォントサイズ・2行。ラベルは通常書体、値のみMono）。
-            if (blunderRateDisplayText != null) {
-                StatLine(AppStrings.BLUNDER_RATE_LABEL, blunderRateDisplayText)
-            }
-            if (matchRateDisplayText != null) {
-                if (blunderRateDisplayText != null) Spacer(Modifier.height(2.dp))
-                StatLine(AppStrings.MATCH_RATE_LABEL, matchRateDisplayText)
-            }
-
-            if (strengthDisplayText != null) {
-                if (blunderRateDisplayText != null || matchRateDisplayText != null) {
-                    Spacer(Modifier.height(8.dp))
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        AppStrings.GAME_STRENGTH_PREFIX,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = shogiColors.ink2,
-                    )
-                    Text(
-                        strengthDisplayText,
-                        style = MaterialTheme.typography.labelSmall.copy(fontFamily = IbmPlexMonoFamily),
-                        color = shogiColors.ink2,
-                    )
-                }
-            }
-
-            if (reports.isNotEmpty()) {
-                Spacer(Modifier.height(8.dp))
-                OutlinedButton(onClick = onViewList, modifier = Modifier.fillMaxWidth()) {
-                    Text(AppStrings.VIEW_BLUNDER_LIST, style = MaterialTheme.typography.labelMedium)
-                }
-            }
-        }
-    }
-}
-
-/**
- * 「ラベル: 値」の1行（同格のフォントサイズ。値のみMono）。
- * 悪手率・エンジン一致率の2行で共有するスタイル。
- */
-@Composable
-private fun StatLine(label: String, value: String) {
-    val text = buildAnnotatedString {
-        append(label)
-        withStyle(SpanStyle(fontFamily = IbmPlexMonoFamily)) { append(value) }
-    }
-    Text(
-        text = text,
-        style = MaterialTheme.typography.bodyLarge,
-        color = MaterialTheme.colorScheme.onSurface,
-    )
-}
-
-/** 悪手カード（ミニ盤なし・テキスト情報のみ）。 */
-@Composable
-fun BlunderCard(
-    report: BlunderRecord,
-    isSelected: Boolean = false,
-    /** 形勢の表示単位（"cp" or "wp"）。 */
-    evalDisplay: String = "cp",
-    onClick: () -> Unit = {},
-) {
-    val categoryLabel = BlunderCategoryLabels.of(report.category)
-    val shogiColors = MaterialTheme.shogiColors
-
-    // 指し手: 和式表記
-    val moveDisplay = remember(report.sfenBefore, report.moveUsi) {
-        runCatching {
-            JapaneseNotation.format(report.moveUsi, ShogiBoard.fromSfen(report.sfenBefore))
-        }.getOrElse { report.moveUsi }
-    }
-    // 最善手: 和式表記（getOrElse は明示的に usiStr を返すことで String? 型を確定）
-    val bestDisplay: String? = remember(report.sfenBefore, report.bestUsi) {
-        report.bestUsi?.let { usiStr ->
-            runCatching {
-                JapaneseNotation.format(usiStr, ShogiBoard.fromSfen(report.sfenBefore))
-            }.getOrElse { usiStr }
-        }
-    }
-
-    // 損失表示（"変化前 → 変化後（差分）"形式 or フォールバック）
-    //
-    // cp_before/cp_after の意味（cpBefore = 手番側視点、cpAfter = 次手番側視点）:
-    //   変化前 (手番側 = 悪手を指した側) = cpBefore
-    //   変化後 (手番側換算)              = -cpAfter  ← 符号反転で同一視点に揃える
-    //   損失量                           = cpBefore + cpAfter（= 表示上の差分マイナス）
-    //
-    // 詰み判定: |cpBefore| >= 29_000 または |cpAfter| >= 29_000
-    //   変化前 cpBefore >= 29_000 → "詰み"（手番側が詰ます側）
-    //   変化後 cpAfter  >= 29_000 → "詰まされ"（手番側が詰まされる側）
-    data class EvalDisplay(
-        val beforeLabel: String?,  // null = フォールバック（差分のみ）
-        val afterLabel: String?,
-        val lossLabel: String,
-    )
-    val cpBefore = report.cpBefore?.toInt()
-    val cpAfter = report.cpAfter?.toInt()
-    val evalState = remember(evalDisplay, cpBefore, cpAfter, report.lossWp) {
-        when {
-            evalDisplay == "cp" && cpBefore != null && cpAfter != null -> {
-                val isMate = abs(cpBefore) >= 29_000 || abs(cpAfter) >= 29_000
-                val userAfterCp = -cpAfter
-                EvalDisplay(
-                    beforeLabel = when {
-                        cpBefore >= 29_000 -> AppStrings.BLUNDER_LOSS_MATE
-                        cpBefore <= -29_000 -> AppStrings.BLUNDER_AFTER_MATED
-                        else -> AppStrings.cpSignedLabel(cpBefore)
-                    },
-                    afterLabel = when {
-                        userAfterCp >= 29_000 -> AppStrings.BLUNDER_LOSS_MATE
-                        userAfterCp <= -29_000 -> AppStrings.BLUNDER_AFTER_MATED
-                        else -> AppStrings.cpSignedLabel(userAfterCp)
-                    },
-                    lossLabel = if (isMate) AppStrings.BLUNDER_LOSS_MATE
-                                else AppStrings.blunderLossCp(cpBefore + cpAfter),
-                )
-            }
-            evalDisplay == "wp" && cpBefore != null && cpAfter != null -> {
-                val beforeWp = DisplayWinProb.winProb(cpBefore)
-                val userAfterWp = DisplayWinProb.winProb(-cpAfter)
-                val lossWp = DisplayWinProb.lossWp(cpBefore, cpAfter)
-                EvalDisplay(
-                    beforeLabel = "${formatFixed0(beforeWp * 100)}%",
-                    afterLabel = "${formatFixed0(userAfterWp * 100)}%",
-                    lossLabel = "−${formatFixed1(lossWp * 100)}%",
-                )
-            }
-            else -> {
-                // 旧レコード（cp未保存）: 保存済み loss_wp の差分のみ
-                EvalDisplay(
-                    beforeLabel = null,
-                    afterLabel = null,
-                    lossLabel = "−${kotlin.math.round(report.lossWp * 100).toInt()}%",
-                )
-            }
-        }
-    }
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        border = if (isSelected) {
-            BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
-        } else {
-            null
-        },
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-    ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            // n手目（Mincho）+ 判定チップ（primary-soft）
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text(
-                    AppStrings.blunderCardPly(report.ply),
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                // 判定チップ: primary-soft
-                Surface(
-                    color = shogiColors.primarySoft,
-                    shape = MaterialTheme.shapes.extraSmall,
-                ) {
-                    Text(
-                        text = report.verdict,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
-                // 形勢の変化表示（Mono・変化後と差分は朱色、変化前は中立）
-                if (evalState.beforeLabel != null && evalState.afterLabel != null) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(2.dp),
-                    ) {
-                        Text(
-                            text = evalState.beforeLabel,
-                            style = TextStyleData,
-                            color = shogiColors.ink2,
-                        )
-                        Text(
-                            text = "→",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = shogiColors.ink2,
-                        )
-                        Text(
-                            text = "${evalState.afterLabel}（${evalState.lossLabel}）",
-                            style = TextStyleData,
-                            color = MaterialTheme.colorScheme.error,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                    }
-                } else {
-                    // フォールバック: 差分のみ
-                    Text(
-                        text = evalState.lossLabel,
-                        style = TextStyleData,
-                        color = MaterialTheme.colorScheme.error,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                }
-            }
-
-            // 実戦手（loss色Mono）/ 最善手（primary色Mono）
-            Spacer(Modifier.height(6.dp))
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Text(
-                    AppStrings.BLUNDER_CARD_ACTUAL,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = shogiColors.ink3,
-                )
-                Text(
-                    moveDisplay,
-                    style = TextStyleDataMove,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
-            if (bestDisplay != null) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Text(
-                        AppStrings.BLUNDER_CARD_BEST,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = shogiColors.ink3,
-                    )
-                    Text(
-                        bestDisplay,
-                        style = TextStyleDataMove,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
-            }
-
-            // 分類チップ（loss-soft）
-            Spacer(Modifier.height(6.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(
-                    color = shogiColors.lossSoft,
-                    shape = MaterialTheme.shapes.extraSmall,
-                ) {
-                    Text(
-                        text = categoryLabel.label,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-            }
-
-            // note: line色の左罫線のみ（DESIGN.md。四辺枠にしない）
-            Spacer(Modifier.height(6.dp))
-            Row(modifier = Modifier.height(IntrinsicSize.Min)) {
-                Box(
-                    modifier = Modifier
-                        .width(2.dp)
-                        .fillMaxHeight()
-                        .background(shogiColors.line),
-                )
-                Text(
-                    report.note,
-                    modifier = Modifier.padding(start = 8.dp, top = 4.dp, bottom = 4.dp),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = shogiColors.ink2,
-                )
-            }
-        }
-    }
 }
