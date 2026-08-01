@@ -148,6 +148,19 @@ class KifParserTest {
     }
 
     @Test
+    fun `displayMovesはKIF原文の指し手表記をmovesと同じ並びで保持する`() {
+        val kif = """
+            手数----指手---------消費時間--
+               1 ７六歩(77)
+               2 ３四歩(33)
+               3 同　歩(25)
+        """.trimIndent()
+        val game = parser.parse(kif)
+        assertEquals(listOf("７六歩(77)", "３四歩(33)", "同　歩(25)"), game.displayMoves)
+        assertEquals(game.moves.size, game.displayMoves.size)
+    }
+
+    @Test
     fun `同は直前の移動先で解決される`() {
         val kif = """
             手数----指手---------消費時間--

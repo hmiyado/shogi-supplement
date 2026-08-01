@@ -16,6 +16,7 @@ class KifParser : KifuParser {
         val headers = mutableMapOf<String, String>()
         val moves = mutableListOf<String>()
         val times = mutableListOf<Int?>()
+        val displayMoves = mutableListOf<String>()
         var prevDest: Square? = null
         var finished = false
         var endReason: String? = null
@@ -54,6 +55,7 @@ class KifParser : KifuParser {
             val (usi, dest) = convertMove(moveLine.moveText, prevDest, trimmed)
             moves.add(usi)
             times.add(moveLine.timeSeconds)
+            displayMoves.add(moveLine.moveText)
             prevDest = dest
         }
 
@@ -68,7 +70,7 @@ class KifParser : KifuParser {
             null
         }
 
-        return KifuGame(moves, times, headers, endReason, winner)
+        return KifuGame(moves, times, headers, endReason, winner, displayMoves)
     }
 
     // ---- 内部表現 ----

@@ -16,6 +16,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 SRC_OUT_BROWSER="$REPO_ROOT/engine-wasm/out-browser"
 DEST="$SCRIPT_DIR/kento-assets"
+APP_DIR="$REPO_ROOT/app"
+KIFU_JS_OUT="$APP_DIR/kifu/build/kotlin-webpack/js/productionExecutable"
 
 if [ ! -f "$SRC_OUT_BROWSER/yaneuraou-simd.wasm" ] || [ ! -f "$SRC_OUT_BROWSER/nn.bin" ] || [ ! -f "$SRC_OUT_BROWSER/VERSION" ]; then
   echo "エラー: engine-wasm/ のビルド成果物が見つかりません。" >&2
@@ -41,3 +43,23 @@ cp "$SRC_OUT_BROWSER"/VERSION "$DEST"/VERSION
 
 echo "コピー完了: $DEST_VERSIONED (バージョン: $VERSION)"
 du -sh "$DEST_VERSIONED"
+
+# KIFパーサ(Kotlin/JS)バンドル。エンジン資産と違って毎回このリポジトリのソースから
+# 再現できる(上流フェッチもDockerも不要)ため、このスクリプト自身がGradleビルドまで
+# 完結させる(ローカル確認がこのスクリプト1本で済むようにするため)。Gradleは
+# 増分ビルドなので再実行のコストは小さい。バージョン付きディレクトリに分けない理由:
+# WASMエンジンと違って外部からfetchする資産ではなく、このリポジトリのコミットと
+# 常に同じ内容になる(バージョンという概念がそもそも無い)。
+echo "kifu.js (KIFパーサ Kotlin/JS バンドル) をビルドします..."
+( cd "$APP_DIR" && ./gradlew :kifu:jsBrowserProductionWebpack --console=plain )
+
+if [ ! -f "$KIFU_JS_OUT/kifu.js" ]; then
+  echo "エラー: kifu.js のビルド成果物が見つかりません ($KIFU_JS_OUT)" >&2
+  exit 1
+fi
+
+cp "$KIFU_JS_OUT/kifu.js" "$DEST/kifu.js"
+[ -f "$KIFU_JS_OUT/kifu.js.map" ] && cp "$KIFU_JS_OUT/kifu.js.map" "$DEST/kifu.js.map"
+
+echo "コピー完了: $DEST/kifu.js"
+du -sh "$DEST/kifu.js"

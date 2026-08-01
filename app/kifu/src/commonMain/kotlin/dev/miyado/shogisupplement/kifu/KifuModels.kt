@@ -8,6 +8,9 @@ package dev.miyado.shogisupplement.kifu
  * @property headers KIFヘッダ（"先手" → "..." など）
  * @property endReason 終局語（"投了"/"切れ負け"/"時間切れ"/"千日手"/"持将棋"/"反則"等。棋譜末尾から取得。無ければ null）
  * @property winner 勝者（"sente"/"gote"/null。引き分け・不明は null）
+ * @property displayMoves KIF原文の指し手表記（例: "７六歩(77)"、「同」は解決前の "同　歩(25)" 形式）。
+ *   moves と同じ長さ・同じ並び順。CSA等move由来のテキストを持たないパーサ実装ではmovesと
+ *   同じ長さの空文字列列で埋めてよい（利用側はUSIをフォールバック表示に使う）
  */
 data class KifuGame(
     val moves: List<String>,
@@ -15,6 +18,7 @@ data class KifuGame(
     val headers: Map<String, String>,
     val endReason: String? = null,
     val winner: String? = null,
+    val displayMoves: List<String> = emptyList(),
 ) {
     val senteName: String? get() = headers["先手"]
     val goteName: String? get() = headers["後手"]

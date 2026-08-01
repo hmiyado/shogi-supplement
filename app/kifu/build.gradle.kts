@@ -12,6 +12,19 @@ kotlin {
     iosArm64()
     iosSimulatorArm64()
 
+    // Why browser+nodejs両方: 生成物はブラウザで使うが、テストはnodejsランナーで
+    // 実行する(ヘッドレスブラウザ(karma+Chrome)をCI/サンドボックスに用意しない方針)。
+    // browser側のtestTaskは無効化し、:kifu:allTestsがブラウザテストの欠如で失敗しないようにする。
+    js(IR) {
+        browser {
+            binaries.executable()
+            testTask {
+                enabled = false
+            }
+        }
+        nodejs()
+    }
+
     sourceSets {
         // kifu/board パッケージは commonMain 限定の純粋 Kotlin（platform固有APIなし）のため、
         // androidMain/jvmMain/iosMain 等のプラットフォームソースセットは作らない。
@@ -20,6 +33,9 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+        }
+        jsMain.dependencies {
+            implementation(libs.kotlinx.serialization.json)
         }
     }
 }
