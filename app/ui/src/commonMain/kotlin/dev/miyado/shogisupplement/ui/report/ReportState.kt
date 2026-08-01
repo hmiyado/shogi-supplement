@@ -24,17 +24,48 @@ import dev.miyado.shogisupplement.board.ShogiSquare
 sealed class StudyEvalState {
     object None : StudyEvalState()
     object Loading : StudyEvalState()
-    data class Value(val label: PositionEvalDisplay.EvalLabel) : StudyEvalState()
+
+    /**
+     * @param label 表示用ラベル（cp/wp・詰みの表記差を吸収済み）
+     * @param userCp 自分視点の cp（詰みは ±(30000-|n|) にエンコード）。分岐元との「差」を
+     *   計算する分子/分母として使う。表示単位（cp/wp）に関わらず常にcp軸で保持する
+     *   （差の計算をcp軸に統一するため。Why not wp軸で差を出す: 勝率は非線形なため
+     *   「差」の直感的な意味が薄れる。cp軸の差の方が一貫して解釈しやすい）。
+     */
+    data class Value(val label: PositionEvalDisplay.EvalLabel, val userCp: Int? = null) : StudyEvalState()
     object Error : StudyEvalState()
 }
 
 /**
+ * 検討の分岐元情報（検討開始時に一度だけ計算し、以後不変）。
+ *
+ * @param label 表示用ラベル（例:「42手目 ▲３四飛（−320）」。形勢が無ければ「（−320）」部分は無い）
+ * @param userCp 自分視点の cp（[StudyEvalState.Value.userCp] と同じ規約）。検討局面との
+ *   「差」計算に使う。分岐元の形勢が不明（position_eval未保存等）なら null（差は表示しない）
+ */
+data class StudyOrigin(val label: String, val userCp: Int?)
+
+data class StudyBranchOption(
+    val moveUsi: String,
+    val evalState: StudyEvalState,
+    /** 現在表示しているラインがこの兄弟を通っているか（「（いま）」表示に使う）。 */
+    val isCurrent: Boolean,
+)
+
+/**
  * レポート画面の検討モード状態。
  *
- * v1は検討手順を保存しない（画面離脱・「終了」で揮発する）。
+ * 検討手順は木構造で保持し、レポート画面を開いている間は「終了」しても
+ * 破棄しない（同じ分岐元から検討を再開すると続きから辿れる）。
+ * レポート画面を離れたら破棄する（永続化はしない）。
  *
  * @param baseSfen 検討開始局面の SFEN
- * @param moves 検討開始局面からの手列（USI）。空 = 検討開始局面そのもの
+ * @param moves 検討開始局面からの手列（USI）。空 = 検討開始局面そのもの。木の中の「現在ライン」
+ * @param origin 分岐元の表示情報（検討開始時に固定）
+ * @param branchFlags moves と同じ長さ。各手が兄弟変化を持つか（チップの下向きチェブロン表示に使う）
+ * @param openBranchPopupDepth 分岐チップタップで開いている兄弟変化ポップの深さ（movesのインデックス）。
+ *   null なら閉じている
+ * @param branchPopupOptions openBranchPopupDepth のポップの中身（兄弟変化一覧）
  * @param originIsBestPv 検討開始時に選択していたタブ（最善の変化タブなら true）。終了時の復帰に使う
  * @param originPlyIndex 検討開始時の（元タブ内での）plyIndex。終了時の復帰に使う
  * @param originSelectedIdx 検討開始時に選択していた悪手インデックス。終了時の復帰に使う
@@ -44,6 +75,10 @@ sealed class StudyEvalState {
 data class StudyState(
     val baseSfen: String,
     val moves: List<String> = emptyList(),
+    val origin: StudyOrigin,
+    val branchFlags: List<Boolean> = emptyList(),
+    val openBranchPopupDepth: Int? = null,
+    val branchPopupOptions: List<StudyBranchOption> = emptyList(),
     val originIsBestPv: Boolean,
     val originPlyIndex: Int,
     val originSelectedIdx: Int?,
@@ -80,6 +115,7 @@ fun buildInitialStudyState(
     originPlyIndex: Int,
     originSelectedIdx: Int?,
     originAbsolutePly: Int,
+    origin: StudyOrigin,
     tappedSquare: ShogiSquare?,
     board: ShogiBoard,
     tappedHandPieceType: PieceType? = null,
@@ -87,6 +123,7 @@ fun buildInitialStudyState(
     if (tappedHandPieceType != null) {
         return StudyState(
             baseSfen = baseSfen,
+            origin = origin,
             originIsBestPv = originIsBestPv,
             originPlyIndex = originPlyIndex,
             originSelectedIdx = originSelectedIdx,
@@ -100,6 +137,7 @@ fun buildInitialStudyState(
     val selectable = piece != null && piece.side == board.turn
     return StudyState(
         baseSfen = baseSfen,
+        origin = origin,
         originIsBestPv = originIsBestPv,
         originPlyIndex = originPlyIndex,
         originSelectedIdx = originSelectedIdx,

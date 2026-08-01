@@ -561,23 +561,12 @@ object AppStrings {
     // ═══ 26. レポート画面の検討モード ════════════════════════════════════════
 
     /**
-     * 検討中バナー（タブ行の代わり）。originAbsolutePly = 検討開始局面の本譜上の絶対手数（0 = 開始局面）。
-     * 手番を含める（着手ごとに更新）。senteToMove = 現在の検討局面が先手番なら true。
-     */
-    fun studyBanner(originAbsolutePly: Int, senteToMove: Boolean): String {
-        val turn = if (senteToMove) "▲番" else "△番"
-        return if (originAbsolutePly <= 0) "検討中 — 開始局面から（$turn）"
-               else "検討中 — ${originAbsolutePly}手目から（$turn）"
-    }
-
-    /**
-     * 手番でない側の駒をタップしたときのヒント。evalSuffix() 経由で検討ナビ行の
-     * ラベル末尾に表示する。エラーではないので朱は使わず ink2 で表示する。次の正常タップで消える。
+     * 手番でない側の駒をタップしたときのヒント。検討中はナビ行中央のラベルを
+     * 一時的にこの文言へ置き換える（次の正常タップで通常のラベルに戻る）。
      */
     fun studyTurnHint(senteToMove: Boolean): String =
         if (senteToMove) "▲番です" else "△番です"
 
-    /** 検討中バナーの「終了」ボタン（ghost）。 */
     const val STUDY_END = "終了"
 
     /** 検討ナビ行のラベル: 検討開始局面（moves が空）。 */
@@ -587,6 +576,41 @@ object AppStrings {
     fun studyPlyLabel(ply: Int): String = "検討${ply}手目"
 
     // 検討モードの評価エラーはナビ行に evalSuffix(EVAL_UNAVAILABLE) で表示する。
+
+    // ═══ 35. 検討パネル（グラフ＋サマリー領域の排他表示・分岐チップ列）══════════════
+
+    /** 検討パネルの見出し（Shippori Mincho・primary）。 */
+    const val STUDY_PANEL_TITLE = "検討中"
+
+    /** 分岐元行。label = 分岐元の手＋形勢（例:「42手目 ▲３四飛（−320）」）。 */
+    fun studyOriginLine(label: String): String = "${label}から分岐"
+
+    /** 評価スロットのラベル（未解析時・解析済み時とも左側に出す）。 */
+    const val STUDY_EVAL_SLOT_LABEL = "この局面の評価"
+
+    /** 評価スロットの解析トリガーボタン（未解析時）。PvExtensionRunnerの仕組みを流用する。 */
+    const val STUDY_ANALYZE_BUTTON = "解析 ▶+"
+
+    /** 評価スロット・解析済み時の現在局面値のキャプション。 */
+    const val STUDY_EVAL_CURRENT_CAPTION = "検討"
+
+    /** 評価スロット・解析済み時の分岐元との差分値のキャプション。 */
+    const val STUDY_EVAL_DIFF_CAPTION = "差"
+
+    const val STUDY_BRANCH_CURRENT_SUFFIX = "（いま）"
+
+    /**
+     * 分岐チップの下向きチェブロンアイコンの contentDescription。
+     * 記号（⑂等）ではなく KeyboardArrowDown アイコンを使う（フォントカバレッジ差でiOS/Android
+     * の見た目が割れるのを避けるため）。▽▼は後手記号と衝突するため使わない。
+     */
+    const val STUDY_BRANCH_ICON_DESC = "他の変化があります"
+
+    /** 兄弟変化ポップメニューで、その変化がまだ未解析のときの評価欄プレースホルダー。 */
+    const val STUDY_BRANCH_EVAL_UNKNOWN = "—"
+
+    /** 通常モードのナビ行中央（現在手表示）に付ける、棋譜リストへのタップ導線ヒント。 */
+    const val MOVE_LIST_DROPDOWN_HINT = " ▾"
 
     // ═══ 27. レポート画面トップバー ══════════════════════════════════════════
     // トップバーは32dpの1行インライン行（MainActivity.kt ReportScreen）。

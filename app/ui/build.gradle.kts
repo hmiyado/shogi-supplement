@@ -43,6 +43,7 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+            implementation(libs.kotlinx.coroutines.test)
         }
         // ReportBackHandler（BackHandler の expect/actual）のAndroid実装用。
         androidMain.dependencies {
