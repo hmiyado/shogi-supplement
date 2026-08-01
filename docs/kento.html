@@ -27,13 +27,24 @@
   <p class="banner banner-loss" id="assetBanner" hidden></p>
 
   <section class="card" id="inputCard">
-    <p class="note" style="margin-top:0;">
+    <div class="mode-row" role="radiogroup" aria-label="棋譜の入力形式">
+      <label><input type="radio" name="inputMode" id="modeKif" checked> KIFを貼り付け</label>
+      <label><input type="radio" name="inputMode" id="modeSfen"> SFEN・USIを直接入力</label>
+    </div>
+
+    <p class="note" id="kifNote" style="margin-top:8px;">
+      対局サイト・アプリの棋譜コピー機能で取得したKIF形式のテキストを貼り付けてください（平手のみ対応）。
+    </p>
+    <textarea id="kifInput" placeholder="対局サイト・アプリの「棋譜コピー」等で取得したKIFテキストをここに貼り付け"></textarea>
+
+    <p class="note" id="sfenNote" hidden>
       SFEN文字列とUSI形式の指し手列を入力してください
       （例: <code class="mono">startpos moves 7g7f 3c3d ...</code>）。
     </p>
-    <textarea id="sfenInput" placeholder="例: startpos moves 7g7f 3c3d 2h6h ...&#10;または: sfen lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1 moves 2g2f 8c8d"></textarea>
+    <textarea id="sfenInput" hidden placeholder="例: startpos moves 7g7f 3c3d 2h6h ...&#10;または: sfen lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1 moves 2g2f 8c8d"></textarea>
 
     <p class="error-text" id="inputError" hidden></p>
+    <p class="header-info" id="headerInfo" hidden></p>
 
     <div class="button-row" style="margin-top:14px;">
       <button class="btn btn-primary" id="startBtn">解析開始</button>
@@ -73,6 +84,13 @@
     <a href="./terms.html">利用規約・プライバシーポリシー</a>
   </p>
 </main>
+<!--
+  KIFパーサ(:kifuモジュールのKotlin/JSバンドル。UMD形式のため、モジュールでない
+  プレーンな<script>読み込みではグローバル変数(window.kifu)への代入に落ちる)。
+  後続のモジュールスクリプトより確実に先に実行させるため、通常の<script>として
+  ここに置く。ビルド成果物のためコミット対象外(gitignore対象)。
+-->
+<script src="kento-assets/kifu.js"></script>
 <script type="module" src="kento/app.js"></script>
 </body>
 </html>

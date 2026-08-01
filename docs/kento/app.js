@@ -5,15 +5,45 @@
 
 import { renderEvalChart } from "./chart.mjs";
 
+// KIFテキストのパースはこのページ独自の実装を持たない。事前に読み込まれた
+// :kifuモジュールのKotlin/JSバンドル(UMD形式のためグローバル変数window.kifuとして
+// 公開される)が、アプリ本体と同一のKotlin実装(KifParser)をブラウザ上で動かす。
+function parseKifInput(text) {
+  if (!window.kifu || typeof window.kifu.parseKifToJson !== "function") {
+    return {
+      ok: false,
+      error: { message: "KIF解析の準備ができていません。ページを再読み込みしてからもう一度お試しください。" },
+    };
+  }
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return { ok: false, error: { message: "入力が空です" } };
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(window.kifu.parseKifToJson(trimmed));
+  } catch (e) {
+    return { ok: false, error: { message: `KIFの解析中に予期しないエラーが発生しました: ${e.message}` } };
+  }
+  if (!parsed.ok) {
+    return { ok: false, error: { message: parsed.error.message } };
+  }
+  return {
+    ok: true,
+    baseSfenArg: "startpos",
+    moves: parsed.moves,
+    displayMoves: parsed.displayMoves,
+    header: { sente: parsed.sente, gote: parsed.gote },
+    endReason: parsed.endReason,
+  };
+}
+
 // SFEN＋USI指し手列の直接入力をパースする。受け付ける形式は「position」コマンドの
 // 引数そのもの:
 //   - "startpos moves 7g7f 3c3d ..."（movesは省略可）
 //   - "sfen <board> <turn> <hands> <move#> moves 7g7f ..."（movesは省略可）
 // バリデーションは最小限(先頭トークンの判定のみ)。SFEN文字列自体の正当性は
 // エンジン側のisreadyやgoが失敗すれば分かるため、ここでは再実装しない。
-// Why not KIF入力: KIFパーサはアプリ本体(Kotlin)の実装の再発明になるため、
-// このページではSFEN+USI直接入力のみを受け付ける。KIF対応はアプリ側の
-// Kotlin実装をKotlin/JS化して共有する形で別途行う予定。
 function parseSfenUsiInput(text) {
   let trimmed = text.trim();
   if (!trimmed) {
@@ -77,10 +107,16 @@ function detectSimd128() {
 }
 const VARIANT = detectSimd128() ? "simd" : "nosimd";
 
+const kifModeRadio = document.getElementById("modeKif");
+const sfenModeRadio = document.getElementById("modeSfen");
+const kifNote = document.getElementById("kifNote");
+const kifInput = document.getElementById("kifInput");
+const sfenNote = document.getElementById("sfenNote");
 const sfenInput = document.getElementById("sfenInput");
 const startBtn = document.getElementById("startBtn");
 const cancelBtn = document.getElementById("cancelBtn");
 const inputError = document.getElementById("inputError");
+const headerInfo = document.getElementById("headerInfo");
 const statusText = document.getElementById("statusText");
 const progressFill = document.getElementById("progressFill");
 const resultsSection = document.getElementById("resultsSection");
@@ -90,6 +126,21 @@ const assetBanner = document.getElementById("assetBanner");
 const inputCard = document.getElementById("inputCard");
 
 document.getElementById("conditionsLabel").textContent = FIXED_CONDITIONS_LABEL;
+
+// KIF/SFEN・USIの入力欄は同じスロットの排他的な入れ替え(DESIGN.mdのNo-jitter原則)。
+// 行の追加・削除ではなく、あらかじめ両方置いた要素のhiddenを切り替えるだけにする。
+function switchInputMode() {
+  const useKif = kifModeRadio.checked;
+  kifNote.hidden = !useKif;
+  kifInput.hidden = !useKif;
+  sfenNote.hidden = useKif;
+  sfenInput.hidden = useKif;
+  setInputError("");
+  headerInfo.hidden = true;
+}
+kifModeRadio.addEventListener("change", switchInputMode);
+sfenModeRadio.addEventListener("change", switchInputMode);
+switchInputMode();
 
 function setInputError(message) {
   inputError.textContent = message || "";
@@ -160,6 +211,9 @@ let cancelResolve = null;
 function setRunningUI(running) {
   startBtn.disabled = running;
   cancelBtn.disabled = !running;
+  kifModeRadio.disabled = running;
+  sfenModeRadio.disabled = running;
+  kifInput.disabled = running;
   sfenInput.disabled = running;
 }
 
@@ -217,8 +271,10 @@ function displayMoveText(index, source) {
 
 async function startAnalysis() {
   setInputError("");
+  headerInfo.hidden = true;
 
-  const parsed = parseSfenUsiInput(sfenInput.value);
+  const useKif = kifModeRadio.checked;
+  const parsed = useKif ? parseKifInput(kifInput.value) : parseSfenUsiInput(sfenInput.value);
   if (!parsed.ok) {
     setInputError(parsed.error.message);
     return;
@@ -228,6 +284,17 @@ async function startAnalysis() {
   if (totalMoves === 0) {
     setInputError("指し手が0件です");
     return;
+  }
+
+  if (useKif) {
+    const h = parsed.header || {};
+    const parts = [];
+    if (h.sente || h.gote) parts.push(`${h.sente || "?"} vs ${h.gote || "?"}`);
+    if (parsed.endReason) parts.push(`終局: ${parsed.endReason}`);
+    if (parts.length) {
+      headerInfo.textContent = parts.join(" ・ ");
+      headerInfo.hidden = false;
+    }
   }
 
   // ply=0は「1手目の損失」を計算する基準として必要(手ごとの一覧には出さないが
@@ -289,7 +356,9 @@ async function startAnalysis() {
     const r = resultByPly.get(ply);
     if (!r) return;
     const moveCell = tr.querySelector(".col-move");
-    moveCell.textContent = displayMoveText(ply, parsed.moves[ply - 1]);
+    // KIF入力時はKIF原文の指し手表記(例: "７六歩(77)")、SFEN・USI入力時はUSI文字列を表示する。
+    const moveSource = useKif && parsed.displayMoves ? parsed.displayMoves[ply - 1] : parsed.moves[ply - 1];
+    moveCell.textContent = displayMoveText(ply, moveSource);
     const evalCell = tr.querySelector(".col-eval");
     evalCell.textContent = r.score ? fmtScore(senteCpForDisplay(r.score, ply)) : "-";
     const bestCell = tr.querySelector(".col-best");

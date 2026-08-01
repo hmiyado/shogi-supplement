@@ -1,6 +1,29 @@
 /* 棋譜検討ページ(docs/kento.html)専用のスタイル。トークン・基本要素は
    docs/assets/style.css を前提にする(このファイルは差分のみ)。 */
 
+.mode-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 14px;
+  color: var(--ink2);
+}
+.mode-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.mode-row input[type="radio"]:disabled {
+  cursor: not-allowed;
+}
+
+.header-info {
+  color: var(--ink2);
+  font-size: 13px;
+  margin: 8px 0 0;
+}
+
 textarea {
   width: 100%;
   min-height: 160px;
