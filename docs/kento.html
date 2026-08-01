@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>棋譜を検討する — 将棋サプリ</title>
+<link rel="icon" href="assets/app-icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="kento/style.css">
+</head>
+<body>
+<main>
+  <p><a href="./index.html">← 将棋サプリ トップ</a></p>
+  <h1>棋譜を検討する</h1>
+  <p class="subtitle">ブラウザ内蔵の将棋エンジンで、その場で棋譜を解析</p>
+
+  <p class="banner" id="privacyNote">
+    この機能はブラウザに内蔵した将棋エンジン（やねうら王）で解析します。
+    解析はお使いの端末内で完結し、棋譜が送信されることはありません。
+  </p>
+  <p class="note">
+    解析条件は固定（<code id="conditionsLabel" class="mono"></code>）です。結果の再現性を優先しているため、
+    条件を変更するUIはありません。盤面の再生・悪手の分類・出題は
+    アプリ本体（<a href="./index.html">将棋サプリ</a>）の機能になります。
+  </p>
+
+  <p class="banner banner-loss" id="assetBanner" hidden></p>
+
+  <section class="card" id="inputCard">
+    <p class="note" style="margin-top:0;">
+      SFEN文字列とUSI形式の指し手列を入力してください
+      （例: <code class="mono">startpos moves 7g7f 3c3d ...</code>）。
+    </p>
+    <textarea id="sfenInput" placeholder="例: startpos moves 7g7f 3c3d 2h6h ...&#10;または: sfen lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1 moves 2g2f 8c8d"></textarea>
+
+    <p class="error-text" id="inputError" hidden></p>
+
+    <div class="button-row" style="margin-top:14px;">
+      <button class="btn btn-primary" id="startBtn">解析開始</button>
+      <button class="btn btn-secondary" id="cancelBtn" disabled>キャンセル</button>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    <p class="status-slot" id="statusText"></p>
+  </section>
+
+  <section id="resultsSection" hidden>
+    <h2>評価値の推移(先手視点・±2000cpクランプ)</h2>
+    <div class="card">
+      <svg id="chartSvg" viewBox="0 0 900 260"></svg>
+    </div>
+
+    <h2>手ごとの一覧</h2>
+    <p class="note">評価値損失500cp以上の手は行を強調表示します(悪手の目安)。評価値は先手視点・符号付き(未クランプ)。</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>手数</th>
+            <th>指し手</th>
+            <th>評価値</th>
+            <th>エンジン最善手</th>
+            <th>読み筋(PV)</th>
+          </tr>
+        </thead>
+        <tbody id="movesTableBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <p class="footer-nav">
+    <a href="./index.html">将棋サプリ トップ</a>
+    <a href="./help.html">ヘルプ</a>
+    <a href="./terms.html">利用規約・プライバシーポリシー</a>
+  </p>
+</main>
+<script type="module" src="kento/app.js"></script>
+</body>
+</html>

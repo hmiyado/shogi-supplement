@@ -82,3 +82,8 @@ infra/terraform/envs/*.tfvars
 # Firebase設定（プロジェクト識別子を公開リポジトリに置かない方針。local.propertiesと同じ扱い）
 app/androidApp/google-services.json
 app/iosApp/local/
+
+# 棋譜検討ページ(docs/kento.html)が参照するWASMエンジン資産（WASM本体・評価関数）。
+# サイズが大きく再生成可能なため、docs/copy-kento-assets.shでresearchの
+# ビルド成果物からローカルコピーする運用にする（コミットしない）
+docs/kento-assets/
