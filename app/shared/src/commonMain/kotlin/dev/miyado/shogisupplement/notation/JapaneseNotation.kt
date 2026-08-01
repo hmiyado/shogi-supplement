@@ -91,8 +91,12 @@ object JapaneseNotation {
         val pieceType: PieceType
         val isDrop: Boolean
 
-        if (move.dropType != null) {
-            pieceType = move.dropType
+        // move.dropTypeは別モジュール(:kifu)のvalプロパティのため、直接参照ではスマートキャストが
+        // 効かない(Kotlinの仕様: 非localなvalのスマートキャストは同一モジュール宣言が条件)。
+        // ローカルvalに一度受けてからnullチェックする。
+        val dropType = move.dropType
+        if (dropType != null) {
+            pieceType = dropType
             isDrop = true
         } else {
             val fromSq = move.from ?: error("from is null for non-drop move")

@@ -21,6 +21,7 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "shogi-supplement"
+include(":kifu")
 include(":shared")
 include(":ui")
 include(":androidApp")

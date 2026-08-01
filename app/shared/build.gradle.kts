@@ -127,6 +127,10 @@ kotlin {
         jvmMain.get().dependsOn(jvmAndAndroidMain)
 
         commonMain.dependencies {
+            // KIFパーサ・盤面表現（dev.miyado.shogisupplement.kifu / board）を提供する。
+            // apiで公開することで、:shared 経由でこれらのpackageをimportしていた既存コード
+            // （androidApp/ui含む）が無変更で使い続けられる（物理的な移動先が変わっただけ）。
+            api(project(":kifu"))
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.sqldelight.runtime)
             implementation(libs.sqldelight.coroutines.extensions)
