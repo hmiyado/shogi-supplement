@@ -84,6 +84,12 @@ app/androidApp/google-services.json
 app/iosApp/local/
 
 # 棋譜検討ページ(docs/kento.html)が参照するWASMエンジン資産（WASM本体・評価関数）。
-# サイズが大きく再生成可能なため、docs/copy-kento-assets.shでresearchの
+# サイズが大きく再生成可能なため、docs/copy-kento-assets.shでengine-wasm/の
 # ビルド成果物からローカルコピーする運用にする（コミットしない）
 docs/kento-assets/
+
+# WASMエンジンのビルド一式(engine-wasm/、GPLv3対応ソース提供の実体)。
+# 上流ソース・ビルド成果物はサイズが大きく再生成可能なため、
+# engine-wasm/fetch_upstream.sh・build_wasm_browser.shで都度生成する運用にする
+engine-wasm/upstream/
+engine-wasm/out-browser/
