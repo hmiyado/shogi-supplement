@@ -1,42 +1,17 @@
 package dev.miyado.shogisupplement.ui.report
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.outlined.ContentCopy
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -45,20 +20,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import dev.miyado.shogisupplement.blunder.PositionEvalDisplay
 import dev.miyado.shogisupplement.board.PieceType
 import dev.miyado.shogisupplement.board.ShogiBoard
 import dev.miyado.shogisupplement.board.ShogiMove
@@ -66,16 +30,10 @@ import dev.miyado.shogisupplement.board.ShogiSquare
 import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.PositionEvalRow
-import dev.miyado.shogisupplement.notation.JapaneseNotation
 import dev.miyado.shogisupplement.text.AppStrings
-import dev.miyado.shogisupplement.ui.common.NavIcons
 import dev.miyado.shogisupplement.ui.common.PvExtState
 import dev.miyado.shogisupplement.ui.common.ReportBackHandler
 import dev.miyado.shogisupplement.ui.common.SfenPosition
-import dev.miyado.shogisupplement.ui.common.ShogiBoardView
-import dev.miyado.shogisupplement.ui.common.formatDateTime
-import dev.miyado.shogisupplement.ui.theme.IbmPlexMonoFamily
-import dev.miyado.shogisupplement.ui.theme.ShipporiMinchoFamily
 import dev.miyado.shogisupplement.ui.theme.shogiColors
 import kotlinx.coroutines.launch
 
@@ -280,174 +238,22 @@ fun ReportScreen(
     // 対局情報ダイアログの表示状態。
     var showGameInfoDialog by remember { mutableStateOf(initialShowGameInfoDialog) }
 
-    val shogiColors = MaterialTheme.shogiColors
-
-    // 検討開始局面の絶対手数（MAINLINE=現ply、BEST_PV=blunder.ply+現ply-1）。
-    // buildCurrentMoveLabel の gamePly と同じ式。検討開始（onStartStudy）に使う。
-    val studyOriginAbsolutePly = when (viewerMode) {
-        ViewerMode.MAINLINE -> clampedPly
-        ViewerMode.BEST_PV -> (selectedBlunder?.ply?.toInt() ?: 0) + clampedPly - 1
-    }
-
-    // ナビゲーション + 現在手表示（1行統合: |◀ ◀ 現在手（形勢）▾ ▶/▶+ ▶|）
-    // ラベルは「N手目 ▲同　銀成」のみ（最大12文字設計）。
-    //          悪手の手は文字色を loss（朱）で示す。
-    // 計器行（評価値行・「この変化の形勢」行・▶ヒント行・スピナー/エラー行）は
-    // 持たず、形勢をナビラベルの末尾に「（+120）」のようなサフィックスとして統合する
-    // （No-jitter・DESIGN.md Layout節）。罫線の上はこのナビ行が最後の行になる。
-    // ここより上（盤面表示側）で onStartStudy を呼ぶ必要があるため、検討開始より前の
-    // タイミングで計算しておく（studyOrigin が参照する）。
-    val currentMoveLabelState = remember(viewerMode, clampedPly, selectedBlunder, prevSfen) {
-        buildCurrentMoveLabel(
-            mode = viewerMode,
-            plyIndex = clampedPly,
-            movesInMode = movesInMode,
-            prevSfen = prevSfen,
-            reports = reports,
-            selectedBlunder = selectedBlunder,
-        )
-    }
-
-    // 本譜タブの形勢サフィックス（position_eval がある局のみ）。
-    // score_cp は先手視点保存なのでユーザーが後手なら符号反転する。
-    val mainlineEvalLabel = remember(clampedPly, evalDisplay, positionEvals) {
-        positionEvals.firstOrNull { it.ply == clampedPly }?.let { row ->
-            PositionEvalDisplay.format(
-                scoreCp = row.scoreCp,
-                mateIn = row.mateIn,
-                userIsGote = game.userSide == "gote",
-                evalDisplay = evalDisplay,
-                ply = clampedPly,
-            )
-        }
-    }
-    // mainlineEvalLabel と同じ局面の自分視点 cp（検討パネルの分岐元との「差」計算に
-    // 使う）。詰み局面（mateIn != null）は差の対象外とする（null のまま。評価スロットは
-    // 詰み絡みの分岐元では「差」を省く単純化。cp軸の差が意味を持つのは通常局面のみのため）。
-    val mainlineEvalUserCp = remember(clampedPly, positionEvals, game.userSide) {
-        positionEvals.firstOrNull { it.ply == clampedPly }
-            ?.takeIf { it.mateIn == null }
-            ?.scoreCp
-            ?.let { cp -> if (game.userSide == "gote") -cp else cp }
-    }
-
-    // 最善の変化タブの形勢サフィックス（分岐点の cp_before を全plyで固定表示）。
-    // cp_before は「手番側（悪手を指した側）視点」で保存されているため、
-    // position_eval と同じ先手視点に正規化してから PositionEvalDisplay.format に渡す。
-    val bestPvEvalLabel = remember(selectedBlunder, evalDisplay, game.userSide) {
-        if (selectedBlunder == null) return@remember null
-        val moverIsGote = selectedBlunder.side == "gote"
-        val userIsGote = game.userSide == "gote"
-        val cpBefore = selectedBlunder.cpBefore?.toInt()
-        if (cpBefore != null) {
-            val senteCp = if (moverIsGote) -cpBefore else cpBefore
-            val userCp = if (userIsGote) -senteCp else senteCp
-            // 詰み絡み（|cp| >= 29_000）は生数字ではなく悪手カードと同じ規約表示。
-            // 閾値 29_000 は詰み見逃し系の cp_before が ±(30000-|n|) にエンコードされる
-            // ことに合わせた値。
-            when {
-                userCp >= 29_000 -> PositionEvalDisplay.EvalLabel(
-                    text = AppStrings.BLUNDER_LOSS_MATE,
-                    sign = 1,
-                )
-                userCp <= -29_000 -> PositionEvalDisplay.EvalLabel(
-                    text = AppStrings.BLUNDER_AFTER_MATED,
-                    sign = -1,
-                )
-                else -> PositionEvalDisplay.format(
-                    scoreCp = senteCp,
-                    mateIn = null,
-                    userIsGote = userIsGote,
-                    evalDisplay = evalDisplay,
-                )
-            }
-        } else {
-            val missedMateIn = selectedBlunder.missedMateIn?.toInt()
-            if (missedMateIn != null) {
-                PositionEvalDisplay.format(
-                    scoreCp = null,
-                    mateIn = if (moverIsGote) -missedMateIn else missedMateIn,
-                    userIsGote = userIsGote,
-                    evalDisplay = evalDisplay,
-                )
-            } else {
-                null
-            }
-        }
-    }
-    // bestPvEvalLabel と同じ局面の自分視点 cp。詰み絡み（|cp|>=29_000
-    // 相当）は対象外（null。mainlineEvalUserCp と同じ単純化）。
-    val bestPvEvalUserCp = remember(selectedBlunder, game.userSide) {
-        if (selectedBlunder == null) return@remember null
-        val cpBefore = selectedBlunder.cpBefore?.toInt() ?: return@remember null
-        val moverIsGote = selectedBlunder.side == "gote"
-        val senteCp = if (moverIsGote) -cpBefore else cpBefore
-        val userCp = if (game.userSide == "gote") -senteCp else senteCp
-        userCp.takeIf { it in -29_000..29_000 }
-    }
-
-    // ▶延長の可視化: BEST_PV タブでライン末尾に到達しているとき、
-    // ▶ボタンを「▶+」（primary色）にして延長トリガーであることを示す。
-    // Loading中も「▶+」のまま無効化。エラー時はナビラベルに「（—）」を出し、
-    // 「▶+」は有効なまま（再試行可）。
-    val extState = selectedBlunder?.let { pvExtState[it.id] }
-    val showExtendIndicator = pvExtensionEnabled &&
-        viewerMode == ViewerMode.BEST_PV &&
-        clampedPly >= maxPly && selectedBlunder != null
-    val pvLoading = extState is PvExtState.Loading
-    val canTriggerExtend = showExtendIndicator && !pvLoading
-    val bestPvSuffixText = if (showExtendIndicator && extState is PvExtState.Error) {
-        AppStrings.evalSuffix(AppStrings.EVAL_UNAVAILABLE)
-    } else {
-        bestPvEvalLabel?.let { AppStrings.evalSuffix(it.text) }
-    }
-    val bestPvSuffixSign = if (showExtendIndicator && extState is PvExtState.Error) {
-        0
-    } else {
-        bestPvEvalLabel?.sign ?: 0
-    }
-
-    val navSuffixText = when (viewerMode) {
-        ViewerMode.MAINLINE -> mainlineEvalLabel?.let { AppStrings.evalSuffix(it.text) }
-        ViewerMode.BEST_PV -> bestPvSuffixText
-    }
-    val navSuffixSign = when (viewerMode) {
-        ViewerMode.MAINLINE -> mainlineEvalLabel?.sign ?: 0
-        ViewerMode.BEST_PV -> bestPvSuffixSign
-    }
-    val navSuffixColor = when {
-        navSuffixSign > 0 -> MaterialTheme.colorScheme.primary
-        navSuffixSign < 0 -> shogiColors.loss
-        else -> MaterialTheme.colorScheme.onSurface
-    }
-    val navLabelAnnotated = buildAnnotatedString {
-        withStyle(
-            SpanStyle(color = if (currentMoveLabelState.isBlunder) shogiColors.loss else Color.Unspecified),
-        ) {
-            append(currentMoveLabelState.text)
-        }
-        if (navSuffixText != null) {
-            append(" ")
-            withStyle(SpanStyle(fontFamily = IbmPlexMonoFamily, color = navSuffixColor)) {
-                append(navSuffixText)
-            }
-        }
-        // 棋譜リストシートへのタップ導線ヒント（常時付与。数字ではないのでMono無し）。
-        withStyle(SpanStyle(color = shogiColors.ink2)) {
-            append(AppStrings.MOVE_LIST_DROPDOWN_HINT)
-        }
-    }
-
-    // 検討モードの分岐元表示。現在のタブ/現在手のラベル＋形勢を再利用する
-    // （検討パネルの分岐元行に「42手目 ▲３四飛（−320）」のように出す。ナビ行が検討開始
-    // 直前に表示していたのと同じ内容になる）。
-    val studyOriginUserCp = when (viewerMode) {
-        ViewerMode.MAINLINE -> mainlineEvalUserCp
-        ViewerMode.BEST_PV -> bestPvEvalUserCp
-    }
-    val studyOrigin = StudyOrigin(
-        label = currentMoveLabelState.text + (navSuffixText?.let { " $it" } ?: ""),
-        userCp = studyOriginUserCp,
+    // ナビゲーション + 現在手表示・検討開始時に渡す分岐元情報（studyOrigin）をまとめて
+    // 算出する。ここより下（盤面表示側）で onStartStudy を呼ぶ必要があるため、
+    // BoxWithConstraints より前で計算しておく。
+    val navInfo = rememberReportNavInfo(
+        viewerMode = viewerMode,
+        clampedPly = clampedPly,
+        maxPly = maxPly,
+        movesInMode = movesInMode,
+        prevSfen = prevSfen,
+        reports = reports,
+        selectedBlunder = selectedBlunder,
+        positionEvals = positionEvals,
+        evalDisplay = evalDisplay,
+        game = game,
+        pvExtState = pvExtState,
+        pvExtensionEnabled = pvExtensionEnabled,
     )
 
     // 棋譜リストシートの最大高さ計算と盤の最大高さ計算は、画面全体を包む単一の
@@ -459,25 +265,21 @@ fun ReportScreen(
         // 最大高さを画面の約55%に制限する。シート内コンテンツを heightIn(max) で制限し、
         // ドラッグしてもコンテンツ高以上には展開されない（=全画面化を抑止）。
         // 56.dp はドラッグハンドル+上下余白の概算（シート全体で約55%に収めるための控除）。
-        if (showMoveList) {
-            val sheetMaxHeight = screenHeight * 0.55f - 56.dp
-            ModalBottomSheet(onDismissRequest = { showMoveList = false }) {
-                Box(Modifier.heightIn(max = sheetMaxHeight)) {
-                    MoveListSheet(
-                        moves = game.movesUsi,
-                        currentPly = plyIndex.coerceIn(0, game.movesUsi.size),
-                        positionEvals = positionEvals,
-                        evalDisplay = evalDisplay,
-                        userIsGote = game.userSide == "gote",
-                        onSelectPly = { ply ->
-                            viewerMode = ViewerMode.MAINLINE
-                            plyIndex = ply
-                            showMoveList = false
-                        },
-                    )
-                }
-            }
-        }
+        MoveListBottomSheet(
+            show = showMoveList,
+            onDismiss = { showMoveList = false },
+            sheetMaxHeight = screenHeight * 0.55f - 56.dp,
+            moves = game.movesUsi,
+            currentPly = plyIndex.coerceIn(0, game.movesUsi.size),
+            positionEvals = positionEvals,
+            evalDisplay = evalDisplay,
+            userIsGote = game.userSide == "gote",
+            onSelectPly = { ply ->
+                viewerMode = ViewerMode.MAINLINE
+                plyIndex = ply
+                showMoveList = false
+            },
+        )
 
         // TopAppBar（64dp）は使わず、32dpのインライン情報行を使う。
         // Scaffold topBar は使わず、Column先頭の固定Rowとして実装する
@@ -496,69 +298,25 @@ fun ReportScreen(
                 // ── 案1b: トップバーのインライン情報行化（32dp）─────────────────────
                 // ←戻る・棋戦名（Shippori Mincho・タイトル用途）・対局者（縮小・省略可）・
                 // ⓘ対局情報・⧉KIFコピーを1行に収める。
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(32.dp)
-                        .padding(horizontal = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    IconButton(onClick = onBack, modifier = Modifier.size(32.dp)) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = AppStrings.BACK,
-                            modifier = Modifier.size(18.dp),
-                        )
-                    }
-                    // 棋戦（source_place）をタイトルに優先。無ければファイル名。
-                    // 見出し専用書体（DESIGN.md Typography節）。
-                    Text(
-                        text = AppStrings.sourcePlaceLabel(game.sourcePlace) ?: game.fileName,
-                        style = TextStyle(
-                            fontFamily = ShipporiMinchoFamily,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(start = 2.dp),
-                    )
-                    // 対局者名（playersLine）はここには表示しない（対局情報ダイアログに
-                    // 同じ情報があるため）。空いた幅はタイトル（棋戦名/ファイル名）の
-                    // weight(1f) に還元される。
-                    // 対局情報ダイアログ（ファイル名・先手/後手名）。KIFコピーアイコンの左。
-                    IconButton(onClick = { showGameInfoDialog = true }, modifier = Modifier.size(32.dp)) {
-                        Icon(
-                            imageVector = Icons.Outlined.Info,
-                            contentDescription = AppStrings.GAME_INFO_ICON_DESC,
-                            modifier = Modifier.size(18.dp),
-                        )
-                    }
-                    val kifText = game.kifText
-                    if (kifText != null) {
-                        IconButton(
-                            onClick = {
-                                onCopyKif(kifText)
-                                scope.launch {
-                                    snackbarHostState.showSnackbar(AppStrings.KIF_COPIED_MESSAGE)
-                                }
-                            },
-                            modifier = Modifier.size(32.dp),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.ContentCopy,
-                                contentDescription = AppStrings.KIF_COPY_ICON_DESC,
-                                modifier = Modifier.size(18.dp),
-                            )
+                ReportTopBar(
+                    title = AppStrings.sourcePlaceLabel(game.sourcePlace) ?: game.fileName,
+                    onBack = onBack,
+                    onInfoClick = { showGameInfoDialog = true },
+                    kifText = game.kifText,
+                    onCopyKifClick = {
+                        val kifText = game.kifText
+                        if (kifText != null) {
+                            onCopyKif(kifText)
+                            scope.launch {
+                                snackbarHostState.showSnackbar(AppStrings.KIF_COPIED_MESSAGE)
+                            }
                         }
-                    }
-                }
+                    },
+                )
 
                 // ── 固定エリア（盤 + 操作列） ──────────────────────────────────
-                // studyOriginAbsolutePly・shogiColors は onStartStudy 配線より前（BoxWithConstraints
-                // の外）で計算済み。
+                // studyOriginAbsolutePly・studyOrigin は onStartStudy 配線より前（BoxWithConstraints
+                // の外）で計算済み（navInfo）。
 
                 // 検討中の現局面 SFEN・直前手ハイライト。
                 val studyCurrentSfen = remember(studyState) {
@@ -576,81 +334,33 @@ fun ReportScreen(
                 // 盤（盤エリア ≤ 50%。悪手カード領域 ≥ 40% を確保するため 45% に設定）
                 // 駒のないマス寄りの左右半分タップ=1手戻る/進む（現在のタブの系列内・端では何もしない）
                 // 駒のあるマスをタップしたら検討モード開始（本譜/最善の変化タブどちらでも可）。
-                ShogiBoardView(
-                    sfen = studyCurrentSfen ?: currentSfen,
+                ReportBoardArea(
+                    studyState = studyState,
+                    currentSfen = currentSfen,
+                    studyCurrentSfen = studyCurrentSfen,
                     flip = flip,
-                    lastMoveDest = if (studyState != null) studyLastMoveDest else lastMoveDest,
-                    selectedFrom = studyState?.selectedFrom,
-                    selectedDropType = studyState?.selectedDropType,
-                    legalDestinations = studyState?.legalDestinations ?: emptySet(),
-                    onSquareTapped = { sq ->
-                        if (studyState != null) {
-                            onStudySquareTapped(sq)
-                        } else {
-                            val piece = SfenPosition.parse(currentSfen).boardPieces[sq.file to sq.rank]
-                            if (piece != null) {
-                                // 開始タップのマスを渡し、手番側の駒なら開始と同時に選択する。
-                                onStartStudy(
-                                    currentSfen,
-                                    flip,
-                                    viewerMode == ViewerMode.BEST_PV,
-                                    clampedPly,
-                                    selectedIdx,
-                                    studyOriginAbsolutePly,
-                                    studyOrigin,
-                                    sq,
-                                    null,
-                                )
-                            } else {
-                                // 駒のないマス: 列位置（flip考慮）で左右半分を近似。
-                                val files = if (flip) (1..9).toList() else (9 downTo 1).toList()
-                                val visualColIndex = files.indexOf(sq.file)
-                                if (visualColIndex <= 4) {
-                                    if (clampedPly > 0) plyIndex = clampedPly - 1
-                                } else {
-                                    if (clampedPly < maxPly) plyIndex = clampedPly + 1
-                                }
-                            }
-                        }
-                    },
-                    onHandPieceTapped = { pt ->
-                        if (studyState != null) {
-                            onStudyHandPieceTapped(pt)
-                        } else {
-                            // 持ち駒タップ: 盤上駒タップと同じ流儀で検討モードを開始し、
-                            // タップした持ち駒を打ちの選択状態にする（ShogiBoardView が
-                            // 手番側の持ち駒にしか配線しないため、常に手番側の駒）。
-                            onStartStudy(
-                                currentSfen,
-                                flip,
-                                viewerMode == ViewerMode.BEST_PV,
-                                clampedPly,
-                                selectedIdx,
-                                studyOriginAbsolutePly,
-                                studyOrigin,
-                                null,
-                                pt,
-                            )
-                        }
-                    },
+                    lastMoveDest = lastMoveDest,
+                    studyLastMoveDest = studyLastMoveDest,
+                    clampedPly = clampedPly,
+                    maxPly = maxPly,
+                    viewerMode = viewerMode,
+                    selectedIdx = selectedIdx,
+                    studyOriginAbsolutePly = navInfo.studyOriginAbsolutePly,
+                    studyOrigin = navInfo.studyOrigin,
+                    onStartStudy = onStartStudy,
+                    onStudySquareTapped = onStudySquareTapped,
+                    onStudyHandPieceTapped = onStudyHandPieceTapped,
+                    onPlyIndexChange = { plyIndex = it },
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(max = screenHeight * 0.45f),
                 )
 
                 // 検討モードの成り選択ダイアログ（ドリルと同じUX）。
-                if (studyState?.showPromoteDialog == true) {
-                    AlertDialog(
-                        onDismissRequest = { onStudyPromoteDecision(false) },
-                        title = { Text(AppStrings.DRILL_PROMOTE_TITLE) },
-                        confirmButton = {
-                            TextButton(onClick = { onStudyPromoteDecision(true) }) { Text(AppStrings.DRILL_PROMOTE_YES) }
-                        },
-                        dismissButton = {
-                            TextButton(onClick = { onStudyPromoteDecision(false) }) { Text(AppStrings.DRILL_PROMOTE_NO) }
-                        },
-                    )
-                }
+                StudyPromoteDialog(
+                    show = studyState?.showPromoteDialog == true,
+                    onDecision = onStudyPromoteDecision,
+                )
 
                 // 検討中の手番（手番ヒント文言の判定にのみ使う）。
                 val studySenteToMove = remember(studyCurrentSfen, currentSfen) {
@@ -662,126 +372,38 @@ fun ReportScreen(
                 // （DESIGN.md No-jitter原則）。常に1行(40dp)だけを描画してその中身を
                 // 入れ替える構成にすることで、罫線位置が構造的に一致し、
                 // 高さの帳尻合わせが不要になる。
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .then(
-                            if (studyState != null) {
-                                Modifier.background(shogiColors.primarySoft)
-                            } else {
-                                Modifier
-                            },
-                        )
-                        .padding(horizontal = 8.dp)
-                        .height(40.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    if (studyState != null) {
-                        // ── 検討中: ◀=1手戻し／中央=「検討N手目」（手番ヒント時は差替）／
-                        //    ▶=無効（プレースホルダー）／終了 ──
-                        // ▶（進む）を出さないのは、検討中の「進む」先＝分岐の選択はチップ列
-                        // （検討パネル）側の役割にしたため（ナビ行はシークのみ）。
-                        TextButton(
-                            onClick = onStudyStepBack,
-                            enabled = studyState.moves.isNotEmpty(),
-                            modifier = Modifier.height(36.dp).widthIn(min = 36.dp),
-                            contentPadding = PaddingValues(horizontal = 2.dp),
-                        ) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "1手戻る") }
-                        Text(
-                            text = when {
-                                studyState.showTurnHint -> AppStrings.studyTurnHint(studySenteToMove)
-                                studyState.moves.isEmpty() -> AppStrings.STUDY_START_POSITION
-                                else -> AppStrings.studyPlyLabel(studyState.moves.size)
-                            },
-                            modifier = Modifier.weight(1f),
-                            textAlign = TextAlign.Center,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary,
-                            maxLines = 1,
-                            overflow = TextOverflow.MiddleEllipsis,
-                        )
-                        TextButton(
-                            onClick = {},
-                            enabled = false,
-                            modifier = Modifier.height(36.dp).widthIn(min = 36.dp),
-                            contentPadding = PaddingValues(horizontal = 2.dp),
-                        ) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "1手進む") }
-                        TextButton(
-                            onClick = exitStudy,
-                            modifier = Modifier.height(36.dp),
-                        ) { Text(AppStrings.STUDY_END) }
-                    } else {
-                        // ── 非検討: |◀ ◀ 現在手（形勢）▾ ▶/▶+ ▶| ──────────────────
-                        // ボタン実効幅を48dp→36dpに圧縮し、中央ラベルの幅を拡幅する
-                        // （手数表示の見切れ対策）。
-                        TextButton(
-                            onClick = { plyIndex = 0 },
-                            enabled = clampedPly > 0,
-                            modifier = Modifier.height(36.dp).widthIn(min = 36.dp),
-                            contentPadding = PaddingValues(horizontal = 2.dp),
-                        ) { Icon(NavIcons.FirstPage, contentDescription = "最初へ") }
-                        TextButton(
-                            onClick = { plyIndex = (clampedPly - 1).coerceAtLeast(0) },
-                            enabled = clampedPly > 0,
-                            modifier = Modifier.height(36.dp).widthIn(min = 36.dp),
-                            contentPadding = PaddingValues(horizontal = 2.dp),
-                        ) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "1手戻る") }
-                        Text(
-                            text = navLabelAnnotated,
-                            modifier = Modifier
-                                .weight(1f)
-                                .clickable(onClick = { showMoveList = true }),
-                            textAlign = TextAlign.Center,
-                            style = MaterialTheme.typography.bodySmall,
-                            maxLines = 1,
-                            overflow = TextOverflow.MiddleEllipsis,
-                        )
-                        TextButton(
-                            onClick = {
-                                if (clampedPly < maxPly) {
-                                    plyIndex = clampedPly + 1
-                                } else if (canTriggerExtend) {
-                                    selectedBlunder?.let { blunder ->
-                                        val sfenAtEnd = computeSfenAtStep(
-                                            blunder.sfenBefore,
-                                            movesInMode,
-                                            movesInMode.size,
-                                        )
-                                        pendingExtendAdvance = true
-                                        onExtendBestPv(blunder.id, sfenAtEnd, blunder.bestPv)
-                                    }
-                                }
-                            },
-                            enabled = clampedPly < maxPly || canTriggerExtend,
-                            modifier = Modifier.height(36.dp).widthIn(min = 36.dp),
-                            contentPadding = PaddingValues(horizontal = 2.dp),
-                        ) {
-                            if (showExtendIndicator) {
-                                val extendColor = if (canTriggerExtend) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.38f)
-                                }
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                        contentDescription = "1手進む",
-                                        tint = extendColor,
-                                    )
-                                    Text("+", color = extendColor)
-                                }
-                            } else {
-                                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "1手進む")
+                ReportNavRow(
+                    studyState = studyState,
+                    studySenteToMove = studySenteToMove,
+                    onStudyStepBack = onStudyStepBack,
+                    onStudyExit = exitStudy,
+                    navLabelAnnotated = navInfo.navLabelAnnotated,
+                    onLabelClick = { showMoveList = true },
+                    canGoFirst = clampedPly > 0,
+                    onFirst = { plyIndex = 0 },
+                    canGoPrev = clampedPly > 0,
+                    onPrev = { plyIndex = (clampedPly - 1).coerceAtLeast(0) },
+                    canGoNext = clampedPly < maxPly || navInfo.canTriggerExtend,
+                    onNext = {
+                        if (clampedPly < maxPly) {
+                            plyIndex = clampedPly + 1
+                        } else if (navInfo.canTriggerExtend) {
+                            selectedBlunder?.let { blunder ->
+                                val sfenAtEnd = computeSfenAtStep(
+                                    blunder.sfenBefore,
+                                    movesInMode,
+                                    movesInMode.size,
+                                )
+                                pendingExtendAdvance = true
+                                onExtendBestPv(blunder.id, sfenAtEnd, blunder.bestPv)
                             }
                         }
-                        TextButton(
-                            onClick = { plyIndex = maxPly },
-                            enabled = clampedPly < maxPly,
-                            modifier = Modifier.height(36.dp).widthIn(min = 36.dp),
-                            contentPadding = PaddingValues(horizontal = 2.dp),
-                        ) { Icon(NavIcons.LastPage, contentDescription = "最後へ") }
-                    }
-                }
+                    },
+                    showExtendIndicator = navInfo.showExtendIndicator,
+                    canTriggerExtend = navInfo.canTriggerExtend,
+                    canGoLast = clampedPly < maxPly,
+                    onLast = { plyIndex = maxPly },
+                )
 
                 if (studyState == null) {
                     // ▶で延長トリガー後、延長成功（maxPly 増加）で自動的に1手進める。
@@ -847,175 +469,93 @@ fun ReportScreen(
                         modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 4.dp),
                     )
                 } else {
-                when (bodyMode) {
-                    ReportBodyMode.SUMMARY -> {
-                        // ── サマリー（既定表示）: グラフ＋悪手率・一致率・棋力 ────────
-                        // 固定表示（スクロール対象外）。スクロールするのは LIST 側
-                        // （悪手一覧）だけにする（実機確認: サマリーがスクロール領域に
-                        // 入っていると一覧との境界が分かりにくいとの指摘）。
-                        Column(modifier = Modifier.fillMaxSize()) {
-                            // 評価値グラフ（手数×評価値の推移。悪手位置に朱マーカー・
-                            // 現在手にライン）。positionEvals が無い（旧解析・保存前）局は
-                            // 非表示——件数ガードはグラフ側（points.isEmpty()）に任せる。
-                            if (evalGraphPoints.isNotEmpty()) {
-                                EvalGraphCard(
-                                    points = evalGraphPoints,
-                                    maxPly = game.movesUsi.size,
-                                    blunderPlies = blunderPlies,
-                                    // SUMMARY 表示中は viewerMode が常に MAINLINE
-                                    // （タブは LIST 側にしか無いため）。plyIndex がそのまま
-                                    // 対局全体のplyに対応する。
-                                    currentPly = clampedPly,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                    onPlyTapped = { ply ->
-                                        // タップ位置の手へ現在手を移動する（盤・ナビ共通。
-                                        // 悪手マーカータップでも同様——マーカー＝タップ位置の
-                                        // plyなので、下の選択処理では plyIndex を上書きしない）。
-                                        // この分岐（else側）は studyState == null が保証されている
-                                        // （検討中は検討パネルが丸ごと入れ替わっているため）。
-                                        viewerMode = ViewerMode.MAINLINE
-                                        plyIndex = ply
-                                        // タップ位置が悪手のplyと一致すれば、その悪手を
-                                        // 選んで一覧へ（マーカーの選択導線）。
-                                        val idx = reports.indexOfFirst { it.ply.toInt() == ply }
-                                        if (idx >= 0) {
-                                            selectedIdx = idx
-                                            bodyMode = ReportBodyMode.LIST
-                                        }
-                                    },
-                                    // ドラッグ（スクラバー操作）は現在手を連続的に動かすだけで、
-                                    // タップと違い一覧への切替は発火させない（実機指示: マーカー上を
-                                    // ドラッグで通過・終了しても一覧に切り替わってほしくない）。
-                                    onPlyDragged = { ply ->
-                                        viewerMode = ViewerMode.MAINLINE
-                                        plyIndex = ply
-                                    },
-                                )
-                            }
-                            BlunderSummaryCard(
+                    when (bodyMode) {
+                        ReportBodyMode.SUMMARY -> {
+                            // ── サマリー（既定表示）: グラフ＋悪手率・一致率・棋力 ────────
+                            // 固定表示（スクロール対象外）。スクロールするのは LIST 側
+                            // （悪手一覧）だけにする（実機確認: サマリーがスクロール領域に
+                            // 入っていると一覧との境界が分かりにくいとの指摘）。
+                            ReportSummaryBody(
+                                evalGraphPoints = evalGraphPoints,
+                                maxPly = game.movesUsi.size,
+                                blunderPlies = blunderPlies,
+                                // SUMMARY 表示中は viewerMode が常に MAINLINE
+                                // （タブは LIST 側にしか無いため）。plyIndex がそのまま
+                                // 対局全体のplyに対応する。
+                                currentPly = clampedPly,
+                                onPlyTapped = { ply ->
+                                    // タップ位置の手へ現在手を移動する（盤・ナビ共通。
+                                    // 悪手マーカータップでも同様——マーカー＝タップ位置の
+                                    // plyなので、下の選択処理では plyIndex を上書きしない）。
+                                    // この分岐（else側）は studyState == null が保証されている
+                                    // （検討中は検討パネルが丸ごと入れ替わっているため）。
+                                    viewerMode = ViewerMode.MAINLINE
+                                    plyIndex = ply
+                                    // タップ位置が悪手のplyと一致すれば、その悪手を
+                                    // 選んで一覧へ（マーカーの選択導線）。
+                                    val idx = reports.indexOfFirst { it.ply.toInt() == ply }
+                                    if (idx >= 0) {
+                                        selectedIdx = idx
+                                        bodyMode = ReportBodyMode.LIST
+                                    }
+                                },
+                                // ドラッグ（スクラバー操作）は現在手を連続的に動かすだけで、
+                                // タップと違い一覧への切替は発火させない（実機指示: マーカー上を
+                                // ドラッグで通過・終了しても一覧に切り替わってほしくない）。
+                                onPlyDragged = { ply ->
+                                    viewerMode = ViewerMode.MAINLINE
+                                    plyIndex = ply
+                                },
                                 reports = reports,
                                 noBlundersMessage = noBlundersMessage,
                                 strengthDisplayText = strengthDisplayText,
                                 matchRateDisplayText = matchRateDisplayText,
                                 blunderRateDisplayText = blunderRateDisplayText,
                                 onViewList = { bodyMode = ReportBodyMode.LIST },
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+                        ReportBodyMode.LIST -> {
+                            // ── 悪手一覧: サマリーへ戻る導線＋本譜/最善の変化タブ＋カード一覧 ──
+                            ReportBlunderListBody(
+                                onBackToSummary = {
+                                    bodyMode = ReportBodyMode.SUMMARY
+                                    // グラフの現在手ラインと矛盾しないよう MAINLINE に戻す
+                                    // （LIST 側でBEST_PVを見ていた場合の後始末）。
+                                    viewerMode = ViewerMode.MAINLINE
+                                },
+                                viewerMode = viewerMode,
+                                hasBestPv = hasBestPv,
+                                onSelectMainlineTab = {
+                                    viewerMode = ViewerMode.MAINLINE
+                                    plyIndex = clampedPly.coerceAtMost(game.movesUsi.size)
+                                },
+                                onSelectBestPvTab = {
+                                    viewerMode = ViewerMode.BEST_PV
+                                    plyIndex = 0
+                                },
+                                reports = reports,
+                                noBlundersMessage = noBlundersMessage,
+                                selectedIdx = selectedIdx,
+                                evalDisplay = evalDisplay,
+                                onSelectBlunder = selectBlunderAndShowList,
+                                modifier = Modifier.fillMaxSize(),
                             )
                         }
                     }
-                    ReportBodyMode.LIST -> {
-                        // ── 悪手一覧: サマリーへ戻る導線＋本譜/最善の変化タブ＋カード一覧 ──
-                        Column(modifier = Modifier.fillMaxSize()) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 4.dp)
-                                    .height(32.dp)
-                                    .clickable {
-                                        bodyMode = ReportBodyMode.SUMMARY
-                                        // グラフの現在手ラインと矛盾しないよう MAINLINE に戻す
-                                        // （LIST 側でBEST_PVを見ていた場合の後始末）。
-                                        viewerMode = ViewerMode.MAINLINE
-                                    },
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                    contentDescription = AppStrings.BACK_TO_SUMMARY,
-                                    modifier = Modifier.size(18.dp),
-                                )
-                                Spacer(Modifier.width(4.dp))
-                                Text(
-                                    AppStrings.BACK_TO_SUMMARY,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.shogiColors.ink2,
-                                )
-                            }
-
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 8.dp, vertical = 2.dp),
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            ) {
-                                ReportViewerTab(
-                                    label = AppStrings.TAB_MAINLINE,
-                                    isActive = viewerMode == ViewerMode.MAINLINE,
-                                    enabled = true,
-                                    modifier = Modifier.weight(1f).height(36.dp),
-                                ) {
-                                    viewerMode = ViewerMode.MAINLINE
-                                    plyIndex = clampedPly.coerceAtMost(game.movesUsi.size)
-                                }
-                                ReportViewerTab(
-                                    label = AppStrings.TAB_BEST_PV,
-                                    isActive = viewerMode == ViewerMode.BEST_PV,
-                                    enabled = hasBestPv,
-                                    modifier = Modifier.weight(1f).height(36.dp),
-                                ) {
-                                    viewerMode = ViewerMode.BEST_PV
-                                    plyIndex = 0
-                                }
-                            }
-
-                            if (reports.isEmpty()) {
-                                Text(
-                                    noBlundersMessage,
-                                    modifier = Modifier.padding(16.dp),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                )
-                            } else {
-                                LazyColumn(
-                                    modifier = Modifier.fillMaxSize(),
-                                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
-                                ) {
-                                    itemsIndexed(reports) { idx, report ->
-                                        BlunderCard(
-                                            report = report,
-                                            isSelected = selectedIdx == idx,
-                                            evalDisplay = evalDisplay,
-                                            onClick = { selectBlunderAndShowList(idx) },
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
                 } // else (studyState == null)
-            }  // Column
-        }  // Scaffold content lambda
+            } // Column
+        } // Scaffold content lambda
 
         // 対局情報ダイアログ（ファイル名／取込元・日時・先手/後手名。閉じるボタンのみ）。
-        if (showGameInfoDialog) {
-            AlertDialog(
-                onDismissRequest = { showGameInfoDialog = false },
-                title = { Text(AppStrings.GAME_INFO_DIALOG_TITLE) },
-                text = {
-                    Column {
-                        // ファイル名（クリップボード取込は「クリップボード 2026-07-15 09:08」形式＝取込元を兼ねる）
-                        Text(game.fileName, style = MaterialTheme.typography.bodyMedium)
-                        Spacer(Modifier.height(8.dp))
-                        // 解析日時（GameCard と同じ formatDateTime(analyzedAt)を使う）
-                        Text(
-                            formatDateTime(game.analyzedAt),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.shogiColors.ink2,
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Text(playersLine, style = MaterialTheme.typography.bodyMedium)
-                    }
-                },
-                confirmButton = {
-                    TextButton(onClick = { showGameInfoDialog = false }) {
-                        Text(AppStrings.GAME_INFO_CLOSE)
-                    }
-                },
-            )
-        }
-    }  // BoxWithConstraints
-}  // ReportScreen
+        GameInfoDialog(
+            show = showGameInfoDialog,
+            onDismiss = { showGameInfoDialog = false },
+            game = game,
+            playersLine = playersLine,
+        )
+    } // BoxWithConstraints
+} // ReportScreen
 
 /**
  * 指定ステップ数だけ進んだ局面の SFEN を返す。
@@ -1033,55 +573,4 @@ internal fun computeSfenAtStep(startSfen: String?, moves: List<String>, steps: I
         runCatching { board.push(ShogiMove.fromUsi(moves[i])) }.onFailure { break }
     }
     return board.toSfen()
-}
-
-/**
- * 現在手の表示ラベルと悪手フラグを返す。
- *
- * ラベルフォーマット: 「N手目 ▲同　銀成」（最大約12文字）。
- * 悪手の括弧書き「（悪手・勝率−N%）」は表示しない（同情報が下の悪手カードにあるため）。
- * 悪手かどうかは isBlunder フラグで返し、呼び出し側で文字色（朱）を切り替える。
- */
-private data class CurrentMoveLabelState(val text: String, val isBlunder: Boolean)
-
-private fun buildCurrentMoveLabel(
-    mode: ViewerMode,
-    plyIndex: Int,
-    movesInMode: List<String>,
-    prevSfen: String?,
-    reports: List<BlunderRecord>,
-    selectedBlunder: BlunderRecord?,
-): CurrentMoveLabelState {
-    if (plyIndex == 0) {
-        // 固定文字列のみ表示する（動的サフィックスは付けない。タブ選択状態と現在手ラベルで
-        // 起点は伝わる）
-        return CurrentMoveLabelState(AppStrings.VIEWER_START_POSITION, isBlunder = false)
-    }
-
-    val moveUsi = movesInMode.getOrNull(plyIndex - 1)
-        ?: return CurrentMoveLabelState(AppStrings.viewerPlyLabel(plyIndex), isBlunder = false)
-
-    // 日本語表記（直前局面から）
-    val notation = if (prevSfen != null) {
-        runCatching {
-            JapaneseNotation.format(moveUsi, ShogiBoard.fromSfen(prevSfen))
-        }.getOrElse { moveUsi }
-    } else {
-        moveUsi
-    }
-
-    // 本譜での絶対手数
-    val gamePly = when (mode) {
-        ViewerMode.MAINLINE -> plyIndex
-        ViewerMode.BEST_PV -> (selectedBlunder?.ply?.toInt() ?: 0) + plyIndex - 1
-    }
-
-    // 本譜モードの場合、この手が悪手かどうかをチェック
-    val isBlunder = mode == ViewerMode.MAINLINE &&
-        reports.any { it.ply.toInt() == plyIndex }
-
-    return CurrentMoveLabelState(
-        text = "${AppStrings.viewerPlyLabel(gamePly)} $notation",
-        isBlunder = isBlunder,
-    )
 }
