@@ -49,6 +49,7 @@ class SettingsScreenScreenshotTest {
                         onOpenHelp = {},
                         onOpenFeedback = {},
                         onOpenTerms = {},
+                        onOpenReleaseNotes = {},
                         onOpenLicenses = {},
                     )
                 }
@@ -75,6 +76,7 @@ class SettingsScreenScreenshotTest {
                         onOpenHelp = {},
                         onOpenFeedback = {},
                         onOpenTerms = {},
+                        onOpenReleaseNotes = {},
                         onOpenLicenses = {},
                     )
                 }
@@ -112,6 +114,7 @@ class SettingsScreenScreenshotTest {
                         onOpenHelp = {},
                         onOpenFeedback = {},
                         onOpenTerms = {},
+                        onOpenReleaseNotes = {},
                         onOpenLicenses = {},
                         onOpenDebug = {},
                     )
