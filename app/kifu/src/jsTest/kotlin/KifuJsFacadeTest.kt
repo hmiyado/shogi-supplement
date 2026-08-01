@@ -1,5 +1,3 @@
-package dev.miyado.shogisupplement.kifu.js
-
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.boolean
 import kotlinx.serialization.json.jsonArray
