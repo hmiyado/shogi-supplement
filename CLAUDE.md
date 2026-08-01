@@ -10,3 +10,11 @@ UI・ビジュアルに関する判断の前に必ず DESIGN.md を読むこと�
 miyadoさんの明示的な承認なしに逸脱しない。
 QA・レビュー時は DESIGN.md に合わない実装をフラグする。
 ユーザー向け文言は docs/wording.md（文言表）に従い、反する文言もフラグする。
+
+## コミット前の自己レビュー
+
+**コミットを作る前に必ず self-code-review を実施する**
+（.claude/skills/self-code-review/SKILL.md。/self-code-review でも起動可）。
+コメント規約（コードはHow／テストはWhat／コミットログはWhy／コメントはWhy not）・
+混入チェック・文言・デザイン準拠の規定はすべてそこにある。
+委譲されたエージェントがコミットを作る場合も同様。
