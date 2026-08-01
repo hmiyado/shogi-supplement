@@ -60,10 +60,18 @@ data class StudyBranchOption(
  * レポート画面を離れたら破棄する（永続化はしない）。
  *
  * @param baseSfen 検討開始局面の SFEN
- * @param moves 検討開始局面からの手列（USI）。空 = 検討開始局面そのもの。木の中の「現在ライン」
+ * @param moves 検討開始局面からの実際の現在局面までの手列（USI）。空 = 検討開始局面そのもの。
+ *   盤面・合法手判定はこの手列を基準にする
+ * @param displayLine チップ列に表示する手列（USI）。moves は常にこの先頭部分（prefix）——
+ *   1手戻っても displayLine は縮めず、先の手のチップを淡色（ink3）で表示し続ける
+ *   （実機確認: 「戻ると先が消えてしまう」との指摘）。指し直しで分岐に入ったとき
+ *   （＝moves の続きが displayLine と食い違う、または displayLine の先端を超えて指したとき）は
+ *   displayLine を新しい moves に置き換える（旧変化は木構造側には残ったまま）
+ * @param chipEvalStates displayLine と同じ長さ。各手を指した後の局面の解析結果
+ *   （チップへの評価値併記「△５六飛(-1298)」に使う）
  * @param origin 分岐元の表示情報（検討開始時に固定）
- * @param branchFlags moves と同じ長さ。各手が兄弟変化を持つか（チップの下向きチェブロン表示に使う）
- * @param openBranchPopupDepth 分岐チップタップで開いている兄弟変化ポップの深さ（movesのインデックス）。
+ * @param branchFlags displayLine と同じ長さ。各手が兄弟変化を持つか（チップの下向きチェブロン表示に使う）
+ * @param openBranchPopupDepth 分岐チップタップで開いている兄弟変化ポップの深さ（displayLineのインデックス）。
  *   null なら閉じている
  * @param branchPopupOptions openBranchPopupDepth のポップの中身（兄弟変化一覧）
  * @param originIsBestPv 検討開始時に選択していたタブ（最善の変化タブなら true）。終了時の復帰に使う
@@ -75,6 +83,8 @@ data class StudyBranchOption(
 data class StudyState(
     val baseSfen: String,
     val moves: List<String> = emptyList(),
+    val displayLine: List<String> = emptyList(),
+    val chipEvalStates: List<StudyEvalState> = emptyList(),
     val origin: StudyOrigin,
     val branchFlags: List<Boolean> = emptyList(),
     val openBranchPopupDepth: Int? = null,

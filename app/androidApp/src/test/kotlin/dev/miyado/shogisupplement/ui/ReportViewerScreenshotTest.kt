@@ -44,10 +44,14 @@ import org.robolectric.annotation.GraphicsMode
  * - report_viewer_best_pv_mid: LIST・最善の変化タブ・中間局面（ナビラベルに形勢サフィックス）
  * - report_viewer_best_pv_mate: LIST・最善の変化タブ・中間局面・詰み絡み cp_before
  *   （「詰み」規約表示。ナビラベルのサフィックスとして表示）
- * - report_viewer_study_selection: 検討モード・選択マス＋合法手ドット表示（着手前・
- *   検討ナビラベルに手番ヒントをサフィックス表示）
- * - report_viewer_study_eval: 検討モード・1手指した後の評価値表示（ナビラベルに統合）
- * - report_viewer_study_banner: 検討中バナー（最善の変化タブ起点）＋解析中サフィックス「（…）」
+ * - report_viewer_study_selection: 検討モード・選択マス＋合法手ドット表示（着手前）
+ * - report_viewer_study_eval: 検討モード・1手指した後、チップに評価値併記
+ *   （例:「(+120)」。評価スロットは「解析済み」の簡素表示）
+ * - report_viewer_study_branch: 検討パネル・分岐あり（下向きチェブロン付きチップ）＋解析中スピナー
+ * - report_viewer_study_line_ahead: 検討パネル・1手戻った直後（displayLineがmovesより
+ *   1手長い）。先の手のチップが淡色（ink3）で残り続けることを確認
+ * - report_viewer_study_selected_chip_dark: ダークテーマでの現在手チップ（highlight背景）
+ *   の文字コントラスト確認（濃墨固定色。実機確認: ダークテーマで白文字になり読めなかった対応）
  *
  * トップバーは32dpインライン行（TopAppBar 64dpは使わない）。計器行（評価値行/
  * 「この変化の形勢」行/検討評価行/▶ヒント行/スピナー・エラー行）は持たず、ナビ行に統合する。
@@ -463,6 +467,13 @@ class ReportViewerScreenshotTest {
                         studyState = dev.miyado.shogisupplement.ui.report.StudyState(
                             baseSfen = blunder.sfenBefore,
                             moves = listOf("7f7e"),
+                            displayLine = listOf("7f7e"),
+                            chipEvalStates = listOf(
+                                dev.miyado.shogisupplement.ui.report.StudyEvalState.Value(
+                                    PositionEvalDisplay.EvalLabel(text = "+120", sign = 1),
+                                    userCp = 120,
+                                ),
+                            ),
                             origin = dev.miyado.shogisupplement.ui.report.StudyOrigin(
                                 label = "40手目 ▲３四飛（−320）",
                                 userCp = -320,
@@ -506,6 +517,7 @@ class ReportViewerScreenshotTest {
                         studyState = dev.miyado.shogisupplement.ui.report.StudyState(
                             baseSfen = blunder.sfenBefore,
                             moves = listOf("7f7e", "3c3d"),
+                            displayLine = listOf("7f7e", "3c3d"),
                             origin = dev.miyado.shogisupplement.ui.report.StudyOrigin(
                                 label = "44手目 △３二玉",
                                 userCp = null,
@@ -517,6 +529,97 @@ class ReportViewerScreenshotTest {
                             flip = false,
                             branchFlags = listOf(false, true),
                             evalState = dev.miyado.shogisupplement.ui.report.StudyEvalState.Loading,
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * 検討パネル・1手戻った直後（displayLineはmovesより1手長い）。先の手のチップ
+     * （3c3d）が淡色（ink3）で残り続けることを示す（実機確認: 「戻ると先が消える」対応）。
+     */
+    @Test
+    fun report_viewer_study_line_ahead() {
+        val blunder = sampleBlunder()
+        captureRoboImage(
+            filePath = "src/test/snapshots/report_viewer_study_line_ahead.png",
+            roborazziOptions = roborazziOptions,
+        ) {
+            ShogiTheme {
+                Surface {
+                    ReportScreen(
+                        game = sampleGame(),
+                        reports = listOf(blunder),
+                        flip = false,
+                        strengthDisplayText = "52 ±27",
+                        onBack = {},
+                        studyState = dev.miyado.shogisupplement.ui.report.StudyState(
+                            baseSfen = blunder.sfenBefore,
+                            moves = listOf("7f7e"),
+                            displayLine = listOf("7f7e", "3c3d"),
+                            origin = dev.miyado.shogisupplement.ui.report.StudyOrigin(
+                                label = "40手目 ▲３四飛（−320）",
+                                userCp = -320,
+                            ),
+                            originIsBestPv = false,
+                            originPlyIndex = 40,
+                            originSelectedIdx = null,
+                            originAbsolutePly = 40,
+                            flip = false,
+                            branchFlags = listOf(false, false),
+                            evalState = dev.miyado.shogisupplement.ui.report.StudyEvalState.None,
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * 現在手チップ（highlight背景）の文字は、テーマ追従だとダークテーマでコントラスト
+     * 不足になるため、常に LightInk（濃墨固定色）を使う。
+     */
+    @Test
+    fun report_viewer_study_selected_chip_dark() {
+        val blunder = sampleBlunder()
+        captureRoboImage(
+            filePath = "src/test/snapshots/report_viewer_study_selected_chip_dark.png",
+            roborazziOptions = roborazziOptions,
+        ) {
+            ShogiTheme(themeMode = "dark") {
+                Surface {
+                    ReportScreen(
+                        game = sampleGame(),
+                        reports = listOf(blunder),
+                        flip = false,
+                        strengthDisplayText = "52 ±27",
+                        onBack = {},
+                        studyState = dev.miyado.shogisupplement.ui.report.StudyState(
+                            baseSfen = blunder.sfenBefore,
+                            moves = listOf("7f7e"),
+                            displayLine = listOf("7f7e"),
+                            chipEvalStates = listOf(
+                                dev.miyado.shogisupplement.ui.report.StudyEvalState.Value(
+                                    PositionEvalDisplay.EvalLabel(text = "+120", sign = 1),
+                                    userCp = 120,
+                                ),
+                            ),
+                            origin = dev.miyado.shogisupplement.ui.report.StudyOrigin(
+                                label = "40手目 ▲３四飛（−320）",
+                                userCp = -320,
+                            ),
+                            originIsBestPv = false,
+                            originPlyIndex = 40,
+                            originSelectedIdx = null,
+                            originAbsolutePly = 40,
+                            flip = false,
+                            branchFlags = listOf(false),
+                            evalState = dev.miyado.shogisupplement.ui.report.StudyEvalState.Value(
+                                PositionEvalDisplay.EvalLabel(text = "+120", sign = 1),
+                                userCp = 120,
+                            ),
                         ),
                     )
                 }

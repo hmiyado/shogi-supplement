@@ -251,32 +251,34 @@ class StudyController(
     }
 
     /**
-     * 検討パネルの手順チップタップ: 現在ライン上の depth 手目の局面へ移動する
+     * 検討パネルの手順チップタップ: displayLine 上の depth 手目の局面へ移動する
      * （depth = 0 は検討開始局面。studyStepBack/studyResetToStart はこの特殊形）。
-     * 現在ラインの範囲外（未来の分岐先など）は無視する——チップ列は常に現在ラインだけを
-     * 表示するため、チップタップは「現在ライン内のシーク」に閉じる。
+     * moves より先（まだ進んでいない側）のチップも displayLine には残っているため、
+     * このタップだけで前後どちらへも移動できる（実機確認: 「戻ると先が消える」対応）。
+     * displayLine の範囲外は無視する。
      */
     fun onChipTapped(depth: Int) {
         val s = _studyState.value ?: return
-        if (depth !in 0..s.moves.size) return
+        if (depth !in 0..s.displayLine.size) return
         navigateToDepth(depth)
     }
 
     /**
-     * 分岐（下向きチェブロン付き）チップタップ: そのチップの depth に兄弟変化があれば、兄弟変化ポップの中身
-     * （[StudyState.branchPopupOptions]）を用意して開く。
+     * 分岐（下向きチェブロン付き）チップタップ: そのチップの depth に兄弟変化があれば、
+     * 兄弟変化ポップの中身を用意して開く。displayLine 上のどのチップ（現在より
+     * 先のチップも含む）からでも開ける。
      */
     fun onBranchChipTapped(depth: Int) {
         val s = _studyState.value ?: return
-        if (depth !in s.moves.indices) return
+        if (depth !in s.displayLine.indices) return
         if (s.branchFlags.getOrNull(depth) != true) return
         val tree = treesByOrigin[s.baseSfen] ?: return
-        val siblings = tree.siblingsAtDepth(s.moves, depth)
+        val siblings = tree.siblingsAtDepth(s.displayLine, depth)
         val options = siblings.map { node ->
             StudyBranchOption(
                 moveUsi = node.moveUsi,
                 evalState = node.evalState,
-                isCurrent = node.moveUsi == s.moves[depth],
+                isCurrent = node.moveUsi == s.displayLine[depth],
             )
         }
         _studyState.value = s.copy(openBranchPopupDepth = depth, branchPopupOptions = options)
@@ -293,11 +295,13 @@ class StudyController(
      * （ポップに出ている評価はその1手だけのものであり、切替直後の表示局面と
      * ポップの情報を一致させるための単純化。深い変化を見たい場合は改めて
      * チップ列から辿る）。
+     * 別ラインへの切替は displayLine を置き換える（＝ここから先は新しいラインの表示になる。
+     * 旧ラインは木構造側に残ったまま）。
      */
     fun onBranchOptionSelected(depth: Int, moveUsi: String) {
         val s = _studyState.value ?: return
-        if (depth !in s.moves.indices) return
-        applyMoves(s, s.moves.take(depth) + moveUsi)
+        if (depth !in s.displayLine.indices) return
+        applyMoves(s, s.displayLine.take(depth) + moveUsi)
     }
 
     /** 検討モードを終了する（エンジンをquitし、盤面状態を破棄する）。検討木は破棄しない。 */
@@ -354,9 +358,12 @@ class StudyController(
             // オンデマンド解析は都度ボタンで明示的に呼ばれるため、
             // 単純に「今の局面と違えば破棄」で十分）。
             if (latest == null || latest.baseSfen != cur.baseSfen || latest.moves != cur.moves) return@launch
-            val tree = treesByOrigin[latest.baseSfen] ?: StudyTree()
-            treesByOrigin[latest.baseSfen] = tree.withEvalState(latest.moves, evalResult)
-            _studyState.update { it?.copy(evalState = evalResult) }
+            val tree = (treesByOrigin[latest.baseSfen] ?: StudyTree()).withEvalState(latest.moves, evalResult)
+            treesByOrigin[latest.baseSfen] = tree
+            // chipEvalStates も更新する（今解析した手のチップに評価値を併記するため）。
+            _studyState.update {
+                it?.copy(evalState = evalResult, chipEvalStates = tree.evalStatesAlong(latest.displayLine))
+            }
         }
     }
 
@@ -366,10 +373,17 @@ class StudyController(
     }
 
     /**
-     * moves（検討開始局面からの手列）を現在ラインとして適用する共通処理。
-     * 木への反映（新規なら分岐として追加・既存なら再利用）→ 盤面再構築 →
-     * branchFlags/evalState を木から再取得、の順で行う（chip移動・分岐切替・新手着手の
-     * 3経路すべてがこの手順を共有する）。
+     * moves（検討開始局面からの実際の現在局面までの手列）を適用する共通処理。
+     * 木への反映（新規なら分岐として追加・既存なら再利用。moves が s.moves の1手延長で
+     * ないとき＝チップタップ等でのシークのときは木を触らない）→ 盤面再構築 →
+     * displayLine の更新 → branchFlags/evalState/chipEvalStates を木から再取得、の順で行う
+     * （chip移動・分岐切替・新手着手の3経路すべてがこの手順を共有する）。
+     *
+     * displayLine の更新規則: newMoves が現在の displayLine の prefix（＝表示中のライン内の
+     * シーク、前後どちらへの移動でも該当）なら displayLine は変えない。それ以外
+     * （displayLine の先端を超えて進んだ・displayLine と異なる手へ分岐した）は
+     * displayLine を newMoves に置き換える（実機確認: 「戻ると先が消える」対応。
+     * 別の手を指したときだけ表示中のラインが新しいものに切り替わる）。
      */
     private fun applyMoves(s: StudyState, newMoves: List<String>) {
         val addedMove = if (newMoves.size == s.moves.size + 1 && newMoves.dropLast(1) == s.moves) {
@@ -385,9 +399,18 @@ class StudyController(
         studyBoard = runCatching { ShogiBoard.fromSfen(s.baseSfen) }.getOrNull()?.also { b ->
             newMoves.forEach { m -> runCatching { b.push(ShogiMove.fromUsi(m)) } }
         }
+        val newDisplayLine = if (
+            newMoves.size <= s.displayLine.size && newMoves == s.displayLine.take(newMoves.size)
+        ) {
+            s.displayLine
+        } else {
+            newMoves
+        }
         _studyState.value = s.copy(
             moves = newMoves,
-            branchFlags = tree.branchFlags(newMoves),
+            displayLine = newDisplayLine,
+            chipEvalStates = tree.evalStatesAlong(newDisplayLine),
+            branchFlags = tree.branchFlags(newDisplayLine),
             openBranchPopupDepth = null,
             branchPopupOptions = emptyList(),
             selectedFrom = null,
@@ -400,9 +423,10 @@ class StudyController(
         )
     }
 
+    /** displayLine 上の depth 手目まで（0 = 検討開始局面）を現在局面として適用する。 */
     private fun navigateToDepth(depth: Int) {
         val s = _studyState.value ?: return
-        applyMoves(s, s.moves.take(depth))
+        applyMoves(s, s.displayLine.take(depth))
     }
 
     /**

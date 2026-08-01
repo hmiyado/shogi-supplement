@@ -584,25 +584,14 @@ object AppStrings {
     /** 分岐元行。label = 分岐元の手＋形勢（例:「42手目 ▲３四飛（−320）」）。 */
     fun studyOriginLine(label: String): String = "${label}から分岐"
 
-    /** 評価スロットのラベル（未解析時・解析済み時とも左側に出す）。 */
-    const val STUDY_EVAL_SLOT_LABEL = "この局面の評価"
+    const val STUDY_ANALYZE_LABEL = "解析"
 
-    /** 評価スロットの解析トリガーボタン（未解析時）。PvExtensionRunnerの仕組みを流用する。 */
-    const val STUDY_ANALYZE_BUTTON = "解析 ▶+"
+    const val STUDY_EVAL_ANALYZED = "解析済み"
 
-    /** 評価スロット・解析済み時の現在局面値のキャプション。 */
-    const val STUDY_EVAL_CURRENT_CAPTION = "検討"
-
-    /** 評価スロット・解析済み時の分岐元との差分値のキャプション。 */
-    const val STUDY_EVAL_DIFF_CAPTION = "差"
+    fun studyChipEvalSuffix(text: String): String = "($text)"
 
     const val STUDY_BRANCH_CURRENT_SUFFIX = "（いま）"
 
-    /**
-     * 分岐チップの下向きチェブロンアイコンの contentDescription。
-     * 記号（⑂等）ではなく KeyboardArrowDown アイコンを使う（フォントカバレッジ差でiOS/Android
-     * の見た目が割れるのを避けるため）。▽▼は後手記号と衝突するため使わない。
-     */
     const val STUDY_BRANCH_ICON_DESC = "他の変化があります"
 
     /** 兄弟変化ポップメニューで、その変化がまだ未解析のときの評価欄プレースホルダー。 */

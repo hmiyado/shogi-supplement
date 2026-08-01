@@ -853,7 +853,6 @@ fun ReportScreen(
                     // ではなく同じ排他スロットを共有することで構造的に一致する。
                     StudyPanel(
                         studyState = studyState,
-                        onEnd = exitStudy,
                         onChipTapped = onStudyChipTapped,
                         onBranchChipTapped = onStudyBranchChipTapped,
                         onBranchPopupDismiss = onStudyBranchPopupDismiss,

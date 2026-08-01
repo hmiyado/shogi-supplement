@@ -53,10 +53,6 @@ data class StudyTree(val rootChildren: List<StudyNode> = emptyList()) {
     fun siblingsAtDepth(moves: List<String>, depth: Int): List<StudyNode> =
         childrenAtPath(pathForMoves(moves.take(depth)))
 
-    /**
-     * moves の各手について、その手を選んだ時点で兄弟（指し直しの候補）が他にあったかを
-     * 並べて返す（moves と同じ長さ）。チップの分岐表示（下向きチェブロン）に使う。
-     */
     fun branchFlags(moves: List<String>): List<Boolean> {
         val flags = mutableListOf<Boolean>()
         var siblings = rootChildren
@@ -66,6 +62,12 @@ data class StudyTree(val rootChildren: List<StudyNode> = emptyList()) {
             siblings = if (idx >= 0) siblings[idx].children else emptyList()
         }
         return flags
+    }
+
+    /** moves と同じ長さで返す。木に無い手は打ち切らず None で埋める。 */
+    fun evalStatesAlong(moves: List<String>): List<StudyEvalState> {
+        val nodes = nodesAtPath(pathForMoves(moves))
+        return moves.indices.map { i -> nodes.getOrNull(i)?.evalState ?: StudyEvalState.None }
     }
 
     fun evalStateAt(moves: List<String>): StudyEvalState {

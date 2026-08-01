@@ -280,4 +280,104 @@ class StudyControllerTest {
         val evalState = controller.studyState.value?.evalState
         assertTrue(evalState is StudyEvalState.Value)
     }
+
+    // ─── displayLine（先の手を消さず表示し続ける。実機確認対応）───────────────────
+
+    @Test
+    fun `1手戻ってもdisplayLineは縮まず先の手が残り続ける`() {
+        val (controller, _) = newController()
+        controller.startStudy(
+            baseSfen = startSfen,
+            flip = false,
+            originIsBestPv = false,
+            originPlyIndex = 0,
+            originSelectedIdx = null,
+            originAbsolutePly = 0,
+            origin = noOrigin,
+        )
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 7))
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 6))
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(3, 3))
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(3, 4))
+        assertEquals(listOf("7g7f", "3c3d"), controller.studyState.value?.moves)
+        assertEquals(listOf("7g7f", "3c3d"), controller.studyState.value?.displayLine)
+
+        controller.studyStepBack()
+
+        assertEquals(
+            listOf("7g7f"),
+            controller.studyState.value?.moves,
+            "1手戻ったので現在局面はmoves=[7g7f]",
+        )
+        assertEquals(
+            listOf("7g7f", "3c3d"),
+            controller.studyState.value?.displayLine,
+            "displayLineは縮めず先の手(3c3d)のチップを表示し続ける",
+        )
+    }
+
+    @Test
+    fun `先のチップタップ相当(onChipTapped)で戻らずdisplayLineの先まで進める`() {
+        val (controller, _) = newController()
+        controller.startStudy(
+            baseSfen = startSfen,
+            flip = false,
+            originIsBestPv = false,
+            originPlyIndex = 0,
+            originSelectedIdx = null,
+            originAbsolutePly = 0,
+            origin = noOrigin,
+        )
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 7))
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 6))
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(3, 3))
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(3, 4))
+        controller.studyStepBack()
+        assertEquals(listOf("7g7f"), controller.studyState.value?.moves)
+
+        controller.onChipTapped(2)
+
+        assertEquals(
+            listOf("7g7f", "3c3d"),
+            controller.studyState.value?.moves,
+            "displayLineの先のチップをタップすると、そこまで指し直さずに進める",
+        )
+        assertEquals(listOf("7g7f", "3c3d"), controller.studyState.value?.displayLine)
+    }
+
+    @Test
+    fun `戻ってから別の手を指すとdisplayLineが新しいラインに置き換わる`() {
+        val (controller, _) = newController()
+        controller.startStudy(
+            baseSfen = startSfen,
+            flip = false,
+            originIsBestPv = false,
+            originPlyIndex = 0,
+            originSelectedIdx = null,
+            originAbsolutePly = 0,
+            origin = noOrigin,
+        )
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 7))
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 6))
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(3, 3))
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(3, 4))
+        controller.studyResetToStart()
+        assertEquals(emptyList(), controller.studyState.value?.moves)
+        assertEquals(
+            listOf("7g7f", "3c3d"),
+            controller.studyState.value?.displayLine,
+            "リセット直後はまだ旧ラインを表示している",
+        )
+
+        // 別の手（2g2f）を指す＝分岐に入る。
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(2, 7))
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(2, 6))
+
+        assertEquals(listOf("2g2f"), controller.studyState.value?.moves)
+        assertEquals(
+            listOf("2g2f"),
+            controller.studyState.value?.displayLine,
+            "別の手を指したのでdisplayLineは新しいラインに置き換わる（旧ラインは木には残る）",
+        )
+    }
 }
