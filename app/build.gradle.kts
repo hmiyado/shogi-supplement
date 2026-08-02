@@ -1,5 +1,13 @@
+@file:OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsEnvSpec
 import org.jetbrains.kotlin.gradle.targets.js.nodejs.NodeJsPlugin
+import org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsEnvSpec
+import org.jetbrains.kotlin.gradle.targets.wasm.nodejs.WasmNodeJsPlugin
+import org.jetbrains.kotlin.gradle.targets.wasm.yarn.WasmYarnPlugin
+import org.jetbrains.kotlin.gradle.targets.wasm.yarn.WasmYarnRootEnvSpec
+import org.jetbrains.kotlin.gradle.targets.wasm.binaryen.BinaryenEnvSpec
+import org.jetbrains.kotlin.gradle.targets.wasm.binaryen.BinaryenPlugin
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform) apply false
@@ -33,6 +41,38 @@ allprojects {
         extensions.configure(NodeJsEnvSpec::class.java) {
             download.set(false)
             downloadBaseUrl.set(null as String?)
+        }
+    }
+}
+
+// :analysis/:kifu が追加する wasmJs ターゲット向け（CMP for Web本実装）。wasmJsは上の
+// js(IR)用設定（NodeJsPlugin/NodeJsEnvSpec）とは別クラス（WasmNodeJsPlugin/WasmNodeJsEnvSpec・
+// WasmYarnPlugin/WasmYarnRootEnvSpec）を使うため、js(IR)側の設定・
+// gradle.properties の kotlin.js.yarn=false は効かず、同じ理由で個別に対処が要る。
+allprojects {
+    plugins.withType(WasmNodeJsPlugin::class.java) {
+        extensions.configure(WasmNodeJsEnvSpec::class.java) {
+            download.set(false)
+            downloadBaseUrl.set(null as String?)
+        }
+    }
+}
+rootProject.plugins.withType(WasmYarnPlugin::class.java) {
+    rootProject.extensions.configure(WasmYarnRootEnvSpec::class.java) {
+        download.set(false)
+        downloadBaseUrl.set(null as String?)
+    }
+}
+
+// production distribution（wasmJsBrowserDistribution）は wasm-opt（binaryen）でのサイズ最適化を
+// 既定で挟む。同じ理由でダウンロードを止め、`brew install binaryen` で導入したホストの
+// 実行体を使う（CI導入時も同様のインストールが要る）。
+allprojects {
+    plugins.withType(BinaryenPlugin::class.java) {
+        extensions.configure(BinaryenEnvSpec::class.java) {
+            download.set(false)
+            downloadBaseUrl.set(null as String?)
+            command.set("/opt/homebrew/bin/wasm-opt")
         }
     }
 }

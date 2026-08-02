@@ -1,3 +1,5 @@
+@file:OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.kotlinSerialization)
@@ -15,6 +17,20 @@ kotlin {
     // :kifu と同じ理由（NodeJsRootPluginの自動ダウンロードとFAIL_ON_PROJECT_REPOSの衝突回避）。
     // browser側のtestTaskは無効化し、:analysis:allTestsがブラウザテストの欠如で失敗しないようにする。
     js(IR) {
+        browser {
+            binaries.executable()
+            testTask {
+                enabled = false
+            }
+        }
+        nodejs()
+    }
+
+    // Web版（CMP for Web）でレポート画面を動かすためのターゲット。js(IR)と同じ理由で
+    // browser側のtestTaskは無効化する（wasmJsのブラウザテストランナーはCI/サンドボックスに
+    // 用意しない方針。ルートbuild.gradle.ktsのWasmNodeJs/WasmYarn/Binaryen download=false
+    // 設定と対で機能する）。
+    wasmJs {
         browser {
             binaries.executable()
             testTask {

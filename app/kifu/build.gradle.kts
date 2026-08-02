@@ -1,3 +1,5 @@
+@file:OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.kotlinSerialization)
@@ -16,6 +18,19 @@ kotlin {
     // 実行する(ヘッドレスブラウザ(karma+Chrome)をCI/サンドボックスに用意しない方針)。
     // browser側のtestTaskは無効化し、:kifu:allTestsがブラウザテストの欠如で失敗しないようにする。
     js(IR) {
+        browser {
+            binaries.executable()
+            testTask {
+                enabled = false
+            }
+        }
+        nodejs()
+    }
+
+    // CMP for Web（Kotlin/Wasm）本実装向け。board/kifu パッケージは commonMain 限定の
+    // 純粋Kotlinのため wasmJs でもそのままコンパイルできる。js(IR)と同じ理由
+    // （ヘッドレスブラウザ未整備）でbrowser側のtestTaskは無効化する。
+    wasmJs {
         browser {
             binaries.executable()
             testTask {
