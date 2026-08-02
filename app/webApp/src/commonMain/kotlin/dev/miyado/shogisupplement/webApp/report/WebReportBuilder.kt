@@ -36,9 +36,10 @@ data class WebReportData(
  * DB永続化なしのその場限りのセッション（game_id/blunder_idは常に0扱い）向けに移植したもの。
  * 判定ロジック自体（ReportPipeline・係数表）は変更しない。
  *
- * @param userSide ユーザーの側（"sente"/"gote"）。Web版のKIF貼り付けフローには側を選ぶ
- *   UIが無いため常にnull（＝両側を対象に解析する）。null時は悪手率・一致率・推定棋力は
- *   算出しない（EngineMatchRate.compute・computeSingleGameStrengthTextと同じ既存の仕様）。
+ * @param userSide ユーザーの側（"sente"/"gote"）。解析開始前の側選択ダイアログ（UserSideDialog）
+ *   で確定した値をそのまま受け取る。「指定しない」選択時はnull（＝両側を対象に解析する）。
+ *   null時は悪手率・一致率・推定棋力は算出しない
+ *   （EngineMatchRate.compute・computeSingleGameStrengthTextと同じ既存の仕様）。
  */
 fun buildWebReport(
     fileName: String,

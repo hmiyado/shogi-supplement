@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.text.AppStrings
+import dev.miyado.shogisupplement.ui.common.UserSideDialog
 import dev.miyado.shogisupplement.ui.report.ReportScreen
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
 
@@ -26,6 +27,8 @@ fun App(
     onKifTextChange: (String) -> Unit,
     onStart: () -> Unit,
     onCancel: () -> Unit,
+    onConfirmSide: (userSide: String?) -> Unit,
+    onCancelSideSelection: () -> Unit,
 ) {
     ShogiTheme {
         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -39,6 +42,8 @@ fun App(
                         onKifTextChange = onKifTextChange,
                         onStart = onStart,
                         onCancel = onCancel,
+                        onConfirmSide = onConfirmSide,
+                        onCancelSideSelection = onCancelSideSelection,
                     )
                 }
             }
@@ -53,6 +58,8 @@ private fun AppContent(
     onKifTextChange: (String) -> Unit,
     onStart: () -> Unit,
     onCancel: () -> Unit,
+    onConfirmSide: (userSide: String?) -> Unit,
+    onCancelSideSelection: () -> Unit,
 ) {
     val report = state.report
     if (report != null) {
@@ -79,6 +86,19 @@ private fun AppContent(
             onStart = onStart,
             onCancel = onCancel,
         )
+        // ダイアログはPopupのスクリムが背後の操作を塞ぐため、入力カードを隠さず表示したままにする。
+        val pending = state.pendingSideSelection
+        if (pending != null) {
+            UserSideDialog(
+                senteName = pending.headers["先手"],
+                goteName = pending.headers["後手"],
+                savedUserSide = null,
+                // Web版は次回省略の対象となるアカウント設定を持たないため常に非表示。
+                showSkipOption = false,
+                onConfirm = { userSide, _ -> onConfirmSide(userSide) },
+                onDismiss = onCancelSideSelection,
+            )
+        }
     }
 }
 

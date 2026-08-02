@@ -36,5 +36,7 @@ private fun KentoRoot() {
         onKifTextChange = viewModel::setKifText,
         onStart = viewModel::startAnalysis,
         onCancel = viewModel::cancelAnalysis,
+        onConfirmSide = viewModel::confirmUserSide,
+        onCancelSideSelection = viewModel::cancelSideSelection,
     )
 }

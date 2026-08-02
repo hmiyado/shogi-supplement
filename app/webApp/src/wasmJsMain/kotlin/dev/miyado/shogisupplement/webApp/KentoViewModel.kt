@@ -46,6 +46,7 @@ class KentoViewModel(private val scope: CoroutineScope) {
         kentoBridge().goHome()
     }
 
+    /** パース成功後、解析を即開始せず「自分の側」ダイアログ表示待ちへ遷移する。 */
     fun startAnalysis() {
         if (state.analyzing) return
         val outcome = parseKifInput(state.kifText)
@@ -54,41 +55,52 @@ class KentoViewModel(private val scope: CoroutineScope) {
                 state = state.copy(inputError = outcome.message)
             }
             is ParseOutcome.Ok -> {
-                val input = outcome.input
-                state = state.copy(
-                    inputError = null,
-                    analyzing = true,
-                    progressDone = 0,
-                    progressTotal = input.moves.size + 1,
-                )
-                analysisJob = scope.launch {
-                    try {
-                        val coef = coefTable ?: CoefficientTable.fromJson(fetchTextAsset(COEFFICIENTS_URL)).also {
-                            coefTable = it
-                        }
-                        val evals = runEngineAnalysis(input.baseSfenArg, input.moves) { done, total ->
-                            state = state.copy(progressDone = done, progressTotal = total)
-                        }
-                        val report = buildWebReport(
-                            fileName = AppStrings.KENTO_PASTED_GAME_TITLE,
-                            moves = input.moves,
-                            headers = input.headers,
-                            evals = evals,
-                            endReason = input.endReason,
-                            winner = input.winner,
-                            kifText = input.kifText,
-                            coef = coef,
-                        )
-                        state = state.copy(analyzing = false, report = report)
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        state = state.copy(
-                            analyzing = false,
-                            inputError = AppStrings.KENTO_ERROR_GENERIC,
-                        )
-                    }
+                state = state.copy(inputError = null, pendingSideSelection = outcome.input)
+            }
+        }
+    }
+
+    /** 側選択ダイアログのキャンセル（外側タップ等）。入力カードへ戻る。 */
+    fun cancelSideSelection() {
+        state = state.copy(pendingSideSelection = null)
+    }
+
+    /** 側選択ダイアログの確定。userSide は null（Web専用の「指定しない」）も許容する。 */
+    fun confirmUserSide(userSide: String?) {
+        val input = state.pendingSideSelection ?: return
+        state = state.copy(
+            pendingSideSelection = null,
+            analyzing = true,
+            progressDone = 0,
+            progressTotal = input.moves.size + 1,
+        )
+        analysisJob = scope.launch {
+            try {
+                val coef = coefTable ?: CoefficientTable.fromJson(fetchTextAsset(COEFFICIENTS_URL)).also {
+                    coefTable = it
                 }
+                val evals = runEngineAnalysis(input.baseSfenArg, input.moves) { done, total ->
+                    state = state.copy(progressDone = done, progressTotal = total)
+                }
+                val report = buildWebReport(
+                    fileName = AppStrings.KENTO_PASTED_GAME_TITLE,
+                    moves = input.moves,
+                    headers = input.headers,
+                    evals = evals,
+                    endReason = input.endReason,
+                    winner = input.winner,
+                    kifText = input.kifText,
+                    coef = coef,
+                    userSide = userSide,
+                )
+                state = state.copy(analyzing = false, report = report)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                state = state.copy(
+                    analyzing = false,
+                    inputError = AppStrings.KENTO_ERROR_GENERIC,
+                )
             }
         }
     }
