@@ -1,0 +1,50 @@
+# KIFファイル取込フロー全体（起動→ファイルから選ぶ→棋力設定→先後選択→解析開始）を
+# Maestroで駆動できるかの検証用フロー。
+#
+# 前提: 対象のKIFファイルがエミュレータの /sdcard/Download/ にあり、メディアスキャナに
+# 認識されていること。配置込みの実行入口は .maestro/run-android.sh。
+#
+# Androidはクリップボード経由の取込を試すadb単体の手段が無い（iOSと違い、シェルから
+# ClipboardManagerへ書き込むAPIが標準では公開されていない）。ファイルピッカー
+# （Storage Access Framework, com.android.documentsui）はシステムアプリで
+# 通常のUI要素として存在するため、Maestroからテキストで直接操作できる。
+#
+# 棋力設定ダイアログは対局サービスのアカウント名が1つも未設定のときだけ先に出る。
+# 毎回試すなら clearState: true でアプリのデータをリセットすること。
+appId: dev.miyado.shogisupplement
+---
+- launchApp:
+    clearState: false
+- tapOn: "棋譜を追加する"
+- tapOn: "ファイルから選ぶ"
+# システムのドキュメントピッカー（com.android.documentsui）側の「最近使ったファイル」に
+# 表示されたファイル名をそのままタップする。
+- tapOn: "wars_game3.kif"
+# 棋力設定ダイアログ（アカウント名未設定の初回のみ）。出なければスキップする。
+- extendedWaitUntil:
+    visible: "棋力設定"
+    timeout: 8000
+    optional: true
+- tapOn:
+    text: "保存"
+    optional: true
+# 先後選択ダイアログ。KIFパース（非同期）待ちのため長めに待つ。
+- extendedWaitUntil:
+    visible: "自分の側"
+    timeout: 15000
+- tapOn: "後手（miyado）"
+- tapOn: "解析開始"
+# 「解析中... N / M 局面」はNが高速に更新され続けるため、瞬間的なスナップショットでは
+# assertVisibleがタイミング次第で失敗することがある（実害はUI取得可否ではなくテキストが
+# 速く変わりすぎること。iOS版フローでも同じ現象が出る）。
+- extendedWaitUntil:
+    visible: "解析中"
+    timeout: 15000
+    optional: true
+- extendedWaitUntil:
+    visible: "解析中"
+    timeout: 15000
+    optional: true
+- extendedWaitUntil:
+    visible: "解析中"
+    timeout: 15000
