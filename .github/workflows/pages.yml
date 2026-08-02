@@ -71,6 +71,14 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6.2.0
 
+      # :kifuのnpm依存解決(kotlinNpmInstall)より前に効かせる必要があるため、
+      # Gradleビルド系のステップより前に置く。min-release-ageはnpm 11.10で
+      # 追加された機能のため、ランナー同梱のnpmを明示的に上げてから設定する。
+      - name: npmをmin-release-age対応版へ更新し公開直後パッケージの取得を抑止
+        run: |
+          npm install -g npm@11
+          npm config set min-release-age 7 --location=user
+
       - name: やねうら王の上流ソース取得+パッチ適用
         run: ./engine-wasm/fetch_upstream.sh
 
