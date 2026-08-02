@@ -1,0 +1,19 @@
+# KIF取込後の共通ステップ（棋力設定ダイアログ→先後選択→解析開始）。
+# iOS・Android双方のKIF取込フロー（クリップボード/ファイルピッカー）から呼び出す。
+# 棋力設定ダイアログ（対局サービスのアカウント名が1つも未設定の初回のみ表示される）。
+# 呼び出し元フローのenvで指定（iOS/Android両方から使うため固定しない）
+appId: ${APP_ID}
+---
+- extendedWaitUntil:
+    visible: "棋力設定"
+    timeout: 8000
+    optional: true
+- tapOn:
+    text: "保存"
+    optional: true
+# 先後選択ダイアログ。KIFパース（非同期）待ちのため長めに待つ。
+- extendedWaitUntil:
+    visible: "自分の側"
+    timeout: 15000
+- tapOn: "後手（miyado）"
+- tapOn: "解析開始"

@@ -1,0 +1,20 @@
+# システムのペースト許可アラート（springboard）。同一アプリへの許可はシミュレータの
+# セッション中は記憶されるため、2回目以降は出ないことがある。iOSバージョンによって
+# ボタン文言が揺れるため候補を順に試す。全ステップoptionalなので出なくてもフローは
+# 止まらない。
+appId: dev.miyado.shogisupplement.ios
+---
+- extendedWaitUntil:
+    visible: "ペーストを許可"
+    timeout: 8000
+    optional: true
+- tapOn:
+    text: "ペーストを許可"
+    optional: true
+- extendedWaitUntil:
+    visible: "許可"
+    timeout: 3000
+    optional: true
+- tapOn:
+    text: "許可"
+    optional: true

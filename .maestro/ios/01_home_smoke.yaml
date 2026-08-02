@@ -2,6 +2,7 @@ appId: dev.miyado.shogisupplement.ios
 ---
 - launchApp:
     clearState: false
+- runFlow: subflows/handle_consent_onboarding.yaml
 - assertVisible: "将棋サプリ"
 - assertVisible: "棋譜を追加する"
 - tapOn: "棋譜を追加する"

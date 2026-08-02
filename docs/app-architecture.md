@@ -129,8 +129,8 @@ Android/iOS双方でネイティブドライバを使う。テーブル: `game` 
   - KIFパーサ: 実KIF（`app/data/kifu_samples/`）→期待USI出力と一致
   - 係数表ローダー: coefficients JSONの読み込みと帯引き
 - UI: VRT（Roborazzi golden、手順は `app/docs/vrt.md`）。開発ループはJVM完結、
-  実機E2E（`connectedAndroidTest`／iOS UIテスト）はフェーズ最終1回＋依存/manifest変更時の
-  スモークに限定する
+  実機E2E（`connectedAndroidTest`／iOS UIテスト／Maestro、手順は `app/docs/e2e-testing.md`）
+  はフェーズ最終1回＋依存/manifest変更時のスモークに限定する
 - `:shared` はiOSターゲット（`iosArm64`/`iosSimulatorArm64`）でコンパイル・テスト実行を
   継続的に確認する（`./gradlew :shared:compileKotlinIosArm64` 等）。JVM専用APIは
   `expect`/`actual` で分離する（`util/Time.kt` 等）
