@@ -76,7 +76,9 @@ jobs:
       # 追加された機能のため、ランナー同梱のnpmを明示的に上げてから設定する。
       - name: npmをmin-release-age対応版へ更新し公開直後パッケージの取得を抑止
         run: |
-          npm install -g npm@11
+          # グローバルnpmの置き場(/usr/local)はランナーではroot所有のためsudoが要る
+          sudo npm install -g npm@11
+          npm --version
           npm config set min-release-age 7 --location=user
 
       - name: やねうら王の上流ソース取得+パッチ適用
