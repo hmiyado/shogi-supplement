@@ -1,0 +1,19 @@
+# クリップボードに有効なKIFが無い状態でペーストを試し、システムのペースト許可アラート
+# （springboard）とアプリ側の「クリップボードに棋譜（KIF）が見つかりませんでした」エラー
+# ダイアログの両方をMaestroが素通りできるかを確認するための検証用フロー。
+#
+# 前提: クリップボードに有効なKIF以外のテキストが入っていること。設定込みの実行入口は
+# .maestro/run-ios.sh。
+appId: dev.miyado.shogisupplement.ios
+---
+- launchApp:
+    clearState: false
+- tapOn: "棋譜を追加する"
+- tapOn: "クリップボードから貼り付け"
+- extendedWaitUntil:
+    visible: "許可"
+    timeout: 8000
+    optional: true
+- tapOn:
+    text: "許可"
+    optional: true

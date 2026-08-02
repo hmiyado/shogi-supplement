@@ -1,0 +1,7 @@
+appId: dev.miyado.shogisupplement.ios
+---
+- launchApp:
+    clearState: false
+- assertVisible: "将棋サプリ"
+- assertVisible: "棋譜を追加する"
+- tapOn: "棋譜を追加する"

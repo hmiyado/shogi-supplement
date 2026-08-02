@@ -1,0 +1,50 @@
+# クリップボード経由のKIF取込フロー全体（起動→KIF追加→貼り付け→棋力設定→先後選択→解析開始）を
+# Maestroで駆動できるかの検証用フロー。
+#
+# 前提: OSクリップボードに有効なKIFテキストが入っていること。投入込みの実行入口は
+# .maestro/run-ios.sh（フロー内で完結させない理由もそちらに記載）。
+#
+# 棋力設定ダイアログは対局サービスのアカウント名が1つも未設定のときだけ先に出る。
+# 初回実行後は出なくなるため、毎回試すなら
+# `maestro test --clear-state` や `clearState: true` でアプリのデータをリセットすること。
+appId: dev.miyado.shogisupplement.ios
+---
+- launchApp:
+    clearState: false
+- assertVisible: "将棋サプリ"
+- tapOn: "棋譜を追加する"
+- tapOn: "クリップボードから貼り付け"
+# ペースト許可アラート（springboardのシステムダイアログ）。同一アプリへの許可は
+# シミュレータのセッション中は記憶されるため、2回目以降は出ないことがある（optional）。
+- extendedWaitUntil:
+    visible: "ペーストを許可"
+    timeout: 10000
+    optional: true
+- tapOn:
+    text: "ペーストを許可"
+    optional: true
+# 棋力設定ダイアログ（アカウント名未設定の初回のみ）。出なければスキップする。
+- extendedWaitUntil:
+    visible: "棋力設定"
+    timeout: 5000
+    optional: true
+- tapOn:
+    text: "保存"
+    optional: true
+# 先後選択ダイアログ。KIFパース（非同期）待ちのため長めに待つ。
+- extendedWaitUntil:
+    visible: "自分の側"
+    timeout: 15000
+- tapOn: "後手（miyado）"
+- tapOn: "解析開始"
+# 「解析中... N / M 局面」はNが高速に更新され続けるため、瞬間的なスナップショットでは
+# assertVisibleがタイミング次第で失敗することがある（Compose再コンポジションとの競合。
+# 実害はUIの取得可否ではなくテキストが速く変わりすぎることなので、リトライで吸収する）。
+- extendedWaitUntil:
+    visible: "解析中"
+    timeout: 15000
+    optional: true
+- extendedWaitUntil:
+    visible: "解析中"
+    timeout: 15000
+
