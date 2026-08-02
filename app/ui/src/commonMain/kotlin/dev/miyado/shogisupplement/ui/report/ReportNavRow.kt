@@ -167,6 +167,13 @@ internal fun ReportNavRow(
     }
 }
 
+/**
+ * ▾（U+25BE）はIBM Plex Sans JPにグリフが無く、CJKシステムフォールバックの無いブラウザ
+ * （wasmJs）ではtofu表示になる。同フォントに収録されている▼（U+25BC）にwasmJsのみ
+ * 差し替える（Android/iOSは実機のシステムフォールバックで表示できているため変更しない）。
+ */
+internal expect fun moveListDropdownHint(): String
+
 internal data class ReportNavInfo(
     val navLabelAnnotated: AnnotatedString,
     val studyOrigin: StudyOrigin,
@@ -333,7 +340,7 @@ internal fun rememberReportNavInfo(
         }
         // 棋譜リストシートへのタップ導線ヒント（常時付与。数字ではないのでMono無し）。
         withStyle(SpanStyle(color = shogiColors.ink2)) {
-            append(AppStrings.MOVE_LIST_DROPDOWN_HINT)
+            append(moveListDropdownHint())
         }
     }
 

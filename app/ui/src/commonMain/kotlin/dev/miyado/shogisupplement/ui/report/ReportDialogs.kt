@@ -37,13 +37,17 @@ internal fun GameInfoDialog(
                 // ファイル名（クリップボード取込は「クリップボード 2026-07-15 09:08」形式＝取込元を兼ねる）
                 Text(game.fileName, style = MaterialTheme.typography.bodyMedium)
                 Spacer(Modifier.height(8.dp))
-                // 解析日時（GameCard と同じ formatDateTime(analyzedAt)を使う）
-                Text(
-                    formatDateTime(game.analyzedAt),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.shogiColors.ink2,
-                )
-                Spacer(Modifier.height(8.dp))
+                // 解析日時（GameCard と同じ formatDateTime(analyzedAt)を使う）。
+                // 0は「日時不明」のセンチネル。1970年扱いで表示すると誤情報になるため
+                // 行ごと出さない。
+                if (game.analyzedAt != 0L) {
+                    Text(
+                        formatDateTime(game.analyzedAt),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.shogiColors.ink2,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                }
                 Text(playersLine, style = MaterialTheme.typography.bodyMedium)
             }
         },

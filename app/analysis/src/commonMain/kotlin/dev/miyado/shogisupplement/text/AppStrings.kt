@@ -721,4 +721,26 @@ object AppStrings {
 
     /** 悪手一覧からサマリーへ戻るボタンの表示文言・contentDescription 兼用。 */
     const val BACK_TO_SUMMARY = "サマリーに戻る"
+
+    // ═══ 35. Web検討ページ（:webApp）═════════════════════════════════════════
+
+    const val KENTO_TITLE = "棋譜を検討する"
+    const val KENTO_ASSETS_UNAVAILABLE = "この機能は準備中です。しばらくしてからもう一度お試しください。"
+
+    const val KENTO_KIF_NOTE = "対局サイト・アプリの棋譜コピー機能で取得したKIF形式のテキストを貼り付けてください（平手のみ対応）。"
+    const val KENTO_KIF_PLACEHOLDER = "対局サイト・アプリの「棋譜コピー」等で取得したKIFテキストをここに貼り付け"
+    const val KENTO_PRIVACY_NOTE = "解析はお使いの端末内で完結し、棋譜が送信されることはありません"
+    const val KENTO_ANALYZE_BUTTON = "解析開始"
+    const val KENTO_CANCEL_BUTTON = "キャンセル"
+
+    /** 解析中の進捗表示。done/total は局面数。 */
+    fun kentoAnalyzing(done: Int, total: Int): String = "解析中... $done/${total}局面"
+
+    /** KIFの場所ヘッダが無い棋譜でレポート画面タイトルになる語。 */
+    const val KENTO_PASTED_GAME_TITLE = "貼り付けた棋譜"
+
+    const val KENTO_ERROR_GENERIC = "エラーが発生しました。ページを再読み込みしてからもう一度お試しください。"
+    const val KENTO_ERROR_EMPTY_INPUT = "入力が空です"
+    const val KENTO_ERROR_KIF_PARSE = "KIFの解析に失敗しました"
+    const val KENTO_ERROR_NO_MOVES = "指し手が0件です"
 }

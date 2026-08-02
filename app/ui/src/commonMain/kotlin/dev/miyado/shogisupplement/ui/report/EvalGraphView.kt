@@ -37,6 +37,11 @@ const val EVAL_GRAPH_CLAMP_CP = 2000
  * mateIn は符号のみ使い、クランプ上限/下限に張り付ける（実際の詰み手数は表示に使わない。
  * グラフは形勢の推移の概観が目的で、詰み手数の精緻な表現は他の表示（ナビ行等）が担うため）。
  *
+ * mateIn == 0 は「手番側が既に詰まされている」ことを示す符号なし値（[PositionEvalDisplay]
+ * と同じ規約）。他のmate値と違い符号だけでは勝敗を判定できないため、この値のときだけ
+ * ply の偶奇から手番を特定して勝敗を決める（さもないと詰ませて勝った側のグラフが
+ * 逆側にクランプされる）。
+ *
  * @param userIsGote ユーザーが後手なら true（符号反転）。position_eval は先手視点保存のため、
  *   この画面の他の表示と同じ規約で自分視点に揃える
  *   （上=自分有利で統一。実機確認で先手視点固定は違和感があるとの指摘）。
@@ -48,6 +53,10 @@ fun buildEvalGraphPoints(positionEvals: List<PositionEvalRow>, userIsGote: Boole
             val mateIn = row.mateIn
             val scoreCp = row.scoreCp
             val senteCp = when {
+                mateIn == 0 -> {
+                    val isSenteToMove = row.ply % 2 == 0
+                    if (isSenteToMove) -EVAL_GRAPH_CLAMP_CP else EVAL_GRAPH_CLAMP_CP
+                }
                 mateIn != null -> if (mateIn > 0) EVAL_GRAPH_CLAMP_CP else -EVAL_GRAPH_CLAMP_CP
                 scoreCp != null -> scoreCp.coerceIn(-EVAL_GRAPH_CLAMP_CP, EVAL_GRAPH_CLAMP_CP)
                 else -> return@mapNotNull null

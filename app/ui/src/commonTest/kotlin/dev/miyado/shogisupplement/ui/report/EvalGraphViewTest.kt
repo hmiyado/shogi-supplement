@@ -1,5 +1,6 @@
 package dev.miyado.shogisupplement.ui.report
 
+import dev.miyado.shogisupplement.db.PositionEvalRow
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -48,5 +49,33 @@ class EvalGraphViewTest {
         assertEquals(1, plyFromX(5f, 360, 40))
         // x=4pxは0.44ply→四捨五入で0。
         assertEquals(0, plyFromX(4f, 360, 40))
+    }
+
+    // mate_in=0（手番側が詰まされている局面）はエンジンが終局局面に対して返す符号なしの値。
+    // 符号だけでは勝敗が決まらないため、plyの偶奇から勝敗を判定する規約（PositionEvalDisplayと
+    // 同じ）をグラフでも守れているかを検証する。
+
+    @Test
+    fun `mate_in0で手番側が後手のときは先手が詰ませた勝ちとして上端にクランプする`() {
+        // ply=1（奇数）=後手番=後手が詰まされている=先手の勝ち。
+        val points = buildEvalGraphPoints(listOf(PositionEvalRow(ply = 1, scoreCp = null, mateIn = 0)))
+        assertEquals(EVAL_GRAPH_CLAMP_CP, points.single().clampedCp)
+    }
+
+    @Test
+    fun `mate_in0で手番側が先手のときは先手が詰まされた負けとして下端にクランプする`() {
+        // ply=0（偶数）=先手番=先手が詰まされている=後手の勝ち。
+        val points = buildEvalGraphPoints(listOf(PositionEvalRow(ply = 0, scoreCp = null, mateIn = 0)))
+        assertEquals(-EVAL_GRAPH_CLAMP_CP, points.single().clampedCp)
+    }
+
+    @Test
+    fun `mate_in0でも自分視点への反転は通常のmateInと同じ規約に従う`() {
+        // ply=1（後手が詰まされ先手の勝ち）をユーザー後手視点で見ると自分の負け=下端。
+        val points = buildEvalGraphPoints(
+            listOf(PositionEvalRow(ply = 1, scoreCp = null, mateIn = 0)),
+            userIsGote = true,
+        )
+        assertEquals(-EVAL_GRAPH_CLAMP_CP, points.single().clampedCp)
     }
 }
