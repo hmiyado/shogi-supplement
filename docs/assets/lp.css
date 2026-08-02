@@ -57,11 +57,6 @@ main.lp-main {
   margin-bottom: 8px;
 }
 
-.hero .subtitle {
-  font-size: clamp(16px, 2.4vw, 20px);
-  margin-bottom: 20px;
-}
-
 .hero .lead {
   margin-left: auto;
   margin-right: auto;
@@ -82,75 +77,6 @@ main.lp-main {
   max-width: 480px;
   margin-left: auto;
   margin-right: auto;
-}
-
-/* --- 計器盤モチーフ(様式化したミニモック。実スクリーンショットは使わない) --- */
-.instrument {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 20px 20px 16px;
-  margin: 40px auto 0;
-  max-width: 640px;
-}
-
-.instrument-chrome {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 14px;
-}
-.instrument-chrome span {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: var(--line);
-}
-
-.instrument-stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.stat-tile {
-  background: var(--surface2);
-  border-radius: 8px;
-  padding: 10px 8px;
-  text-align: center;
-}
-.stat-tile .stat-value {
-  display: block;
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  font-size: 22px;
-  line-height: 1.2;
-  color: var(--ink);
-}
-.stat-tile.is-loss .stat-value { color: var(--loss); }
-.stat-tile.is-primary .stat-value { color: var(--primary); }
-.stat-tile .stat-label {
-  display: block;
-  font-size: 11px;
-  color: var(--ink3);
-  margin-top: 2px;
-}
-
-.instrument-chart {
-  width: 100%;
-  height: auto;
-  display: block;
-}
-.instrument-chart .chart-zero { stroke: var(--line); stroke-width: 1; }
-.instrument-chart .chart-line { fill: none; stroke: var(--primary); stroke-width: 2; }
-.instrument-chart .chart-dot { fill: var(--primary); }
-.instrument-chart .chart-dot-loss { fill: var(--loss); }
-.instrument-caption {
-  font-size: 11px;
-  color: var(--ink3);
-  text-align: center;
-  margin: 10px 0 0;
 }
 
 /* --- 機能カード --- */
@@ -247,11 +173,5 @@ main.lp-main {
 @media (max-width: 720px) {
   .feature-grid {
     grid-template-columns: 1fr;
-  }
-  .instrument-stats {
-    gap: 8px;
-  }
-  .stat-tile .stat-value {
-    font-size: 18px;
   }
 }
