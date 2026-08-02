@@ -1,3 +1,5 @@
+@file:OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidLibrary)
@@ -22,9 +24,28 @@ kotlin {
         }
     }
 
+    // CMP for Web（Kotlin/Wasm）本実装向け。:analysis/:kifu と同じ理由で
+    // browser側のtestTaskは無効化する（ヘッドレスブラウザ未整備・:ui:allTestsの対象は
+    // testDebugUnitTest/iosSimulatorArm64Testのまま変えない）。
+    wasmJs {
+        browser {
+            binaries.executable()
+            testTask {
+                enabled = false
+            }
+        }
+        nodejs()
+    }
+
     sourceSets {
         commonMain.dependencies {
-            api(project(":shared"))
+            // 画面ソース（ViewModel・Composable）が参照するのは判定ロジック・UI消費型
+            // （:analysis）と盤面表現（:kifu）のみ。DBドライバ・Supabase・エンジン実行系など
+            // プラットフォーム固有実装を持つ :shared への依存は commonMain に置かない
+            // （wasmJsでコンパイルできなくなるため）。:shared は android/ios の
+            // プラットフォームソースセット側にのみ持たせる。
+            api(project(":analysis"))
+            api(project(":kifu"))
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.material3)
@@ -49,10 +70,10 @@ kotlin {
         androidMain.dependencies {
             implementation(libs.androidx.activity.compose)
         }
-        // IosMainController がサーバー解析（RemoteAnalysisRunner）用に HttpClient(Darwin) を
-        // 直接構築するため（:shared側は implementation 依存のため api経由では見えない。
-        // shared/build.gradle.ktsのiosMainブロックと同じ方針）。
+        // Why not implementation: SharedUi framework の export(project(":shared")) が
+        // このターゲットのapi依存であることを要求する（implementationではexport不可）。
         iosMain.dependencies {
+            api(project(":shared"))
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.client.darwin)
             implementation(libs.kotlinx.serialization.json)
