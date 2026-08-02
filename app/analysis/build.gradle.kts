@@ -47,6 +47,9 @@ kotlin {
             // ShogiBoard型を露出しているため、消費側が直接importできる必要がある。
             api(project(":kifu"))
             implementation(libs.kotlinx.serialization.json)
+            // AuthRepository（dev.miyado.shogisupplement.auth）が公開シグネチャで
+            // StateFlow を露出するため api化する（:kifu と同じ理由）。
+            api(libs.kotlinx.coroutines.core)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
