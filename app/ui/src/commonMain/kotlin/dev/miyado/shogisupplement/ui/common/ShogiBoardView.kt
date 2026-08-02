@@ -660,14 +660,21 @@ private fun HandRow(
  */
 @Composable
 fun HandRowLabel(isBlack: Boolean) {
-    val sideLabel = if (isBlack) "☗持駒" else "☖持駒"
     Text(
-        text = sideLabel,
+        text = handRowLabelText(isBlack),
         style = MaterialTheme.typography.labelSmall,
         color = MaterialTheme.shogiColors.ink2,
         maxLines = 1,
     )
 }
+
+/**
+ * ☗/☖（U+2617/U+2616）はIBM Plex Sans JPにグリフが無く、CJKシステムフォールバックの
+ * 無いブラウザ（wasmJs）ではtofu表示になる。同フォントに収録されている▲/△に
+ * wasmJsのみ差し替える（Android/iOSは実機のシステムフォールバックで表示できているため
+ * 変更しない）。
+ */
+internal expect fun handRowLabelText(isBlack: Boolean): String
 
 // ─── Preview ─────────────────────────────────────────────────────────────────
 
