@@ -65,14 +65,15 @@ rootProject.plugins.withType(WasmYarnPlugin::class.java) {
 }
 
 // production distribution（wasmJsBrowserDistribution）は wasm-opt（binaryen）でのサイズ最適化を
-// 既定で挟む。同じ理由でダウンロードを止め、`brew install binaryen` で導入したホストの
-// 実行体を使う（CI導入時も同様のインストールが要る）。
+// 既定で挟む。同じ理由でダウンロードを止め、ホストに導入済みの実行体を使う。
+// パスはOS依存（ローカルmacOSはbrewの既定パスへ固定・CI等それ以外は
+// WASM_OPT_PATH環境変数で明示的に渡す想定）。
 allprojects {
     plugins.withType(BinaryenPlugin::class.java) {
         extensions.configure(BinaryenEnvSpec::class.java) {
             download.set(false)
             downloadBaseUrl.set(null as String?)
-            command.set("/opt/homebrew/bin/wasm-opt")
+            command.set(System.getenv("WASM_OPT_PATH") ?: "/opt/homebrew/bin/wasm-opt")
         }
     }
 }

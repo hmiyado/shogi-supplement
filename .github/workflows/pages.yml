@@ -25,9 +25,13 @@ on:
       - "docs/**"
       - "engine-wasm/**"
       - "app/androidApp/src/main/assets/eval/nn.bin"
-      # 検討ページのKIF入力はこのモジュール(:kifu)のjsBrowserProductionWebpack成果物
-      # (kifu.js)経由でパースする。ビルド設定(root build.gradle.kts・settings.gradle.kts)
-      # を変えるとバンドル内容が変わりうるため合わせて対象にする。
+      - "app/androidApp/src/main/assets/coefficients_hao_isolate_v1.json"
+      # 検討ページ本体(:webApp)・依存モジュール(:ui/:analysis/:kifu)のwasmJs
+      # production distributionから生成する。ビルド設定を変えるとバンドル内容が
+      # 変わりうるため合わせて対象にする。
+      - "app/webApp/**"
+      - "app/ui/**"
+      - "app/analysis/**"
       - "app/kifu/**"
       - "app/build.gradle.kts"
       - "app/settings.gradle.kts"
@@ -59,11 +63,11 @@ jobs:
 
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
 
-      # docs/copy-kento-assets.sh が内部で :kifu:jsBrowserProductionWebpack (Gradle)を
+      # docs/copy-kento-assets.sh が内部で :webApp:wasmJsBrowserDistribution (Gradle)を
       # 実行するために必要。JDKバージョンはapp/gradle/libs.versions.toml の
       # jvm-toolchain と合わせる。Node.jsはGitHub Actions Ubuntuランナーに
-      # 標準搭載されているものをそのまま使う(:kifuはdownload=falseでホストの
-      # Node.jsを使い、npm依存もNode同梱のnpmで解決する設定のため)。
+      # 標準搭載されているものをそのまま使う(:kifu/:analysis/:ui/:webAppは
+      # download=falseでホストのNode.jsを使い、npm依存もNode同梱のnpmで解決する設定のため)。
       - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
@@ -81,13 +85,22 @@ jobs:
           npm --version
           npm config set min-release-age 7 --location=user
 
+      # wasmJsBrowserDistribution(production)がバンドル最適化に使うwasm-opt本体。
+      # ローカルmacOSはbrew、ここはaptで導入し、パスをroot build.gradle.ktsへ
+      # WASM_OPT_PATH環境変数で渡す(BinaryenPluginのdownload=false設定と対で機能する)。
+      - name: binaryen(wasm-opt)を導入
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y binaryen
+          echo "WASM_OPT_PATH=$(command -v wasm-opt)" >> "$GITHUB_ENV"
+
       - name: やねうら王の上流ソース取得+パッチ適用
         run: ./engine-wasm/fetch_upstream.sh
 
       - name: WASMビルド(simd/nosimd)
         run: ./engine-wasm/build_wasm_browser.sh
 
-      - name: 検討ページの資産をdocs/kento-assets/へ配置(kifu.jsのGradleビルドを含む)
+      - name: 検討ページの資産をdocs/kento-assets・docs/kento・docs/composeResourcesへ配置(:webAppのGradleビルドを含む)
         run: ./docs/copy-kento-assets.sh
 
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0

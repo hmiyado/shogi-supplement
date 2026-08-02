@@ -20,7 +20,7 @@ import kotlinx.coroutines.launch
 fun main() {
     GlobalScope.launch {
         preloadShogiWebFonts()
-        ComposeViewport(document.body!!) {
+        ComposeViewport(document.getElementById("composeApp")!!) {
             KentoRoot()
         }
     }

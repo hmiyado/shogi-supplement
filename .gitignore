@@ -88,6 +88,17 @@ app/iosApp/local/
 # ビルド成果物からローカルコピーする運用にする（コミットしない）
 docs/kento-assets/
 
+# docs/kento.html が読み込む :webApp（CMP for Web）のwasmJs本番ビルド成果物。
+# エンジン資産と同様このリポジトリのソースから再現できるため、
+# docs/copy-kento-assets.shがGradleビルドの成果物をコピーする運用にする
+# （analysis-worker.js・webapp-bridge.jsはソースのためコミット対象のまま）。
+docs/kento/webApp.js
+docs/kento/webApp.js.map
+docs/kento/webApp.js.LICENSE.txt
+docs/kento/*.wasm
+docs/kento/coefficients_hao_isolate_v1.json
+docs/composeResources/
+
 # WASMエンジンのビルド一式(engine-wasm/、GPLv3対応ソース提供の実体)。
 # 上流ソース・ビルド成果物はサイズが大きく再生成可能なため、
 # engine-wasm/fetch_upstream.sh・build_wasm_browser.shで都度生成する運用にする

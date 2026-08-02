@@ -17,7 +17,6 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 SRC_OUT_BROWSER="$REPO_ROOT/engine-wasm/out-browser"
 DEST="$SCRIPT_DIR/kento-assets"
 APP_DIR="$REPO_ROOT/app"
-KIFU_JS_OUT="$APP_DIR/kifu/build/kotlin-webpack/js/productionExecutable"
 
 if [ ! -f "$SRC_OUT_BROWSER/yaneuraou-simd.wasm" ] || [ ! -f "$SRC_OUT_BROWSER/nn.bin" ] || [ ! -f "$SRC_OUT_BROWSER/VERSION" ]; then
   echo "エラー: engine-wasm/ のビルド成果物が見つかりません。" >&2
@@ -44,22 +43,34 @@ cp "$SRC_OUT_BROWSER"/VERSION "$DEST"/VERSION
 echo "コピー完了: $DEST_VERSIONED (バージョン: $VERSION)"
 du -sh "$DEST_VERSIONED"
 
-# KIFパーサ(Kotlin/JS)バンドル。エンジン資産と違って毎回このリポジトリのソースから
-# 再現できる(上流フェッチもDockerも不要)ため、このスクリプト自身がGradleビルドまで
-# 完結させる(ローカル確認がこのスクリプト1本で済むようにするため)。Gradleは
-# 増分ビルドなので再実行のコストは小さい。バージョン付きディレクトリに分けない理由:
-# WASMエンジンと違って外部からfetchする資産ではなく、このリポジトリのコミットと
+# :webApp (CMP for Web・レポート画面本体) のwasmJs本番ビルド。エンジン資産と違って
+# 毎回このリポジトリのソースから再現できる(上流フェッチもDockerも不要)ため、
+# このスクリプト自身がGradleビルドまで完結させる。バージョン付きディレクトリに
+# 分けない理由: 外部からfetchする資産ではなく、このリポジトリのコミットと
 # 常に同じ内容になる(バージョンという概念がそもそも無い)。
-echo "kifu.js (KIFパーサ Kotlin/JS バンドル) をビルドします..."
-( cd "$APP_DIR" && ./gradlew :kifu:jsBrowserProductionWebpack --console=plain )
+WEBAPP_DIST="$APP_DIR/webApp/build/dist/wasmJs/productionExecutable"
+echo ":webApp (CMP for Web) をビルドします..."
+( cd "$APP_DIR" && ./gradlew :webApp:wasmJsBrowserDistribution --console=plain )
 
-if [ ! -f "$KIFU_JS_OUT/kifu.js" ]; then
-  echo "エラー: kifu.js のビルド成果物が見つかりません ($KIFU_JS_OUT)" >&2
+if [ ! -f "$WEBAPP_DIST/webApp.js" ]; then
+  echo "エラー: webApp.js のビルド成果物が見つかりません ($WEBAPP_DIST)" >&2
   exit 1
 fi
 
-cp "$KIFU_JS_OUT/kifu.js" "$DEST/kifu.js"
-[ -f "$KIFU_JS_OUT/kifu.js.map" ] && cp "$KIFU_JS_OUT/kifu.js.map" "$DEST/kifu.js.map"
+KENTO_DIR="$SCRIPT_DIR/kento"
+cp "$WEBAPP_DIST"/webApp.js "$WEBAPP_DIST"/*.wasm "$KENTO_DIR"/
+[ -f "$WEBAPP_DIST/webApp.js.map" ] && cp "$WEBAPP_DIST/webApp.js.map" "$KENTO_DIR"/
 
-echo "コピー完了: $DEST/kifu.js"
-du -sh "$DEST/kifu.js"
+# composeResources(フォント等)はdocs/kento.html自身から見た相対パス("./composeResources/...")
+# で解決される(webApp.js等と違いスクリプト自身の場所基準ではない)ため、
+# ページと同じdocs/直下に置く。
+rm -rf "$SCRIPT_DIR/composeResources"
+cp -r "$WEBAPP_DIST/composeResources" "$SCRIPT_DIR/composeResources"
+
+echo "コピー完了: $KENTO_DIR/webApp.js"
+du -sh "$KENTO_DIR/webApp.js"
+
+# 悪手判定の係数表。:webAppはDBを持たないため、Android同梱の正本を
+# ビルド時にコピーしてfetchで読む(複数箇所に正本を分散させないため)。
+cp "$REPO_ROOT/app/androidApp/src/main/assets/coefficients_hao_isolate_v1.json" "$KENTO_DIR"/
+echo "コピー完了: $KENTO_DIR/coefficients_hao_isolate_v1.json"
