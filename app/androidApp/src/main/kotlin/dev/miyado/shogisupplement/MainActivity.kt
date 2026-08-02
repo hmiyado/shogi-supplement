@@ -24,6 +24,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.miyado.shogisupplement.ui.DebugScreen
 import dev.miyado.shogisupplement.ui.LegalLinks
@@ -70,7 +72,17 @@ class MainActivity : ComponentActivity() {
             val themeMode by vm.themeMode.collectAsState()
             ShogiTheme(themeMode = themeMode) {
                 Surface(
-                    modifier = Modifier.fillMaxSize(),
+                    // 内部識別子をリリースのアクセシビリティツリーに
+                    // 載せたくないため、UI自動化向けのtestTag露出はDEBUG限定。
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .let { base ->
+                            if (BuildConfig.DEBUG) {
+                                base.semantics { testTagsAsResourceId = true }
+                            } else {
+                                base
+                            }
+                        },
                     color = MaterialTheme.colorScheme.background,
                 ) {
                     val state by vm.state.collectAsState()
