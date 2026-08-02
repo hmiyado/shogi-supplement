@@ -1,0 +1,10 @@
+version: 2
+updates:
+  # app/kotlin-js-store配下はKGPがビルドのたびに書き換えるlockfileで、
+  # Dependabotが独立に更新できる対象ではないため除外する。
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    exclude-paths:
+      - "/app/kotlin-js-store/**"
