@@ -9,9 +9,8 @@ plugins {
 
 // docs/kento.html（「棋譜を検討する」ページ）を配信する実行可能wasmJsアプリ。
 // :ui のレポート画面（ShogiTheme/ReportScreen等）をそのままブラウザで動かす
-// （アプリ本体と見た目・判定ロジックを共有する。CMP for Web Phase C）。
-// 出力ファイル名はプロジェクト名（webApp）から決まる既定値をそのまま使う
-// （webApp.js/webApp.wasm。docs/kento/ 配下へ配置する運用は docs/copy-kento-assets.sh 参照）。
+// （アプリ本体と見た目・判定ロジックを共有する）。
+// 出力ファイル名はプロジェクト名（webApp）から決まる既定値をそのまま使う（webApp.js/webApp.wasm）。
 
 // エンジン資産の配信元。ソースに直書きしないのは、CDN移設（CloudFront等）の際に
 // コード変更なしでビルドだけで切り替えられるようにするため。

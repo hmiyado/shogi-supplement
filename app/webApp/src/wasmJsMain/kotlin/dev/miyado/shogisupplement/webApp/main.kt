@@ -11,7 +11,7 @@ import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 
-// 初回コンポーズより前に実書体を読み終える（Type.wasmJs.kt参照）。ComposeViewport自体を
+// 初回コンポーズより前に実書体のfetchを読み終える。ComposeViewport自体を
 // フォント取得の完了まで遅らせることで、Theme.kt・書体を直接参照する呼び出し側は
 // 「常にロード済み」を前提にでき、Composable化しての再構成をせずに済む。main()自体は
 // フレームワークが1回だけ呼ぶエントリポイントであり、ページの寿命全体で生きるコルーチンを
