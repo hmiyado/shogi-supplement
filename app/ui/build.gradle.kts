@@ -21,6 +21,10 @@ kotlin {
             baseName = "SharedUi"
             isStatic = true
             export(project(":shared"))
+            // api依存でもexportに明記しないとObjCヘッダに型が載らないため、
+            // Swift側が直接参照する切り出しモジュールも列挙する。
+            export(project(":kifu"))
+            export(project(":analysis"))
         }
     }
 
