@@ -17,13 +17,13 @@ object DatabaseFactory {
     private var settingsRepositoryInstance: SettingsRepository? = null
 
     fun gameRepository(): GameRepository =
-        gameRepositoryInstance ?: GameRepository(getDatabase()).also { gameRepositoryInstance = it }
+        gameRepositoryInstance ?: SqlDelightGameRepository(getDatabase()).also { gameRepositoryInstance = it }
 
     fun drillRepository(): DrillRepository =
-        drillRepositoryInstance ?: DrillRepository(getDatabase()).also { drillRepositoryInstance = it }
+        drillRepositoryInstance ?: SqlDelightDrillRepository(getDatabase()).also { drillRepositoryInstance = it }
 
     fun settingsRepository(): SettingsRepository =
-        settingsRepositoryInstance ?: SettingsRepository(getDatabase()).also { settingsRepositoryInstance = it }
+        settingsRepositoryInstance ?: SqlDelightSettingsRepository(getDatabase()).also { settingsRepositoryInstance = it }
 
     private fun getDatabase(): ShogiSupplementDatabase {
         return database ?: createDatabase().also { database = it }

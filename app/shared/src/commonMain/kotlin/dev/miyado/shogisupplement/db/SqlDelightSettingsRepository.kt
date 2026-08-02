@@ -1,12 +1,10 @@
 package dev.miyado.shogisupplement.db
 
-/**
- * user_settings・サービスアカウント・段級（service_rank）のDB永続化リポジトリ。
- */
-class SettingsRepository(private val database: ShogiSupplementDatabase) {
+/** user_settings・サービスアカウント・段級（service_rank）のDB永続化リポジトリ（[SettingsRepository]のSQLDelight実装）。 */
+class SqlDelightSettingsRepository(private val database: ShogiSupplementDatabase) : SettingsRepository {
 
     /** ユーザーレートを保存する（upsert）。 */
-    fun saveRating(rating: Int) {
+    override fun saveRating(rating: Int) {
         database.transaction {
             database.shogiSupplementQueries.insertOrIgnoreDefaultSettings()
             database.shogiSupplementQueries.updateRating(rating.toLong())
@@ -14,7 +12,7 @@ class SettingsRepository(private val database: ShogiSupplementDatabase) {
     }
 
     /** ユーザーレート・サービス・raw値を保存する（upsert）。 */
-    fun saveRatingFull(rating: Int, service: String, ratingRaw: Int) {
+    override fun saveRatingFull(rating: Int, service: String, ratingRaw: Int) {
         database.transaction {
             database.shogiSupplementQueries.insertOrIgnoreDefaultSettings()
             database.shogiSupplementQueries.updateRatingFull(rating.toLong(), service, ratingRaw.toLong())
@@ -32,7 +30,7 @@ class SettingsRepository(private val database: ShogiSupplementDatabase) {
      * @param ratingRule ルール文字列（例: "10min" / "serious"、null = 未申告）
      * @param serviceAccountName このサービスでのアカウント名（先後自動選択に使用）
      */
-    fun saveRatingSettings(
+    override fun saveRatingSettings(
         service: String?,
         ratingRaw: Int?,
         ratingRule: String?,
@@ -55,7 +53,7 @@ class SettingsRepository(private val database: ShogiSupplementDatabase) {
      * レート・サービス・raw値・ルール・アカウント名をまとめて返す。
      * 未設定なら RatingSettings(1750, "lishogi", 1750, null, null)。
      */
-    fun getRatingSettings(): RatingSettings {
+    override fun getRatingSettings(): RatingSettings {
         val row = database.shogiSupplementQueries.getRatingSettings().executeAsOneOrNull()
         return if (row != null) {
             RatingSettings(
@@ -71,11 +69,11 @@ class SettingsRepository(private val database: ShogiSupplementDatabase) {
     }
 
     /** ユーザーが棋力設定を一度でも保存したかどうか（デフォルト値と区別するため）。 */
-    fun hasUserSavedRatingSettings(): Boolean =
+    override fun hasUserSavedRatingSettings(): Boolean =
         database.shogiSupplementQueries.getRatingSettings().executeAsOneOrNull() != null
 
     /** 保存されたレートを返す。未設定なら 1750。 */
-    fun getRating(): Int {
+    override fun getRating(): Int {
         return database.shogiSupplementQueries
             .getRating()
             .executeAsOneOrNull()
@@ -86,7 +84,7 @@ class SettingsRepository(private val database: ShogiSupplementDatabase) {
      * 保存されたレート・サービス・raw値を返す。
      * 未設定なら (1750, "lishogi", 1750)。
      */
-    fun getRatingFull(): Triple<Int, String, Int> {
+    override fun getRatingFull(): Triple<Int, String, Int> {
         val row = database.shogiSupplementQueries
             .getRatingFull()
             .executeAsOneOrNull()
@@ -98,7 +96,7 @@ class SettingsRepository(private val database: ShogiSupplementDatabase) {
     }
 
     /** サービスアカウント名を返す（未設定なら null）。旧テーブル（user_settings）から取得。 */
-    fun getServiceAccountName(): String? {
+    override fun getServiceAccountName(): String? {
         return database.shogiSupplementQueries
             .getServiceAccountName()
             .executeAsOneOrNull()
@@ -111,12 +109,12 @@ class SettingsRepository(private val database: ShogiSupplementDatabase) {
      * サービスのアカウント名を保存する（upsert）。
      * 先後の自動推定に使用。全サービスのいずれかと一致すればそのサービスの側を推定する。
      */
-    fun upsertServiceAccount(service: String, accountName: String) {
+    override fun upsertServiceAccount(service: String, accountName: String) {
         database.shogiSupplementQueries.upsertServiceAccount(service, accountName)
     }
 
     /** 全サービスのアカウント名を返す。service → account_name のマップ。 */
-    fun getAllServiceAccounts(): Map<String, String> {
+    override fun getAllServiceAccounts(): Map<String, String> {
         return database.shogiSupplementQueries
             .getAllServiceAccounts()
             .executeAsList()
@@ -124,19 +122,19 @@ class SettingsRepository(private val database: ShogiSupplementDatabase) {
     }
 
     /** 指定サービスのアカウント名を返す（未設定なら null）。 */
-    fun getServiceAccountByService(service: String): String? {
+    override fun getServiceAccountByService(service: String): String? {
         return database.shogiSupplementQueries
             .getServiceAccountByService(service)
             .executeAsOneOrNull()
     }
 
     /** 指定サービスのアカウント名を削除する。 */
-    fun deleteServiceAccount(service: String) {
+    override fun deleteServiceAccount(service: String) {
         database.shogiSupplementQueries.deleteServiceAccountByService(service)
     }
 
     /** いずれかのサービスにアカウント名が設定されているかどうか。 */
-    fun hasAnyServiceAccount(): Boolean {
+    override fun hasAnyServiceAccount(): Boolean {
         return database.shogiSupplementQueries
             .getAllServiceAccounts()
             .executeAsList()
@@ -144,7 +142,7 @@ class SettingsRepository(private val database: ShogiSupplementDatabase) {
     }
 
     /** 最後に選んだ user_side を保存する。 */
-    fun saveLastUserSide(userSide: String?) {
+    override fun saveLastUserSide(userSide: String?) {
         database.transaction {
             database.shogiSupplementQueries.insertOrIgnoreDefaultSettings()
             database.shogiSupplementQueries.updateLastUserSide(userSide)
@@ -152,7 +150,7 @@ class SettingsRepository(private val database: ShogiSupplementDatabase) {
     }
 
     /** 最後に選んだ user_side を返す。未設定なら null。 */
-    fun getLastUserSide(): String? {
+    override fun getLastUserSide(): String? {
         return database.shogiSupplementQueries
             .getLastUserSide()
             .executeAsOneOrNull()
@@ -163,7 +161,7 @@ class SettingsRepository(private val database: ShogiSupplementDatabase) {
      * 利用規約・プライバシーポリシーへの同意日時を記録する（Unix epoch 秒）。
      * アカウント作成成功時に呼び出す。
      */
-    fun saveConsentAcceptedAt(epochSeconds: Long) {
+    override fun saveConsentAcceptedAt(epochSeconds: Long) {
         database.transaction {
             database.shogiSupplementQueries.insertOrIgnoreDefaultSettings()
             database.shogiSupplementQueries.updateConsentAcceptedAt(epochSeconds)
@@ -174,7 +172,7 @@ class SettingsRepository(private val database: ShogiSupplementDatabase) {
      * 同意日時を返す（Unix epoch 秒）。
      * 未記録なら null。
      */
-    fun getConsentAcceptedAt(): Long? {
+    override fun getConsentAcceptedAt(): Long? {
         return database.shogiSupplementQueries
             .getConsentAcceptedAt()
             .executeAsOneOrNull()
@@ -184,7 +182,7 @@ class SettingsRepository(private val database: ShogiSupplementDatabase) {
     /**
      * 解析後自動アップロード設定を保存する。
      */
-    fun saveAutoUpload(enabled: Boolean) {
+    override fun saveAutoUpload(enabled: Boolean) {
         database.transaction {
             database.shogiSupplementQueries.insertOrIgnoreDefaultSettings()
             database.shogiSupplementQueries.updateAutoUpload(if (enabled) 1L else 0L)
@@ -194,7 +192,7 @@ class SettingsRepository(private val database: ShogiSupplementDatabase) {
     /**
      * 解析後自動アップロード設定を返す。未設定なら false（デフォルト OFF）。
      */
-    fun getAutoUpload(): Boolean {
+    override fun getAutoUpload(): Boolean {
         return (database.shogiSupplementQueries
             .getAutoUpload()
             .executeAsOneOrNull() ?: 0L) != 0L
@@ -203,7 +201,7 @@ class SettingsRepository(private val database: ShogiSupplementDatabase) {
     /**
      * テーマモードを保存する（'system' / 'light' / 'dark'）。
      */
-    fun saveThemeMode(themeMode: String) {
+    override fun saveThemeMode(themeMode: String) {
         database.transaction {
             database.shogiSupplementQueries.insertOrIgnoreDefaultSettings()
             database.shogiSupplementQueries.updateThemeMode(themeMode)
@@ -213,7 +211,7 @@ class SettingsRepository(private val database: ShogiSupplementDatabase) {
     /**
      * テーマモードを返す。未設定なら 'system'。
      */
-    fun getThemeMode(): String {
+    override fun getThemeMode(): String {
         return database.shogiSupplementQueries
             .getThemeMode()
             .executeAsOneOrNull() ?: "system"
@@ -222,12 +220,12 @@ class SettingsRepository(private val database: ShogiSupplementDatabase) {
     // ─── ルール別棋力（service_rank） ─────────────────────────────────────────
 
     /** サービスのルール別棋力を保存する（申告のみ、相応判定には使用しない）。 */
-    fun saveServiceRank(service: String, rule: String, rankRaw: Int) {
+    override fun saveServiceRank(service: String, rule: String, rankRaw: Int) {
         database.shogiSupplementQueries.upsertServiceRank(service, rule, rankRaw.toLong())
     }
 
     /** 全サービスのルール別棋力を返す。service → rule → rankRaw のネスト Map。 */
-    fun getAllServiceRanks(): Map<String, Map<String, Int>> {
+    override fun getAllServiceRanks(): Map<String, Map<String, Int>> {
         return database.shogiSupplementQueries
             .getServiceRanks()
             .executeAsList()
@@ -238,7 +236,7 @@ class SettingsRepository(private val database: ShogiSupplementDatabase) {
     }
 
     /** サービスのルール別棋力を削除する。 */
-    fun deleteServiceRank(service: String, rule: String) {
+    override fun deleteServiceRank(service: String, rule: String) {
         database.shogiSupplementQueries.deleteServiceRank(service, rule)
     }
 
@@ -248,7 +246,7 @@ class SettingsRepository(private val database: ShogiSupplementDatabase) {
      * 形勢の表示単位を保存する（'cp' = 評価値 / 'wp' = 勝率）。
      * デフォルト='cp'。
      */
-    fun saveEvalDisplay(mode: String) {
+    override fun saveEvalDisplay(mode: String) {
         database.transaction {
             database.shogiSupplementQueries.insertOrIgnoreDefaultSettings()
             database.shogiSupplementQueries.updateEvalDisplay(mode)
@@ -258,7 +256,7 @@ class SettingsRepository(private val database: ShogiSupplementDatabase) {
     /**
      * 形勢の表示単位を返す。未設定なら 'cp'（デフォルト）。
      */
-    fun getEvalDisplay(): String {
+    override fun getEvalDisplay(): String {
         return database.shogiSupplementQueries
             .getEvalDisplay()
             .executeAsOneOrNull() ?: "cp"
@@ -270,7 +268,7 @@ class SettingsRepository(private val database: ShogiSupplementDatabase) {
      * 先後確認の省略設定を保存する。
      * true = アカウント名一致時に側選択ダイアログを出さず即解析を開始する。
      */
-    fun saveSkipSideConfirm(skip: Boolean) {
+    override fun saveSkipSideConfirm(skip: Boolean) {
         database.transaction {
             database.shogiSupplementQueries.insertOrIgnoreDefaultSettings()
             database.shogiSupplementQueries.updateSkipSideConfirm(if (skip) 1L else 0L)
@@ -280,18 +278,9 @@ class SettingsRepository(private val database: ShogiSupplementDatabase) {
     /**
      * 先後確認の省略設定を返す。未設定なら false（確認する）。
      */
-    fun getSkipSideConfirm(): Boolean {
+    override fun getSkipSideConfirm(): Boolean {
         return (database.shogiSupplementQueries
             .getSkipSideConfirm()
             .executeAsOneOrNull() ?: 0L) != 0L
     }
 }
-
-/** レート設定の集約モデル。 */
-data class RatingSettings(
-    val rating: Int,
-    val service: String,
-    val ratingRaw: Int,
-    val ratingRule: String?,
-    val serviceAccountName: String?,
-)

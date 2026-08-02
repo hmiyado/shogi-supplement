@@ -16,8 +16,8 @@ import kotlin.test.assertTrue
  */
 class DrillRepositoryTest {
 
-    private fun newGameRepository(database: ShogiSupplementDatabase): GameRepository = GameRepository(database)
-    private fun newDrillRepository(database: ShogiSupplementDatabase): DrillRepository = DrillRepository(database)
+    private fun newGameRepository(database: ShogiSupplementDatabase): GameRepository = SqlDelightGameRepository(database)
+    private fun newDrillRepository(database: ShogiSupplementDatabase): DrillRepository = SqlDelightDrillRepository(database)
 
     private fun newDatabase(): ShogiSupplementDatabase {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)

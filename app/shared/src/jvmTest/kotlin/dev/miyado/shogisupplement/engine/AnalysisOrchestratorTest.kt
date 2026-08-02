@@ -5,6 +5,7 @@ import dev.miyado.shogisupplement.blunder.Score
 import dev.miyado.shogisupplement.crash.NoopCrashReporter
 import dev.miyado.shogisupplement.db.GameRepository
 import dev.miyado.shogisupplement.db.ShogiSupplementDatabase
+import dev.miyado.shogisupplement.db.SqlDelightGameRepository
 import dev.miyado.shogisupplement.judge.CoefficientTable
 import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
@@ -33,7 +34,7 @@ class AnalysisOrchestratorTest {
     private fun newOrchestrator(): Pair<AnalysisOrchestrator, GameRepository> {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         ShogiSupplementDatabase.Schema.create(driver)
-        val repository = GameRepository(ShogiSupplementDatabase(driver))
+        val repository = SqlDelightGameRepository(ShogiSupplementDatabase(driver))
         val coefTable = CoefficientTable.fromJson(resource(CoefficientTable.COEFFICIENTS_FILE_NAME))
         val orchestrator = AnalysisOrchestrator(
             repository = repository,
@@ -112,7 +113,7 @@ class AnalysisOrchestratorTest {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         ShogiSupplementDatabase.Schema.create(driver)
         val database = ShogiSupplementDatabase(driver)
-        val repository = GameRepository(database)
+        val repository = SqlDelightGameRepository(database)
         val coefTable = CoefficientTable.fromJson(resource(CoefficientTable.COEFFICIENTS_FILE_NAME))
         val orchestrator = AnalysisOrchestrator(
             repository = repository,

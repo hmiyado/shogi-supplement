@@ -7,6 +7,8 @@ import dev.miyado.shogisupplement.classify.ClassificationResult
 import dev.miyado.shogisupplement.db.GameRepository
 import dev.miyado.shogisupplement.db.SettingsRepository
 import dev.miyado.shogisupplement.db.ShogiSupplementDatabase
+import dev.miyado.shogisupplement.db.SqlDelightGameRepository
+import dev.miyado.shogisupplement.db.SqlDelightSettingsRepository
 import dev.miyado.shogisupplement.judge.Judgement
 import dev.miyado.shogisupplement.judge.VerdictKind
 import dev.miyado.shogisupplement.pipeline.BlunderReport
@@ -76,8 +78,8 @@ class UploadOrchestratorTest {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         ShogiSupplementDatabase.Schema.create(driver)
         val database = ShogiSupplementDatabase(driver)
-        val game = GameRepository(database)
-        val settings = SettingsRepository(database)
+        val game = SqlDelightGameRepository(database)
+        val settings = SqlDelightSettingsRepository(database)
         return Built(UploadOrchestrator(auth, upload, game, settings), upload, game, settings)
     }
 

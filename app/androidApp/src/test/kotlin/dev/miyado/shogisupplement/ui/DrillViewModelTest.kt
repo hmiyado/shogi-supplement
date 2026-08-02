@@ -9,6 +9,9 @@ import dev.miyado.shogisupplement.db.DrillRepository
 import dev.miyado.shogisupplement.db.GameRepository
 import dev.miyado.shogisupplement.db.SettingsRepository
 import dev.miyado.shogisupplement.db.ShogiSupplementDatabase
+import dev.miyado.shogisupplement.db.SqlDelightDrillRepository
+import dev.miyado.shogisupplement.db.SqlDelightGameRepository
+import dev.miyado.shogisupplement.db.SqlDelightSettingsRepository
 import dev.miyado.shogisupplement.engine.Engine
 import dev.miyado.shogisupplement.engine.PvInfo
 import dev.miyado.shogisupplement.judge.Judgement
@@ -83,7 +86,7 @@ class DrillViewModelTest {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         ShogiSupplementDatabase.Schema.create(driver)
         val database = ShogiSupplementDatabase(driver)
-        return TestRepos(GameRepository(database), DrillRepository(database), SettingsRepository(database))
+        return TestRepos(SqlDelightGameRepository(database), SqlDelightDrillRepository(database), SqlDelightSettingsRepository(database))
     }
 
     /**

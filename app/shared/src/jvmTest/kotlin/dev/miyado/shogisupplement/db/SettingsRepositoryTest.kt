@@ -17,7 +17,7 @@ class SettingsRepositoryTest {
     private fun newRepository(): SettingsRepository {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         ShogiSupplementDatabase.Schema.create(driver)
-        return SettingsRepository(ShogiSupplementDatabase(driver))
+        return SqlDelightSettingsRepository(ShogiSupplementDatabase(driver))
     }
 
     @Test

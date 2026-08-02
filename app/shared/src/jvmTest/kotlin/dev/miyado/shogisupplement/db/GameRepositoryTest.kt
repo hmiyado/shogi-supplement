@@ -20,7 +20,7 @@ class GameRepositoryTest {
     private fun newRepository(): GameRepository {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         ShogiSupplementDatabase.Schema.create(driver)
-        return GameRepository(ShogiSupplementDatabase(driver))
+        return SqlDelightGameRepository(ShogiSupplementDatabase(driver))
     }
 
     private fun sampleReport() = BlunderReport(

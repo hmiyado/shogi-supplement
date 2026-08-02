@@ -6,6 +6,7 @@ import dev.miyado.shogisupplement.auth.AuthUser
 import dev.miyado.shogisupplement.crypto.TransferSecretRegistrar
 import dev.miyado.shogisupplement.db.SettingsRepository
 import dev.miyado.shogisupplement.db.ShogiSupplementDatabase
+import dev.miyado.shogisupplement.db.SqlDelightSettingsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.runBlocking
@@ -67,7 +68,7 @@ class ConsentOrchestratorTest {
     private fun newSettingsRepository(): SettingsRepository {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         ShogiSupplementDatabase.Schema.create(driver)
-        return SettingsRepository(ShogiSupplementDatabase(driver))
+        return SqlDelightSettingsRepository(ShogiSupplementDatabase(driver))
     }
 
     @Test

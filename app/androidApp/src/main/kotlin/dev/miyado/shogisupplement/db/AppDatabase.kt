@@ -22,19 +22,19 @@ object AppDatabase {
 
     fun gameRepository(context: Context): GameRepository {
         return gameRepositoryInstance ?: synchronized(this) {
-            gameRepositoryInstance ?: GameRepository(getDatabase(context)).also { gameRepositoryInstance = it }
+            gameRepositoryInstance ?: SqlDelightGameRepository(getDatabase(context)).also { gameRepositoryInstance = it }
         }
     }
 
     fun drillRepository(context: Context): DrillRepository {
         return drillRepositoryInstance ?: synchronized(this) {
-            drillRepositoryInstance ?: DrillRepository(getDatabase(context)).also { drillRepositoryInstance = it }
+            drillRepositoryInstance ?: SqlDelightDrillRepository(getDatabase(context)).also { drillRepositoryInstance = it }
         }
     }
 
     fun settingsRepository(context: Context): SettingsRepository {
         return settingsRepositoryInstance ?: synchronized(this) {
-            settingsRepositoryInstance ?: SettingsRepository(getDatabase(context)).also {
+            settingsRepositoryInstance ?: SqlDelightSettingsRepository(getDatabase(context)).also {
                 settingsRepositoryInstance = it
             }
         }

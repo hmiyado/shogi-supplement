@@ -6,6 +6,8 @@ import dev.miyado.shogisupplement.auth.FakeAuthRepository
 import dev.miyado.shogisupplement.db.GameRepository
 import dev.miyado.shogisupplement.db.SettingsRepository
 import dev.miyado.shogisupplement.db.ShogiSupplementDatabase
+import dev.miyado.shogisupplement.db.SqlDelightGameRepository
+import dev.miyado.shogisupplement.db.SqlDelightSettingsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -48,7 +50,7 @@ class AccountViewModelTest {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         ShogiSupplementDatabase.Schema.create(driver)
         val database = ShogiSupplementDatabase(driver)
-        return TestRepos(GameRepository(database), SettingsRepository(database))
+        return TestRepos(SqlDelightGameRepository(database), SqlDelightSettingsRepository(database))
     }
 
     /** UnconfinedTestDispatcher を IO として注入して ViewModel を生成する。 */

@@ -135,7 +135,7 @@ class SchemaMigrationTest {
 
         ShogiSupplementDatabase.Schema.migrate(driver, oldVersion = 1, newVersion = 2)
 
-        val repo = GameRepository(ShogiSupplementDatabase(driver))
+        val repo = SqlDelightGameRepository(ShogiSupplementDatabase(driver))
         val gameId = repo.saveAnalysis(
             fileName = "legacy.kif",
             contentHash = "legacy-hash",

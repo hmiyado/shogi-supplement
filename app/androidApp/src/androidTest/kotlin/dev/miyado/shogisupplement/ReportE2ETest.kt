@@ -4,6 +4,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import app.cash.sqldelight.driver.android.AndroidSqliteDriver
 import dev.miyado.shogisupplement.db.GameRepository
+import dev.miyado.shogisupplement.db.SqlDelightGameRepository
 import dev.miyado.shogisupplement.db.ShogiSupplementDatabase
 import dev.miyado.shogisupplement.engine.EvalLoader
 import dev.miyado.shogisupplement.engine.createAndroidAnalysisRunner
@@ -112,7 +113,7 @@ class ReportE2ETest {
             name = "test_dedup_${System.currentTimeMillis()}.db",
         )
         val database = ShogiSupplementDatabase(driver)
-        val repository = GameRepository(database)
+        val repository = SqlDelightGameRepository(database)
 
         val existingId = repository.getByHash(contentHash)
         assertEquals("初回は重複なし", null, existingId)
