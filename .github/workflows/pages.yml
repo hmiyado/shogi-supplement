@@ -88,13 +88,17 @@ jobs:
           npm config set min-release-age 7 --location=user
 
       # wasmJsBrowserDistribution(production)がバンドル最適化に使うwasm-opt本体。
-      # ローカルmacOSはbrew、ここはaptで導入し、パスをroot build.gradle.ktsへ
-      # WASM_OPT_PATH環境変数で渡す(BinaryenPluginのdownload=false設定と対で機能する)。
+      # aptのbinaryenは108と古く、Kotlin/Wasmが生成するモジュールを処理できずに
+      # exit 1で落ちるため、公式リリースからローカル(brew)と同じ版を取得する。
       - name: binaryen(wasm-opt)を導入
+        env:
+          BINARYEN_VERSION: "131"
         run: |
-          sudo apt-get update
-          sudo apt-get install -y binaryen
-          echo "WASM_OPT_PATH=$(command -v wasm-opt)" >> "$GITHUB_ENV"
+          curl -fsSL "https://github.com/WebAssembly/binaryen/releases/download/version_${BINARYEN_VERSION}/binaryen-version_${BINARYEN_VERSION}-x86_64-linux.tar.gz" \
+            | sudo tar xz -C /opt
+          WASM_OPT="/opt/binaryen-version_${BINARYEN_VERSION}/bin/wasm-opt"
+          "$WASM_OPT" --version
+          echo "WASM_OPT_PATH=$WASM_OPT" >> "$GITHUB_ENV"
 
       - name: やねうら王の上流ソース取得+パッチ適用
         run: ./engine-wasm/fetch_upstream.sh
