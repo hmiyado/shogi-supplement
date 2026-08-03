@@ -35,6 +35,8 @@ on:
       - "app/kifu/**"
       - "app/build.gradle.kts"
       - "app/settings.gradle.kts"
+      # npm依存の固定内容が変わるとwasmバンドルの構成も変わりうる
+      - "app/kotlin-js-store/**"
       - "app/gradle/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch: {}
