@@ -19,6 +19,8 @@ import dev.miyado.shogisupplement.engine.RemoteAnalysisRunner
 import dev.miyado.shogisupplement.kifu.ClipboardKifValidator
 import dev.miyado.shogisupplement.kifu.KifParser
 import dev.miyado.shogisupplement.kifu.UserSideSuggester
+import dev.miyado.shogisupplement.policy.ForceUpdateJudge
+import dev.miyado.shogisupplement.policy.ForceUpdatePolicyChecker
 import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.PvExtState
 import dev.miyado.shogisupplement.ui.common.defaultIoDispatcher
@@ -82,6 +84,11 @@ class IosMainController(
     private val authRepository: AuthRepository? = null,
     /** null = ANALYSIS_BASE_URL未設定（端末解析にフォールバックする。graceful degradation）。 */
     private val analysisBaseUrl: String? = null,
+    /**
+     * null = Supabase未設定ビルド（強制アップデートチェックをスキップする。
+     * 同意オンボーディングと同じgraceful degradation）。
+     */
+    private val forceUpdatePolicyChecker: ForceUpdatePolicyChecker? = null,
 ) {
 
     /** クリップボード取込フローの状態。 */
@@ -214,11 +221,21 @@ class IosMainController(
     private val _skipSideConfirm = MutableStateFlow(false)
     val skipSideConfirm: StateFlow<Boolean> = _skipSideConfirm.asStateFlow()
 
+    /**
+     * 強制アップデート判定。null = 未チェック（[MainViewController] 側はこの間、
+     * 通常の同意/ホーム分岐を出す＝取得中に誤ってブロック画面を出さない）。
+     * checker が null（Supabase未設定ビルド）のときは常にnullのまま。
+     */
+    private val _forceUpdateDecision = MutableStateFlow<ForceUpdateJudge.Decision?>(null)
+    val forceUpdateDecision: StateFlow<ForceUpdateJudge.Decision?> = _forceUpdateDecision.asStateFlow()
+
     init {
         scope.launch { _themeMode.value = settingsRepository.getThemeMode() }
         scope.launch { _evalDisplay.value = settingsRepository.getEvalDisplay() }
         scope.launch { _skipSideConfirm.value = settingsRepository.getSkipSideConfirm() }
         reloadHome()
+        // 起動時チェック。フォアグラウンド復帰時は onWillEnterForeground 内で再チェックする。
+        checkForceUpdate()
         // Why not MainViewController側で登録: IosMainControllerはプロセス生存期間中1個しか
         // rememberされないため、ここに置くだけで観察者の二重登録が起きない。
         NSNotificationCenter.defaultCenter.addObserverForName(
@@ -226,6 +243,16 @@ class IosMainController(
             null,
             NSOperationQueue.mainQueue,
         ) { onWillEnterForeground() }
+    }
+
+    /**
+     * 強制アップデート判定を実行し [forceUpdateDecision] を更新する。
+     * checker自体が取得失敗→キャッシュ→fail-openの調停を担うため、ここでは結果を
+     * そのまま反映するだけでよい（[ForceUpdatePolicyChecker] のKDoc参照）。
+     */
+    private fun checkForceUpdate() {
+        val checker = forceUpdatePolicyChecker ?: return
+        scope.launch { _forceUpdateDecision.value = checker.check() }
     }
 
     fun reloadHome() {
@@ -253,6 +280,9 @@ class IosMainController(
      * 再送すると二重POSTになるため。
      */
     private fun onWillEnterForeground() {
+        // 強制アップデート判定は解析再開の無進捗しきい値とは無関係の独立した関心事のため、
+        // 常に（無条件で）再チェックする。
+        checkForceUpdate()
         if (!shouldResumeAfterForeground(_importState.value, lastProgressAtEpochSeconds, currentEpochSeconds())) {
             return
         }

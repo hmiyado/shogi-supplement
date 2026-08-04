@@ -48,6 +48,7 @@ import dev.miyado.shogisupplement.db.DatabaseFactory
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.GameRepository
 import dev.miyado.shogisupplement.db.SettingsRepository
+import dev.miyado.shogisupplement.policy.currentBuildNumber
 import dev.miyado.shogisupplement.supabase.SupabaseServices
 import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.account.AccountScreen
@@ -56,6 +57,7 @@ import dev.miyado.shogisupplement.ui.consent.ConsentScreen
 import dev.miyado.shogisupplement.ui.drill.DrillQuestionContent
 import dev.miyado.shogisupplement.ui.drill.DrillResultContent
 import dev.miyado.shogisupplement.ui.drill.DrillUiState
+import dev.miyado.shogisupplement.ui.forceupdate.ForceUpdateScreen
 import dev.miyado.shogisupplement.ui.gamelist.GameListScreen
 import dev.miyado.shogisupplement.ui.generated.resources.Res
 import dev.miyado.shogisupplement.ui.home.HomeScreen
@@ -122,6 +124,7 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
                 gameRepository,
                 settingsRepository,
                 IosTransferSecretStore(),
+                platform = "ios",
             )
         }
     }
@@ -136,6 +139,7 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
             supabaseServices?.uploadOrchestrator,
             authRepository = supabaseServices?.authRepository,
             analysisBaseUrl = analysisBaseUrl,
+            forceUpdatePolicyChecker = supabaseServices?.forceUpdatePolicyChecker,
         )
     }
     // 同意オンボーディング（iOS専用・初回起動必須）: Supabase設定が供給されているビルドで
@@ -147,6 +151,10 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
     }
 
     val themeMode by controller.themeMode.collectAsState()
+    // 強制アップデート判定は同意オンボーディングより前段でゲートする（同意もできない
+    // ビルドで同意画面を出しても無意味なため）。checker未配線（Supabase未設定ビルド）
+    // またはチェック未完了（起動直後）はnullで、通常どおり以降の分岐に進む。
+    val forceUpdateDecision by controller.forceUpdateDecision.collectAsState()
     ShogiTheme(themeMode = themeMode) {
         Surface(modifier = Modifier.fillMaxSize()) {
             Box(
@@ -154,8 +162,20 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
                     .fillMaxSize()
                     .windowInsetsPadding(WindowInsets.safeDrawing),
             ) {
+                val decision = forceUpdateDecision
                 val services = supabaseServices
-                if (showConsent && services != null) {
+                if (decision != null && decision.blocked) {
+                    val versionName = remember {
+                        (NSBundle.mainBundle.infoDictionary?.get("CFBundleShortVersionString") as? String) ?: "-"
+                    }
+                    ForceUpdateScreen(
+                        message = decision.message,
+                        storeUrl = decision.storeUrl,
+                        versionName = versionName,
+                        buildNumber = currentBuildNumber(),
+                        onOpenStore = { decision.storeUrl?.let { openUrl(it) } },
+                    )
+                } else if (showConsent && services != null) {
                     IosConsentScreenHost(
                         services = services,
                         onAccepted = { showConsent = false },
