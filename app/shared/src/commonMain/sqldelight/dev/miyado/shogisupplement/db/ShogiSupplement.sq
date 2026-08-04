@@ -63,7 +63,8 @@ CREATE TABLE user_settings (
     rating_rule TEXT,
     theme_mode TEXT NOT NULL DEFAULT 'system',
     eval_display TEXT NOT NULL DEFAULT 'cp',
-    skip_side_confirm INTEGER NOT NULL DEFAULT 0
+    skip_side_confirm INTEGER NOT NULL DEFAULT 0,
+    app_policy_cache TEXT
 );
 
 insertGame:
@@ -259,6 +260,14 @@ SELECT skip_side_confirm FROM user_settings WHERE id = 1;
 
 updateSkipSideConfirm:
 UPDATE user_settings SET skip_side_confirm = ? WHERE id = 1;
+
+-- ─── app_policy_cache（強制アップデートポリシーの直近取得結果。取得失敗時のフォールバック）───
+
+getAppPolicyCache:
+SELECT app_policy_cache FROM user_settings WHERE id = 1;
+
+updateAppPolicyCache:
+UPDATE user_settings SET app_policy_cache = ? WHERE id = 1;
 
 -- ─── position_eval（全局面評価値・先手視点 cp に正規化）────────────────────────────
 -- ply = evals リストのインデックス（0 = 初期局面、N = N 手後の局面）。

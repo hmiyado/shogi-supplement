@@ -9,6 +9,10 @@ import dev.miyado.shogisupplement.crypto.TransferSecretRegistrar
 import dev.miyado.shogisupplement.crypto.TransferSecretStore
 import dev.miyado.shogisupplement.db.GameRepository
 import dev.miyado.shogisupplement.db.SettingsRepository
+import dev.miyado.shogisupplement.policy.AppPolicyRepository
+import dev.miyado.shogisupplement.policy.ForceUpdatePolicyChecker
+import dev.miyado.shogisupplement.policy.SupabasePolicyRepository
+import dev.miyado.shogisupplement.policy.currentBuildNumber
 import dev.miyado.shogisupplement.upload.SupabaseTransferSecretRegistrar
 import dev.miyado.shogisupplement.upload.SupabaseUploadRepository
 import dev.miyado.shogisupplement.upload.UploadOrchestrator
@@ -27,6 +31,8 @@ import io.github.jan.supabase.postgrest.Postgrest
  *   Context相当の引数が要る/要らないがプラットフォームで違う（androidApp/db/AppDatabase.kt が
  *   Context を明示的に受け取る既存パターンと同じ理由）ため、呼び出し側
  *   （:ui iosMain/MainViewController.kt）で組み立てて渡す
+ * @param platform 強制アップデート判定（[forceUpdatePolicyChecker]）の対象プラットフォーム行。
+ *   "android" / "ios"（app_policyテーブルのplatform列と同じ語彙）
  */
 class SupabaseServices(
     supabaseUrl: String,
@@ -34,6 +40,7 @@ class SupabaseServices(
     gameRepository: GameRepository,
     settingsRepository: SettingsRepository,
     private val transferSecretStore: TransferSecretStore,
+    platform: String,
 ) {
     private val client = createSupabaseClient(
         supabaseUrl = supabaseUrl,
@@ -71,4 +78,19 @@ class SupabaseServices(
         val secret = TransferSecretManager.getOrCreateSecret(transferSecretStore)
         return TransferCode.encode(secret)
     }
+
+    /** 強制アップデートポリシー（`app_policy`）のanon SELECT。 */
+    val appPolicyRepository: AppPolicyRepository = SupabasePolicyRepository(client)
+
+    /**
+     * 起動時・フォアグラウンド復帰時に呼ぶ強制アップデート判定の調停役。
+     * 取得失敗時はキャッシュ→fail-openの順にフォールバックする
+     * （[ForceUpdatePolicyChecker] のKDoc参照）。
+     */
+    val forceUpdatePolicyChecker: ForceUpdatePolicyChecker = ForceUpdatePolicyChecker(
+        policyRepository = appPolicyRepository,
+        settingsRepository = settingsRepository,
+        platform = platform,
+        currentBuild = ::currentBuildNumber,
+    )
 }

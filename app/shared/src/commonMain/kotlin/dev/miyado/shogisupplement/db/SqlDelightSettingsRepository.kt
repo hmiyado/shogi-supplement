@@ -283,4 +283,26 @@ class SqlDelightSettingsRepository(private val database: ShogiSupplementDatabase
             .getSkipSideConfirm()
             .executeAsOneOrNull() ?: 0L) != 0L
     }
+
+    // ─── app_policy_cache（強制アップデートポリシーの直近取得結果）──────────────
+
+    /**
+     * 強制アップデートポリシーの直近取得成功結果をJSONで保存する（upsert）。
+     */
+    override fun saveAppPolicyCache(json: String) {
+        database.transaction {
+            database.shogiSupplementQueries.insertOrIgnoreDefaultSettings()
+            database.shogiSupplementQueries.updateAppPolicyCache(json)
+        }
+    }
+
+    /**
+     * キャッシュされたポリシーJSONを返す。未取得なら null。
+     */
+    override fun getAppPolicyCache(): String? {
+        return database.shogiSupplementQueries
+            .getAppPolicyCache()
+            .executeAsOneOrNull()
+            ?.app_policy_cache
+    }
 }

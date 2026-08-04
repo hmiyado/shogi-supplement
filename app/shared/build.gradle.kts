@@ -188,6 +188,17 @@ android {
     compileSdk = 36
     defaultConfig {
         minSdk = 29
+        // 強制アップデート判定用のビルド番号（policy/BuildNumber.android.kt参照）。
+        // androidApp/build.gradle.ktsのversionCodeと同じgradle.propertiesの値を読むことで、
+        // 「実際にストアへ出るビルドのversionCode」と「判定に使う値」が食い違わないようにする。
+        buildConfigField(
+            "int",
+            "APP_VERSION_CODE",
+            providers.gradleProperty("shogisupplement.versionCode").get(),
+        )
+    }
+    buildFeatures {
+        buildConfig = true
     }
 }
 

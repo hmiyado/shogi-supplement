@@ -122,4 +122,14 @@ interface SettingsRepository {
 
     /** 先後確認の省略設定を返す。未設定なら false（確認する）。 */
     fun getSkipSideConfirm(): Boolean
+
+    /**
+     * 強制アップデートポリシー（[dev.miyado.shogisupplement.policy.AppPolicyRow] のリスト）の
+     * 直近取得成功結果をJSON文字列で保存する（upsert）。
+     * ポリシー取得に失敗した起動時のフォールバック（fail-open前の最後の手段）に使う。
+     */
+    fun saveAppPolicyCache(json: String)
+
+    /** キャッシュされたポリシーJSONを返す。未取得なら null。 */
+    fun getAppPolicyCache(): String?
 }

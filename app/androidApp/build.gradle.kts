@@ -32,7 +32,9 @@ android {
         applicationId = "dev.miyado.shogisupplement"
         minSdk = 29
         targetSdk = 36
-        versionCode = 1
+        // gradle.propertiesのshogisupplement.versionCodeが単一の値源（:sharedのBuildConfigと共用。
+        // 詳細はgradle.propertiesのコメント参照）。
+        versionCode = providers.gradleProperty("shogisupplement.versionCode").get().toInt()
         versionName = "0.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

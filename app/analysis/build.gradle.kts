@@ -53,6 +53,8 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+            // ForceUpdatePolicyCheckerTest（runTest）用。
+            implementation(libs.kotlinx.coroutines.test)
         }
         jsMain.dependencies {
             implementation(libs.kotlinx.serialization.json)
