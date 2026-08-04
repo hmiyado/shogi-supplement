@@ -743,4 +743,21 @@ object AppStrings {
     const val KENTO_ERROR_EMPTY_INPUT = "入力が空です"
     const val KENTO_ERROR_KIF_PARSE = "KIFの解析に失敗しました"
     const val KENTO_ERROR_NO_MOVES = "指し手が0件です"
+
+    // ═══ 36. 強制アップデート ════════════════════════════════════════════════
+    // 「強制」「ブロック」は内部の実装用語のため、ここから先のユーザー向け文言には出さない
+    // （docs/wording.md参照）。全画面ブロック・閉じる導線なし（ForceUpdateScreen）。
+    // 判定ロジックは dev.miyado.shogisupplement.policy.ForceUpdateJudge（:analysis）。
+
+    const val FORCE_UPDATE_TITLE = "アップデートが必要です"
+    const val FORCE_UPDATE_BODY = "最新版でのみご利用いただけます。ストアからアップデートしてください。"
+    const val FORCE_UPDATE_NOTE =
+        "棋譜と解析結果は端末に残っています。アップデート後もそのままご利用いただけます。"
+    const val FORCE_UPDATE_OPEN_STORE = "ストアを開く"
+
+    /** バージョン表示行のラベル部分（値=versionName+ビルド番号はMonoで別Text）。 */
+    const val FORCE_UPDATE_VERSION_PREFIX = "お使いのバージョン "
+
+    /** バージョン表示の値部分。例: versionName="1.2.0", buildNumber=42 → "1.2.0 (42)" */
+    fun forceUpdateVersionValue(versionName: String, buildNumber: Int): String = "$versionName ($buildNumber)"
 }
