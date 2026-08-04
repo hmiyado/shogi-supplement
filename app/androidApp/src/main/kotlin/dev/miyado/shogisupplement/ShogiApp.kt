@@ -9,6 +9,11 @@ import dev.miyado.shogisupplement.auth.SupabaseAuthRepository
 import dev.miyado.shogisupplement.crypto.AndroidTransferSecretStore
 import dev.miyado.shogisupplement.crypto.TransferSecretStore
 import dev.miyado.shogisupplement.db.AppDatabase
+import dev.miyado.shogisupplement.policy.AppPolicyRepository
+import dev.miyado.shogisupplement.policy.ForceUpdateJudge
+import dev.miyado.shogisupplement.policy.ForceUpdatePolicyChecker
+import dev.miyado.shogisupplement.policy.SupabasePolicyRepository
+import dev.miyado.shogisupplement.policy.currentBuildNumber
 import dev.miyado.shogisupplement.upload.SupabaseUploadRepository
 import dev.miyado.shogisupplement.upload.UploadOrchestrator
 import dev.miyado.shogisupplement.upload.UploadRepository
@@ -17,6 +22,13 @@ import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
 import io.sentry.android.core.SentryAndroid
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 class ShogiApp : Application() {
 
@@ -57,6 +69,42 @@ class ShogiApp : Application() {
             dbRepository = AppDatabase.gameRepository(this),
             settingsRepository = AppDatabase.settingsRepository(this),
         )
+    }
+
+    /** 強制アップデートポリシー（`app_policy`）のanon SELECT。 */
+    private val appPolicyRepository: AppPolicyRepository by lazy {
+        SupabasePolicyRepository(supabaseClient)
+    }
+
+    /**
+     * 起動時・フォアグラウンド復帰時に呼ぶ強制アップデート判定の調停役
+     * （[checkForceUpdate] から呼ぶ。取得失敗時のフォールバックは
+     * [ForceUpdatePolicyChecker] のKDoc参照）。
+     */
+    private val forceUpdatePolicyChecker: ForceUpdatePolicyChecker by lazy {
+        ForceUpdatePolicyChecker(
+            policyRepository = appPolicyRepository,
+            settingsRepository = AppDatabase.settingsRepository(this),
+            platform = "android",
+            currentBuild = ::currentBuildNumber,
+        )
+    }
+
+    /**
+     * Applicationのプロセス生存期間で使い回すスコープ。強制アップデート判定は
+     * Activity再生成（画面回転等）をまたいで状態を保ちたいため、Activity/ViewModelスコープ
+     * ではなくここで持つ（ForceUpdateHost.kt はこのStateFlowをcollectAsStateで購読するだけ）。
+     */
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
+    private val _forceUpdateDecision = MutableStateFlow<ForceUpdateJudge.Decision?>(null)
+
+    /** null = 未チェック。[ForceUpdateHost] はnullの間は通常どおりの画面を出す。 */
+    val forceUpdateDecision: StateFlow<ForceUpdateJudge.Decision?> = _forceUpdateDecision.asStateFlow()
+
+    /** [MainActivity.onResume] から呼ぶ（起動直後の初回resumeも含めて「起動時＋フォアグラウンド復帰時」を満たす）。 */
+    fun checkForceUpdate() {
+        appScope.launch { _forceUpdateDecision.value = forceUpdatePolicyChecker.check() }
     }
 
     override fun onCreate() {

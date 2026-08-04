@@ -44,6 +44,7 @@ import dev.miyado.shogisupplement.ui.theme.ShogiTheme
  * - AnalyzingScreen.kt: 解析中画面
  * - HomeHost.kt / ReportHost.kt / AccountHost.kt / SettingsHost.kt:
  *   各画面への MainViewModel 配線（when(state) 分岐の中身をホスト単位で切り出したもの）
+ * - ForceUpdateHost.kt: 強制アップデートのゲート（MainUiStateの外側でMainAppごと出し分ける）
  * - GameListScreen / ErrorScreen / RatingSettingsDialog は VM・Android非依存の
  *   純Composableのため :ui commonMain に置く（ヘルプはWebヘルプ=LegalLinks.HELP_WEB_URL）
  */
@@ -85,8 +86,13 @@ class MainActivity : ComponentActivity() {
                         },
                     color = MaterialTheme.colorScheme.background,
                 ) {
-                    val state by vm.state.collectAsState()
-                    MainApp(vm, state)
+                    // 強制アップデート判定はナビゲーション状態（MainUiState）の外側で
+                    // ゲートする。ブロック中は KifImportFlow を含む MainApp を一切
+                    // コンポジションに含めない（ブロック中は他の画面を描画しない要件）。
+                    ForceUpdateHost {
+                        val state by vm.state.collectAsState()
+                        MainApp(vm, state)
+                    }
                 }
             }
         }
@@ -97,6 +103,15 @@ class MainActivity : ComponentActivity() {
             val vm: MainViewModel by viewModels()
             vm.handleNotificationIntent(gameId)
         }
+    }
+
+    /**
+     * 起動直後の初回resumeも含めて呼ばれるため、「起動時＋フォアグラウンド復帰時」の
+     * チェック要件をこの1箇所で満たす（[ForceUpdateHost] はここが更新するStateFlowを購読するだけ）。
+     */
+    override fun onResume() {
+        super.onResume()
+        (application as ShogiApp).checkForceUpdate()
     }
 
     /** 通知タップによる再起動（singleTop で Activity が再利用される場合）。 */
