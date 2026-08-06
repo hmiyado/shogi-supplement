@@ -19,25 +19,39 @@ struct ContentView: View {
     // （EngineタブはUsiEngineInProcessがプロセス内で一度しか起動できない制約と衝突するため、
     // 実動作確認は「CMP」タブのみで行うこと）。
     @State private var selection = 1
+
+    // App Store提出用スクリーンショット（StoreScreenshotTests）撮影時は開発用タブバーを隠し、
+    // Releaseビルドと同じ「ComposeViewが画面全体を占有する」見た目にする。
+    // Why not Releaseビルドで撮影しないか: シミュレータのReleaseビルドはApp Attestが通らず
+    // サーバー解析が403になる（project.yml参照）ため、App CheckのDebugプロバイダが使える
+    // Debug-Engineless構成での撮影が必須——その構成だとこのタブバーが常に付いてきてしまう。
+    private var hideDebugTabsForScreenshots: Bool {
+        ProcessInfo.processInfo.environment["UITEST_HIDE_DEBUG_TABS"] == "1"
+    }
     #endif
 
     var body: some View {
         #if DEBUG
-        TabView(selection: $selection) {
-            SpikeView()
-                .tabItem { Label("Spike", systemImage: "checkmark.seal") }
-                .tag(0)
-
+        if hideDebugTabsForScreenshots {
             ComposeView()
                 .ignoresSafeArea()
-                .tabItem { Label("CMP", systemImage: "square.grid.3x3") }
-                .tag(1)
+        } else {
+            TabView(selection: $selection) {
+                SpikeView()
+                    .tabItem { Label("Spike", systemImage: "checkmark.seal") }
+                    .tag(0)
 
-            #if !ENGINELESS
-            EngineView()
-                .tabItem { Label("Engine", systemImage: "cpu") }
-                .tag(2)
-            #endif
+                ComposeView()
+                    .ignoresSafeArea()
+                    .tabItem { Label("CMP", systemImage: "square.grid.3x3") }
+                    .tag(1)
+
+                #if !ENGINELESS
+                EngineView()
+                    .tabItem { Label("Engine", systemImage: "cpu") }
+                    .tag(2)
+                #endif
+            }
         }
         #else
         ComposeView()
