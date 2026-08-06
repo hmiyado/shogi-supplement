@@ -90,6 +90,7 @@ object DrillDemoFactory {
                 accessTokenProvider = {
                     checkNotNull(authRepository.accessToken()) { "アクセストークンが取得できない" }
                 },
+                platform = "ios",
                 httpClient = httpClient,
                 appCheckTokenProvider = AppCheckTokenBridge::getToken,
             )

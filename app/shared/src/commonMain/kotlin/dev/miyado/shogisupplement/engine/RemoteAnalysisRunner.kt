@@ -6,6 +6,7 @@ import dev.miyado.shogisupplement.api.analysis.ErrorJson
 import dev.miyado.shogisupplement.api.analysis.ProgressJson
 import dev.miyado.shogisupplement.api.analysis.QuotaExceededJson
 import dev.miyado.shogisupplement.api.analysis.toPvInfo
+import dev.miyado.shogisupplement.policy.currentBuildNumber
 import io.ktor.client.HttpClient
 import io.ktor.client.request.header
 import io.ktor.client.request.preparePost
@@ -33,6 +34,10 @@ import kotlinx.serialization.json.jsonObject
  * @property baseUrl ワーカーのベースURL
  * @property accessTokenProvider 呼び出しごとにSupabase JWTを取得する関数。トークン更新は
  *   呼び出し側の責務
+ * @property platform 強制アップデート検証用のX-App-Platformヘッダ値（"android"/"ios"。
+ *   app_policyテーブルのplatform列と同じ語彙。[dev.miyado.shogisupplement.supabase.SupabaseServices]
+ *   のplatformパラメータと同じく呼び出し側が明示する）。ビルド番号は[currentBuildNumber]
+ *   （expect/actual）でこのクラス自身が解決するため引数に取らない。
  * @property maxRetries 切断時に同一リクエストを再POSTする上限回数
  * @property retryBackoffMs 再POSTまでの待機時間の基準値（試行回数に比例。指数バックオフに
  *   しないのは、サーバー側の完了待ちが最大280秒のポーリングで律速されるため）
@@ -46,6 +51,7 @@ import kotlinx.serialization.json.jsonObject
 class RemoteAnalysisRunner(
     private val baseUrl: String,
     private val accessTokenProvider: suspend () -> String,
+    private val platform: String,
     private val httpClient: HttpClient = HttpClient(),
     private val maxRetries: Int = 3,
     private val retryBackoffMs: Long = 1_000,
@@ -120,6 +126,10 @@ class RemoteAnalysisRunner(
             if (appCheckToken != null) {
                 header("X-Firebase-AppCheck", appCheckToken)
             }
+            // Why not appCheckTokenのように取得失敗時だけ省く: 欠如時はサーバー側が
+            // fail-open/1.0クライアント互換としてスキップするだけなので、条件付きにする理由が無い。
+            header("X-App-Platform", platform)
+            header("X-App-Build", currentBuildNumber().toString())
             contentType(ContentType.Application.Json)
             setBody(json.encodeToString(AnalysisRequest.serializer(), request))
         }.execute { response ->
@@ -132,6 +142,8 @@ class RemoteAnalysisRunner(
                     throw RemoteAnalysisException.QuotaExceeded(readResetAt(response))
                 HttpStatusCode.BadRequest ->
                     throw RemoteAnalysisException.BadRequest(readErrorMessage(response))
+                HttpStatusCode.UpgradeRequired ->
+                    throw RemoteAnalysisException.UpgradeRequired(readErrorMessage(response))
                 else -> Unit
             }
             if (!response.status.isSuccess()) {
@@ -196,6 +208,9 @@ sealed class RemoteAnalysisException(message: String, cause: Throwable? = null) 
 
     /** HTTP 400: リクエスト不正（想定外。moves_usiが空など）。 */
     class BadRequest(message: String) : RemoteAnalysisException(message)
+
+    /** HTTP 426: X-App-Buildがapp_policy.min_build未満（Worker側の強制アップデート検証）。 */
+    class UpgradeRequired(message: String) : RemoteAnalysisException(message)
 
     /** NDJSON終端の `{"error": ...}` 行（ストリーム途中のエンジン失敗。HTTPは200のまま）。 */
     class EngineFailure(message: String) : RemoteAnalysisException(message)

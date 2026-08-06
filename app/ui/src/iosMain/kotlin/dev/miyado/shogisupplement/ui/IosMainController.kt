@@ -587,6 +587,7 @@ class IosMainController(
                     accessTokenProvider = {
                         checkNotNull(auth.accessToken()) { "アクセストークンが取得できない" }
                     },
+                    platform = "ios",
                     httpClient = checkNotNull(analysisHttpClient),
                     appCheckTokenProvider = AppCheckTokenBridge::getToken,
                 ),

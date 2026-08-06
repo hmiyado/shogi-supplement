@@ -25,6 +25,9 @@ sealed class AnalysisFailureReason {
     /** HTTP 400: リクエスト不正（想定外。moves_usiが空など）。 */
     data object BadRequest : AnalysisFailureReason()
 
+    /** HTTP 426: X-App-Buildがapp_policy.min_build未満（Worker側の強制アップデート検証）。 */
+    data object UpgradeRequired : AnalysisFailureReason()
+
     /** サーバー側エンジン失敗（NDJSON終端の error 行）。 */
     data object EngineFailure : AnalysisFailureReason()
 
@@ -41,6 +44,7 @@ sealed class AnalysisFailureReason {
             is RemoteAnalysisException.Banned -> Banned
             is RemoteAnalysisException.QuotaExceeded -> QuotaExceeded(e.resetAt)
             is RemoteAnalysisException.BadRequest -> BadRequest
+            is RemoteAnalysisException.UpgradeRequired -> UpgradeRequired
             is RemoteAnalysisException.EngineFailure -> EngineFailure
             is RemoteAnalysisException.ConnectionLost -> ConnectionLost
             else -> Unknown

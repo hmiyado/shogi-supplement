@@ -99,6 +99,7 @@ class DebugServerAnalysisReceiver : BroadcastReceiver() {
                     accessTokenProvider = {
                         checkNotNull(app.authRepository.accessToken()) { "アクセストークンが取得できない" }
                     },
+                    platform = "android",
                     httpClient = httpClient,
                 ),
             )

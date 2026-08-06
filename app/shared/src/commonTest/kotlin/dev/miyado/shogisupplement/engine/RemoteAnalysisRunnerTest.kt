@@ -49,9 +49,11 @@ class RemoteAnalysisRunnerTest {
         maxRetries: Int = 3,
         retryBackoffMs: Long = 1,
         appCheckTokenProvider: (suspend () -> String?)? = null,
+        platform: String = "ios",
     ) = RemoteAnalysisRunner(
         baseUrl = "https://analysis-worker.example",
         accessTokenProvider = { "test-jwt" },
+        platform = platform,
         httpClient = client,
         maxRetries = maxRetries,
         retryBackoffMs = retryBackoffMs,
@@ -211,6 +213,62 @@ class RemoteAnalysisRunnerTest {
             runner(HttpClient(engine)).analyzeGame(listOf("7g7f"))
         }
         assertEquals("2026-07-27T15:00:00Z", exception.resetAt)
+    }
+
+    @Test
+    fun `426 is reported as UpgradeRequired`() = runTest {
+        val engine = MockEngine { _ ->
+            respond(
+                content = ByteReadChannel("""{"error":"app update required"}"""),
+                status = HttpStatusCode.UpgradeRequired,
+                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+            )
+        }
+
+        assertFailsWith<RemoteAnalysisException.UpgradeRequired> {
+            runner(HttpClient(engine)).analyzeGame(listOf("7g7f"))
+        }
+    }
+
+    // ─── X-App-Platform / X-App-Build（Worker側の強制アップデート検証向け） ────────
+
+    @Test
+    fun `analyzeGame always sends X-App-Platform and X-App-Build headers`() = runTest {
+        var capturedPlatform: String? = null
+        var capturedBuild: String? = null
+        val engine = MockEngine { request ->
+            capturedPlatform = request.headers["X-App-Platform"]
+            capturedBuild = request.headers["X-App-Build"]
+            respond(content = ByteReadChannel(resultLine), status = HttpStatusCode.OK, headers = ndjsonHeaders)
+        }
+
+        runner(HttpClient(engine), platform = "android").analyzeGame(listOf("7g7f"))
+
+        assertEquals("android", capturedPlatform)
+        // JVMターゲットのcurrentBuildNumber()実装は常にInt.MAX_VALUE
+        // （BuildNumber.jvm.kt。実APKを持たないテスト/開発ツール用途のため）。
+        assertEquals(Int.MAX_VALUE.toString(), capturedBuild)
+    }
+
+    @Test
+    fun `analyzePosition also sends X-App-Platform and X-App-Build headers`() = runTest {
+        var capturedPlatform: String? = null
+        val engine = MockEngine { request ->
+            capturedPlatform = request.headers["X-App-Platform"]
+            respond(
+                content = ByteReadChannel(
+                    """{"result":[[{"multipv":1,"score":{"type":"cp","value":1},"pv":[],"nodes":400000}]],""" +
+                        """"engine_meta":{"engine_rev":"r","eval_sha256":"s","nodes":400000,"threads":1,""" +
+                        """"multi_pv":2,"usi_hash":128,"fv_scale":20}}""",
+                ),
+                status = HttpStatusCode.OK,
+                headers = ndjsonHeaders,
+            )
+        }
+
+        runner(HttpClient(engine), platform = "ios").analyzePosition("startpos")
+
+        assertEquals("ios", capturedPlatform)
     }
 
     // ─── Firebase App Checkトークンの注入（SDK組み込み自体は別タスク） ────────────

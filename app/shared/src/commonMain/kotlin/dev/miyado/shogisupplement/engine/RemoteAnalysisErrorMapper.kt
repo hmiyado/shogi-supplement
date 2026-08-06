@@ -26,6 +26,10 @@ object RemoteAnalysisErrorMapper {
         is RemoteAnalysisException.QuotaExceeded ->
             AppStrings.serverAnalysisErrorQuotaExceeded(formatResetAtJst(e.resetAt))
         is RemoteAnalysisException.BadRequest -> AppStrings.SERVER_ANALYSIS_ERROR_BAD_REQUEST
+        // Why not専用文言を新設: 「アップデートが必要です」画面の本文としてdocs/wording.md
+        // （「強制アップデート画面」節）で既に確定済みの文言をそのまま流用する。新しい表現を
+        // 増やすと表記揺れのもとになるため。
+        is RemoteAnalysisException.UpgradeRequired -> AppStrings.FORCE_UPDATE_BODY
         is RemoteAnalysisException.EngineFailure -> AppStrings.SERVER_ANALYSIS_ERROR_ENGINE_FAILURE
         is RemoteAnalysisException.ConnectionLost -> AppStrings.SERVER_ANALYSIS_ERROR_CONNECTION_LOST
     }
