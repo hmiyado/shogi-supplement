@@ -49,6 +49,7 @@ import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.GameRepository
 import dev.miyado.shogisupplement.db.SettingsRepository
 import dev.miyado.shogisupplement.policy.currentBuildNumber
+import dev.miyado.shogisupplement.policy.resolvePolicyPlatform
 import dev.miyado.shogisupplement.supabase.SupabaseServices
 import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.account.AccountScreen
@@ -70,6 +71,8 @@ import dev.miyado.shogisupplement.ui.transfercode.TransferCodeScreen
 import dev.miyado.shogisupplement.upload.UploadResult
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlin.experimental.ExperimentalNativeApi
+import kotlin.native.Platform
 import platform.Foundation.NSBundle
 import platform.Foundation.NSURL
 import platform.UIKit.UIApplication
@@ -110,6 +113,7 @@ import platform.UIKit.UIViewController
  *     → 今日の1問タップ → ドリル（DrillViewModel駆動）→ 戻る
  *     → ⚙タップ → 設定（テーマ／形勢表示単位／先後確認省略の永続化／ライセンス）→ 戻る
  */
+@OptIn(ExperimentalNativeApi::class)
 fun MainViewController(): UIViewController = ComposeUIViewController {
     val gameRepository = remember { DatabaseFactory.gameRepository() }
     val drillRepository = remember { DatabaseFactory.drillRepository() }
@@ -124,7 +128,13 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
                 gameRepository,
                 settingsRepository,
                 IosTransferSecretStore(),
-                platform = "ios",
+                // Debugビルド（Xcode CONFIGURATION=Debug/Debug-Engineless。project.ymlの
+                // preBuildScriptsが:ui:linkDebugFrameworkIos...を呼ぶ構成）は検証用のdev行
+                // （ios-dev）を読み、本番行（ios）を動かさずに動作確認できるようにする
+                // （resolvePolicyPlatform参照）。Platform.isDebugBinaryはこのframework自体が
+                // debug/releaseどちらでコンパイルされたかを返すため、Swift側の#if DEBUGを
+                // 素通しするより実際にリンクされたバイナリと必ず一致する。
+                platform = resolvePolicyPlatform("ios", Platform.isDebugBinary),
             )
         }
     }

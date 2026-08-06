@@ -14,6 +14,7 @@ import dev.miyado.shogisupplement.policy.ForceUpdateJudge
 import dev.miyado.shogisupplement.policy.ForceUpdatePolicyChecker
 import dev.miyado.shogisupplement.policy.SupabasePolicyRepository
 import dev.miyado.shogisupplement.policy.currentBuildNumber
+import dev.miyado.shogisupplement.policy.resolvePolicyPlatform
 import dev.miyado.shogisupplement.upload.SupabaseUploadRepository
 import dev.miyado.shogisupplement.upload.UploadOrchestrator
 import dev.miyado.shogisupplement.upload.UploadRepository
@@ -85,7 +86,10 @@ class ShogiApp : Application() {
         ForceUpdatePolicyChecker(
             policyRepository = appPolicyRepository,
             settingsRepository = AppDatabase.settingsRepository(this),
-            platform = "android",
+            // Debugビルドは検証用のdev行（android-dev）を読み、本番行（android）を動かさずに
+            // 動作確認できるようにする（resolvePolicyPlatform参照。BuildConfigはandroidApp自身の
+            // 生成物＝実際にインストールされるAPKのビルドタイプと必ず一致する）。
+            platform = resolvePolicyPlatform("android", BuildConfig.DEBUG),
             currentBuild = ::currentBuildNumber,
         )
     }

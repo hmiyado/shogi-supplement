@@ -32,7 +32,9 @@ import io.github.jan.supabase.postgrest.Postgrest
  *   Context を明示的に受け取る既存パターンと同じ理由）ため、呼び出し側
  *   （:ui iosMain/MainViewController.kt）で組み立てて渡す
  * @param platform 強制アップデート判定（[forceUpdatePolicyChecker]）の対象プラットフォーム行。
- *   "android" / "ios"（app_policyテーブルのplatform列と同じ語彙）
+ *   "android" / "ios"（app_policyテーブルのplatform列と同じ語彙。Debugビルドは呼び出し側が
+ *   [dev.miyado.shogisupplement.policy.resolvePolicyPlatform] で "android-dev" / "ios-dev" に
+ *   変換してから渡す）
  */
 class SupabaseServices(
     supabaseUrl: String,
