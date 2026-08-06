@@ -224,15 +224,24 @@ targets:
       # App Checkの固定デバッグトークン（Debug実機運用向け。Firebaseへの登録が
       # 1回で済み、再インストールしても変わらない）。Release/TestFlightに混入させない
       # ためCONFIGURATIONで絞る。
-      - name: "Copy AppCheckDebugToken.txt (from iosApp/local, Debug only, if present)"
+      # Why not "$CONFIGURATION" = "Debug"（完全一致）: Debug-Engineless構成の
+      # $CONFIGURATION は文字列 "Debug-Engineless" になるため完全一致では素通りし、
+      # トークン未同梱→フォールバックの端末生成トークンはFirebase未登録のため
+      # App Check検証が常に403になる。Debug系（Debug・Debug-Engineless）を
+      # 対象にし、Release系だけを除外する。
+      - name: "Copy AppCheckDebugToken.txt (from iosApp/local, Debug/Debug-Engineless only, if present)"
         script: |
           set -e
           SRC="$SRCROOT/local/AppCheckDebugToken.txt"
           OUT_DIR="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH"
           mkdir -p "$OUT_DIR"
-          if [ "$CONFIGURATION" = "Debug" ] && [ -f "$SRC" ]; then
-            cp "$SRC" "$OUT_DIR/AppCheckDebugToken.txt"
-          fi
+          case "$CONFIGURATION" in
+            Debug|Debug-Engineless)
+              if [ -f "$SRC" ]; then
+                cp "$SRC" "$OUT_DIR/AppCheckDebugToken.txt"
+              fi
+              ;;
+          esac
         basedOnDependencyAnalysis: false
     postCompileScripts:
       - name: "Sync Compose Resources into app bundle (gradlew :ui:syncComposeResourcesForIos)"
