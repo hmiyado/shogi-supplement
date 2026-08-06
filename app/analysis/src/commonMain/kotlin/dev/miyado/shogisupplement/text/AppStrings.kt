@@ -97,7 +97,7 @@ object AppStrings {
     fun homeTodaysDrillPly(ply: Long): String = "${ply}手目の局面"
     const val HOME_TODAYS_DRILL_TAP = "タップしてドリルを開始"
     const val HOME_PAST_ANALYSES = "過去の解析"
-    const val HOME_NO_GAMES = "まだ解析した棋譜がありません。\n「棋譜を追加する」からファイル（.kif）を選択してください。"
+    const val HOME_NO_GAMES = "まだ解析した棋譜がありません。\n「棋譜を追加する」から.kifファイルを選ぶか、コピーした棋譜を貼り付けてください。"
 
     // 強さ指標カード
     const val STRENGTH_CARD_TITLE = "推定棋力（偏差値）"
@@ -679,10 +679,10 @@ object AppStrings {
     const val CONSENT_INTRO =
         "将棋サプリは棋譜をサーバーで解析し、棋力帯相応の悪手をドリルとして出題します。" +
         "解析にはサーバーを使うため、匿名のアカウントを作成します。名前・メールアドレスの入力は必要ありません。"
-    const val CONSENT_BETA_NOTICE = "ベータ期間中は無料で利用できます。正式版では有料化を予定しています。"
+    const val CONSENT_BETA_NOTICE = "ベータ期間中は1日30局まで解析できます。"
     const val CONSENT_RESEARCH_UPLOAD_TEXT =
         "解析した棋譜と結果を匿名で研究利用（アプリ改善・棋力推定の較正）のためにサーバーへ送信することに同意します"
-    const val CONSENT_REQUIRED_NOTE = "同意すると利用を開始できます。同意しない場合はアプリを利用できません"
+    const val CONSENT_REQUIRED_NOTE = "同意すると利用を開始できます。"
     const val CONSENT_ACCEPT_BUTTON = "同意して始める"
 
     // ═══ 32. 引き継ぎコード表示（設定画面）══════════════════════════════════════
