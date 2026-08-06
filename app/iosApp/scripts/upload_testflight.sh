@@ -29,3 +29,14 @@ xcodebuild -exportArchive -archivePath "$ARCHIVE" \
   -authenticationKeyIssuerID "$ISSUER_ID"
 
 echo "TestFlightへアップロード完了 (build=$BUILD_NUMBER)"
+
+# dSYMをSentryへアップロード（未アップロードだとクラッシュのアプリフレームが
+# redactedになり解読不能）。SENTRY_AUTH_TOKENはproject:releasesスコープ必須で、
+# SENTRY_ORG/SENTRY_PROJECTと合わせてop run経由で渡す。未設定ならスキップして
+# TestFlightアップロード自体は成功のまま終える（dSYMは後からでも送れる）
+if command -v sentry-cli >/dev/null 2>&1 && [ -n "${SENTRY_AUTH_TOKEN:-}" ]; then
+  sentry-cli debug-files upload "$ARCHIVE/dSYMs"
+  echo "dSYMをSentryへアップロード完了"
+else
+  echo "SENTRY_AUTH_TOKEN未設定のためdSYMアップロードをスキップ"
+fi
