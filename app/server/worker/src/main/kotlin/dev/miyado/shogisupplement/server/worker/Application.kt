@@ -9,6 +9,7 @@ import dev.miyado.shogisupplement.server.worker.auth.FirebaseAppCheckVerifier
 import dev.miyado.shogisupplement.server.worker.auth.RemoteJwkSetProvider
 import dev.miyado.shogisupplement.server.worker.auth.SupabaseJwtAuthVerifier
 import dev.miyado.shogisupplement.server.worker.repo.SupabaseAnalysisJobRepository
+import dev.miyado.shogisupplement.server.worker.repo.SupabaseAppPolicyGate
 import dev.miyado.shogisupplement.server.worker.repo.SupabaseBanRepository
 import dev.miyado.shogisupplement.server.worker.repo.SupabaseQuotaLimitRepository
 import dev.miyado.shogisupplement.server.worker.repo.supabaseJson
@@ -61,6 +62,7 @@ fun Application.module(config: WorkerConfig) {
         SupabaseQuotaLimitRepository(restClient, config.supabaseUrl, config.supabaseServiceRoleKey)
     val analysisJobRepository =
         SupabaseAnalysisJobRepository(restClient, config.supabaseUrl, config.supabaseServiceRoleKey)
+    val appPolicyGate = SupabaseAppPolicyGate(restClient, config.supabaseUrl, config.supabaseServiceRoleKey)
 
     val jwkSetProvider = RemoteJwkSetProvider(config.supabaseJwksUrl)
     val authVerifier = SupabaseJwtAuthVerifier(jwkSetProvider, issuer = config.supabaseJwtIssuer)
@@ -77,6 +79,7 @@ fun Application.module(config: WorkerConfig) {
         banRepository = banRepository,
         quotaLimitRepository = quotaLimitRepository,
         analysisJobRepository = analysisJobRepository,
+        appPolicyGate = appPolicyGate,
         engineFactory = {
             val engine = UsiEngineSubprocess.create(
                 enginePath = config.enginePath,

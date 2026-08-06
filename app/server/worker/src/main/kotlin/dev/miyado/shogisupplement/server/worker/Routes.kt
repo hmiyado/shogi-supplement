@@ -19,6 +19,8 @@ import org.slf4j.LoggerFactory
 private val log = LoggerFactory.getLogger("dev.miyado.shogisupplement.server.worker.Routes")
 private val NDJSON = ContentType.parse("application/x-ndjson")
 private const val APP_CHECK_HEADER = "X-Firebase-AppCheck"
+private const val PLATFORM_HEADER = "X-App-Platform"
+private const val BUILD_HEADER = "X-App-Build"
 
 // HTTP変換の薄い層のみを担い、認可・冪等・解析の実処理は[AnalysisService]に委譲する。
 fun Routing.registerAnalysisRoutes(service: AnalysisService) {
@@ -29,6 +31,8 @@ fun Routing.registerAnalysisRoutes(service: AnalysisService) {
     post("/v1/analyses") {
         val authorizationHeader = call.request.headers[HttpHeaders.Authorization]
         val appCheckHeader = call.request.headers[APP_CHECK_HEADER]
+        val platformHeader = call.request.headers[PLATFORM_HEADER]
+        val buildHeader = call.request.headers[BUILD_HEADER]
 
         val request = try {
             call.receive<AnalysisRequest>()
@@ -37,7 +41,12 @@ fun Routing.registerAnalysisRoutes(service: AnalysisService) {
             return@post
         }
 
-        when (val outcome = service.handle(authorizationHeader, request, appCheckHeader)) {
+        when (
+            val outcome = service.handle(authorizationHeader, request, appCheckHeader, platformHeader, buildHeader)
+        ) {
+            is AnalysisRequestOutcome.UpgradeRequired ->
+                call.respond(HttpStatusCode.UpgradeRequired, ErrorJson("app update required"))
+
             is AnalysisRequestOutcome.Unauthorized ->
                 call.respond(HttpStatusCode.Unauthorized, ErrorJson(outcome.reason))
 

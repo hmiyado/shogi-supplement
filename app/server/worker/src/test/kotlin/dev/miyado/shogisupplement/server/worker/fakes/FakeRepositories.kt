@@ -3,6 +3,7 @@ package dev.miyado.shogisupplement.server.worker.fakes
 import dev.miyado.shogisupplement.server.worker.repo.AnalysisJobRecord
 import dev.miyado.shogisupplement.server.worker.repo.AnalysisJobRepository
 import dev.miyado.shogisupplement.server.worker.repo.AnalysisJobStatus
+import dev.miyado.shogisupplement.server.worker.repo.AppPolicyGate
 import dev.miyado.shogisupplement.server.worker.repo.BanRepository
 import dev.miyado.shogisupplement.server.worker.repo.CreateRunningResult
 import dev.miyado.shogisupplement.server.worker.repo.DEFAULT_DAILY_QUOTA
@@ -23,6 +24,18 @@ class FakeQuotaLimitRepository(
     private val limits: Map<String, Int> = emptyMap(),
 ) : QuotaLimitRepository {
     override suspend fun dailyLimit(userId: String): Int = limits[userId] ?: DEFAULT_DAILY_QUOTA
+}
+
+// blockedPlatforms未指定なら常に非ブロック（AppPolicyGate.AlwaysAllowと同じ既定挙動）。
+class FakeAppPolicyGate(
+    private val blockedPlatforms: Set<String> = emptySet(),
+) : AppPolicyGate {
+    val calls = mutableListOf<Pair<String, Int>>()
+
+    override suspend fun isBlocked(platform: String, build: Int): Boolean {
+        calls.add(platform to build)
+        return platform in blockedPlatforms
+    }
 }
 
 // unique(user_id, moves_hash)制約はcreateRunning内でmutex+事前存在チェックにより模倣する

@@ -10,12 +10,14 @@ import dev.miyado.shogisupplement.api.analysis.ScoreJson
 import dev.miyado.shogisupplement.engine.Engine
 import dev.miyado.shogisupplement.server.worker.fakes.FakeAnalysisJobRepository
 import dev.miyado.shogisupplement.server.worker.fakes.FakeAppCheckVerifier
+import dev.miyado.shogisupplement.server.worker.fakes.FakeAppPolicyGate
 import dev.miyado.shogisupplement.server.worker.fakes.FakeAuthVerifier
 import dev.miyado.shogisupplement.server.worker.fakes.FakeBanRepository
 import dev.miyado.shogisupplement.server.worker.fakes.FakeEngine
 import dev.miyado.shogisupplement.server.worker.fakes.FakeQuotaLimitRepository
 import dev.miyado.shogisupplement.server.worker.repo.AnalysisJobRecord
 import dev.miyado.shogisupplement.server.worker.repo.AnalysisJobStatus
+import dev.miyado.shogisupplement.server.worker.repo.AppPolicyGate
 import dev.miyado.shogisupplement.util.sha256Hex
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
@@ -68,6 +70,7 @@ class AnalysisServiceTest {
         positionDailyLimit: Int = 100,
         appCheckVerifier: FakeAppCheckVerifier? = null,
         staleRunningTimeoutMs: Long = 600_000,
+        appPolicyGate: AppPolicyGate = AppPolicyGate.AlwaysAllow,
     ) = AnalysisService(
         authVerifier = authVerifier,
         banRepository = banRepository,
@@ -82,12 +85,108 @@ class AnalysisServiceTest {
         positionDailyLimit = positionDailyLimit,
         appCheckVerifier = appCheckVerifier,
         staleRunningTimeoutMs = staleRunningTimeoutMs,
+        appPolicyGate = appPolicyGate,
     )
 
     private suspend fun AnalysisRequestOutcome.Stream.collectLines(): List<String> {
         val lines = mutableListOf<String>()
         emit { line -> lines.add(line.removeSuffix("\n")) }
         return lines
+    }
+
+    // ── 426: 強制アップデート（X-App-Platform/X-App-Build。認証より前段でゲートする） ──
+
+    @Test
+    fun `blocked platform and build returns UpgradeRequired before checking JWT`() = runTest {
+        val authVerifier = FakeAuthVerifier(mapOf("valid-token" to "user-1"))
+        val gate = FakeAppPolicyGate(blockedPlatforms = setOf("ios"))
+        val service = buildService(authVerifier = authVerifier, appPolicyGate = gate)
+
+        val outcome = service.handle(
+            "Bearer valid-token",
+            AnalysisRequest(movesUsi = listOf("7g7f")),
+            platformHeader = "ios",
+            buildHeader = "1",
+        )
+
+        assertIs<AnalysisRequestOutcome.UpgradeRequired>(outcome)
+        assertEquals(null, authVerifier.lastVerifiedToken, "強制アップデート検証がJWT検証より前段でゲートするはず")
+        assertEquals(listOf("ios" to 1), gate.calls)
+    }
+
+    @Test
+    fun `non-blocked build proceeds past the gate to analysis`() = runTest {
+        val gate = FakeAppPolicyGate(blockedPlatforms = setOf("ios"))
+        val service = buildService(appPolicyGate = gate)
+
+        val outcome = service.handle(
+            "Bearer valid-token",
+            AnalysisRequest(movesUsi = listOf("7g7f")),
+            platformHeader = "android",
+            buildHeader = "1",
+        )
+
+        assertIs<AnalysisRequestOutcome.Stream>(outcome)
+    }
+
+    @Test
+    fun `missing platform or build header skips the gate entirely (1_0 client compatibility)`() = runTest {
+        val gate = FakeAppPolicyGate(blockedPlatforms = setOf("ios"))
+        val service = buildService(appPolicyGate = gate)
+
+        // moves_usiを変えて2件を別ジョブにする（同一だとmoves_hashが衝突し、2件目が
+        // 1件目のRUNNING行の完了待ちに回ってpollTimeoutMsまでポーリングし続けてしまうため）。
+        val platformOnly = service.handle(
+            "Bearer valid-token",
+            AnalysisRequest(movesUsi = listOf("7g7f")),
+            platformHeader = "ios",
+            buildHeader = null,
+        )
+        val buildOnly = service.handle(
+            "Bearer valid-token",
+            AnalysisRequest(movesUsi = listOf("2g2f")),
+            platformHeader = null,
+            buildHeader = "1",
+        )
+
+        assertIs<AnalysisRequestOutcome.Stream>(platformOnly)
+        assertIs<AnalysisRequestOutcome.Stream>(buildOnly)
+        assertEquals(emptyList(), gate.calls, "ヘッダが片方でも欠けていればゲートを呼ばないはず")
+    }
+
+    @Test
+    fun `unparseable build header skips the gate (fail-open)`() = runTest {
+        val gate = FakeAppPolicyGate(blockedPlatforms = setOf("ios"))
+        val service = buildService(appPolicyGate = gate)
+
+        val outcome = service.handle(
+            "Bearer valid-token",
+            AnalysisRequest(movesUsi = listOf("7g7f")),
+            platformHeader = "ios",
+            buildHeader = "not-a-number",
+        )
+
+        assertIs<AnalysisRequestOutcome.Stream>(outcome)
+        assertEquals(emptyList(), gate.calls)
+    }
+
+    @Test
+    fun `policy fetch failure surfaces as non-blocked via AppPolicyGate fail-open contract`() = runTest {
+        // ゲート自体の取得失敗時fail-openはSupabaseAppPolicyGate（AppPolicyGateTest）が担う。
+        // ここではAnalysisService側がゲートの戻り値をそのまま使うだけであることを確かめる。
+        val gate = object : AppPolicyGate {
+            override suspend fun isBlocked(platform: String, build: Int) = false
+        }
+        val service = buildService(appPolicyGate = gate)
+
+        val outcome = service.handle(
+            "Bearer valid-token",
+            AnalysisRequest(movesUsi = listOf("7g7f")),
+            platformHeader = "ios",
+            buildHeader = "1",
+        )
+
+        assertIs<AnalysisRequestOutcome.Stream>(outcome)
     }
 
     // ── 401: App Check（段階導入。有効時のみJWT検証より前段でゲートする） ──────

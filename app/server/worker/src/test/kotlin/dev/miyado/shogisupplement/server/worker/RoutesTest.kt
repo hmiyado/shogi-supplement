@@ -3,10 +3,12 @@ package dev.miyado.shogisupplement.server.worker
 import dev.miyado.shogisupplement.api.analysis.EngineMetaJson
 import dev.miyado.shogisupplement.server.worker.fakes.FakeAnalysisJobRepository
 import dev.miyado.shogisupplement.server.worker.fakes.FakeAppCheckVerifier
+import dev.miyado.shogisupplement.server.worker.fakes.FakeAppPolicyGate
 import dev.miyado.shogisupplement.server.worker.fakes.FakeAuthVerifier
 import dev.miyado.shogisupplement.server.worker.fakes.FakeBanRepository
 import dev.miyado.shogisupplement.server.worker.fakes.FakeEngine
 import dev.miyado.shogisupplement.server.worker.fakes.FakeQuotaLimitRepository
+import dev.miyado.shogisupplement.server.worker.repo.AppPolicyGate
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -21,6 +23,7 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.routing.routing
 import io.ktor.server.testing.testApplication
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -34,11 +37,13 @@ class RoutesTest {
 
     private fun buildService(
         authVerifier: FakeAuthVerifier = FakeAuthVerifier(mapOf("valid-token" to "user-1")),
+        appPolicyGate: AppPolicyGate = AppPolicyGate.AlwaysAllow,
     ) = AnalysisService(
         authVerifier = authVerifier,
         banRepository = FakeBanRepository(),
         quotaLimitRepository = FakeQuotaLimitRepository(),
         analysisJobRepository = FakeAnalysisJobRepository(),
+        appPolicyGate = appPolicyGate,
         engineFactory = { FakeEngine() },
         engineMetaProvider = {
             EngineMetaJson(
@@ -177,5 +182,44 @@ class RoutesTest {
         assertTrue(lines.isNotEmpty())
         assertTrue(lines.last().contains("\"result\""))
         assertTrue(lines.last().contains("\"engine_meta\""))
+    }
+
+    // ── 426: 強制アップデート（X-App-Platform/X-App-Build） ───────────────────
+
+    @Test
+    fun `blocked platform and build returns 426 with the existing error body shape`() = testApplication {
+        application {
+            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
+            routing {
+                registerAnalysisRoutes(buildService(appPolicyGate = FakeAppPolicyGate(setOf("ios"))))
+            }
+        }
+        val response = client.post("/v1/analyses") {
+            header("Authorization", "Bearer valid-token")
+            header("X-App-Platform", "ios")
+            header("X-App-Build", "1")
+            contentType(ContentType.Application.Json)
+            setBody("""{"moves_usi":["7g7f"]}""")
+        }
+        assertEquals(HttpStatusCode.UpgradeRequired, response.status)
+        val body = Json.parseToJsonElement(response.bodyAsText()).jsonObject
+        assertTrue(body.containsKey("error"), "既存のErrorJson形式（errorフィールド1本）を踏襲するはず")
+    }
+
+    @Test
+    fun `missing X-App-Platform or X-App-Build headers skips the check (1_0 client compatibility)`() = testApplication {
+        application {
+            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
+            routing {
+                registerAnalysisRoutes(buildService(appPolicyGate = FakeAppPolicyGate(setOf("ios"))))
+            }
+        }
+        val response = client.post("/v1/analyses") {
+            header("Authorization", "Bearer valid-token")
+            // X-App-Platform/X-App-Build を送らない旧クライアントを模す。
+            contentType(ContentType.Application.Json)
+            setBody("""{"moves_usi":["7g7f"]}""")
+        }
+        assertEquals(HttpStatusCode.OK, response.status)
     }
 }

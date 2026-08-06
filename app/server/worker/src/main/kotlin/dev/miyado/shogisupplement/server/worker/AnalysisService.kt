@@ -19,6 +19,7 @@ import dev.miyado.shogisupplement.server.worker.auth.extractBearerToken
 import dev.miyado.shogisupplement.server.worker.repo.AnalysisJobRecord
 import dev.miyado.shogisupplement.server.worker.repo.AnalysisJobRepository
 import dev.miyado.shogisupplement.server.worker.repo.AnalysisJobStatus
+import dev.miyado.shogisupplement.server.worker.repo.AppPolicyGate
 import dev.miyado.shogisupplement.server.worker.repo.BanRepository
 import dev.miyado.shogisupplement.server.worker.repo.CreateRunningResult
 import dev.miyado.shogisupplement.server.worker.repo.QUOTA_RESET_ZONE
@@ -50,6 +51,9 @@ sealed class AnalysisRequestOutcome {
     data class QuotaExceeded(val resetAt: Instant) : AnalysisRequestOutcome()
     data class BadRequest(val reason: String) : AnalysisRequestOutcome()
 
+    /** X-App-Platform/X-App-Buildのbuildがapp_policy.min_build未満（426を返す）。 */
+    data object UpgradeRequired : AnalysisRequestOutcome()
+
     // [emit] は `write` コールバック（1行=1回呼ぶ。改行はemit内で付与済み）を受け取り、
     // 進捗行→最終行（または即時の最終行のみ）を書き出す。
     data class Stream(val emit: suspend (write: suspend (String) -> Unit) -> Unit) : AnalysisRequestOutcome()
@@ -57,8 +61,10 @@ sealed class AnalysisRequestOutcome {
 
 class AnalysisWaitTimeoutException(message: String) : Exception(message)
 
-// 認可の順序（不変条件・変更しないこと）: App Check検証（有効時のみ。ヘッダ欠如/検証失敗は
-// 401）→ JWT検証 → user_bans照合（BAN即403）→
+// 認可の順序（不変条件・変更しないこと）: 強制アップデート検証（X-App-Platform/X-App-Build
+// が両方揃った場合のみ。片方でも欠如・build不正・ポリシー取得失敗はfail-openでスキップ。
+// 1.0クライアント互換のため認証より前段に置く）→
+// App Check検証（有効時のみ。ヘッダ欠如/検証失敗は401）→ JWT検証 → user_bans照合（BAN即403）→
 // クォータ判定（超過は429＋翌日リセット時刻）→ moves_hash冪等チェック（解析済みなら即返却／
 // 実行中なら完了を待って返却）→ 解析。
 class AnalysisService(
@@ -79,6 +85,9 @@ class AnalysisService(
     // nullは段階導入の無効状態（FIREBASE_PROJECT_NUMBER未設定）を表す。この場合ヘッダの
     // 有無に関わらず検証自体をスキップする（古いアプリバージョンを締め出さないため）。
     private val appCheckVerifier: AppCheckVerifier? = null,
+    // 既定はAlwaysAllow（常に非ブロック）。appCheckVerifierのnull既定と同じ段階導入の考え方で、
+    // 実装を明示的に注入しない限り強制アップデート検証は無効のまま。
+    private val appPolicyGate: AppPolicyGate = AppPolicyGate.AlwaysAllow,
     // RUNNING行をstale（自己修復対象）とみなす経過時間（環境変数 STALE_RUNNING_TIMEOUT_MS
     // 由来。WorkerConfig参照）。resolveExistingのRUNNING分岐でのみ使う。
     private val staleRunningTimeoutMs: Long = 600_000,
@@ -95,7 +104,19 @@ class AnalysisService(
         authorizationHeader: String?,
         request: AnalysisRequest,
         appCheckHeader: String? = null,
+        platformHeader: String? = null,
+        buildHeader: String? = null,
     ): AnalysisRequestOutcome {
+        // 1.0クライアント互換: どちらかのヘッダが無ければ検証自体をスキップする（旧クライアントは
+        // ヘッダを送らないため、ここで弾くと全員締め出してしまう）。buildHeaderが数値化できない
+        // 場合もfail-open側へ倒す（不正な値で誤ブロックするよりは検証をスキップするほうが安全）。
+        if (platformHeader != null && buildHeader != null) {
+            val build = buildHeader.toIntOrNull()
+            if (build != null && appPolicyGate.isBlocked(platformHeader, build)) {
+                return AnalysisRequestOutcome.UpgradeRequired
+            }
+        }
+
         if (appCheckVerifier != null) {
             if (appCheckHeader == null) {
                 return AnalysisRequestOutcome.Unauthorized("missing app check token")
