@@ -6,7 +6,7 @@ jvm-toolchain = "17"
 # CMP 1.9系はKotlin 2.3必須。supabase-kt/ktor-client-darwinのiOS klib（ABI 2.3.0）を
 # 消費するにもKotlin 2.3系が必要（shared/build.gradle.kts参照）。
 kotlin = "2.3.21"
-agp = "8.12.0"
+agp = "8.13.2"
 serialization = "1.9.0"
 coroutines = "1.10.2"
 androidx-activity-compose = "1.10.1"
