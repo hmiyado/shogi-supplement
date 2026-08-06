@@ -73,6 +73,16 @@ main.lp-main {
   padding: 15px 34px;
 }
 
+.store-badge {
+  display: block;
+  line-height: 0;
+}
+.store-badge img {
+  display: block;
+  height: 60px;
+  width: auto;
+}
+
 .hero .note {
   max-width: 480px;
   margin-left: auto;
