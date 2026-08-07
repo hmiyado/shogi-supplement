@@ -3,6 +3,7 @@ package dev.miyado.shogisupplement.engine
 import dev.miyado.shogisupplement.api.analysis.AnalysisRequest
 import dev.miyado.shogisupplement.api.analysis.AnalysisResultJson
 import dev.miyado.shogisupplement.api.analysis.ErrorJson
+import dev.miyado.shogisupplement.api.analysis.PositionResultJson
 import dev.miyado.shogisupplement.api.analysis.ProgressJson
 import dev.miyado.shogisupplement.api.analysis.QuotaExceededJson
 import dev.miyado.shogisupplement.api.analysis.toPvInfo
@@ -172,6 +173,10 @@ class RemoteAnalysisRunner(
         onPositionResult: ((ply: Int, pvs: List<PvInfo>) -> Unit)?,
     ): List<List<PvInfo>> {
         val channel = response.bodyAsChannel()
+        // position行で既に発火済みのplyを覚えておく（並列ワーカーの完了順で届くため
+        // ply順とは限らない）。最終result行のforEachIndexedで同じplyを再度発火すると、
+        // 呼び出し側から見て「局面ごとに1回」の前提が崩れる。
+        val deliveredPlies = mutableSetOf<Int>()
         while (true) {
             val line = channel.readLine() ?: break
             if (line.isBlank()) continue
@@ -180,11 +185,16 @@ class RemoteAnalysisRunner(
                 "result" in obj -> {
                     val resultJson = json.decodeFromJsonElement(AnalysisResultJson.serializer(), obj)
                     val positions = resultJson.result.map { pvList -> pvList.map { it.toPvInfo() } }
-                    // 現行ワイヤ形式は局面ごとの中間結果を送らないため、ここで初めて
-                    // 全局面ぶんまとめて呼ぶ（[GameAnalyzer.analyzeGame] の契約どおり
-                    // 到着粒度は問わない。呼び出し側のwatermarkは一括反映になる）。
-                    positions.forEachIndexed { ply, pvs -> onPositionResult?.invoke(ply, pvs) }
+                    positions.forEachIndexed { ply, pvs ->
+                        if (deliveredPlies.add(ply)) onPositionResult?.invoke(ply, pvs)
+                    }
                     return positions
+                }
+                "position" in obj -> {
+                    val positionJson = json.decodeFromJsonElement(PositionResultJson.serializer(), obj)
+                    val (ply, pvs) = positionJson.position
+                    deliveredPlies.add(ply)
+                    onPositionResult?.invoke(ply, pvs.map { it.toPvInfo() })
                 }
                 "error" in obj -> {
                     val errorJson = json.decodeFromJsonElement(ErrorJson.serializer(), obj)

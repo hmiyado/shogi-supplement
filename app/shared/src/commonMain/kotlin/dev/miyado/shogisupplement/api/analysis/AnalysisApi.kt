@@ -69,6 +69,20 @@ data class AnalysisResultJson(
 @Serializable
 data class ProgressJson(val progress: Int, val total: Int)
 
+/**
+ * NDJSON局面結果行（プログレッシブ解析表示向け）。局面の解析が完了するたびに送る中間結果で、
+ * 最終行（[AnalysisResultJson]）とは独立に送る（両方を送る。並列ワーカーの完了順に依存するため
+ * ply順の到着は保証しない）。
+ *
+ * Why not クライアントのバージョンを見て送信を出し分ける: NDJSON行の未知トップレベルキーは
+ * 受信側が無条件にスキップする契約になっているため、出し分けを持ち込む必要が無い。
+ */
+@Serializable
+data class PositionResultJson(val position: PositionPayloadJson)
+
+@Serializable
+data class PositionPayloadJson(val ply: Int, val pvs: List<PvInfoJson>)
+
 /** NDJSON/JSONエラー行・エラー応答共通。 */
 @Serializable
 data class ErrorJson(val error: String)

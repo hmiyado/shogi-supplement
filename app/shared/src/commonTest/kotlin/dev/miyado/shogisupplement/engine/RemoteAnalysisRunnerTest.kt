@@ -116,6 +116,110 @@ class RemoteAnalysisRunnerTest {
         assertEquals(-3, (result[0][1].score as Score.Mate).plies)
     }
 
+    // ─── position行（プログレッシブ解析表示向けの局面単位中間結果） ──────────────
+
+    @Test
+    fun `a position line invokes onPositionResult immediately, before the stream completes`() = runTest {
+        // 実ディスパッチャで動かす: runTestの仮想時間ではボディの書き込み待ちが進まず、
+        // ストリーミングの成否に関係なくwithTimeoutが即座に成立してしまう。
+        withContext(Dispatchers.Default) {
+            val firstPosition = CompletableDeferred<Unit>()
+            val channel = ByteChannel(autoFlush = true)
+            val engine = MockEngine {
+                respond(content = channel, status = HttpStatusCode.OK, headers = ndjsonHeaders)
+            }
+
+            launch {
+                channel.writeStringUtf8(
+                    """{"position":{"ply":0,"pvs":[{"multipv":1,"score":{"type":"cp","value":1},""" +
+                        """"pv":[],"nodes":400000}]}}""" + "\n",
+                )
+                firstPosition.await()
+                channel.writeStringUtf8(resultLine + "\n")
+                channel.flushAndClose()
+            }
+
+            val result = withTimeout(5_000) {
+                runner(HttpClient(engine)).analyzeGame(
+                    listOf("7g7f"),
+                    onPositionResult = { _, _ -> firstPosition.complete(Unit) },
+                )
+            }
+
+            assertEquals(1, result.size)
+        }
+    }
+
+    @Test
+    fun `position lines can arrive out of ply order and each is delivered as-is`() = runTest {
+        val threePositionResultLine =
+            """{"result":[[{"multipv":1,"score":{"type":"cp","value":20},"pv":[],"nodes":400000}],""" +
+                """[{"multipv":1,"score":{"type":"cp","value":21},"pv":[],"nodes":400000}],""" +
+                """[{"multipv":1,"score":{"type":"cp","value":22},"pv":[],"nodes":400000}]],""" +
+                """"engine_meta":{"engine_rev":"r","eval_sha256":"s","nodes":400000,"threads":1,""" +
+                """"multi_pv":2,"usi_hash":128,"fv_scale":20}}"""
+        val body = buildString {
+            // 並列ワーカーの完了順を模して、ply=2→0→1の順で届く。
+            appendLine("""{"position":{"ply":2,"pvs":[{"multipv":1,"score":{"type":"cp","value":22},"pv":[],"nodes":400000}]}}""")
+            appendLine("""{"position":{"ply":0,"pvs":[{"multipv":1,"score":{"type":"cp","value":20},"pv":[],"nodes":400000}]}}""")
+            appendLine("""{"position":{"ply":1,"pvs":[{"multipv":1,"score":{"type":"cp","value":21},"pv":[],"nodes":400000}]}}""")
+            appendLine(threePositionResultLine)
+        }
+        val engine = MockEngine { respond(content = ByteReadChannel(body), status = HttpStatusCode.OK, headers = ndjsonHeaders) }
+        val events = mutableListOf<Pair<Int, Int>>()
+
+        runner(HttpClient(engine)).analyzeGame(
+            listOf("7g7f", "3c3d"),
+            onPositionResult = { ply, pvs -> events.add(ply to (pvs[0].score as Score.Cp).value) },
+        )
+
+        assertEquals(
+            listOf(2 to 22, 0 to 20, 1 to 21),
+            events,
+            "到着順のまま発火するはず（呼び出し側で並べ替えない）",
+        )
+    }
+
+    @Test
+    fun `a ply already delivered via a position line is not re-dispatched when the final result arrives`() = runTest {
+        val twoPositionResultLine =
+            """{"result":[[{"multipv":1,"score":{"type":"cp","value":10},"pv":[],"nodes":400000}],""" +
+                """[{"multipv":1,"score":{"type":"cp","value":20},"pv":[],"nodes":400000}]],""" +
+                """"engine_meta":{"engine_rev":"r","eval_sha256":"s","nodes":400000,"threads":1,""" +
+                """"multi_pv":2,"usi_hash":128,"fv_scale":20}}"""
+        val body = buildString {
+            // ply=0はposition行で999として先に届く。最終resultのply=0は10だが、
+            // 既に届いている値を上書きしてはいけない(=二重発火してはいけない)。
+            appendLine(
+                """{"position":{"ply":0,"pvs":[{"multipv":1,"score":{"type":"cp","value":999},""" +
+                    """"pv":[],"nodes":400000}]}}""",
+            )
+            appendLine(twoPositionResultLine)
+        }
+        val engine = MockEngine { respond(content = ByteReadChannel(body), status = HttpStatusCode.OK, headers = ndjsonHeaders) }
+        val events = mutableListOf<Pair<Int, Int>>()
+
+        runner(HttpClient(engine)).analyzeGame(
+            listOf("7g7f"),
+            onPositionResult = { ply, pvs -> events.add(ply to (pvs[0].score as Score.Cp).value) },
+        )
+
+        // ply=0はposition行の999のまま1回だけ、ply=1は最終resultのフォールバックで1回。
+        assertEquals(listOf(0 to 999, 1 to 20), events)
+    }
+
+    @Test
+    fun `no position lines at all still delivers every ply via the final result (legacy server compatibility)`() = runTest {
+        // Worker側にposition行が無い応答（デプロイの過渡期・ロールバック時）でも、
+        // 従来どおり最終resultからの一括発火にフォールバックできることを確かめる。
+        val engine = MockEngine { respond(content = ByteReadChannel(resultLine), status = HttpStatusCode.OK, headers = ndjsonHeaders) }
+        val events = mutableListOf<Int>()
+
+        runner(HttpClient(engine)).analyzeGame(listOf("7g7f"), onPositionResult = { ply, _ -> events.add(ply) })
+
+        assertEquals(listOf(0), events)
+    }
+
     @Test
     fun `disconnected stream is recovered by re-posting the same request`() = runTest {
         var attempt = 0

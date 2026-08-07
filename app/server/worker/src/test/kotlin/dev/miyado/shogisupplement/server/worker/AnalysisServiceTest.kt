@@ -4,6 +4,7 @@ import dev.miyado.shogisupplement.api.analysis.AnalysisRequest
 import dev.miyado.shogisupplement.api.analysis.AnalysisResultJson
 import dev.miyado.shogisupplement.api.analysis.EngineMetaJson
 import dev.miyado.shogisupplement.api.analysis.ErrorJson
+import dev.miyado.shogisupplement.api.analysis.PositionResultJson
 import dev.miyado.shogisupplement.api.analysis.PvInfoJson
 import dev.miyado.shogisupplement.api.analysis.ProgressJson
 import dev.miyado.shogisupplement.api.analysis.ScoreJson
@@ -23,6 +24,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.jsonObject
 import java.time.Clock
 import java.time.Instant
 import java.time.ZoneOffset
@@ -708,10 +710,10 @@ class AnalysisServiceTest {
         assertEquals(finalResult, json.decodeFromString(AnalysisResultJson.serializer(), lines.single()))
     }
 
-    // ── 正常系: NDJSON progress行 → 最終行にresult ───────────────────────
+    // ── 正常系: NDJSON progress/position行 → 最終行にresult ───────────────
 
     @Test
-    fun `fresh analysis streams progress lines then a final result line`() = runTest {
+    fun `fresh analysis streams progress and position lines then a final result line`() = runTest {
         val movesUsi = listOf("7g7f", "3c3d", "2g2f")
         val engine = FakeEngine()
         val service = buildService(engine = engine)
@@ -721,21 +723,87 @@ class AnalysisServiceTest {
         val lines = outcome.collectLines()
 
         // 局面数 = moves.size + 1 (0手目〜3手目)
-        val progressLines = lines.dropLast(1)
+        val totalPositions = movesUsi.size + 1
         val finalLine = lines.last()
+        val (positionLines, progressLines) = lines.dropLast(1)
+            .partition { line -> "position" in json.parseToJsonElement(line).jsonObject }
+
+        assertEquals(totalPositions, positionLines.size, "局面ごとに1本ずつposition行が出るはず")
+        val positionPlies = positionLines.map { json.decodeFromString(PositionResultJson.serializer(), it).position.ply }
+        assertEquals((0 until totalPositions).toSet(), positionPlies.toSet(), "全plyがちょうど1回ずつ出るはず")
 
         assertTrue(progressLines.isNotEmpty(), "expected at least one progress line")
         progressLines.forEach { line ->
             val progress = json.decodeFromString(ProgressJson.serializer(), line)
             assertTrue(progress.progress in 1..progress.total)
-            assertEquals(movesUsi.size + 1, progress.total)
+            assertEquals(totalPositions, progress.total)
         }
 
         val result = json.decodeFromString(AnalysisResultJson.serializer(), finalLine)
-        assertEquals(movesUsi.size + 1, result.result.size)
+        assertEquals(totalPositions, result.result.size)
         assertEquals("test-rev", result.engineMeta.engineRev)
         assertTrue(engine.analyzeCallCount > 0)
         assertTrue(engine.quitCalled, "engine must be released after the job finishes")
+    }
+
+    @Test
+    fun `a position line carries the same pvs serialization as the corresponding entry in the final result`() = runTest {
+        val movesUsi = listOf("7g7f", "3c3d")
+        val engine = FakeEngine()
+        val service = buildService(engine = engine)
+
+        val outcome = service.handle("Bearer valid-token", AnalysisRequest(movesUsi = movesUsi))
+        assertIs<AnalysisRequestOutcome.Stream>(outcome)
+        val lines = outcome.collectLines()
+
+        val finalResult = json.decodeFromString(AnalysisResultJson.serializer(), lines.last())
+        val positionsByPly = lines.dropLast(1)
+            .filter { line -> "position" in json.parseToJsonElement(line).jsonObject }
+            .associate { line ->
+                val decoded = json.decodeFromString(PositionResultJson.serializer(), line)
+                decoded.position.ply to decoded.position.pvs
+            }
+
+        finalResult.result.forEachIndexed { ply, pvs ->
+            assertEquals(pvs, positionsByPly.getValue(ply), "ply=$ply のposition行は最終resultの同じ局面と同一のはず")
+        }
+    }
+
+    @Test
+    fun `position lines cover every ply exactly once when multiple workers finish out of order`() = runTest {
+        val movesUsi = listOf("7g7f", "3c3d", "2g2f", "8c8d")
+        val engine = FakeEngine()
+        val service = buildService(engine = engine, analysisWorkers = 3)
+
+        val outcome = service.handle("Bearer valid-token", AnalysisRequest(movesUsi = movesUsi))
+        assertIs<AnalysisRequestOutcome.Stream>(outcome)
+        val lines = outcome.collectLines()
+
+        val plies = lines.dropLast(1)
+            .filter { line -> "position" in json.parseToJsonElement(line).jsonObject }
+            .map { json.decodeFromString(PositionResultJson.serializer(), it).position.ply }
+
+        assertEquals(movesUsi.size + 1, plies.size)
+        assertEquals(plies.toSet().size, plies.size, "同じplyのposition行が2回出てはいけない（順不同着でも重複しないこと）")
+    }
+
+    @Test
+    fun `single position sfen mode does not emit position lines (progressive display is game-mode only)`() = runTest {
+        val engine = FakeEngine()
+        val service = buildService(engine = engine)
+        val sfen = "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1"
+
+        val outcome = service.handle(
+            "Bearer valid-token",
+            AnalysisRequest(sfen = sfen, moves = listOf("7g7f")),
+        )
+        assertIs<AnalysisRequestOutcome.Stream>(outcome)
+        val lines = outcome.collectLines()
+
+        assertTrue(
+            lines.dropLast(1).none { line -> "position" in json.parseToJsonElement(line).jsonObject },
+            "単発局面モードはプログレッシブ表示の対象外なのでposition行は出ないはず",
+        )
     }
 
     @Test

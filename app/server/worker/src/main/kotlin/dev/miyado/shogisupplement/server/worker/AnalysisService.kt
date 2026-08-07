@@ -4,6 +4,8 @@ import dev.miyado.shogisupplement.api.analysis.AnalysisRequest
 import dev.miyado.shogisupplement.api.analysis.AnalysisResultJson
 import dev.miyado.shogisupplement.api.analysis.EngineMetaJson
 import dev.miyado.shogisupplement.api.analysis.ErrorJson
+import dev.miyado.shogisupplement.api.analysis.PositionPayloadJson
+import dev.miyado.shogisupplement.api.analysis.PositionResultJson
 import dev.miyado.shogisupplement.api.analysis.PvInfoJson
 import dev.miyado.shogisupplement.api.analysis.ProgressJson
 import dev.miyado.shogisupplement.api.analysis.toJson
@@ -262,7 +264,7 @@ class AnalysisService(
 
     private suspend fun analyzeGame(
         input: EngineInput.Game,
-        onProgress: (String) -> Unit,
+        emitLine: (String) -> Unit,
     ): AnalysisResultJson {
         // エンジンプロセスの生成と終了はAnalysisRunnerに任せる（プールに最大analysisWorkers本まで
         // 作り、局の解析が終わったら全部quitする）。Threads=1のまま本数で並列度を上げる形なので、
@@ -272,8 +274,17 @@ class AnalysisService(
             crashReporter = NoopCrashReporter,
             engineFactory = engineFactory,
         )
-        val allPv: List<List<PvInfo>> = runner.analyzeGame(input.movesUsi) { done, total ->
-            onProgress(json.encodeToString(ProgressJson(done, total)) + "\n")
+        val allPv: List<List<PvInfo>> = runner.analyzeGame(
+            input.movesUsi,
+            // プログレッシブ解析表示向けの局面単位イベント。並列ワーカーの完了順のまま
+            // ply順に揃えず送る（クライアント側のin-order watermarkアキュムレータが
+            // 順不同着を前提に設計済みのため、ここでの並べ替えは不要）。
+            onPositionResult = { ply, pvs ->
+                val positionJson = PositionResultJson(PositionPayloadJson(ply, pvs.map { it.toJson() }))
+                emitLine(json.encodeToString(positionJson) + "\n")
+            },
+        ) { done, total ->
+            emitLine(json.encodeToString(ProgressJson(done, total)) + "\n")
         }
         return AnalysisResultJson(
             result = allPv.map { pvList -> pvList.map { it.toJson() } },
@@ -283,16 +294,16 @@ class AnalysisService(
 
     private suspend fun analyzePosition(
         input: EngineInput.Position,
-        onProgress: (String) -> Unit,
+        emitLine: (String) -> Unit,
     ): AnalysisResultJson {
-        onProgress(json.encodeToString(ProgressJson(0, 1)) + "\n")
+        emitLine(json.encodeToString(ProgressJson(0, 1)) + "\n")
         val engine = engineFactory()
         val pvList = try {
             engine.analyzeSfen(input.sfen, input.moves)
         } finally {
             runCatching { engine.quit() }
         }
-        onProgress(json.encodeToString(ProgressJson(1, 1)) + "\n")
+        emitLine(json.encodeToString(ProgressJson(1, 1)) + "\n")
         return AnalysisResultJson(
             result = listOf(pvList.map { it.toJson() }),
             engineMeta = engineMetaProvider(),
