@@ -662,4 +662,28 @@ class ReportViewerScreenshotTest {
     // 対局情報ダイアログの VRT は AlertDialog が別ウィンドウに描画されるため、
     // captureScreenRoboImage を使う ReportGameInfoDialogScreenshotTest に分離
     // （AccountDeleteDialogScreenshotTest と同じ規約）。
+
+    // ═══ プログレッシブ解析表示: 完了直後バナー ════════════════════════════════
+
+    /** justCompleted=true の遷移直後。ナビ行スロットが完了通知バナーに排他入替される。 */
+    @Test
+    fun report_viewer_completion_banner() {
+        captureRoboImage(
+            filePath = "src/test/snapshots/report_viewer_completion_banner.png",
+            roborazziOptions = roborazziOptions,
+        ) {
+            ShogiTheme {
+                Surface {
+                    ReportScreen(
+                        game = sampleGame(),
+                        reports = listOf(sampleBlunder()),
+                        flip = false,
+                        strengthDisplayText = "52 ±27",
+                        onBack = {},
+                        justCompleted = true,
+                    )
+                }
+            }
+        }
+    }
 }
