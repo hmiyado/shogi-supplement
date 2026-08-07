@@ -27,7 +27,7 @@ compose-multiplatform = "1.9.3"
 kmp-lifecycle = "2.9.6"
 # server/worker（Cloud Runワーカー）専用の依存。androidApp/iosAppからは参照されない。
 nimbus-jose-jwt = "9.37.3"
-logback = "1.5.13"
+logback = "1.6.1"
 cryptography = "0.6.0"
 
 [libraries]
