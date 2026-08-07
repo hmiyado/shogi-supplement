@@ -703,7 +703,7 @@ object AppStrings {
     const val CONSENT_REQUIRED_NOTE = "同意すると利用を開始できます。"
     const val CONSENT_ACCEPT_BUTTON = "同意して始める"
 
-    // ═══ 32. 引き継ぎコード表示（設定画面）══════════════════════════════════════
+    // ═══ 32. 引き継ぎコード表示・入力（設定画面）══════════════════════════════════
 
     const val TRANSFER_CODE_TITLE = "引き継ぎコード"
     const val SETTINGS_ROW_TRANSFER_CODE = "引き継ぎコード"
@@ -715,6 +715,22 @@ object AppStrings {
     const val TRANSFER_CODE_COPIED = "コピーしました"
     const val TRANSFER_CODE_REVEAL_ICON_DESC = "コードを表示"
     const val TRANSFER_CODE_HIDE_ICON_DESC = "コードを隠す"
+
+    const val SETTINGS_ROW_TRANSFER_CODE_INPUT = "引き継ぎコードを入力"
+    const val SETTINGS_ROW_TRANSFER_CODE_INPUT_SUB = "別の端末で発行したコードでこの端末を復元"
+    const val TRANSFER_CODE_INPUT_TITLE = "引き継ぎコードを入力"
+    const val TRANSFER_CODE_INPUT_DESCRIPTION = "別の端末の設定→引き継ぎコードで表示したコードを入力してください。"
+    const val TRANSFER_CODE_INPUT_FIELD_LABEL = "コード"
+    const val TRANSFER_CODE_INPUT_SUBMIT = "復元する"
+    const val TRANSFER_CODE_INPUT_CONFIRM_TITLE = "アカウントを切り替えますか？"
+    const val TRANSFER_CODE_INPUT_CONFIRM_TEXT =
+        "この端末は入力したコードのアカウントに切り替わります。今のアカウントのデータはサーバーに残り、消えません。"
+    const val TRANSFER_CODE_INPUT_CONFIRM_BUTTON = "切り替える"
+    const val TRANSFER_CODE_INPUT_ERROR_INVALID = "コードが正しくありません。入力し直してください。"
+    const val TRANSFER_CODE_INPUT_ERROR_NOT_FOUND = "一致するコードが見つかりません。コードを確認してください。"
+    const val TRANSFER_CODE_INPUT_ERROR_RATE_LIMITED = "しばらく時間をおいて再度お試しください。"
+    const val TRANSFER_CODE_INPUT_ERROR_UPGRADE_REQUIRED = "アップデートが必要です。最新版に更新してから再度お試しください。"
+    const val TRANSFER_CODE_INPUT_ERROR_GENERIC = "通信に失敗しました。しばらくしてから再度お試しください。"
 
     // ═══ 33. 評価値グラフ・悪手率・エンジン一致率（レポート画面）══════════════════
 

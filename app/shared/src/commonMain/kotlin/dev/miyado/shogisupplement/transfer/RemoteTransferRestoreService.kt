@@ -20,34 +20,6 @@ import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlinx.serialization.json.Json
 
-/** `POST /v1/transfer`（app/server/worker）を叩いて引き継ぎコードから旧アカウントを復元する結果。 */
-sealed class TransferRestoreResult {
-    data object Success : TransferRestoreResult()
-
-    /** コードのチェックサム不一致・文字種/長さ不正（[TransferCode.decode] が null を返した）。 */
-    data object InvalidCode : TransferRestoreResult()
-
-    /** サーバーに一致するコードが無い（HTTP 404。理由は出し分けない）。 */
-    data object NotFound : TransferRestoreResult()
-
-    /** IPレート制限超過（HTTP 429）。 */
-    data object RateLimited : TransferRestoreResult()
-
-    /** アプリの強制アップデートが必要（HTTP 426）。 */
-    data object UpgradeRequired : TransferRestoreResult()
-
-    /** サーバーはセッションを発行したが、この端末への取り込み（[AuthRepository.importSession]）に失敗。 */
-    data class SessionImportFailed(val message: String) : TransferRestoreResult()
-
-    /** 通信断・想定外のHTTPステータス・レスポンス本文の形式不正等。 */
-    data class NetworkError(val message: String) : TransferRestoreResult()
-}
-
-interface TransferRestoreService {
-    /** [code] は [TransferCode] の表記（ハイフン・空白・大文字小文字は問わない）。 */
-    suspend fun restore(code: String): TransferRestoreResult
-}
-
 /**
  * [TransferRestoreService] のSupabase Worker実装。
  *

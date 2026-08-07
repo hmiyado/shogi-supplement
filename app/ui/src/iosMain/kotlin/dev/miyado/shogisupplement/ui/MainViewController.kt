@@ -53,6 +53,7 @@ import dev.miyado.shogisupplement.policy.currentBuildNumber
 import dev.miyado.shogisupplement.policy.resolvePolicyPlatform
 import dev.miyado.shogisupplement.supabase.SupabaseServices
 import dev.miyado.shogisupplement.text.AppStrings
+import dev.miyado.shogisupplement.transfer.RemoteTransferRestoreService
 import dev.miyado.shogisupplement.ui.account.AccountScreen
 import dev.miyado.shogisupplement.ui.account.AccountViewModel
 import dev.miyado.shogisupplement.ui.consent.ConsentScreen
@@ -70,6 +71,9 @@ import dev.miyado.shogisupplement.ui.report.ReportScreen
 import dev.miyado.shogisupplement.ui.settings.RatingSettingsDialog
 import dev.miyado.shogisupplement.ui.settings.SettingsScreen
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
+import dev.miyado.shogisupplement.ui.transfercode.TransferCodeInputDialog
+import dev.miyado.shogisupplement.ui.transfercode.TransferCodeInputUiState
+import dev.miyado.shogisupplement.ui.transfercode.TransferCodeInputViewModel
 import dev.miyado.shogisupplement.ui.transfercode.TransferCodeScreen
 import dev.miyado.shogisupplement.upload.UploadResult
 import kotlinx.coroutines.launch
@@ -452,6 +456,8 @@ private fun DemoApp(
                 } else {
                     null
                 },
+                services = supabaseServices,
+                analysisBaseUrl = analysisBaseUrl,
             )
         }
         DemoRoute.Debug -> {
@@ -858,11 +864,15 @@ private fun IosSettingsScreenHost(
     onOpenAccount: (() -> Unit)?,
     onOpenTransferCode: (() -> Unit)? = null,
     onOpenDebug: (() -> Unit)? = null,
+    /** 引き継ぎコード入力ダイアログの配線用。null（Supabase未設定ビルド）なら行ごと非表示。 */
+    services: SupabaseServices? = null,
+    analysisBaseUrl: String? = null,
 ) {
     val themeMode by controller.themeMode.collectAsState()
     val evalDisplay by controller.evalDisplay.collectAsState()
     val skipSideConfirm by controller.skipSideConfirm.collectAsState()
     var showRatingSettings by remember { mutableStateOf(false) }
+    var showTransferCodeInput by remember { mutableStateOf(false) }
     val versionName = remember {
         (NSBundle.mainBundle.infoDictionary?.get("CFBundleShortVersionString") as? String) ?: "-"
     }
@@ -882,6 +892,14 @@ private fun IosSettingsScreenHost(
         )
     }
 
+    if (showTransferCodeInput && services != null && analysisBaseUrl != null) {
+        IosTransferCodeInputHost(
+            services = services,
+            analysisBaseUrl = analysisBaseUrl,
+            onDismiss = { showTransferCodeInput = false },
+        )
+    }
+
     SettingsScreen(
         versionName = versionName,
         themeMode = themeMode,
@@ -890,6 +908,11 @@ private fun IosSettingsScreenHost(
         onOpenRatingSettings = { showRatingSettings = true },
         onOpenAccount = onOpenAccount,
         onOpenTransferCode = onOpenTransferCode,
+        onOpenTransferCodeInput = if (services != null && analysisBaseUrl != null) {
+            { showTransferCodeInput = true }
+        } else {
+            null
+        },
         onThemeChange = { mode -> controller.saveThemeMode(mode) },
         onEvalDisplayChange = { mode -> controller.saveEvalDisplay(mode) },
         skipSideConfirm = skipSideConfirm,
@@ -987,6 +1010,51 @@ private fun IosTransferCodeScreenHost(
         code = code,
         onBack = onBack,
         onCopy = { text -> UIPasteboard.generalPasteboard.string = text },
+    )
+}
+
+/**
+ * 引き継ぎコード入力ダイアログ（設定→引き継ぎコードを入力）のホスト。
+ * [TransferCodeInputViewModel] を[services]・[analysisBaseUrl]から都度組み立てる
+ * （[IosTransferCodeScreenHost] と違い設定画面の上に重ねるダイアログのため、
+ * 表示のたびに生成してonDismissで手放す軽量な作りで十分）。
+ */
+@OptIn(ExperimentalNativeApi::class)
+@Composable
+private fun IosTransferCodeInputHost(
+    services: SupabaseServices,
+    analysisBaseUrl: String,
+    onDismiss: () -> Unit,
+) {
+    val vm = remember(services, analysisBaseUrl) {
+        TransferCodeInputViewModel(
+            authRepository = services.authRepository,
+            transferRestoreService = RemoteTransferRestoreService(
+                baseUrl = analysisBaseUrl,
+                authRepository = services.authRepository,
+                transferSecretStore = IosTransferSecretStore(),
+                platform = resolvePolicyPlatform("ios", Platform.isDebugBinary),
+                appCheckTokenProvider = AppCheckTokenBridge::getToken,
+            ),
+        )
+    }
+    val state by vm.uiState.collectAsState()
+
+    LaunchedEffect(state) {
+        if (state is TransferCodeInputUiState.Success) {
+            onDismiss()
+        }
+    }
+
+    TransferCodeInputDialog(
+        state = state,
+        onSubmit = vm::submit,
+        onConfirm = vm::confirmRestore,
+        onCancelConfirmation = vm::cancelConfirmation,
+        onDismiss = {
+            vm.dismissError()
+            onDismiss()
+        },
     )
 }
 

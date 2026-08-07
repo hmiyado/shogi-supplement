@@ -66,6 +66,11 @@ fun SettingsScreen(
      * onOpenAccount が非null（＝「データ」節が表示される）ときのみ意味を持つ。
      */
     onOpenTransferCode: (() -> Unit)? = null,
+    /**
+     * null = 「引き継ぎコードを入力」行を非表示。onOpenTransferCode と同じ規約
+     * （onOpenAccount が非nullのときのみ意味を持つ）。
+     */
+    onOpenTransferCodeInput: (() -> Unit)? = null,
     onThemeChange: (String) -> Unit = {},
     onEvalDisplayChange: (String) -> Unit = {},
     /** 先後確認の省略設定（アカウント名一致時にダイアログを出さない）。 */
@@ -173,6 +178,13 @@ fun SettingsScreen(
                         label = AppStrings.SETTINGS_ROW_TRANSFER_CODE,
                         sub = AppStrings.SETTINGS_ROW_TRANSFER_CODE_SUB,
                         onClick = onOpenTransferCode,
+                    )
+                }
+                if (onOpenTransferCodeInput != null) {
+                    SettingsRow(
+                        label = AppStrings.SETTINGS_ROW_TRANSFER_CODE_INPUT,
+                        sub = AppStrings.SETTINGS_ROW_TRANSFER_CODE_INPUT_SUB,
+                        onClick = onOpenTransferCodeInput,
                     )
                 }
                 HorizontalDivider(color = MaterialTheme.shogiColors.line)
