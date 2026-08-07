@@ -48,6 +48,7 @@ import dev.miyado.shogisupplement.db.DatabaseFactory
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.GameRepository
 import dev.miyado.shogisupplement.db.SettingsRepository
+import dev.miyado.shogisupplement.pipeline.InProgressAnalysisRegistry
 import dev.miyado.shogisupplement.policy.currentBuildNumber
 import dev.miyado.shogisupplement.policy.resolvePolicyPlatform
 import dev.miyado.shogisupplement.supabase.SupabaseServices
@@ -277,6 +278,9 @@ private fun DemoApp(
 
     val homeData by controller.homeData.collectAsState()
     val importState by controller.importState.collectAsState()
+    // ホームの解析中カード用。importStateとは別軸（dismissでImportStateが消えても
+    // レジストリ側は生き続ける）ため、ここは直接購読する。
+    val analyzingSessions by InProgressAnalysisRegistry.shared.sessions.collectAsState()
 
     // 解析完了 → 解析した棋譜のレポート画面へ遷移（androidApp と同じ挙動）。
     val completedAnalysis by controller.completedAnalysis.collectAsState()
@@ -395,8 +399,10 @@ private fun DemoApp(
                     pastGames = data.games,
                     strengthCard = data.strengthCard,
                     todaysDrillHint = data.todaysDrillHint,
+                    analyzingSessions = analyzingSessions.values.toList(),
                     onOpenKif = { showKifSourceDialog = true },
                     onGameClick = { game -> route = DemoRoute.Report(game.id) },
+                    onAnalyzingClick = { session -> controller.resumeAnalyzing(session.id) },
                     onStartDrill = { route = DemoRoute.Drill },
                     onOpenSettings = { route = DemoRoute.Settings },
                     onViewAllGames = { route = DemoRoute.GameList },

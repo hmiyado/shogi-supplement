@@ -21,6 +21,7 @@ import dev.miyado.shogisupplement.engine.WasmAnalysisRunner
 import dev.miyado.shogisupplement.kifu.ClipboardKifValidator
 import dev.miyado.shogisupplement.kifu.KifParser
 import dev.miyado.shogisupplement.kifu.UserSideSuggester
+import dev.miyado.shogisupplement.pipeline.InProgressAnalysisRegistry
 import dev.miyado.shogisupplement.pipeline.ProgressiveReportState
 import dev.miyado.shogisupplement.policy.ForceUpdateJudge
 import dev.miyado.shogisupplement.policy.ForceUpdatePolicyChecker
@@ -491,6 +492,22 @@ class IosMainController(
 
     fun getAllServiceRanks(): Map<String, Map<String, Int>> = settingsRepository.getAllServiceRanks()
 
+    /**
+     * ホームの解析中カードをタップしたときの再接続。
+     * レジストリの現在スナップショットからImportState.Analyzingへ入る（0からやり直さない）。
+     * 既に完了・失敗して解析が消えていた場合（タップと完了のレース）は何もしない
+     * （直後にホームの一覧側が通常のカードへ更新される）。
+     */
+    fun resumeAnalyzing(id: String) {
+        val session = InProgressAnalysisRegistry.shared.snapshot(id) ?: return
+        _importState.value = ImportState.Analyzing(
+            fileName = session.fileName,
+            moves = session.progressive.moves,
+            userSide = session.userSide,
+            progressive = session.progressive,
+        )
+    }
+
     /** 取込フローを閉じる（ダイアログの「キャンセル」/エラーダイアログの確認）。 */
     fun dismissImport() {
         // Why not 全ケースでpendingを消す: SideConfirm等のキャンセルはpending保存より前の状態で
@@ -550,6 +567,11 @@ class IosMainController(
         // 手順はKIF原文パース直後（エンジン解析の開始前）から確定しているため、
         // サーバー/端末どちらの解析が終わるより先にAnalyzingの初期状態を作れる。
         val moves = runCatching { KifParser().parse(pending.kifText).moves }.getOrElse { emptyList() }
+        // idはcontent_hash（AnalysisOrchestrator.analyzeAndSaveが保存に使う値と同一）。
+        // レジストリはIosMainController（プロセス生存期間のシングルトン）だけが書く
+        // ——importStateはdismissImportで破棄されるがレジストリ側は生き続ける。
+        val id = sha256Hex(pending.kifText)
+        InProgressAnalysisRegistry.shared.start(id, pending.fileName, moves, pending.userSide)
         _importState.value = ImportState.Analyzing(
             fileName = pending.fileName,
             moves = moves,
@@ -558,10 +580,15 @@ class IosMainController(
         )
 
         currentAnalysisJob = scope.launch {
-            val outcome = runAnalysis(pending)
+            val outcome = runAnalysis(pending, id)
             // 再開でキャンセルされた旧ジョブが結果を持ち帰っても状態を触らせない
             // （新ジョブの表示をキャンセル起因のエラーで上書きさせないため）
             if (!isActive) return@launch
+            // 解析中レポート画面を実際に見ているときだけ完了・失敗を画面へ反映する。
+            // ホーム等の他画面にいる間に裏で完了しても、その画面から強制的に連れ去らない
+            // （画面はレジストリの購読者に過ぎず、遷移は「見ている」ときの一度きりの体験でよい）。
+            val wasWatching = _importState.value is ImportState.Analyzing
+            InProgressAnalysisRegistry.shared.finish(id)
             when (outcome) {
                 is AnalysisOrchestrator.Outcome.Completed -> {
                     // 自動アップロード設定ON＋ログイン中のときだけ実行される
@@ -569,23 +596,32 @@ class IosMainController(
                     uploadOrchestrator?.maybeAutoUpload(outcome.gameId)
                     reloadHome()
                     PendingAnalysisStore.clear()
-                    _importState.value = ImportState.Idle
-                    _completedAnalysis.value = CompletedAnalysis(
-                        gameId = outcome.gameId,
-                        justCompleted = !outcome.alreadyExisted,
-                    )
+                    if (wasWatching) {
+                        _importState.value = ImportState.Idle
+                        _completedAnalysis.value = CompletedAnalysis(
+                            gameId = outcome.gameId,
+                            justCompleted = !outcome.alreadyExisted,
+                        )
+                    }
                 }
                 is AnalysisOrchestrator.Outcome.Failed -> {
                     // Why not pendingをここで消す: dismissImportまで「再開すべき解析」として
                     // 残しておくことで、切断が実は継続中でも後で再問い合わせできる。
-                    _importState.value = ImportState.Error(outcome.message)
+                    if (wasWatching) {
+                        _importState.value = ImportState.Error(outcome.message)
+                    } else {
+                        // 失敗の通知自体は画面が無いため出さない（Androidの通知に相当するものが
+                        // iOS側に無い＝既存挙動のまま）。ホームの解析中カードを消すためだけに
+                        // リロードする（新規UIは作らない）。
+                        reloadHome()
+                    }
                 }
             }
         }
     }
 
     /** analyzer構築〜orchestrator実行のみを担う（状態遷移は呼び出し元 [launchAnalysis] の責務）。 */
-    private suspend fun runAnalysis(pending: PendingAnalysis): AnalysisOrchestrator.Outcome {
+    private suspend fun runAnalysis(pending: PendingAnalysis, id: String): AnalysisOrchestrator.Outcome {
         val auth = authRepository
         val baseUrl = analysisBaseUrl
 
@@ -660,6 +696,7 @@ class IosMainController(
             // 責務にする（1コールバックに混ぜるとテストが両方の関心を一度に検証しづらいため）。
             onProgress = { _, _ -> lastProgressAtEpochSeconds = currentEpochSeconds() },
             onPositionResult = { ply, pvs ->
+                InProgressAnalysisRegistry.shared.updatePosition(id, ply, pvs)
                 val current = _importState.value
                 if (current is ImportState.Analyzing) {
                     _importState.value = current.copy(progressive = current.progressive.withPosition(ply, pvs))
