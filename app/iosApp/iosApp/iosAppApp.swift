@@ -15,6 +15,10 @@ struct iosAppApp: App {
         // （IosFirebaseAppCheck.swift参照。plist未同梱ビルドではno-op）。
         IosFirebaseAppCheck.configureIfAvailable()
         _ = KifFilePickerCoordinator.shared
+        // WasmAnalysisHost の init で WasmAnalysisBridge へ実処理のクロージャを登録する。
+        // 起動時に一度参照して確実に初期化させる（lazy static のため、参照するまではinitが
+        // 走らない）。Engineless（ストア版）でも常に登録する（WasmAnalysisHost.swift KDoc参照）。
+        _ = WasmAnalysisHost.shared
         Self.seedPasteboardForUITestIfNeeded()
     }
 

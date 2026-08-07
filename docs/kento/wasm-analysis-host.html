@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<title>iOS WASM解析ホスト</title>
+</head>
+<body>
+<!--
+  iOSアプリのWKWebViewが読み込む内部ページ（ユーザーが直接開くページではない）。
+  docs/kento/webapp-bridge.js（Web版=:webAppと共通の2Worker並列解析JS）をそのまま動かし、
+  window.__startAnalysis/__cancelAnalysis 経由でネイティブ層（iosApp/iosApp/
+  WasmAnalysisHost.swift）から叩けるようにするだけの薄いホスト。
+  webapp-bridge.js・analysis-worker.js自体は変更しない（Web版とプロトコルを共有し続ける）。
+-->
+<script src="webapp-bridge.js"></script>
+<script>
+  function post(type, extra) {
+    try {
+      window.webkit.messageHandlers.wasmAnalysis.postMessage(Object.assign({ type: type }, extra || {}));
+    } catch (e) {
+      // WKScriptMessageHandler未登録などpostMessage自体が失敗する状況では
+      // 通知のしようがないため何もしない。
+    }
+  }
+
+  window.onerror = function (message) {
+    post("page-error", { message: String(message) });
+  };
+
+  var activeHandle = null;
+
+  // baseSfenArgは常に"startpos"固定（GameAnalyzer.analyzeGameは常に平手初期局面基準）。
+  window.__startAnalysis = function (movesJson, assetBaseUrl) {
+    window.kentoBridge.resolveAssetDirUrl(
+      assetBaseUrl,
+      function (assetDirUrl) {
+        activeHandle = window.kentoBridge.runAnalysis(
+          "startpos",
+          movesJson,
+          assetDirUrl,
+          function (resultJson) {
+            post("position", { result: JSON.parse(resultJson) });
+          },
+          function () {
+            activeHandle = null;
+            post("done");
+          },
+          function (message) {
+            activeHandle = null;
+            post("error", { message: message });
+          },
+        );
+      },
+      function (message) {
+        post("error", { message: "エンジン資産バージョンの解決に失敗: " + message });
+      },
+    );
+  };
+
+  window.__cancelAnalysis = function () {
+    if (activeHandle) {
+      activeHandle.cancel();
+      activeHandle = null;
+    }
+  };
+
+  post("ready");
+</script>
+</body>
+</html>

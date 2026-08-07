@@ -15,7 +15,9 @@ import dev.miyado.shogisupplement.engine.GameAnalyzer
 import dev.miyado.shogisupplement.engine.IosCoefficients
 import dev.miyado.shogisupplement.engine.IosEngineHost
 import dev.miyado.shogisupplement.engine.IsolatedEngine
+import dev.miyado.shogisupplement.engine.FailoverAnalyzer
 import dev.miyado.shogisupplement.engine.RemoteAnalysisRunner
+import dev.miyado.shogisupplement.engine.WasmAnalysisRunner
 import dev.miyado.shogisupplement.kifu.ClipboardKifValidator
 import dev.miyado.shogisupplement.kifu.KifParser
 import dev.miyado.shogisupplement.kifu.UserSideSuggester
@@ -607,17 +609,25 @@ class IosMainController(
         }
 
         val analyzer: GameAnalyzer = if (auth != null && baseUrl != null) {
-            AuthRetryingAnalyzer(
-                delegate = RemoteAnalysisRunner(
-                    baseUrl = baseUrl,
-                    accessTokenProvider = {
-                        checkNotNull(auth.accessToken()) { "アクセストークンが取得できない" }
-                    },
-                    platform = "ios",
-                    httpClient = checkNotNull(analysisHttpClient),
-                    appCheckTokenProvider = AppCheckTokenBridge::getToken,
+            // サーバー解析（クォータ429・サーバー障害・接続断リトライ上限）が使えないときは
+            // 端末内WKWebView×WASMやねうら王（WasmAnalysisRunner）へフォールバックし、同じ棋譜を
+            // 最初から解析し直す。サーバー・端末は同一の解析条件を保証するため結果に差は無く、
+            // 追加ダイアログなしで発動する（426=強制アップデートはフォールバックしない。
+            // FailoverAnalyzer KDoc参照）。
+            FailoverAnalyzer(
+                delegate = AuthRetryingAnalyzer(
+                    delegate = RemoteAnalysisRunner(
+                        baseUrl = baseUrl,
+                        accessTokenProvider = {
+                            checkNotNull(auth.accessToken()) { "アクセストークンが取得できない" }
+                        },
+                        platform = "ios",
+                        httpClient = checkNotNull(analysisHttpClient),
+                        appCheckTokenProvider = AppCheckTokenBridge::getToken,
+                    ),
+                    authRepository = auth,
                 ),
-                authRepository = auth,
+                fallbackAnalyzer = WasmAnalysisRunner(),
             )
         } else {
             // ANALYSIS_BASE_URL未設定ビルドでの graceful degradation（従来の端末エンジン）。
