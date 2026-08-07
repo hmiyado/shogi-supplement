@@ -1,5 +1,6 @@
 package dev.miyado.shogisupplement.ui.account
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -339,9 +340,13 @@ fun AccountProvidingContent(
 
         Spacer(Modifier.height(8.dp))
 
-        // 提供をやめてデータを削除（朱アウトライン・確認ダイアログ必須）
+        // 提供をやめてデータを削除（朱アウトライン・確認ダイアログ必須）。
+        // DESIGN.mdのdestructive規定（朱アウトライン・角丸8dp）に合わせ、shape/borderを
+        // 明示的に上書きする（M3のOutlinedButton既定はfull角丸・グレー枠のため）。
         OutlinedButton(
             onClick = { showDeleteDialog = true },
+            shape = MaterialTheme.shapes.medium,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
             colors = ButtonDefaults.outlinedButtonColors(
                 contentColor = MaterialTheme.colorScheme.error,
             ),

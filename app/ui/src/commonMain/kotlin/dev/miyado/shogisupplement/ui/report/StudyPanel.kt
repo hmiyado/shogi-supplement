@@ -27,7 +27,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -42,6 +41,7 @@ import dev.miyado.shogisupplement.board.ShogiBoard
 import dev.miyado.shogisupplement.board.ShogiMove
 import dev.miyado.shogisupplement.notation.JapaneseNotation
 import dev.miyado.shogisupplement.text.AppStrings
+import dev.miyado.shogisupplement.ui.common.ShogiSecondaryButton
 import dev.miyado.shogisupplement.ui.theme.LightInk
 import dev.miyado.shogisupplement.ui.theme.ShipporiMinchoFamily
 import dev.miyado.shogisupplement.ui.theme.TextStyleDataMove
@@ -224,7 +224,7 @@ internal fun StudyPanel(
  */
 @Composable
 private fun AnalyzeButton(enabled: Boolean, onClick: () -> Unit) {
-    OutlinedButton(onClick = onClick, enabled = enabled) {
+    ShogiSecondaryButton(onClick = onClick, enabled = enabled) {
         Text(AppStrings.STUDY_ANALYZE_LABEL)
         Icon(
             Icons.AutoMirrored.Filled.KeyboardArrowRight,

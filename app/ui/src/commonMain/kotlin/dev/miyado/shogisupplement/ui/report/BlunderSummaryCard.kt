@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -20,6 +19,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.text.AppStrings
+import dev.miyado.shogisupplement.ui.common.ShogiSecondaryButton
 import dev.miyado.shogisupplement.ui.theme.IbmPlexMonoFamily
 import dev.miyado.shogisupplement.ui.theme.shogiColors
 
@@ -77,7 +77,7 @@ internal fun BlunderSummaryCard(
 
             if (reports.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp))
-                OutlinedButton(onClick = onViewList, modifier = Modifier.fillMaxWidth()) {
+                ShogiSecondaryButton(onClick = onViewList, modifier = Modifier.fillMaxWidth()) {
                     Text(AppStrings.VIEW_BLUNDER_LIST, style = MaterialTheme.typography.labelMedium)
                 }
             }

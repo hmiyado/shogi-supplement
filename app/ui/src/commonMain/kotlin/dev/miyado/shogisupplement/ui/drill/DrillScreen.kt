@@ -18,7 +18,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -33,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import dev.miyado.shogisupplement.ui.common.ShogiSecondaryButton
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
 import dev.miyado.shogisupplement.ui.theme.TextStyleDataMove
 import dev.miyado.shogisupplement.ui.theme.shogiColors
@@ -134,7 +134,7 @@ fun DrillQuestionContent(
                 )
             }
             Spacer(Modifier.height(16.dp))
-            OutlinedButton(
+            ShogiSecondaryButton(
                 onClick = onSurrender,
                 modifier = Modifier.fillMaxWidth(0.6f),
             ) {
@@ -486,7 +486,7 @@ fun DrillResultContent(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                OutlinedButton(onClick = onBack, modifier = Modifier.weight(1f)) {
+                ShogiSecondaryButton(onClick = onBack, modifier = Modifier.weight(1f)) {
                     Text(AppStrings.DRILL_GO_HOME)
                 }
                 Button(onClick = onNext, modifier = Modifier.weight(1f)) {
