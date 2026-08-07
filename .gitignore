@@ -48,6 +48,13 @@ app/iosApp/engine/build/
 # リポジトリに新たな棋譜を追加しない方針のため、ここに複製が生まれてもコミットしない）
 app/iosApp/iosAppUITests/Fixtures/
 
+# fastlane実行時の生成物（gem本体・アーカイブ出力は既存ルールでカバー済み:
+# vendor/はapp/iosApp/vendor/・build/testflight/はapp/**/build/）。
+# Fastfile・fastlane/metadata・fastlane/screenshotsはコミット対象
+app/iosApp/fastlane/report.xml
+app/iosApp/fastlane/README.md
+app/iosApp/fastlane/screenshots/screenshots.html
+
 # エージェント用worktree（隔離作業領域・コミット禁止）
 .claude/worktrees/
 app/iosApp/vendor/

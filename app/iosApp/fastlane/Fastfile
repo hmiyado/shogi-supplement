@@ -1,0 +1,112 @@
+# TestFlightアップロード(:beta)とApp Store提出(:release)。ローカル実行専用
+# （CIには載せない・署名関連の秘密はGitHubに置かない方針）。
+#
+# Why not scripts/upload_testflight.sh の置き換え: fastlaneで実リリースが
+# 1回通るまでは、既存スクリプトと並存させる（app/docs/release.md参照）。
+# 署名方式・APIキー認証・ビルド番号の取得元は同スクリプトを踏襲している。
+
+IOS_PROJECT_DIR = File.expand_path("..", __dir__)
+APP_DIR = File.expand_path("../..", __dir__)
+KEY_ID = "BM62Q97564"
+ISSUER_ID = "9f6a60f5-d95c-484a-9c8c-574f65a93b7b"
+TEAM_ID = "C8DX3743C6"
+BUNDLE_ID = "dev.miyado.shogisupplement.ios"
+PROFILE_NAME = "shogisup ios appstore"
+ARCHIVE_PATH = File.join(IOS_PROJECT_DIR, "build/testflight/shogisup.xcarchive")
+
+# scripts/ExportOptions-testflight.plist と署名設定は同じだが、destinationは
+# upload ではなく export にする。Why: upload_testflight.shはxcodebuildの
+# エクスポート手順自体がTestFlightへの直接アップロードを兼ねるが（pilotを使わない）、
+# fastlane版はpilot（後段）を明示的なアップロード手段にするため、
+# ここではローカルに.ipaを作るところで止める。
+EXPORT_OPTIONS = {
+  # Why "app-store"（"app-store-connect"ではない）: Xcode 26は
+  # ExportOptionsのmethod値を"app-store-connect"へ改称したが、
+  # fastlane 2.237.0のgymはまだ旧名しか許可しない（許可リストに無い値は
+  # verify_blockで弾かれる）。xcodebuild自身は"app-store"を非推奨の
+  # 別名として受理する（実行時ログで確認済み）ため、動作は変わらない。
+  method: "app-store",
+  destination: "export",
+  signingStyle: "manual",
+  signingCertificate: "Apple Distribution",
+  provisioningProfiles: { BUNDLE_ID => PROFILE_NAME },
+  teamID: TEAM_ID
+}.freeze
+
+# ビルド番号はgradle.propertiesのshogisupplement.versionCodeを単一の源とする
+# （upload_testflight.shと同じ理由。タイムスタンプ生成はしない）。
+def read_build_number
+  line = File.readlines(File.join(APP_DIR, "gradle.properties"))
+             .find { |l| l.start_with?("shogisupplement.versionCode=") }
+  UI.user_error!("shogisupplement.versionCodeがgradle.propertiesに見つからない") unless line
+  line.split("=", 2).last.strip
+end
+
+# dSYM未アップロードだとクラッシュのアプリフレームがredactedになるため送る。
+# SENTRY_AUTH_TOKEN未設定でもTestFlightアップロード自体は成功のまま終える
+# （upload_testflight.shと同じガード。dSYMは後からでも送れる）。
+def upload_dsyms_to_sentry
+  unless system("command -v sentry-cli > /dev/null 2>&1")
+    UI.message("sentry-cli未インストールのためdSYMアップロードをスキップ")
+    return
+  end
+  unless ENV["SENTRY_AUTH_TOKEN"]
+    UI.message("SENTRY_AUTH_TOKEN未設定のためdSYMアップロードをスキップ")
+    return
+  end
+  system("sentry-cli", "debug-files", "upload", File.join(ARCHIVE_PATH, "dSYMs")) \
+    || UI.user_error!("dSYMアップロードに失敗した")
+  UI.success("dSYMをSentryへアップロード完了")
+end
+
+platform :ios do
+  desc "アーカイブしてTestFlightへアップロードする"
+  lane :beta do
+    build_number = read_build_number
+
+    Dir.chdir(IOS_PROJECT_DIR) { sh("xcodegen", "generate") }
+
+    api_key = app_store_connect_api_key(
+      key_id: KEY_ID,
+      issuer_id: ISSUER_ID,
+      # .p8の場所は環境変数で受け取る（リポジトリ外のパスをコードに書かないため）
+      key_filepath: ENV.fetch("ASC_KEY_PATH") {
+        UI.user_error!("ASC_KEY_PATH（App Store Connect APIキー.p8のパス）を環境変数で指定してください")
+      }
+    )
+
+    build_app(
+      scheme: "iosApp-Engineless",
+      configuration: "Release-Engineless",
+      project: File.join(IOS_PROJECT_DIR, "iosApp.xcodeproj"),
+      archive_path: ARCHIVE_PATH,
+      export_options: EXPORT_OPTIONS,
+      xcargs: "CURRENT_PROJECT_VERSION=#{build_number} DEVELOPMENT_TEAM=#{TEAM_ID} " \
+              "CODE_SIGN_STYLE=Automatic -allowProvisioningUpdates " \
+              "-authenticationKeyID #{KEY_ID} -authenticationKeyIssuerID #{ISSUER_ID}",
+      export_xcargs: "-allowProvisioningUpdates -authenticationKeyID #{KEY_ID} " \
+                     "-authenticationKeyIssuerID #{ISSUER_ID}"
+    )
+
+    pilot(
+      api_key: api_key,
+      skip_waiting_for_build_processing: true
+    )
+
+    upload_dsyms_to_sentry
+
+    UI.success("TestFlightへアップロード完了 (build=#{build_number})")
+  end
+
+  desc "betaの後、メタデータ・スクリーンショットとともに審査へ提出する（自動リリースはしない）"
+  lane :release do
+    beta
+
+    deliver(
+      submit_for_review: true,
+      automatic_release: false,
+      skip_binary_upload: true, # バイナリはbetaのpilotで送信済み
+      force: true # ローカル実行なので確認プロンプトで待たせない
+    )
+  end
+end
