@@ -19,6 +19,8 @@ data class WorkerConfig(
     // クライアントのFirebase SDK組み込みが揃った後にenv投入して有効化する（古いアプリ
     // バージョンを一斉に締め出さないため。有効化のタイミングはenv投入そのものが制御する）。
     val firebaseProjectNumber: String,
+    // POST /v1/transfer のIPあたりレート制限（多層防御。TransferService参照）。
+    val transferRateLimitPerMinute: Int,
 ) {
     companion object {
         fun fromEnv(env: (String) -> String? = System::getenv): WorkerConfig {
@@ -51,6 +53,7 @@ data class WorkerConfig(
                 // （pollTimeoutMsの既定280秒）に対して十分な余裕を持たせた既定値にする。
                 staleRunningTimeoutMs = (env("STALE_RUNNING_TIMEOUT_MS") ?: "600000").toLong(),
                 firebaseProjectNumber = env("FIREBASE_PROJECT_NUMBER") ?: "",
+                transferRateLimitPerMinute = (env("TRANSFER_RATE_LIMIT_PER_MINUTE") ?: "5").toInt(),
             )
         }
 

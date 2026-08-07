@@ -6,12 +6,15 @@ import dev.miyado.shogisupplement.engine.EngineInvariants
 import dev.miyado.shogisupplement.engine.IsolatedEngine
 import dev.miyado.shogisupplement.engine.UsiEngineSubprocess
 import dev.miyado.shogisupplement.server.worker.auth.FirebaseAppCheckVerifier
+import dev.miyado.shogisupplement.server.worker.auth.GoTrueTransferSessionIssuer
 import dev.miyado.shogisupplement.server.worker.auth.RemoteJwkSetProvider
 import dev.miyado.shogisupplement.server.worker.auth.SupabaseJwtAuthVerifier
+import dev.miyado.shogisupplement.server.worker.ratelimit.InMemoryIpRateLimiter
 import dev.miyado.shogisupplement.server.worker.repo.SupabaseAnalysisJobRepository
 import dev.miyado.shogisupplement.server.worker.repo.SupabaseAppPolicyGate
 import dev.miyado.shogisupplement.server.worker.repo.SupabaseBanRepository
 import dev.miyado.shogisupplement.server.worker.repo.SupabaseQuotaLimitRepository
+import dev.miyado.shogisupplement.server.worker.repo.SupabaseTransferSecretRepository
 import dev.miyado.shogisupplement.server.worker.repo.supabaseJson
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
@@ -105,7 +108,33 @@ fun Application.module(config: WorkerConfig) {
         staleRunningTimeoutMs = config.staleRunningTimeoutMs,
     )
 
+    val transferSecretRepository =
+        SupabaseTransferSecretRepository(restClient, config.supabaseUrl, config.supabaseServiceRoleKey)
+    // Postgrest（restClient）とは別に、GoTrue Admin API（/auth/v1/admin/*・/auth/v1/verify）を
+    // 叩く専用クライアント。ContentNegotiationはSupabaseTransferSecretRepository等と
+    // 同じsupabaseJson（encodeDefaults=true。GoTrueへ送るtype等の既定値付きフィールドが
+    // 欠落しないようにする必要がある。TransferSessionIssuer参照）で揃える。
+    val authClient = HttpClient(CIO) {
+        install(ClientContentNegotiation) {
+            json(supabaseJson)
+        }
+    }
+    val transferSessionIssuer =
+        GoTrueTransferSessionIssuer(authClient, config.supabaseUrl, config.supabaseServiceRoleKey)
+    val transferRateLimiter = InMemoryIpRateLimiter(
+        limit = config.transferRateLimitPerMinute,
+        windowMs = 60_000,
+    )
+    val transferService = TransferService(
+        transferSecretRepository = transferSecretRepository,
+        sessionIssuer = transferSessionIssuer,
+        rateLimiter = transferRateLimiter,
+        appCheckVerifier = appCheckVerifier,
+        appPolicyGate = appPolicyGate,
+    )
+
     routing {
         registerAnalysisRoutes(service)
+        registerTransferRoutes(transferService)
     }
 }
