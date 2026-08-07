@@ -19,8 +19,11 @@ import dev.miyado.shogisupplement.engine.AnalysisOrchestrator
 import dev.miyado.shogisupplement.engine.EvalLoader
 import dev.miyado.shogisupplement.engine.createAndroidAnalysisRunner
 import dev.miyado.shogisupplement.judge.CoefficientTable
+import dev.miyado.shogisupplement.kifu.KifParser
+import dev.miyado.shogisupplement.pipeline.InProgressAnalysisRegistry
 import dev.miyado.shogisupplement.service.AnalysisServiceBus.ServiceEvent
 import dev.miyado.shogisupplement.text.AppStrings
+import dev.miyado.shogisupplement.util.sha256Hex
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -37,6 +40,11 @@ import kotlinx.coroutines.launch
  * 自動アップロード呼び出し）のみ。エンジンは局ごとに新規プロセスを起動し、局の解析が
  * 終わったら終了する（[UsiEngineProcess.create]/[UsiEngineProcess.quit]）挙動は
  * AnalysisOrchestrator の engineFactory/disposeEngine 経由で行う。
+ *
+ * [InProgressAnalysisRegistry] への書き込みも本クラスが唯一の担い手（start/updatePosition/
+ * finishを全てここで呼ぶ）。フォアグラウンドサービス＝解析の生存期間そのものなので、
+ * MainViewModel（Activity破棄で消える）を経由させずここで直接管理する
+ * （ホームに戻ってもAndroid ViewModelは即座には破棄されないが、それに依存しない設計にする）。
  */
 class AnalysisService : Service() {
 
@@ -84,12 +92,23 @@ class AnalysisService : Service() {
         ratingRaw: Long? = null,
         ratingRule: String? = null,
     ) {
+        // InProgressAnalysisRegistry.finish をfinallyで確実に呼ぶための外側var
+        // （tryブロック内でidが決まる前に例外が出たケースはnullのままfinishをスキップする）。
+        var sessionId: String? = null
         try {
             val uri = Uri.parse(uriString)
             val kifContent = readKifContent(uri)
             val fileName = getFileName(uri) ?: "unknown.kif"
 
             Log.i(TAG, "Starting analysis: $fileName")
+
+            // 手順・content_hashはKIFパース直後（エンジン解析の開始前）から確定するため、
+            // orchestrator呼び出しより先にレジストリへ登録できる。
+            // AnalysisOrchestrator側でも同じ入力から同じハッシュを計算するため値は一致する。
+            val id = sha256Hex(kifContent)
+            sessionId = id
+            val moves = runCatching { KifParser().parse(kifContent).moves }.getOrElse { emptyList() }
+            InProgressAnalysisRegistry.shared.start(id, fileName, moves, userSide)
 
             val repository = AppDatabase.gameRepository(this)
 
@@ -124,6 +143,7 @@ class AnalysisService : Service() {
                     }
                 },
                 onPositionResult = { ply, pvs ->
+                    InProgressAnalysisRegistry.shared.updatePosition(id, ply, pvs)
                     AnalysisServiceBus.emit(ServiceEvent.PositionResult(ply, pvs))
                 },
             )
@@ -167,6 +187,9 @@ class AnalysisService : Service() {
             AnalysisServiceBus.emit(ServiceEvent.Failed(e.message ?: AppStrings.UNKNOWN_ERROR))
             showErrorNotification(e.message ?: AppStrings.UNKNOWN_ERROR)
         } finally {
+            // 完了・失敗・想定外の例外いずれの経路でも、登録済みなら必ずレジストリから外す
+            // （ここを分岐ごとに書くと呼び忘れの余地が出るため、finally一箇所に集約する）。
+            sessionId?.let { InProgressAnalysisRegistry.shared.finish(it) }
             stopSelf()
         }
     }

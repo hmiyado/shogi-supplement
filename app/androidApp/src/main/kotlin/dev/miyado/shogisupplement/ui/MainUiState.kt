@@ -3,6 +3,7 @@ package dev.miyado.shogisupplement.ui
 import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.PositionEvalRow
+import dev.miyado.shogisupplement.pipeline.InProgressAnalysis
 import dev.miyado.shogisupplement.pipeline.ProgressiveReportState
 import dev.miyado.shogisupplement.ui.home.StrengthCardData
 import dev.miyado.shogisupplement.ui.home.TodaysDrillHint
@@ -16,6 +17,12 @@ sealed class MainUiState {
         val isUploading: Boolean = false,
         val strengthCard: StrengthCardData? = null,
         val todaysDrillHint: TodaysDrillHint? = null,
+        /**
+         * 解析中セッション（[dev.miyado.shogisupplement.pipeline.InProgressAnalysisRegistry]の
+         * 現在スナップショット）。カードタップで [MainViewModel.resumeAnalyzing] へ渡し、
+         * AnalyzingReport画面へ再接続する。
+         */
+        val analyzingSessions: List<InProgressAnalysis> = emptyList(),
     ) : MainUiState()
 
     /**

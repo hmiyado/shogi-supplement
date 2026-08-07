@@ -20,6 +20,7 @@ import dev.miyado.shogisupplement.engine.UsiEngineProcess
 import dev.miyado.shogisupplement.kifu.KifParser
 import dev.miyado.shogisupplement.kifu.SideSuggestion
 import dev.miyado.shogisupplement.kifu.UserSideSuggester
+import dev.miyado.shogisupplement.pipeline.InProgressAnalysisRegistry
 import dev.miyado.shogisupplement.pipeline.ProgressiveReportState
 import dev.miyado.shogisupplement.service.AnalysisService
 import dev.miyado.shogisupplement.service.AnalysisServiceBus
@@ -141,6 +142,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         }
+        // 解析中セッションの一覧を監視し、ホーム表示中なら進捗をそのまま反映する
+        // （書き手はAnalysisService。本ViewModelは読み手専属——バック操作でHomeへ戻っても
+        // セッション自体はAnalysisServiceが生存期間を管理しているため失われない）。
+        viewModelScope.launch {
+            InProgressAnalysisRegistry.shared.sessions.collect { sessions ->
+                val s = _state.value
+                if (s is MainUiState.Home) {
+                    _state.value = s.copy(analyzingSessions = sessions.values.toList())
+                }
+            }
+        }
     }
 
     /**
@@ -164,6 +176,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 isLoggedIn = isLoggedIn,
                 strengthCard = result.strengthCard,
                 todaysDrillHint = result.todaysDrillHint,
+                // ここで同期スナップショットを取る（init の sessions.collect は「変化」でしか
+                // 発火しないため、既に進行中のセッションがある状態でHomeへ戻ったときに
+                // 次の局面到着まで一覧が空のままになるのを防ぐ）。
+                analyzingSessions = InProgressAnalysisRegistry.shared.sessions.value.values.toList(),
             )
         }
     }
@@ -457,18 +473,49 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * ホームの解析中カードをタップしたときの再接続。
+     * レジストリの現在スナップショットからAnalyzingReport画面へ入る（0からやり直さない）。
+     * 既に完了・失敗して解析が消えていた場合（タップと完了のレース）は何もしない
+     * （直後にホームの一覧側が通常のカードへ更新される）。
+     */
+    fun resumeAnalyzing(id: String) {
+        val session = InProgressAnalysisRegistry.shared.snapshot(id) ?: return
+        _state.value = MainUiState.AnalyzingReport(
+            titleHint = session.fileName,
+            moves = session.progressive.moves,
+            userSide = session.userSide,
+            progressive = session.progressive,
+        )
+    }
+
     private fun onAnalysisCompleted(gameId: Long, alreadyExisted: Boolean) {
-        // alreadyExisted=true は重複KIFの再取込（実際には何も解析していない）ため、
-        // 完了通知バナーは出さない。
-        showReport(gameId, justCompleted = !alreadyExisted)
+        // 解析中レポート画面を実際に見ているときだけレポートへ遷移する。
+        // ホーム等の他画面にいる間に裏で完了しても、その画面から強制的に連れ去らない
+        // （画面はレジストリの購読者に過ぎず、遷移は「見ている」ときの一度きりの体験でよい）。
+        val wasWatching = _state.value is MainUiState.AnalyzingReport
+        if (wasWatching) {
+            // alreadyExisted=true は重複KIFの再取込（実際には何も解析していない）ため、
+            // 完了通知バナーは出さない。
+            showReport(gameId, justCompleted = !alreadyExisted)
+        } else if (_state.value is MainUiState.Home) {
+            loadHome()
+        }
     }
 
     private fun onAnalysisFailed(message: String) {
-        viewModelScope.launch {
-            val games = withContext(Dispatchers.IO) {
-                gameRepository.getAllGames()
+        val wasWatching = _state.value is MainUiState.AnalyzingReport
+        if (wasWatching) {
+            viewModelScope.launch {
+                val games = withContext(Dispatchers.IO) {
+                    gameRepository.getAllGames()
+                }
+                _state.value = MainUiState.Error(message, games)
             }
-            _state.value = MainUiState.Error(message, games)
+        } else if (_state.value is MainUiState.Home) {
+            // 失敗はシステム通知で既に伝わっている。ここではホームの解析中カードを
+            // 消すためだけにリロードする（新規UIは作らない）。
+            loadHome()
         }
     }
 
