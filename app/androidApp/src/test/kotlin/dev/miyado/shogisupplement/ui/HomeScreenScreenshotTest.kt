@@ -12,7 +12,11 @@ import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
 import com.github.takahirom.roborazzi.RoborazziOptions
 import com.github.takahirom.roborazzi.captureRoboImage
 import dev.miyado.shogisupplement.R
+import dev.miyado.shogisupplement.blunder.Score
 import dev.miyado.shogisupplement.db.GameRecord
+import dev.miyado.shogisupplement.engine.PvInfo
+import dev.miyado.shogisupplement.pipeline.InProgressAnalysis
+import dev.miyado.shogisupplement.pipeline.ProgressiveReportState
 import dev.miyado.shogisupplement.ui.home.HomeScreen
 import dev.miyado.shogisupplement.ui.home.StrengthCardData
 import dev.miyado.shogisupplement.ui.home.TodaysDrillHint
@@ -31,6 +35,8 @@ import org.robolectric.annotation.GraphicsMode
  *   タイトル左のアプリアイコン（全golden共通）。
  *   「直近の解析」見出し右の「すべて見る」は維持・リスト末尾の「すべて見る」は削除
  *   （home_manyGames で4局投入し確認）。
+ *   解析中カード（[dev.miyado.shogisupplement.ui.common.AnalyzingGameCard]）は完了済み局の
+ *   先頭に出す（home_withAnalyzingCard）。
  *
  * HomeScreen は :ui commonMain（dev.miyado.shogisupplement.ui.home.HomeScreen）にある。
  * タイトルアイコンは Android専用リソースのため titleIcon スロットへホイストしているので、
@@ -94,6 +100,27 @@ class HomeScreenScreenshotTest {
             uploadedAt = null,  // 未アップロード
         ),
     )
+
+    private val analyzingMoves = listOf(
+        "7g7f", "3c3d", "2g2f", "8c8d", "2f2e", "8d8e", "2e2d", "2c2d", "2h2d", "4a3b",
+    )
+
+    private fun pv(cp: Int): List<PvInfo> =
+        listOf(PvInfo(multipv = 1, score = Score.Cp(cp), pv = emptyList(), nodes = 0L))
+
+    /** confirmedThrough件だけ順に反映したアキュムレータを持つ解析中セッション（AnalyzingReportScreenScreenshotTestと同じ組み方）。 */
+    private fun sampleAnalyzingSession(confirmedThrough: Int): InProgressAnalysis {
+        var progressive = ProgressiveReportState.initial(analyzingMoves)
+        for (ply in 0 until confirmedThrough) {
+            progressive = progressive.withPosition(ply, pv(40))
+        }
+        return InProgressAnalysis(
+            id = "analyzing-hash",
+            fileName = "miyado_game3.kif",
+            userSide = "sente",
+            progressive = progressive,
+        )
+    }
 
     /** ログイン中: アップロードバッジがゲームカードに表示される。 */
     @Test
@@ -216,6 +243,33 @@ class HomeScreenScreenshotTest {
                         onGameClick = {},
                         onStartDrill = {},
                         onViewAllGames = {},
+                        titleIcon = { testTitleIcon() },
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * 解析中カードが完了済み局の先頭（3局枠外）に出ることを確認する
+     * （[dev.miyado.shogisupplement.ui.common.AnalyzingGameCard]）。
+     */
+    @Test
+    fun home_withAnalyzingCard() {
+        captureRoboImage(
+            filePath = "src/test/snapshots/home_with_analyzing_card.png",
+            roborazziOptions = roborazziOptions,
+        ) {
+            ShogiTheme {
+                Surface {
+                    HomeScreen(
+                        pastGames = sampleGames(),
+                        isLoggedIn = true,
+                        analyzingSessions = listOf(sampleAnalyzingSession(confirmedThrough = 4)),
+                        onOpenKif = {},
+                        onGameClick = {},
+                        onAnalyzingClick = {},
+                        onStartDrill = {},
                         titleIcon = { testTitleIcon() },
                     )
                 }

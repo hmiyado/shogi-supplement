@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.db.GameRecord
+import dev.miyado.shogisupplement.pipeline.InProgressAnalysis
 import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.theme.TextStyleData
 import dev.miyado.shogisupplement.ui.theme.shogiColors
@@ -115,6 +116,67 @@ fun GameCard(
                     color = shogiColors.ink3,
                 )
             }
+        }
+    }
+}
+
+/**
+ * ホーム一覧の解析中カード。[GameCard] と同じ Card/Column/padding 構造にして、
+ * 解析完了後に [GameCard] へ差し替わったときの見た目の落差を抑える。
+ *
+ * 対局者名・勝敗・日時はDB保存後にしか確定しないため出さず、確定済みのfileNameと
+ * 進捗だけを表示する。進捗は[AppStrings.analyzingProgress]——解析中レポート画面の
+ * 進捗バナーと同じ「手数（confirmedThrough-1基準）／総手数」表示に揃える。
+ */
+@Composable
+fun AnalyzingGameCard(
+    session: InProgressAnalysis,
+    onClick: () -> Unit,
+) {
+    val shogiColors = MaterialTheme.shogiColors
+    val currentMove = (session.progressive.confirmedThrough - 1).coerceAtLeast(0)
+    val totalMoves = session.progressive.moves.size
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top,
+            ) {
+                Text(
+                    session.fileName,
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.weight(1f),
+                )
+                Spacer(Modifier.width(8.dp))
+                // DESIGN.mdの意味色: 卵黄(highlight)は面専用で文字色に使用禁止・
+                // 悪手/勝敗色ではない中立のバッジは「info=primary-soft面＋ink」に従う。
+                Box(
+                    modifier = Modifier
+                        .background(shogiColors.primarySoft, RoundedCornerShape(4.dp))
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                ) {
+                    Text(
+                        text = AppStrings.ANALYZING_BADGE,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(
+                AppStrings.analyzingProgress(currentMove, totalMoves),
+                style = TextStyleData,
+            )
         }
     }
 }

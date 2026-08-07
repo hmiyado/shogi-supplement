@@ -35,7 +35,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.db.GameRecord
+import dev.miyado.shogisupplement.pipeline.InProgressAnalysis
 import dev.miyado.shogisupplement.text.AppStrings
+import dev.miyado.shogisupplement.ui.common.AnalyzingGameCard
 import dev.miyado.shogisupplement.ui.common.GameCard
 import dev.miyado.shogisupplement.ui.theme.IbmPlexMonoFamily
 import dev.miyado.shogisupplement.ui.theme.ShogiColors
@@ -59,8 +61,11 @@ fun HomeScreen(
     isLoggedIn: Boolean = false,
     strengthCard: StrengthCardData? = null,
     todaysDrillHint: TodaysDrillHint? = null,
+    /** 解析中セッション（完了・失敗すると一覧から消え、pastGames側の通常カードに置き換わる）。 */
+    analyzingSessions: List<InProgressAnalysis> = emptyList(),
     onOpenKif: () -> Unit,
     onGameClick: (GameRecord) -> Unit,
+    onAnalyzingClick: (InProgressAnalysis) -> Unit = {},
     onStartDrill: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
     onViewAllGames: (() -> Unit)? = null,
@@ -165,8 +170,8 @@ fun HomeScreen(
                 }
             }
 
-            // ── 3. 直近の解析リスト（最大3局 + 「すべて見る」）──────
-            if (pastGames.isEmpty()) {
+            // ── 3. 直近の解析リスト（解析中セッション + 最大3局 + 「すべて見る」）──────
+            if (pastGames.isEmpty() && analyzingSessions.isEmpty()) {
                 item {
                     Text(
                         AppStrings.HOME_NO_GAMES,
@@ -194,6 +199,13 @@ fun HomeScreen(
                             }
                         }
                     }
+                }
+                // 解析中セッションは3局の枠外・先頭に出す（完了済みの3局を押し出さない）
+                items(analyzingSessions, key = { "analyzing-${it.id}" }) { session ->
+                    AnalyzingGameCard(
+                        session = session,
+                        onClick = { onAnalyzingClick(session) },
+                    )
                 }
                 items(pastGames.take(3)) { game ->
                     GameCard(
