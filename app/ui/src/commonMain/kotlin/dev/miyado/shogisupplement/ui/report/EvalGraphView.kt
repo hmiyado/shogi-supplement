@@ -14,10 +14,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import dev.miyado.shogisupplement.blunder.BlunderJudge
+import dev.miyado.shogisupplement.blunder.Score
 import dev.miyado.shogisupplement.db.PositionEvalRow
+import dev.miyado.shogisupplement.pipeline.PositionEval
 import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.theme.shogiColors
 import kotlin.math.roundToInt
@@ -66,6 +70,27 @@ fun buildEvalGraphPoints(positionEvals: List<PositionEvalRow>, userIsGote: Boole
         }
 
 /**
+ * 反映済み区間の[PositionEval]列を評価値グラフ用の点列に変換する。
+ * [PositionEval.score] は手番側視点のまま（[buildEvalGraphPoints] が読む
+ * [PositionEvalRow] とは異なり先手視点への正規化が済んでいない）ため、ここで
+ * ply の偶奇（0手目=先手番）から手番を特定し、先手視点→自分視点の順に変換する。
+ *
+ * @param userIsGote ユーザーが後手なら true（符号反転）。[buildEvalGraphPoints] と同じ規約
+ */
+fun buildProgressiveEvalGraphPoints(evals: List<PositionEval>, userIsGote: Boolean = false): List<EvalGraphPoint> =
+    evals.mapIndexedNotNull { ply, eval ->
+        val score = eval.score ?: return@mapIndexedNotNull null
+        val moverCp = when (score) {
+            is Score.Mate -> if (score.plies > 0) EVAL_GRAPH_CLAMP_CP else -EVAL_GRAPH_CLAMP_CP
+            is Score.Cp -> BlunderJudge.toCp(score).coerceIn(-EVAL_GRAPH_CLAMP_CP, EVAL_GRAPH_CLAMP_CP)
+        }
+        val moverIsGote = ply % 2 == 1
+        val senteCp = if (moverIsGote) -moverCp else moverCp
+        val userCp = if (userIsGote) -senteCp else senteCp
+        EvalGraphPoint(ply = ply, clampedCp = userCp)
+    }
+
+/**
  * グラフ上のx座標（Canvas内のローカル座標・px）を ply に変換する。
  * タップ・ドラッグ双方のポインタ処理で共有する。
  * Composeに依存しない純粋関数のためユニットテスト可能。
@@ -98,6 +123,10 @@ fun plyFromX(x: Float, widthPx: Int, effectiveMaxPly: Int): Int {
  *   対応する ply（スクラバー操作）。呼び出し側はタップと違い一覧への切替を発火させないこと
  *   （このカード自身はタップ/ドラッグの種別を渡すだけで、悪手一覧への切替可否の判断は
  *   呼び出し側の責務）。
+ * @param analyzingThroughPly 解析中のwatermark（反映済み区間の直後のply）。nullなら
+ *   解析中表示をしない（完成レポート表示）。非nullのとき、[maxPly] までの未反映区間に
+ *   ハッチングを敷き、反映先端に卵黄ドットを打つ
+ * @param interactive false のときタップ・ドラッグを無効化する（解析中は盤同様に操作不可にする）
  */
 @Composable
 fun EvalGraphCard(
@@ -108,15 +137,22 @@ fun EvalGraphCard(
     modifier: Modifier = Modifier,
     onPlyTapped: (Int) -> Unit = {},
     onPlyDragged: (Int) -> Unit = {},
+    analyzingThroughPly: Int? = null,
+    interactive: Boolean = true,
 ) {
-    if (points.isEmpty()) return
+    // 解析中（analyzingThroughPly != null）は反映済み点が0件の瞬間（解析開始直後）でも
+    // ハッチング全面表示のカード自体は出す必要があるため、空件数ガードは完成レポート
+    // 表示（analyzingThroughPly == null）のときだけ効かせる。
+    if (points.isEmpty() && analyzingThroughPly == null) return
     val shogiColors = MaterialTheme.shogiColors
     val lineColor = MaterialTheme.colorScheme.onSurface
     val zeroLineColor = shogiColors.line
     val markerColor = shogiColors.loss
     val markerHaloColor = MaterialTheme.colorScheme.surface
     val currentPlyLineColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
-    val effectiveMaxPly = maxOf(maxPly, points.maxOf { it.ply }, 1)
+    val hatchColor = shogiColors.ink3
+    val frontierColor = shogiColors.highlight
+    val effectiveMaxPly = maxOf(maxPly, points.maxOfOrNull { it.ply } ?: 0, 1)
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -142,35 +178,42 @@ fun EvalGraphCard(
                     // Why not 1つの pointerInput にまとめる: detectDragGestures と
                     // detectTapGestures は排他のジェスチャー検出器で片方しか awaitPointerEventScope
                     // を占有できないため、タップ専用/ドラッグ専用で分離するのが標準的な組み方）。
-                    .pointerInput(effectiveMaxPly) {
-                        detectTapGestures { offset: Offset ->
-                            onPlyTapped(plyFromX(offset.x, size.width, effectiveMaxPly))
-                        }
-                    }
-                    .pointerInput(effectiveMaxPly) {
-                        // 連続更新の間引き: 生のポインタサンプル毎ではなく、算出した ply が
-                        // 前回から実際に変わったときだけ onPlyDragged を呼ぶ（ply の解像度は
-                        // 通常ワイド全体で高々数百程度なので、指の微小な揺れでの無駄な
-                        // 再コンポーズ・SFEN再計算を避けられる。数百手規模の対局でも
-                        // 1回あたりの計算量は軽いため、これに加えた時間ベースの間引き
-                        // （フレーム制限等）までは導入していない）。
-                        var lastReportedPly: Int? = null
-                        detectDragGestures(
-                            onDragStart = { offset ->
-                                val ply = plyFromX(offset.x, size.width, effectiveMaxPly)
-                                lastReportedPly = ply
-                                onPlyDragged(ply)
-                            },
-                            onDrag = { change, _ ->
-                                change.consume()
-                                val ply = plyFromX(change.position.x, size.width, effectiveMaxPly)
-                                if (ply != lastReportedPly) {
-                                    lastReportedPly = ply
-                                    onPlyDragged(ply)
+                    .then(
+                        if (interactive) {
+                            Modifier
+                                .pointerInput(effectiveMaxPly) {
+                                    detectTapGestures { offset: Offset ->
+                                        onPlyTapped(plyFromX(offset.x, size.width, effectiveMaxPly))
+                                    }
                                 }
-                            },
-                        )
-                    },
+                                .pointerInput(effectiveMaxPly) {
+                                    // 連続更新の間引き: 生のポインタサンプル毎ではなく、算出した ply が
+                                    // 前回から実際に変わったときだけ onPlyDragged を呼ぶ（ply の解像度は
+                                    // 通常ワイド全体で高々数百程度なので、指の微小な揺れでの無駄な
+                                    // 再コンポーズ・SFEN再計算を避けられる。数百手規模の対局でも
+                                    // 1回あたりの計算量は軽いため、これに加えた時間ベースの間引き
+                                    // （フレーム制限等）までは導入していない）。
+                                    var lastReportedPly: Int? = null
+                                    detectDragGestures(
+                                        onDragStart = { offset ->
+                                            val ply = plyFromX(offset.x, size.width, effectiveMaxPly)
+                                            lastReportedPly = ply
+                                            onPlyDragged(ply)
+                                        },
+                                        onDrag = { change, _ ->
+                                            change.consume()
+                                            val ply = plyFromX(change.position.x, size.width, effectiveMaxPly)
+                                            if (ply != lastReportedPly) {
+                                                lastReportedPly = ply
+                                                onPlyDragged(ply)
+                                            }
+                                        },
+                                    )
+                                }
+                        } else {
+                            Modifier
+                        },
+                    ),
             ) {
                 val w = size.width
                 val h = size.height
@@ -183,6 +226,25 @@ fun EvalGraphCard(
                     end = Offset(w, h / 2f),
                     strokeWidth = 1.dp.toPx(),
                 )
+
+                // 未反映区間のハッチング（斜線）。反映済み区間の実線と対比させて
+                // 「まだ解析結果が無い」ことを一目で示す。
+                if (analyzingThroughPly != null && analyzingThroughPly < effectiveMaxPly) {
+                    val hatchStartX = xOf(analyzingThroughPly.coerceAtLeast(0))
+                    clipRect(left = hatchStartX, top = 0f, right = w, bottom = h) {
+                        val step = 10.dp.toPx()
+                        var x = hatchStartX - h
+                        while (x < w) {
+                            drawLine(
+                                color = hatchColor,
+                                start = Offset(x, h),
+                                end = Offset(x + h, 0f),
+                                strokeWidth = 1.dp.toPx(),
+                            )
+                            x += step
+                        }
+                    }
+                }
 
                 for (i in 0 until points.size - 1) {
                     val p0 = points[i]
@@ -205,6 +267,15 @@ fun EvalGraphCard(
                     val center = Offset(xOf(p.ply), yOf(p.clampedCp))
                     drawCircle(color = markerHaloColor, radius = 6.dp.toPx(), center = center)
                     drawCircle(color = markerColor, radius = 4.dp.toPx(), center = center)
+                }
+
+                // 反映先端（watermark直前のply）の卵黄ドット——「いま注目」の位置を示す。
+                if (analyzingThroughPly != null) {
+                    byPly[analyzingThroughPly - 1]?.let { p ->
+                        val center = Offset(xOf(p.ply), yOf(p.clampedCp))
+                        drawCircle(color = markerHaloColor, radius = 5.dp.toPx(), center = center)
+                        drawCircle(color = frontierColor, radius = 3.5.dp.toPx(), center = center)
+                    }
                 }
 
                 // 現在手ライン（ビューアのナビ行と同期。中立色・縦線でゼロ基準線と区別する）。

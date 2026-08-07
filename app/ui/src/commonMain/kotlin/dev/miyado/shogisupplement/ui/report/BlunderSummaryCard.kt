@@ -90,7 +90,7 @@ internal fun BlunderSummaryCard(
  * 悪手率・エンジン一致率の2行で共有するスタイル。
  */
 @Composable
-private fun StatLine(label: String, value: String) {
+internal fun StatLine(label: String, value: String) {
     val text = buildAnnotatedString {
         append(label)
         withStyle(SpanStyle(fontFamily = IbmPlexMonoFamily)) { append(value) }

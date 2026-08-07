@@ -121,8 +121,10 @@ class AnalysisService : Service() {
                 onProgress = { done, total ->
                     if (done % 5 == 0 || done == total) {
                         updateProgressNotification(done, total)
-                        AnalysisServiceBus.emit(ServiceEvent.Progress(done, total))
                     }
+                },
+                onPositionResult = { ply, pvs ->
+                    AnalysisServiceBus.emit(ServiceEvent.PositionResult(ply, pvs))
                 },
             )
 
@@ -132,7 +134,7 @@ class AnalysisService : Service() {
                         TAG,
                         "Analysis completed: gameId=${outcome.gameId} alreadyExisted=${outcome.alreadyExisted}",
                     )
-                    AnalysisServiceBus.emit(ServiceEvent.Completed(outcome.gameId))
+                    AnalysisServiceBus.emit(ServiceEvent.Completed(outcome.gameId, outcome.alreadyExisted))
                     showCompletionNotification(outcome.gameId)
 
                     if (!outcome.alreadyExisted) {

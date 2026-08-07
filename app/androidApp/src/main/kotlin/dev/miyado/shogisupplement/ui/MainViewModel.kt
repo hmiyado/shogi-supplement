@@ -15,10 +15,12 @@ import dev.miyado.shogisupplement.db.GameRepository
 import dev.miyado.shogisupplement.db.RatingSettings
 import dev.miyado.shogisupplement.db.SettingsRepository
 import dev.miyado.shogisupplement.engine.Engine
+import dev.miyado.shogisupplement.engine.PvInfo
 import dev.miyado.shogisupplement.engine.UsiEngineProcess
 import dev.miyado.shogisupplement.kifu.KifParser
 import dev.miyado.shogisupplement.kifu.SideSuggestion
 import dev.miyado.shogisupplement.kifu.UserSideSuggester
+import dev.miyado.shogisupplement.pipeline.ProgressiveReportState
 import dev.miyado.shogisupplement.service.AnalysisService
 import dev.miyado.shogisupplement.service.AnalysisServiceBus
 import dev.miyado.shogisupplement.service.AnalysisServiceBus.ServiceEvent
@@ -124,9 +126,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             AnalysisServiceBus.events.collect { event ->
                 when (event) {
-                    is ServiceEvent.Completed -> onAnalysisCompleted(event.gameId)
+                    is ServiceEvent.Completed -> onAnalysisCompleted(event.gameId, event.alreadyExisted)
                     is ServiceEvent.Failed -> onAnalysisFailed(event.message)
-                    is ServiceEvent.Progress -> onProgress(event.done, event.total)
+                    is ServiceEvent.PositionResult -> onPositionResult(event.ply, event.pvs)
                 }
             }
         }
@@ -239,26 +241,42 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         userSide: String? = null,
         ratingRule: String? = null,
     ) {
-        _state.value = MainUiState.Analyzing(0, 0)
         if (userSide != null) settingsRepository.saveLastUserSide(userSide)
 
         val ctx = getApplication<Application>()
-        val intent = Intent(ctx, AnalysisService::class.java).apply {
-            putExtra(AnalysisService.EXTRA_KIF_URI, uri.toString())
-            if (service != null) putExtra(AnalysisService.EXTRA_RATING_SERVICE, service)
-            if (ratingRaw != null) putExtra(AnalysisService.EXTRA_RATING_RAW, ratingRaw)
-            if (userSide != null) putExtra(AnalysisService.EXTRA_USER_SIDE, userSide)
-            if (ratingRule != null) putExtra(AnalysisService.EXTRA_RATING_RULE, ratingRule)
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            ctx.startForegroundService(intent)
-        } else {
-            ctx.startService(intent)
+        viewModelScope.launch {
+            // 手順はKIFパース直後（エンジン解析の開始前）から確定しているため、
+            // サービス起動を待たずにここで読み直してAnalyzingReportの初期状態を作る。
+            val moves = readKifMoves(uri)
+            _state.value = MainUiState.AnalyzingReport(
+                titleHint = uri.lastPathSegment ?: "",
+                moves = moves,
+                userSide = userSide,
+                progressive = ProgressiveReportState.initial(moves),
+            )
+
+            val intent = Intent(ctx, AnalysisService::class.java).apply {
+                putExtra(AnalysisService.EXTRA_KIF_URI, uri.toString())
+                if (service != null) putExtra(AnalysisService.EXTRA_RATING_SERVICE, service)
+                if (ratingRaw != null) putExtra(AnalysisService.EXTRA_RATING_RAW, ratingRaw)
+                if (userSide != null) putExtra(AnalysisService.EXTRA_USER_SIDE, userSide)
+                if (ratingRule != null) putExtra(AnalysisService.EXTRA_RATING_RULE, ratingRule)
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                ctx.startForegroundService(intent)
+            } else {
+                ctx.startService(intent)
+            }
         }
     }
 
-    /** 特定のゲームIDのレポートを表示する（DB再取得）。 */
-    fun showReport(gameId: Long) {
+    /**
+     * 特定のゲームIDのレポートを表示する（DB再取得）。
+     * @param justCompleted 直前の解析が今回のセッションで完了した直後かどうか。
+     *   trueのときだけレポート画面が完了通知バナーを一度だけ出す
+     *   （通知タップ・棋譜一覧からの表示では出さない）。
+     */
+    fun showReport(gameId: Long, justCompleted: Boolean = false) {
         viewModelScope.launch {
             val result = reportViewModel.loadReport(gameId)
             pendingNotificationGameId = null
@@ -274,11 +292,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     positionEvals = result.positionEvals,
                     matchRateDisplayText = result.matchRateText,
                     blunderRateDisplayText = result.blunderRateText,
+                    justCompleted = justCompleted,
                 )
             } else {
                 _state.value = MainUiState.Error(AppStrings.gameNotFound(gameId))
             }
         }
+    }
+
+    /** KIFの手順（USI）だけを読む。[startAnalysis] のAnalyzingReport初期化専用。 */
+    private suspend fun readKifMoves(uri: Uri): List<String> = withContext(Dispatchers.IO) {
+        runCatching {
+            val content = readKifContentFromUri(uri)
+            KifParser().parse(content).moves
+        }.getOrElse { emptyList() }
     }
 
     /** 未アップロードの全ゲームをアップロードする。 */
@@ -300,16 +327,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      */
     suspend fun parseKifPlayers(uri: Uri): Pair<String?, String?> = withContext(Dispatchers.IO) {
         runCatching {
-            val content = if (uri.scheme == "file") {
-                java.io.File(uri.path!!).readText()
-            } else {
-                getApplication<Application>().contentResolver
-                    .openInputStream(uri)!!.use { it.readBytes().decodeToString() }
-            }
-            val headers = KifParser().parse(content).headers
+            val headers = KifParser().parse(readKifContentFromUri(uri)).headers
             headers["先手"] to headers["後手"]
         }.getOrElse { null to null }
     }
+
+    /** KIF原文を読む（ファイルURI/コンテンツURIの両対応）。 */
+    private fun readKifContentFromUri(uri: Uri): String =
+        if (uri.scheme == "file") {
+            java.io.File(uri.path!!).readText()
+        } else {
+            getApplication<Application>().contentResolver
+                .openInputStream(uri)!!.use { it.readBytes().decodeToString() }
+        }
 
     /**
      * KIFの対局者名と設定済みアカウント名を比較して自分の側を推定する。
@@ -427,8 +457,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun onAnalysisCompleted(gameId: Long) {
-        showReport(gameId)
+    private fun onAnalysisCompleted(gameId: Long, alreadyExisted: Boolean) {
+        // alreadyExisted=true は重複KIFの再取込（実際には何も解析していない）ため、
+        // 完了通知バナーは出さない。
+        showReport(gameId, justCompleted = !alreadyExisted)
     }
 
     private fun onAnalysisFailed(message: String) {
@@ -440,9 +472,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun onProgress(done: Int, total: Int) {
-        if (_state.value is MainUiState.Analyzing) {
-            _state.value = MainUiState.Analyzing(done, total)
+    private fun onPositionResult(ply: Int, pvs: List<PvInfo>) {
+        val s = _state.value
+        if (s is MainUiState.AnalyzingReport) {
+            _state.value = s.copy(progressive = s.progressive.withPosition(ply, pvs))
         }
     }
 

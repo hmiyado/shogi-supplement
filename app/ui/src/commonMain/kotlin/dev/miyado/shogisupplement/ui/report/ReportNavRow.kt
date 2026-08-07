@@ -168,6 +168,38 @@ internal fun ReportNavRow(
 }
 
 /**
+ * ナビ行と排他入替する単一行バナー（プログレッシブ解析表示の進捗表示・完了通知で使う）。
+ * [ReportNavRow] と同じ高さ・水平パディングにすることで、切替前後で罫線から下の
+ * Y座標が動かない（DESIGN.md No-jitter原則）。
+ */
+@Composable
+internal fun ReportNavBannerRow(
+    text: String,
+    textColor: Color,
+    backgroundColor: Color? = null,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .then(if (backgroundColor != null) Modifier.background(backgroundColor) else Modifier)
+            .padding(horizontal = 8.dp)
+            .height(40.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.weight(1f),
+            textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.bodySmall,
+            color = textColor,
+            maxLines = 1,
+            overflow = TextOverflow.MiddleEllipsis,
+        )
+    }
+}
+
+/**
  * ▾（U+25BE）はIBM Plex Sans JPにグリフが無く、CJKシステムフォールバックの無いブラウザ
  * （wasmJs）ではtofu表示になる。同フォントに収録されている▼（U+25BC）にwasmJsのみ
  * 差し替える（Android/iOSは実機のシステムフォールバックで表示できているため変更しない）。

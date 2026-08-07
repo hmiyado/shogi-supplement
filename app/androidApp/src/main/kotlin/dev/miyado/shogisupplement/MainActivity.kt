@@ -41,8 +41,7 @@ import dev.miyado.shogisupplement.ui.theme.ShogiTheme
  *
  * 機能ごとに以下のファイルへ分割している:
  * - KifImportFlow.kt: KIF取込フロー（ファイルピッカー/クリップボード/棋力設定/先後選択ダイアログ）
- * - AnalyzingScreen.kt: 解析中画面
- * - HomeHost.kt / ReportHost.kt / AccountHost.kt / SettingsHost.kt:
+ * - HomeHost.kt / AnalyzingReportHost.kt / ReportHost.kt / AccountHost.kt / SettingsHost.kt:
  *   各画面への MainViewModel 配線（when(state) 分岐の中身をホスト単位で切り出したもの）
  * - ForceUpdateHost.kt: 強制アップデートのゲート（MainUiStateの外側でMainAppごと出し分ける）
  * - GameListScreen / ErrorScreen / RatingSettingsDialog は VM・Android非依存の
@@ -160,8 +159,8 @@ fun MainApp(vm: MainViewModel, state: MainUiState) {
         is MainUiState.Home -> {
             HomeHost(vm, state, onOpenKif = { showKifSourceSheet = true })
         }
-        is MainUiState.Analyzing -> {
-            AnalyzingScreen(done = state.done, total = state.total)
+        is MainUiState.AnalyzingReport -> {
+            AnalyzingReportHost(vm, state)
         }
         is MainUiState.ShowReport -> {
             ReportHost(vm, state)

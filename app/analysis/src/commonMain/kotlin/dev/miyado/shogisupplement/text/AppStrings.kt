@@ -157,7 +157,13 @@ object AppStrings {
     // ═══ 5. 解析中画面・通知 ══════════════════════════════════════════════════
 
     fun analyzingProgress(done: Int, total: Int): String = "解析中... $done / $total 局面"
-    const val ANALYZING_PREPARING = "解析準備中..."
+
+    /**
+     * レポート画面の進捗バナーと同じスロットに完了直後だけ表示する一時メッセージ。
+     * 通知タイトル（[NOTIF_DONE_TITLE]="解析完了"）とは別文言にする
+     * （画面内の一時表示と通知を語感で混同させないため）。
+     */
+    const val ANALYSIS_COMPLETED_BANNER = "解析が完了しました"
 
     const val NOTIF_ANALYZING_TITLE = "棋譜解析中"
     fun notifProgress(done: Int, total: Int, progressPct: Int): String = "$done / $total 局面 ($progressPct%)"

@@ -35,6 +35,7 @@ import dev.miyado.shogisupplement.ui.common.PvExtState
 import dev.miyado.shogisupplement.ui.common.ReportBackHandler
 import dev.miyado.shogisupplement.ui.common.SfenPosition
 import dev.miyado.shogisupplement.ui.theme.shogiColors
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -144,6 +145,13 @@ fun ReportScreen(
      * 駒台配置（実機評価用デバッグトグル）。DEBUGビルドの設定画面から
      * 変更できる（本番リリースビルドでは常に TOP_BOTTOM）。
      */
+    /**
+     * プログレッシブ解析表示からの遷移直後かどうか。trueのときだけナビ行スロットに
+     * 完了通知バナー（[AppStrings.ANALYSIS_COMPLETED_BANNER]）を数秒表示してから
+     * 通常のナビ行へフェードする。falseのまま（通知タップ・棋譜一覧経由の表示）では
+     * 何も出さない——既存の表示コードパスと完全に同じまま描画される。
+     */
+    justCompleted: Boolean = false,
 ) {
     // ── ビューア状態 ────────────────────────────────────────────────────────
     var viewerMode by remember {
@@ -163,6 +171,17 @@ fun ReportScreen(
     var pendingExtendAdvance by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+
+    // 完了通知バナー。justCompletedはこのコンポジションが生きている間だけ有効な
+    // 一度きりの合図のため、表示要否はローカルstateへ写し取ってから時間経過で下ろす
+    // （呼び出し側にfalseへ戻す責務を負わせない）。
+    var showCompletionBanner by remember { mutableStateOf(justCompleted) }
+    LaunchedEffect(justCompleted) {
+        if (justCompleted) {
+            delay(2500)
+            showCompletionBanner = false
+        }
+    }
 
     val selectedBlunder = selectedIdx?.let { reports.getOrNull(it) }
     // タブ（本譜/最善の変化。ReportBodyMode.LIST 側）・ナビ行どちらからも参照するため
@@ -367,43 +386,51 @@ fun ReportScreen(
                     SfenPosition.parse(studyCurrentSfen ?: currentSfen).isBlackTurn
                 }
 
-                // ── ナビ行（常に1行。検討中/非検討で中身だけ入れ替える） ──────────────
+                // ── ナビ行（常に1行。検討中/非検討/完了直後バナーで中身だけ入れ替える） ────
                 // 検討モードの出入りで罫線から下のY座標が動かないようにする
                 // （DESIGN.md No-jitter原則）。常に1行(40dp)だけを描画してその中身を
                 // 入れ替える構成にすることで、罫線位置が構造的に一致し、
                 // 高さの帳尻合わせが不要になる。
-                ReportNavRow(
-                    studyState = studyState,
-                    studySenteToMove = studySenteToMove,
-                    onStudyStepBack = onStudyStepBack,
-                    onStudyExit = exitStudy,
-                    navLabelAnnotated = navInfo.navLabelAnnotated,
-                    onLabelClick = { showMoveList = true },
-                    canGoFirst = clampedPly > 0,
-                    onFirst = { plyIndex = 0 },
-                    canGoPrev = clampedPly > 0,
-                    onPrev = { plyIndex = (clampedPly - 1).coerceAtLeast(0) },
-                    canGoNext = clampedPly < maxPly || navInfo.canTriggerExtend,
-                    onNext = {
-                        if (clampedPly < maxPly) {
-                            plyIndex = clampedPly + 1
-                        } else if (navInfo.canTriggerExtend) {
-                            selectedBlunder?.let { blunder ->
-                                val sfenAtEnd = computeSfenAtStep(
-                                    blunder.sfenBefore,
-                                    movesInMode,
-                                    movesInMode.size,
-                                )
-                                pendingExtendAdvance = true
-                                onExtendBestPv(blunder.id, sfenAtEnd, blunder.bestPv)
+                if (showCompletionBanner) {
+                    ReportNavBannerRow(
+                        text = AppStrings.ANALYSIS_COMPLETED_BANNER,
+                        textColor = MaterialTheme.colorScheme.primary,
+                        backgroundColor = MaterialTheme.shogiColors.primarySoft,
+                    )
+                } else {
+                    ReportNavRow(
+                        studyState = studyState,
+                        studySenteToMove = studySenteToMove,
+                        onStudyStepBack = onStudyStepBack,
+                        onStudyExit = exitStudy,
+                        navLabelAnnotated = navInfo.navLabelAnnotated,
+                        onLabelClick = { showMoveList = true },
+                        canGoFirst = clampedPly > 0,
+                        onFirst = { plyIndex = 0 },
+                        canGoPrev = clampedPly > 0,
+                        onPrev = { plyIndex = (clampedPly - 1).coerceAtLeast(0) },
+                        canGoNext = clampedPly < maxPly || navInfo.canTriggerExtend,
+                        onNext = {
+                            if (clampedPly < maxPly) {
+                                plyIndex = clampedPly + 1
+                            } else if (navInfo.canTriggerExtend) {
+                                selectedBlunder?.let { blunder ->
+                                    val sfenAtEnd = computeSfenAtStep(
+                                        blunder.sfenBefore,
+                                        movesInMode,
+                                        movesInMode.size,
+                                    )
+                                    pendingExtendAdvance = true
+                                    onExtendBestPv(blunder.id, sfenAtEnd, blunder.bestPv)
+                                }
                             }
-                        }
-                    },
-                    showExtendIndicator = navInfo.showExtendIndicator,
-                    canTriggerExtend = navInfo.canTriggerExtend,
-                    canGoLast = clampedPly < maxPly,
-                    onLast = { plyIndex = maxPly },
-                )
+                        },
+                        showExtendIndicator = navInfo.showExtendIndicator,
+                        canTriggerExtend = navInfo.canTriggerExtend,
+                        canGoLast = clampedPly < maxPly,
+                        onLast = { plyIndex = maxPly },
+                    )
+                }
 
                 if (studyState == null) {
                     // ▶で延長トリガー後、延長成功（maxPly 増加）で自動的に1手進める。
