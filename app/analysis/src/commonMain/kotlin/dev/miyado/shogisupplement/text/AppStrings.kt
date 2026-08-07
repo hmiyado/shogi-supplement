@@ -156,7 +156,18 @@ object AppStrings {
 
     // ═══ 5. 解析中画面・通知 ══════════════════════════════════════════════════
 
-    fun analyzingProgress(done: Int, total: Int): String = "解析中... $done / $total 局面"
+    /** ホーム一覧の解析中カードに出すバッジ文言。 */
+    const val ANALYZING_BADGE = "解析中"
+
+    /**
+     * 解析中の進捗表示（レポート画面の進捗バナー・ホーム一覧の解析中カードで共用）。
+     *
+     * Why not 局面数（0手目の初期局面込み）表示: 解析対象は0..moves.sizeの局面数だが、
+     * ユーザーはNを手数として読むため、局面数のまま出すと盤・グラフより1手遅れて見える。
+     * 呼び出し側は currentMove=(progressive.confirmedThrough-1).coerceAtLeast(0)・
+     * totalMoves=moves.size を渡す（盤・グラフ先端と同じ基準に揃える）。
+     */
+    fun analyzingProgress(currentMove: Int, totalMoves: Int): String = "解析中... $currentMove / $totalMoves 手"
 
     /**
      * レポート画面の進捗バナーと同じスロットに完了直後だけ表示する一時メッセージ。

@@ -141,7 +141,7 @@ fun AnalyzingReportScreen(
                 }
 
                 ReportNavBannerRow(
-                    text = AppStrings.analyzingProgress(progressive.doneCount, progressive.total),
+                    text = AppStrings.analyzingProgress(latestPly, maxPly),
                     textColor = MaterialTheme.shogiColors.ink2,
                 )
 
