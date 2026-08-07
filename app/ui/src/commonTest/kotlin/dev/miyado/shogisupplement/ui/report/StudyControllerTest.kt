@@ -260,6 +260,31 @@ class StudyControllerTest {
     }
 
     @Test
+    fun `engineFactoryが例外を投げるとStudyEvalStateはErrorになる`() {
+        val controller = StudyController(
+            scope = testScope,
+            ioDispatcher = testDispatcher,
+            engineFactory = { error("engine unavailable") },
+            evalDisplayProvider = { "cp" },
+        )
+        controller.startStudy(
+            baseSfen = startSfen,
+            flip = false,
+            originIsBestPv = false,
+            originPlyIndex = 0,
+            originSelectedIdx = null,
+            originAbsolutePly = 0,
+            origin = noOrigin,
+        )
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 7))
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 6))
+
+        controller.analyzeCurrentPosition()
+
+        assertEquals(StudyEvalState.Error, controller.studyState.value?.evalState)
+    }
+
+    @Test
     fun `analyzeCurrentPositionは解析結果をevalStateに反映する`() {
         val (controller, engine) = newController(FakeEngine(score = Score.Cp(120)))
         controller.startStudy(

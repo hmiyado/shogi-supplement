@@ -11,6 +11,7 @@ import dev.miyado.shogisupplement.db.SettingsRepository
 import dev.miyado.shogisupplement.engine.AnalysisOrchestrator
 import dev.miyado.shogisupplement.engine.AnalysisRunner
 import dev.miyado.shogisupplement.engine.AuthRetryingAnalyzer
+import dev.miyado.shogisupplement.engine.Engine
 import dev.miyado.shogisupplement.engine.GameAnalyzer
 import dev.miyado.shogisupplement.engine.IosCoefficients
 import dev.miyado.shogisupplement.engine.IosEngineHost
@@ -174,6 +175,21 @@ class IosMainController(
         }
     }
 
+    /**
+     * 検討モード・読み筋延長のオンデマンド単発局面解析用 HttpClient（analysisBaseUrl 設定時のみ
+     * 生成）。[analysisHttpClient]（1局まるごとの解析用・10分/5分タイムアウト）とは分ける。
+     * 検討パネルのLoading表示にはキャンセル手段が無く、通信不良時にそのタイムアウトまで
+     * 張り付いてしまうため、単発局面向けの短い値にする。
+     */
+    private val studyAnalysisHttpClient: HttpClient? = analysisBaseUrl?.let {
+        HttpClient(Darwin) {
+            install(HttpTimeout) {
+                requestTimeoutMillis = STUDY_ANALYSIS_REQUEST_TIMEOUT_MS
+                socketTimeoutMillis = STUDY_ANALYSIS_SOCKET_TIMEOUT_MS
+            }
+        }
+    }
+
     /** ホーム画面（games一覧・推定棋力カード・今日の1問）のロードを担う協力オブジェクト。 */
     private val homeViewModel = HomeViewModel(
         gameRepository = gameRepository,
@@ -189,9 +205,45 @@ class IosMainController(
     val reportViewModel: ReportViewModel = ReportViewModel(
         scope = scope,
         repository = gameRepository,
-        engineFactory = IosEngineHost.studyEngineFactory(),
+        engineFactory = studyEngineFactory(),
         evalDisplayProvider = { _evalDisplay.value },
     )
+
+    /**
+     * StudyController/PvExtensionRunner（検討モード・読み筋延長）向けのエンジンファクトリ。
+     *
+     * エンジン入り版（[IosEngineHost.ENGINE_LINKED] = true）は常駐エンジンをそのまま使う
+     * （従来どおり）。engineless版はサーバー解析が設定済み（authRepository・analysisBaseUrl
+     * とも非null）なときだけ [RemoteStudyEngine] を返す。それ以外（engineless版で
+     * ANALYSIS_BASE_URL未設定＝出荷前の設定漏れ）は従来どおり [IosEngineHost.studyEngineFactory]
+     * の例外を投げるダミーのまま——このケースはそもそも取込解析自体が動かない
+     * （[runAnalysis] 参照）ため、検討モードだけ個別にエラー文言を出す意味が無い。
+     */
+    private fun studyEngineFactory(): () -> Engine {
+        val auth = authRepository
+        val baseUrl = analysisBaseUrl
+        val runnerHttpClient = studyAnalysisHttpClient
+        if (IosEngineHost.ENGINE_LINKED || auth == null || baseUrl == null || runnerHttpClient == null) {
+            return IosEngineHost.studyEngineFactory()
+        }
+        val runner = RemoteAnalysisRunner(
+            baseUrl = baseUrl,
+            accessTokenProvider = { checkNotNull(auth.accessToken()) { "アクセストークンが取得できない" } },
+            platform = "ios",
+            httpClient = runnerHttpClient,
+            appCheckTokenProvider = AppCheckTokenBridge::getToken,
+        )
+        return {
+            RemoteStudyEngine { sfen, moves ->
+                // サーバー解析はJWT必須のため、未ログインならここで匿名サインインする
+                // （通常は取込解析時に済んでいるはずで、ここに来るのは保険）。
+                if (auth.currentUser.value == null) {
+                    auth.signInAnonymously()
+                }
+                runner.analyzePosition(sfen, moves)
+            }
+        }
+    }
 
     /** 読み筋オンデマンド延長の状態 Map（blunderId → PvExtState）。ReportViewModel へ委譲。 */
     val pvExtState: StateFlow<Map<Long, PvExtState>> get() = reportViewModel.pvExtState
@@ -756,6 +808,10 @@ class IosMainController(
         // Android の DebugServerAnalysisReceiver と同じ値（Cloud Runのリクエストタイムアウトより長く取る）。
         private const val SERVER_ANALYSIS_REQUEST_TIMEOUT_MS = 10 * 60 * 1000L
         private const val SERVER_ANALYSIS_SOCKET_TIMEOUT_MS = 5 * 60 * 1000L
+
+        // 検討モード・読み筋延長の単発局面解析用（1局面だけの解析なので1局まるごとの解析用より短くて十分）。
+        private const val STUDY_ANALYSIS_REQUEST_TIMEOUT_MS = 30_000L
+        private const val STUDY_ANALYSIS_SOCKET_TIMEOUT_MS = 30_000L
 
         /** 閾値秒。大きくすると二重POSTのリスクは下がるが、プロセス死亡時の復旧が遅れる。 */
         internal const val FOREGROUND_RESUME_IDLE_THRESHOLD_SECONDS = 5L
