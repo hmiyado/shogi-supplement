@@ -39,7 +39,20 @@ fun TransferCodeInputDialog(
         return
     }
     if (state is TransferCodeInputUiState.Success) {
-        // 成功したら呼び出し側（ホスト）が画面遷移・状態反映を担うため、ここでは何も表示しない。
+        // ここで無言で閉じると、復元先アカウントに切り替わったのか単にキャンセルしたのか
+        // 見分けが付かない（ホームのデータはこの機能単独では変わらない。ダウンロード導線が
+        // 無いため。復元アカウントの棋譜再取得は別タスク）。切り替わった事実だけは
+        // 明示してから閉じる。
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text(AppStrings.TRANSFER_CODE_INPUT_SUCCESS) },
+            text = null,
+            confirmButton = {
+                TextButton(onClick = onDismiss) {
+                    Text(AppStrings.TRANSFER_CODE_INPUT_SUCCESS_CLOSE)
+                }
+            },
+        )
         return
     }
 
@@ -133,6 +146,20 @@ private fun PreviewTransferCodeInputDialogError() {
     ShogiTheme {
         TransferCodeInputDialog(
             state = TransferCodeInputUiState.Error(AppStrings.TRANSFER_CODE_INPUT_ERROR_NOT_FOUND),
+            onSubmit = {},
+            onConfirm = {},
+            onCancelConfirmation = {},
+            onDismiss = {},
+        )
+    }
+}
+
+@Preview
+@Composable
+private fun PreviewTransferCodeInputDialogSuccess() {
+    ShogiTheme {
+        TransferCodeInputDialog(
+            state = TransferCodeInputUiState.Success,
             onSubmit = {},
             onConfirm = {},
             onCancelConfirmation = {},

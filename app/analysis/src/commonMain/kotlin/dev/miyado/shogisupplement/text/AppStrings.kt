@@ -722,6 +722,8 @@ object AppStrings {
     const val TRANSFER_CODE_INPUT_DESCRIPTION = "別の端末の設定→引き継ぎコードで表示したコードを入力してください。"
     const val TRANSFER_CODE_INPUT_FIELD_LABEL = "コード"
     const val TRANSFER_CODE_INPUT_SUBMIT = "復元する"
+    const val TRANSFER_CODE_INPUT_SUCCESS = "アカウントを切り替えました"
+    const val TRANSFER_CODE_INPUT_SUCCESS_CLOSE = "閉じる"
     const val TRANSFER_CODE_INPUT_CONFIRM_TITLE = "アカウントを切り替えますか？"
     const val TRANSFER_CODE_INPUT_CONFIRM_TEXT =
         "この端末は入力したコードのアカウントに切り替わります。今のアカウントのデータはサーバーに残り、消えません。"

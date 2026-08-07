@@ -72,7 +72,6 @@ import dev.miyado.shogisupplement.ui.settings.RatingSettingsDialog
 import dev.miyado.shogisupplement.ui.settings.SettingsScreen
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
 import dev.miyado.shogisupplement.ui.transfercode.TransferCodeInputDialog
-import dev.miyado.shogisupplement.ui.transfercode.TransferCodeInputUiState
 import dev.miyado.shogisupplement.ui.transfercode.TransferCodeInputViewModel
 import dev.miyado.shogisupplement.ui.transfercode.TransferCodeScreen
 import dev.miyado.shogisupplement.upload.UploadResult
@@ -1039,12 +1038,6 @@ private fun IosTransferCodeInputHost(
         )
     }
     val state by vm.uiState.collectAsState()
-
-    LaunchedEffect(state) {
-        if (state is TransferCodeInputUiState.Success) {
-            onDismiss()
-        }
-    }
 
     TransferCodeInputDialog(
         state = state,

@@ -23,10 +23,12 @@ fun Routing.registerTransferRoutes(service: TransferService) {
         val platformHeader = call.request.headers[PLATFORM_HEADER]
         val buildHeader = call.request.headers[BUILD_HEADER]
         // Cloud Runはロードバランサ経由のためcall.request.origin.remoteHostは内部IPになる。
-        // X-Forwarded-Forの先頭（最初にプロキシへ到達したクライアントIP）を優先し、
-        // 無ければ（ローカル実行等）origin.remoteHostにフォールバックする。
+        // X-Forwarded-Forの末尾（Cloud Run自身が確立したTCP接続の相手＝クライアントが
+        // 詐称できない値としてGoogleのフロントエンドが追記する）を使う。先頭を使うと、
+        // クライアントが送信時点で任意の値を自称できてしまい、IPを回すたびに新しい
+        // レート制限バケットを得られてしまう。
         val callerIp = call.request.headers[HttpHeaders.XForwardedFor]
-            ?.substringBefore(',')
+            ?.substringAfterLast(',')
             ?.trim()
             ?.takeIf { it.isNotEmpty() }
             ?: call.request.origin.remoteHost

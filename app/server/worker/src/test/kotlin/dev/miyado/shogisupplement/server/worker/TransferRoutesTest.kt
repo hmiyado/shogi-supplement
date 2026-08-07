@@ -7,10 +7,12 @@ import ch.qos.logback.core.read.ListAppender
 import dev.miyado.shogisupplement.server.worker.fakes.FakeIpRateLimiter
 import dev.miyado.shogisupplement.server.worker.fakes.FakeTransferSecretRepository
 import dev.miyado.shogisupplement.server.worker.fakes.FakeTransferSessionIssuer
+import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
@@ -120,6 +122,24 @@ class TransferRoutesTest {
         }
         assertEquals(HttpStatusCode.TooManyRequests, response.status)
     }
+
+    @Test
+    fun `X-Forwarded-Forは自称できる先頭ではなくGoogleフロントエンドが追記する末尾をレート制限に使う`() =
+        testApplication {
+            val rateLimiter = FakeIpRateLimiter(allow = true)
+            application {
+                install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
+                routing { registerTransferRoutes(buildService(rateLimiter = rateLimiter)) }
+            }
+            client.post("/v1/transfer") {
+                // 先頭はクライアントが送信時点で自由に詐称できる（Cloud Runは既存の値に追記するだけ）。
+                // 末尾（実際にCloud Runへ接続してきた相手）だけを信用すべき。
+                header(HttpHeaders.XForwardedFor, "203.0.113.1, 198.51.100.9")
+                contentType(ContentType.Application.Json)
+                setBody("""{"k_auth":"$kAuthBase64"}""")
+            }
+            assertEquals(listOf("198.51.100.9"), rateLimiter.requestedIps)
+        }
 
     // ── ログ非混入 ────────────────────────────────────────────────────────
 
