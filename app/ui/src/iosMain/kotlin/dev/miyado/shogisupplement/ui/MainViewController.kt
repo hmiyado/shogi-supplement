@@ -63,6 +63,7 @@ import dev.miyado.shogisupplement.ui.gamelist.GameListScreen
 import dev.miyado.shogisupplement.ui.generated.resources.Res
 import dev.miyado.shogisupplement.ui.home.HomeScreen
 import dev.miyado.shogisupplement.ui.license.LicenseInfoScreen
+import dev.miyado.shogisupplement.ui.report.AnalyzingReportScreen
 import dev.miyado.shogisupplement.ui.report.ReportScreen
 import dev.miyado.shogisupplement.ui.settings.RatingSettingsDialog
 import dev.miyado.shogisupplement.ui.settings.SettingsScreen
@@ -233,7 +234,7 @@ private fun IosConsentScreenHost(
  */
 private sealed class DemoRoute {
     object Home : DemoRoute()
-    data class Report(val gameId: Long) : DemoRoute()
+    data class Report(val gameId: Long, val justCompleted: Boolean = false) : DemoRoute()
     object Drill : DemoRoute()
     object Settings : DemoRoute()
     object Licenses : DemoRoute()
@@ -278,11 +279,11 @@ private fun DemoApp(
     val importState by controller.importState.collectAsState()
 
     // 解析完了 → 解析した棋譜のレポート画面へ遷移（androidApp と同じ挙動）。
-    val completedGameId by controller.completedGameId.collectAsState()
-    LaunchedEffect(completedGameId) {
-        completedGameId?.let { gameId ->
-            route = DemoRoute.Report(gameId)
-            controller.consumeCompletedGameId()
+    val completedAnalysis by controller.completedAnalysis.collectAsState()
+    LaunchedEffect(completedAnalysis) {
+        completedAnalysis?.let { completed ->
+            route = DemoRoute.Report(completed.gameId, justCompleted = completed.justCompleted)
+            controller.consumeCompletedAnalysis()
         }
     }
 
@@ -372,7 +373,13 @@ private fun DemoApp(
     val analyzingState = importState as? IosMainController.ImportState.Analyzing
 
     if (analyzingState != null) {
-        IosAnalyzingScreen(done = analyzingState.done, total = analyzingState.total)
+        AnalyzingReportScreen(
+            titleHint = analyzingState.fileName,
+            moves = analyzingState.moves,
+            userSide = analyzingState.userSide,
+            progressive = analyzingState.progressive,
+            onBack = { controller.dismissImport() },
+        )
         return
     }
 
@@ -400,6 +407,7 @@ private fun DemoApp(
         is DemoRoute.Report -> {
             IosReportScreenHost(
                 gameId = r.gameId,
+                justCompleted = r.justCompleted,
                 controller = controller,
                 onBack = { route = DemoRoute.Home },
             )
@@ -648,25 +656,6 @@ private fun UserSideOptionRow(selected: Boolean, label: String, onClick: () -> U
 }
 
 /**
- * 解析中の進捗表示。androidApp の AnalyzingScreen（MainActivity.kt）と同じ構成
- * （DESIGN.md No-jitter原則: 固定高さ・排他的な内容切替。進捗行の位置は準備中/進捗中で変わらない）。
- */
-@Composable
-private fun IosAnalyzingScreen(done: Int, total: Int) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            CircularProgressIndicator()
-            Spacer(Modifier.height(16.dp))
-            if (total > 0) {
-                Text(AppStrings.analyzingProgress(done, total))
-            } else {
-                Text(AppStrings.ANALYZING_PREPARING)
-            }
-        }
-    }
-}
-
-/**
  * レポート画面（実データ）。gameId から [IosMainController.loadReport]（内部で
  * [ReportViewModel] 経由）で対局＋悪手を読み込む。検討モード・読み筋延長は
  * controller が保持する ReportViewModel/StudyController を実際に駆動する
@@ -677,6 +666,7 @@ private fun IosReportScreenHost(
     gameId: Long,
     controller: IosMainController,
     onBack: () -> Unit,
+    justCompleted: Boolean = false,
 ) {
     var game by remember(gameId) { mutableStateOf<GameRecord?>(null) }
     var reports by remember(gameId) { mutableStateOf<List<BlunderRecord>>(emptyList()) }
@@ -720,6 +710,7 @@ private fun IosReportScreenHost(
         positionEvals = positionEvals,
         matchRateDisplayText = matchRateText,
         blunderRateDisplayText = blunderRateText,
+        justCompleted = justCompleted,
         onBack = onBack,
         pvExtState = pvExtState,
         // iOSは読み筋延長のUI導線を非表示にする（決定済み・機能自体は消さない。Androidは不変）。

@@ -19,6 +19,7 @@ import dev.miyado.shogisupplement.engine.RemoteAnalysisRunner
 import dev.miyado.shogisupplement.kifu.ClipboardKifValidator
 import dev.miyado.shogisupplement.kifu.KifParser
 import dev.miyado.shogisupplement.kifu.UserSideSuggester
+import dev.miyado.shogisupplement.pipeline.ProgressiveReportState
 import dev.miyado.shogisupplement.policy.ForceUpdateJudge
 import dev.miyado.shogisupplement.policy.ForceUpdatePolicyChecker
 import dev.miyado.shogisupplement.text.AppStrings
@@ -134,8 +135,16 @@ class IosMainController(
             val suggestedByAccount: Boolean = false,
         ) : ImportState()
 
-        /** 解析中（進捗%）。 */
-        data class Analyzing(val done: Int, val total: Int) : ImportState()
+        /**
+         * 解析中。手順（moves）はKIF原文パース直後に確定するため解析開始と同時に持ち、
+         * [progressive] を解析結果到着のたびに畳み込んでいく。
+         */
+        data class Analyzing(
+            val fileName: String,
+            val moves: List<String>,
+            val userSide: String?,
+            val progressive: ProgressiveReportState,
+        ) : ImportState()
 
         /**
          * クリップボード/ファイルが空・不正、または解析失敗。
@@ -200,17 +209,23 @@ class IosMainController(
     private var lastProgressAtEpochSeconds: Long? = null
 
     /**
-     * 解析が完了した直後のゲームID。UI側（MainViewController）がレポート画面への遷移に
-     * 使い、遷移したら [consumeCompletedGameId] で消費する（androidApp の
+     * 解析完了イベント。UI側（MainViewController）がレポート画面への遷移に使い、
+     * 遷移したら [consumeCompletedAnalysis] で消費する（androidApp の
      * onAnalysisCompleted → showReport と同じ「完了したらレポートへ」の挙動）。
      * ImportState に Completed を足さない理由: 遷移は一度きりのイベントで、
      * 状態として残すと再コンポーズのたびに遷移が再発火する。
      */
-    private val _completedGameId = MutableStateFlow<Long?>(null)
-    val completedGameId: StateFlow<Long?> = _completedGameId.asStateFlow()
+    data class CompletedAnalysis(
+        val gameId: Long,
+        /** falseは重複KIFの再取込（何も解析していない）。 */
+        val justCompleted: Boolean,
+    )
 
-    fun consumeCompletedGameId() {
-        _completedGameId.value = null
+    private val _completedAnalysis = MutableStateFlow<CompletedAnalysis?>(null)
+    val completedAnalysis: StateFlow<CompletedAnalysis?> = _completedAnalysis.asStateFlow()
+
+    fun consumeCompletedAnalysis() {
+        _completedAnalysis.value = null
     }
 
     /** テーマモード（'system'/'light'/'dark'）。DBから読み込み、以後は即時反映する。 */
@@ -530,7 +545,15 @@ class IosMainController(
     private fun launchAnalysis(pending: PendingAnalysis) {
         currentAnalysisJob?.cancel()
         lastProgressAtEpochSeconds = currentEpochSeconds()
-        _importState.value = ImportState.Analyzing(0, 0)
+        // 手順はKIF原文パース直後（エンジン解析の開始前）から確定しているため、
+        // サーバー/端末どちらの解析が終わるより先にAnalyzingの初期状態を作れる。
+        val moves = runCatching { KifParser().parse(pending.kifText).moves }.getOrElse { emptyList() }
+        _importState.value = ImportState.Analyzing(
+            fileName = pending.fileName,
+            moves = moves,
+            userSide = pending.userSide,
+            progressive = ProgressiveReportState.initial(moves),
+        )
 
         currentAnalysisJob = scope.launch {
             val outcome = runAnalysis(pending)
@@ -545,7 +568,10 @@ class IosMainController(
                     reloadHome()
                     PendingAnalysisStore.clear()
                     _importState.value = ImportState.Idle
-                    _completedGameId.value = outcome.gameId
+                    _completedAnalysis.value = CompletedAnalysis(
+                        gameId = outcome.gameId,
+                        justCompleted = !outcome.alreadyExisted,
+                    )
                 }
                 is AnalysisOrchestrator.Outcome.Failed -> {
                     // Why not pendingをここで消す: dismissImportまで「再開すべき解析」として
@@ -618,9 +644,16 @@ class IosMainController(
             ratingService = pending.ratingService,
             ratingRaw = pending.ratingRaw,
             ratingRule = pending.ratingRule,
-            onProgress = { done, total ->
-                lastProgressAtEpochSeconds = currentEpochSeconds()
-                _importState.value = ImportState.Analyzing(done, total)
+            // 現行のNDJSON形式では局面ごとの中間結果を送らずprogress行が定期的に
+            // 届くだけのため、フォアグラウンド復帰の無進捗判定（[onWillEnterForeground]）は
+            // 引き続きこちらで更新する。ProgressiveReportStateへの反映はonPositionResultの
+            // 責務にする（1コールバックに混ぜるとテストが両方の関心を一度に検証しづらいため）。
+            onProgress = { _, _ -> lastProgressAtEpochSeconds = currentEpochSeconds() },
+            onPositionResult = { ply, pvs ->
+                val current = _importState.value
+                if (current is ImportState.Analyzing) {
+                    _importState.value = current.copy(progressive = current.progressive.withPosition(ply, pvs))
+                }
             },
         )
     }
