@@ -10,6 +10,7 @@ import dev.miyado.shogisupplement.db.GameRepository
 import dev.miyado.shogisupplement.drill.DrillJudge
 import dev.miyado.shogisupplement.drill.EngineDrillSecondaryJudge
 import dev.miyado.shogisupplement.drill.RemoteDrillSecondaryJudge
+import dev.miyado.shogisupplement.engine.Engine
 import dev.miyado.shogisupplement.engine.IosEngineHost
 import dev.miyado.shogisupplement.engine.RemoteAnalysisRunner
 import dev.miyado.shogisupplement.judge.Judgement
@@ -65,12 +66,52 @@ object DrillDemoFactory {
             drillRepository = drillRepository,
             settingsRepository = settingsRepository,
             judgeWithEngine = buildSecondaryJudge(authRepository, analysisBaseUrl),
-            // 読み筋のオンデマンド延長（結果画面の「最善」タブ）も IosEngineHost の常駐エンジンを
-            // 使う。studyEngineFactory は quit() を no-op にする委譲ラッパーを返すため、
-            // PvExtensionRunner が延長解析後に無条件で呼ぶ quit() が常駐エンジンを壊さない
-            // （ReportViewModel/StudyController と同じ理由。IosEngineHost のKDoc参照）。
-            engineFactory = IosEngineHost.studyEngineFactory(),
+            // 読み筋のオンデマンド延長（結果画面の「最善」タブ）のエンジンも二次判定と同じ
+            // 出し分け（エンジン入り=常駐エンジン／engineless=サーバー単発局面解析）。
+            // PvExtensionRunner は延長解析後に無条件で quit() を呼ぶため、どちらの実装も
+            // quit() を no-op にして常駐エンジン・HTTPクライアントを壊さない。
+            engineFactory = buildStudyEngineFactory(authRepository, analysisBaseUrl),
         )
+    }
+
+    /**
+     * 読み筋延長向けのエンジンファクトリ。エンジン入り版は常駐エンジン、engineless版は
+     * サーバー設定があるときだけ [RemoteStudyEngine]。どちらも無ければ従来どおり
+     * [IosEngineHost.studyEngineFactory] の例外を投げるダミー（engineless版で
+     * ANALYSIS_BASE_URL未設定＝出荷前の設定漏れのときだけ到達する経路）。
+     */
+    private fun buildStudyEngineFactory(
+        authRepository: AuthRepository?,
+        analysisBaseUrl: String?,
+    ): () -> Engine {
+        if (IosEngineHost.ENGINE_LINKED || authRepository == null || analysisBaseUrl == null) {
+            return IosEngineHost.studyEngineFactory()
+        }
+        val httpClient = HttpClient(Darwin) {
+            install(HttpTimeout) {
+                requestTimeoutMillis = POSITION_REQUEST_TIMEOUT_MS
+                socketTimeoutMillis = POSITION_SOCKET_TIMEOUT_MS
+            }
+        }
+        val runner = RemoteAnalysisRunner(
+            baseUrl = analysisBaseUrl,
+            accessTokenProvider = {
+                checkNotNull(authRepository.accessToken()) { "アクセストークンが取得できない" }
+            },
+            platform = "ios",
+            httpClient = httpClient,
+            appCheckTokenProvider = AppCheckTokenBridge::getToken,
+        )
+        return {
+            RemoteStudyEngine { sfen, moves ->
+                // サーバー解析はJWT必須のため、未ログインならここで匿名サインインする
+                // （通常はドリル到達前に済んでいるはずで、ここに来るのは保険）。
+                if (authRepository.currentUser.value == null) {
+                    authRepository.signInAnonymously()
+                }
+                runner.analyzePosition(sfen, moves)
+            }
+        }
     }
 
     /** 二次判定（曖昧領域のみ呼ばれる）を、サーバー設定の有無で端末エンジン版/サーバー版に出し分ける。 */
