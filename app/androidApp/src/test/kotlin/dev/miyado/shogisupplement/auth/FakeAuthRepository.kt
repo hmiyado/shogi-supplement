@@ -11,12 +11,14 @@ import kotlinx.coroutines.flow.StateFlow
  * @param signInAnonymouslyResult signInAnonymously の返却値（デフォルトは成功）
  * @param deleteAccountResult deleteAccount の返却値（デフォルトは成功）
  * @param refreshSessionResult refreshSession の返却値（デフォルトは成功）
+ * @param importSessionResult importSession の返却値（デフォルトは成功）
  */
 class FakeAuthRepository(
     initialUser: AuthUser? = null,
     private val signInAnonymouslyResult: Result<Unit> = Result.success(Unit),
     private val deleteAccountResult: Result<Unit> = Result.success(Unit),
     private val refreshSessionResult: Result<Unit> = Result.success(Unit),
+    private val importSessionResult: Result<Unit> = Result.success(Unit),
 ) : AuthRepository {
 
     /** signInAnonymously が呼ばれた回数（テスト検証用）。 */
@@ -29,6 +31,10 @@ class FakeAuthRepository(
 
     /** refreshSession が呼ばれた回数（テスト検証用）。 */
     var refreshSessionCalls: Int = 0
+        private set
+
+    /** importSession に渡された引数（テスト検証用）。呼ばれていなければ null。 */
+    var lastImportedSession: Pair<String, String>? = null
         private set
 
     private val _currentUser = MutableStateFlow(initialUser)
@@ -61,5 +67,13 @@ class FakeAuthRepository(
             _currentUser.value = null
         }
         return deleteAccountResult
+    }
+
+    override suspend fun importSession(accessToken: String, refreshToken: String): Result<Unit> {
+        lastImportedSession = accessToken to refreshToken
+        if (importSessionResult.isSuccess) {
+            _currentUser.value = AuthUser(id = "fake-imported-uid")
+        }
+        return importSessionResult
     }
 }

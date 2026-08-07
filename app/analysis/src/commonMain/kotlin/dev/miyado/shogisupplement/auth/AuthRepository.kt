@@ -51,6 +51,15 @@ interface AuthRepository {
      * @return 成功時 Result.success(Unit)、失敗時 Result.failure(exception)
      */
     suspend fun deleteAccount(): Result<Unit>
+
+    /**
+     * 外部から取得した access/refresh token でこの端末のセッションを差し替える
+     * （引き継ぎコード復元用。[dev.miyado.shogisupplement.transfer.TransferRestoreService] が
+     * `POST /v1/transfer` の応答をここへ渡す）。signInAnonymously と違い新規アカウントは
+     * 発行せず、渡されたトークンが指すユーザーとしてログイン状態になる。
+     * @return 成功時 Result.success(Unit)、失敗時 Result.failure(exception)
+     */
+    suspend fun importSession(accessToken: String, refreshToken: String): Result<Unit>
 }
 
 /** ログイン中ユーザーの最小情報。uid はサーバー連携用のみ（UI に表示しない）。

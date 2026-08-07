@@ -57,6 +57,10 @@ class SupabaseAuthRepository(
         supabase.auth.signOut()
     }
 
+    override suspend fun importSession(accessToken: String, refreshToken: String): Result<Unit> = runCatching {
+        supabase.auth.importAuthToken(accessToken, refreshToken, retrieveUser = true, autoRefresh = true)
+    }
+
     override suspend fun deleteAccount(): Result<Unit> = runCatching {
         // Supabase 側の RPC（security definer）で auth.users から自分を削除。
         // uploaded_games は on delete cascade で全行削除される。

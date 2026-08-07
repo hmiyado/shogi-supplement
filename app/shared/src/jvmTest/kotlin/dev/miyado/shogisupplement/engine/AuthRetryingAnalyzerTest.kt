@@ -35,6 +35,8 @@ class AuthRetryingAnalyzerTest {
         }
         override suspend fun signOut(): Result<Unit> = Result.success(Unit)
         override suspend fun deleteAccount(): Result<Unit> = Result.success(Unit)
+        override suspend fun importSession(accessToken: String, refreshToken: String): Result<Unit> =
+            Result.success(Unit)
     }
 
     /** 呼び出しごとに [responses] を先頭から1つずつ消費して返す/投げる GameAnalyzer。 */
