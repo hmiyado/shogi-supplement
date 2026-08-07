@@ -12,11 +12,17 @@ interface GameAnalyzer {
 
     /**
      * @param moves 棋譜の USI 手列
+     * @param onPositionResult 局面ごとの中間結果コールバック。実装は最終的に総局面数ぶん
+     *   1回ずつ呼ぶ（到着順・粒度は問わない——[AnalysisRunner] は局面が解けるたび、
+     *   [RemoteAnalysisRunner] はストリーム終端の一括結果を受け取った時点でまとめて呼ぶ）。
+     *   [onProgress] より前に置くのは、[onProgress] だけを渡す既存呼び出し側の
+     *   トレーリングラムダ構文（末尾引数扱い）を崩さないため
      * @param onProgress (done, total) の進捗コールバック
      * @return 局面インデックス順（0手目=初期局面〜N手目）の結果リスト。各要素はその局面の MultiPV 結果
      */
     suspend fun analyzeGame(
         moves: List<String>,
+        onPositionResult: ((ply: Int, pvs: List<PvInfo>) -> Unit)? = null,
         onProgress: ((done: Int, total: Int) -> Unit)? = null,
     ): List<List<PvInfo>>
 }

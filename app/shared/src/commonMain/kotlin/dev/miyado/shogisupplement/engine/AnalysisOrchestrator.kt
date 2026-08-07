@@ -11,8 +11,8 @@ import dev.miyado.shogisupplement.judge.CoefficientTable
 import dev.miyado.shogisupplement.kifu.KifParser
 import dev.miyado.shogisupplement.kifu.KifuDecomposer
 import dev.miyado.shogisupplement.kifu.KifuParseException
-import dev.miyado.shogisupplement.pipeline.PositionEval
 import dev.miyado.shogisupplement.pipeline.ReportPipeline
+import dev.miyado.shogisupplement.pipeline.toPositionEval
 import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.util.sha256Hex
 
@@ -74,6 +74,9 @@ class AnalysisOrchestrator(
      * @param ratingRaw サービス上のraw値
      * @param ratingRule ルール文字列
      * @param onProgress (done, total) の進捗コールバック
+     * @param onPositionResult 局面ごとの中間結果コールバック（[GameAnalyzer.analyzeGame] の
+     *   契約をそのまま透過する）。プログレッシブ解析表示の配線用で、既定値の no-op のままなら
+     *   従来どおり全局面完了後にのみ評価・保存が進む
      */
     suspend fun analyzeAndSave(
         kifContent: String,
@@ -83,6 +86,7 @@ class AnalysisOrchestrator(
         ratingRaw: Long? = null,
         ratingRule: String? = null,
         onProgress: (done: Int, total: Int) -> Unit = { _, _ -> },
+        onPositionResult: (ply: Int, pvs: List<PvInfo>) -> Unit = { _, _ -> },
     ): Outcome {
         return try {
             val contentHash = sha256Hex(kifContent)
@@ -96,20 +100,15 @@ class AnalysisOrchestrator(
             // KIFパース
             val game = KifParser().parse(kifContent)
 
-            val allPv = analyzer.analyzeGame(game.moves, onProgress)
+            val allPv = analyzer.analyzeGame(
+                moves = game.moves,
+                onPositionResult = onPositionResult,
+                onProgress = onProgress,
+            )
 
-            // PvInfo → PositionEval 変換（MultiPV=2 で解析済みのため pv2 も保持する。
-            // ドリルの一次判定＝pv1/pv2 圏内かどうかの端末内判定に使う）
-            val evals = allPv.map { pvList ->
-                val pv1 = pvList.firstOrNull { it.multipv == 1 }
-                val pv2 = pvList.firstOrNull { it.multipv == 2 }
-                PositionEval(
-                    score = pv1?.score,
-                    pv = pv1?.pv ?: emptyList(),
-                    pv2Score = pv2?.score,
-                    pv2MoveUsi = pv2?.pv?.firstOrNull(),
-                )
-            }
+            // MultiPV=2 で解析済みのため pv2 も保持する（ドリルの一次判定＝pv1/pv2 圏内かどうかの
+            // 端末内判定に使う）。
+            val evals = allPv.map { pvList -> pvList.toPositionEval() }
 
             // 悪手レポート生成（2パス: 悪手抽出 → 強さ推定 → 相応判定）
             val sides = if (userSide != null) setOf(userSide) else setOf("sente", "gote")

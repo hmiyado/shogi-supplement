@@ -67,8 +67,13 @@ class RemoteAnalysisRunner(
      */
     override suspend fun analyzeGame(
         moves: List<String>,
+        onPositionResult: ((ply: Int, pvs: List<PvInfo>) -> Unit)?,
         onProgress: ((done: Int, total: Int) -> Unit)?,
-    ): List<List<PvInfo>> = executeWithRetry(AnalysisRequest(movesUsi = moves), onProgress)
+    ): List<List<PvInfo>> = executeWithRetry(
+        AnalysisRequest(movesUsi = moves),
+        onProgress = onProgress,
+        onPositionResult = onPositionResult,
+    )
 
     /**
      * ドリルの二次判定（曖昧領域）向けの単発局面解析。サーバー側は sfen+moves モード
@@ -79,13 +84,18 @@ class RemoteAnalysisRunner(
      * @param moves sfen 後にさらに進める USI 手列（省略可）
      */
     suspend fun analyzePosition(sfen: String, moves: List<String> = emptyList()): List<PvInfo> {
-        val perPosition = executeWithRetry(AnalysisRequest(sfen = sfen, moves = moves), onProgress = null)
+        val perPosition = executeWithRetry(
+            AnalysisRequest(sfen = sfen, moves = moves),
+            onProgress = null,
+            onPositionResult = null,
+        )
         return perPosition.firstOrNull() ?: emptyList()
     }
 
     private suspend fun executeWithRetry(
         request: AnalysisRequest,
         onProgress: ((done: Int, total: Int) -> Unit)?,
+        onPositionResult: ((ply: Int, pvs: List<PvInfo>) -> Unit)?,
     ): List<List<PvInfo>> {
         var lastDisconnect: Exception? = null
         val totalAttempts = maxRetries + 1
@@ -94,7 +104,7 @@ class RemoteAnalysisRunner(
                 delay(retryBackoffMs * attempt)
             }
             try {
-                return requestOnce(request, onProgress)
+                return requestOnce(request, onProgress, onPositionResult)
             } catch (e: RemoteAnalysisException) {
                 // 認可・クォータ・不正リクエスト・エンジン失敗はリトライしても直らないため即座に伝播する。
                 throw e
@@ -116,6 +126,7 @@ class RemoteAnalysisRunner(
     private suspend fun requestOnce(
         request: AnalysisRequest,
         onProgress: ((done: Int, total: Int) -> Unit)?,
+        onPositionResult: ((ply: Int, pvs: List<PvInfo>) -> Unit)?,
     ): List<List<PvInfo>> {
         val token = accessTokenProvider()
         val appCheckToken = appCheckTokenProvider?.invoke()
@@ -151,13 +162,14 @@ class RemoteAnalysisRunner(
                 error("unexpected status ${response.status}")
             }
 
-            consumeStream(response, onProgress)
+            consumeStream(response, onProgress, onPositionResult)
         }
     }
 
     private suspend fun consumeStream(
         response: HttpResponse,
         onProgress: ((done: Int, total: Int) -> Unit)?,
+        onPositionResult: ((ply: Int, pvs: List<PvInfo>) -> Unit)?,
     ): List<List<PvInfo>> {
         val channel = response.bodyAsChannel()
         while (true) {
@@ -167,7 +179,12 @@ class RemoteAnalysisRunner(
             when {
                 "result" in obj -> {
                     val resultJson = json.decodeFromJsonElement(AnalysisResultJson.serializer(), obj)
-                    return resultJson.result.map { pvList -> pvList.map { it.toPvInfo() } }
+                    val positions = resultJson.result.map { pvList -> pvList.map { it.toPvInfo() } }
+                    // 現行ワイヤ形式は局面ごとの中間結果を送らないため、ここで初めて
+                    // 全局面ぶんまとめて呼ぶ（[GameAnalyzer.analyzeGame] の契約どおり
+                    // 到着粒度は問わない。呼び出し側のwatermarkは一括反映になる）。
+                    positions.forEachIndexed { ply, pvs -> onPositionResult?.invoke(ply, pvs) }
+                    return positions
                 }
                 "error" in obj -> {
                     val errorJson = json.decodeFromJsonElement(ErrorJson.serializer(), obj)

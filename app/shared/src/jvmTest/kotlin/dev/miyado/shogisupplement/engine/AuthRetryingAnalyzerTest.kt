@@ -44,6 +44,7 @@ class AuthRetryingAnalyzerTest {
 
         override suspend fun analyzeGame(
             moves: List<String>,
+            onPositionResult: ((ply: Int, pvs: List<PvInfo>) -> Unit)?,
             onProgress: ((done: Int, total: Int) -> Unit)?,
         ): List<List<PvInfo>> {
             val response = responses[callCount]

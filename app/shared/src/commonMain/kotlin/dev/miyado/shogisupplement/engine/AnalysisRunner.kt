@@ -38,6 +38,7 @@ class AnalysisRunner(
 
     override suspend fun analyzeGame(
         moves: List<String>,
+        onPositionResult: ((ply: Int, pvs: List<PvInfo>) -> Unit)?,
         onProgress: ((done: Int, total: Int) -> Unit)?,
     ): List<List<PvInfo>> = coroutineScope {
         val positions = (0..moves.size).toList()
@@ -68,6 +69,7 @@ class AnalysisRunner(
                         val prefix = moves.take(posIdx)
                         val pvList = engine.analyze(prefix)
                         results[posIdx] = pvList
+                        onPositionResult?.invoke(posIdx, pvList)
                         val done = counterMutex.withLock { doneCount += 1; doneCount }
                         onProgress?.invoke(done, total)
                         releaseEngine(engine)
