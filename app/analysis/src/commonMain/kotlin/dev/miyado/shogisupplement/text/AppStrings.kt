@@ -713,6 +713,8 @@ object AppStrings {
         "画面の写真やメモアプリなど、安全な場所に控えてください。"
     const val TRANSFER_CODE_COPY_BUTTON = "コピー"
     const val TRANSFER_CODE_COPIED = "コピーしました"
+    const val TRANSFER_CODE_REVEAL_ICON_DESC = "コードを表示"
+    const val TRANSFER_CODE_HIDE_ICON_DESC = "コードを隠す"
 
     // ═══ 33. 評価値グラフ・悪手率・エンジン一致率（レポート画面）══════════════════
 
