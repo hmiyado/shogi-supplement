@@ -275,6 +275,23 @@ targets:
               ;;
           esac
         basedOnDependencyAnalysis: false
+      # Why not Info.plist本体へ記載: ATS例外はDebug限定にしたいがInfo.plistは全構成共通で、
+      # Debug用plistの複製を作ると同期問題が再発する。ビルド後の生成物へ注入して
+      # Releaseの配布物には一切含めない。
+      - name: "Allow local networking (Debug only, for local asset delivery)"
+        script: |
+          set -e
+          case "$CONFIGURATION" in
+            Debug*)
+              PLIST="$TARGET_BUILD_DIR/$INFOPLIST_PATH"
+              /usr/libexec/PlistBuddy -c "Delete :NSAppTransportSecurity" "$PLIST" 2>/dev/null || true
+              /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity dict" "$PLIST"
+              /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity:NSAllowsLocalNetworking bool true" "$PLIST"
+              /usr/libexec/PlistBuddy -c "Delete :NSLocalNetworkUsageDescription" "$PLIST" 2>/dev/null || true
+              /usr/libexec/PlistBuddy -c "Add :NSLocalNetworkUsageDescription string 開発中のWASMバイナリをMacのローカル配信から取得する検証に使います" "$PLIST"
+              ;;
+          esac
+        basedOnDependencyAnalysis: false
   # 実機スモークテスト用 XCUITest ターゲット。iosApp と同じ Team/署名設定で自動署名する。
   # フィクスチャ（Fixtures/wars_game3.kif）は app/shared/src/jvmTest/resources からのコピーで、
   # .gitignore 済み（リポジトリに新たな棋譜を追加しない方針のため）。
