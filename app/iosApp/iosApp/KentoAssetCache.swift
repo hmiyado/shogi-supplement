@@ -240,7 +240,7 @@ final class KentoAssetCache {
             + engineFiles.map { "kento-assets/\(version)/\($0)" }
     }
 
-    // MARK: - 配信元・対象ファイル一覧（docs/copy-kento-assets.sh と対応させる）
+    // MARK: - 配信元・対象ファイル一覧
 
     /// 配信元サイトのルートURL。DEBUGビルドに限り環境変数・デバッグ画面の保存値で
     /// 差し替え可能（未公開のWASMバイナリをローカル配信で検証するためのフック）。
