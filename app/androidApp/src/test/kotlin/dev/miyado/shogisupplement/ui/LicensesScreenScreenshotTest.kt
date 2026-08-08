@@ -18,7 +18,7 @@ import org.robolectric.annotation.GraphicsMode
  * 1. 画面全体: 固定ヘッダ（本アプリGPLv3・やねうら王・Háo・フォントライセンス）＋
  *    AboutLibraries一覧の冒頭。一覧データは res/raw/aboutlibraries.json（コミット済み）から
  *    同期読み込みされるため決定的に描画できる。依存を更新して JSON を再生成した場合は
- *    golden も更新すること（ui/composeResources 側の複製も合わせて更新）。
+ *    golden も更新すること。
  * 2. ヘッダ単体: 固定ヘッダ部分（[LicenseInfoHeader]、:ui commonMain・Android/iOS共通実装）。
  */
 @RunWith(RobolectricTestRunner::class)
