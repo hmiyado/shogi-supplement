@@ -20,7 +20,7 @@ object WasmStudyBridge {
      *   （`"sfen <SFEN文字列>"` 形式。呼び出し元がネイティブエンジン実装と同じ組み立てを行う）
      * @param movesJson [baseSfenArg] の局面からさらに進める USI 手列をJSON配列文字列化したもの
      * @return 受理できたら true（後で[onResult]/[onError]のどちらかが呼ばれる）。
-     *   ホスト未初期化・資産未準備・別リクエストが処理中などで即座に受理できない場合は false
+     *   ホスト未初期化・WASMバイナリ未準備・別リクエストが処理中などで即座に受理できない場合は false
      *   （呼び出し側はその場でサーバー解析へ切り替える。数十秒待たせないためのfail-fast）。
      */
     var analyzeHandler: ((requestId: String, baseSfenArg: String, movesJson: String) -> Boolean)? = null
@@ -29,10 +29,13 @@ object WasmStudyBridge {
      * Swift側（WasmStudyHost）が起動時に代入する、ローカルWASM解析が使える見込みかの判定。
      *
      * [analyzeHandler] は常に登録済み（起動時に一度だけ代入される）なため「登録の有無」は
-     * 見込み判定に使えない。実体は資産キャッシュの準備状態
-     * （`KentoAssetCache.state == .ready`）で、[analyzeHandler] の受理判定
-     * （WKWebViewページの読み込み完了まで含む）より粗い。true でも実際の呼び出しが
-     * fail-fast で false へ倒れる可能性は残る（[WasmStudyEngine] のKDoc参照）。
+     * 見込み判定に使えない。実体はWASMバイナリキャッシュの準備状態とWKWebViewページの読み込み状態の
+     * 両方（WASMバイナリready かつ ページready）——[analyzeHandler] の受理条件と同じところまで
+     * 見て true を返す。WASMバイナリreadyだがページ未readyの間は、false を返しつつページ読み込みを
+     * 裏で開始する（別途の明示的な起動経路を持たず、false を返している間は繰り返し
+     * 評価され続けるという前提のもとでこの評価自体を起点にする）。true でも
+     * 実際の呼び出しが fail-fast で false へ倒れる可能性はなお残る（他リクエストが
+     * ビジー中等。[WasmStudyEngine] のKDoc参照）。
      */
     var localReadyProvider: (() -> Boolean)? = null
 
@@ -71,7 +74,7 @@ object WasmStudyBridge {
         callback?.invoke(resultJson)
     }
 
-    /** Swift側: 解析が失敗した（ホスト未準備・Workerエラー・資産解決失敗等）。 */
+    /** Swift側: 解析が失敗した（ホスト未準備・Workerエラー・WASMバイナリ解決失敗等）。 */
     fun onError(requestId: String, message: String) {
         if (requestId != activeRequestId) return
         val callback = onErrorCallback

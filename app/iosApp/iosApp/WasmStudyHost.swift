@@ -9,17 +9,35 @@ import WebKit
 /// 目的そのもの（初回利用時に生成し、アプリ存命中は保持する）。境界・`SharedUi`
 /// （`WasmStudyBridge`）経由で橋渡しする。
 ///
-/// エンジン資産・ホストページはローカルキャッシュ（`KentoAssetCache`）から
+/// エンジンWASMバイナリ・ホストページはローカルキャッシュ（`KentoAssetCache`）から
 /// `WKURLSchemeHandler` で配信する（ネットワーク不要・オフライン検討が成立する）。
-/// 資産が準備できていなければ [analyzeHandler] はその場で false を返し（fail-fast）、
-/// 準備が済んでいなければ待たせず即座に失敗を返す（fail-fast）。
+/// WASMバイナリ・ページのいずれかが準備できていなければ [analyzeHandler] はその場で false を返す
+/// （fail-fast。数十秒待たせない）。ページの生成・読み込みは [warmUp] が
+/// [localReadyProvider] 経由の見込み判定のたびに裏で先回りするため、実運用では
+/// この fail-fast はほぼ露出しない。
 final class WasmStudyHost: NSObject {
     static let shared = WasmStudyHost()
 
     private var webView: WKWebView?
     private var loadedRootURL: URL?
-    private var isPageReady = false
+    private let pageReadyLock = NSLock()
+    private var _isPageReady = false
     private var busyRequestId: String?
+
+    /// ページの読み込み完了状態（[KentoAssetCache.state] と同じくどのスレッドからでも
+    /// 読める。書き込みは常にメインスレッドから）。
+    private var isPageReady: Bool {
+        get {
+            pageReadyLock.lock()
+            defer { pageReadyLock.unlock() }
+            return _isPageReady
+        }
+        set {
+            pageReadyLock.lock()
+            _isPageReady = newValue
+            pageReadyLock.unlock()
+        }
+    }
 
     private override init() {
         super.init()
@@ -28,13 +46,33 @@ final class WasmStudyHost: NSObject {
                 ?? KotlinBoolean(bool: false)
         }
         // 検討モードの自動発火（StudyController.maybeAutoAnalyze）向け見込み判定。
-        // KentoAssetCache.state はどのスレッドからでも読める（NSLock保護）ため、
-        // メインスレッド外（ioDispatcher）からの呼び出しでも安全。
-        WasmStudyBridge.shared.localReadyProvider = {
-            if case .ready = KentoAssetCache.shared.state {
-                return KotlinBoolean(bool: true)
+        // WASMバイナリready かつ ページreadyの両方が揃って初めて true（[analyzeHandler] の受理条件と
+        // 同じ）。WASMバイナリreadyだがページ未ready（セッション最初の解析前・WebContentプロセス死後の
+        // 再生成前）は [warmUp] を蹴ってWebView生成・ページ読み込みを裏で始めてから false を返す
+        // ——別途の明示的な起動経路は持たず、false を返している間は繰り返し評価され続ける
+        // という前提のもとでこの評価自体をウォームアップの起点にする。KentoAssetCache.state は
+        // どのスレッドからでも読める（NSLock保護）ため、メインスレッド外（ioDispatcher）
+        // からの呼び出しでも安全。
+        WasmStudyBridge.shared.localReadyProvider = { [weak self] in
+            guard case .ready = KentoAssetCache.shared.state else {
+                return KotlinBoolean(bool: false)
             }
-            return KotlinBoolean(bool: false)
+            guard let self, self.isPageReady else {
+                self?.warmUp()
+                return KotlinBoolean(bool: false)
+            }
+            return KotlinBoolean(bool: true)
+        }
+    }
+
+    /// WASMバイナリが準備済みならWebViewを（無ければ）生成しページ読み込みを開始する。解析は発火しない。
+    /// [ensureWebView] 自体が冪等（同じrootURLで既に生成済みなら何もしない）なため、
+    /// [localReadyProvider] のポーリングのたびに呼んでも安全。
+    private func warmUp() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            guard case .ready(let rootURL, _) = KentoAssetCache.shared.state else { return }
+            _ = self.ensureWebView(rootURL: rootURL)
         }
     }
 
@@ -71,7 +109,7 @@ final class WasmStudyHost: NSObject {
     }
 
     /// 常駐WebViewを（無ければ）生成する。[rootURL] が前回と異なる場合
-    /// （資産バージョン更新でキャッシュが差し替わった場合）は作り直す。
+    /// （WASMバイナリのバージョン更新でキャッシュが差し替わった場合）は作り直す。
     private func ensureWebView(rootURL: URL) -> WKWebView? {
         if let webView, loadedRootURL == rootURL {
             return webView
@@ -201,7 +239,7 @@ extension WasmStudyHost: WKNavigationDelegate {
     }
 }
 
-/// ローカル資産キャッシュ（`KentoAssetCache`）配下のディレクトリを `kentolocal://local/...` で
+/// WASMバイナリのローカルキャッシュ（`KentoAssetCache`）配下のディレクトリを `kentolocal://local/...` で
 /// 配信する（WKWebViewはシステムのHTTP(S)キャッシュ・CORSと無関係にディスク上のファイルを
 /// そのまま返せる）。
 private final class KentoLocalSchemeHandler: NSObject, WKURLSchemeHandler {
