@@ -56,6 +56,7 @@ import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.account.AccountScreen
 import dev.miyado.shogisupplement.ui.account.AccountViewModel
 import dev.miyado.shogisupplement.ui.consent.ConsentScreen
+import dev.miyado.shogisupplement.ui.debug.DebugScreen
 import dev.miyado.shogisupplement.ui.drill.DrillQuestionContent
 import dev.miyado.shogisupplement.ui.drill.DrillResultContent
 import dev.miyado.shogisupplement.ui.drill.DrillUiState
@@ -242,8 +243,10 @@ private sealed class DemoRoute {
     object Account : DemoRoute()
     object TransferCode : DemoRoute()
     object GameList : DemoRoute()
+    object Debug : DemoRoute()
 }
 
+@OptIn(ExperimentalNativeApi::class)
 @Composable
 private fun DemoApp(
     gameRepository: GameRepository,
@@ -443,7 +446,16 @@ private fun DemoApp(
                 } else {
                     null
                 },
+                // Kotlin/NativeにBuildConfig相当が無いため、DEBUGビルド判定はPlatform.isDebugBinaryで行う。
+                onOpenDebug = if (Platform.isDebugBinary) {
+                    { route = DemoRoute.Debug }
+                } else {
+                    null
+                },
             )
+        }
+        DemoRoute.Debug -> {
+            IosDebugScreenHost(onBack = { route = DemoRoute.Settings })
         }
         DemoRoute.Licenses -> {
             val libraries = remember { loadBundledLibraries() }
@@ -836,6 +848,7 @@ private fun IosDrillScreen(
  * （[onOpenAccount] が null のときは [SettingsScreen] 側で行自体を非表示）。
  * 棋力設定は [RatingSettingsDialog]（:ui commonMain・Androidと共通実装）を開く。
  * ヘルプはWebヘルプ（Safari）へ、OSSライセンスは [LicenseInfoScreen] へ、それぞれ接続する。
+ * [onOpenDebug] は [onOpenAccount] 等と同じく非null=表示・null=非表示（DEBUGビルドのみ非null）。
  */
 @Composable
 private fun IosSettingsScreenHost(
@@ -844,6 +857,7 @@ private fun IosSettingsScreenHost(
     onOpenLicenses: () -> Unit,
     onOpenAccount: (() -> Unit)?,
     onOpenTransferCode: (() -> Unit)? = null,
+    onOpenDebug: (() -> Unit)? = null,
 ) {
     val themeMode by controller.themeMode.collectAsState()
     val evalDisplay by controller.evalDisplay.collectAsState()
@@ -885,8 +899,41 @@ private fun IosSettingsScreenHost(
         onOpenTerms = { openUrl(IOS_TERMS_URL) },
         onOpenReleaseNotes = { openUrl(IOS_RELEASE_NOTES_URL) },
         onOpenLicenses = onOpenLicenses,
-        // onOpenDebug: iOSにDEBUGビルド用デバッグ画面がまだ無いため常に null（非表示）。
-        onOpenDebug = null,
+        onOpenDebug = onOpenDebug,
+    )
+}
+
+/**
+ * デバッグ画面（[DebugScreen]。iOS専用・DEBUGビルド限定）のホスト。
+ *
+ * WASM資産（KentoAssetCache.swift）の配信元URLをDEBUGオーバーライドできるようにする
+ * ([WasmSiteOverrideStore] 参照。永続化はNSUserDefaults・Swift側と同じキーを共有）。
+ * 保存・クリア直後に [effectiveInfo] を再計算して渡し直す（[DebugScreen] 自身は
+ * 楽観的な内部状態を持たない設計。KDoc参照）。
+ */
+@Composable
+private fun IosDebugScreenHost(onBack: () -> Unit) {
+    var effectiveInfo by remember { mutableStateOf(WasmSiteOverrideStore.effectiveInfo()) }
+    val savedInitial = remember { WasmSiteOverrideStore.savedValue() ?: "" }
+
+    DebugScreen(
+        onBack = onBack,
+        siteBaseUrlInputInitial = savedInitial,
+        effectiveSiteBaseUrl = effectiveInfo.url,
+        effectiveSiteBaseUrlSource = when (effectiveInfo.source) {
+            WasmSiteOverrideStore.Source.ENVIRONMENT -> AppStrings.DEBUG_WASM_SITE_SOURCE_ENV
+            WasmSiteOverrideStore.Source.SAVED -> AppStrings.DEBUG_WASM_SITE_SOURCE_SAVED
+            WasmSiteOverrideStore.Source.PRODUCTION -> AppStrings.DEBUG_WASM_SITE_SOURCE_PRODUCTION
+        },
+        onSave = { input ->
+            val ok = WasmSiteOverrideStore.save(input)
+            if (ok) effectiveInfo = WasmSiteOverrideStore.effectiveInfo()
+            ok
+        },
+        onClear = {
+            WasmSiteOverrideStore.clear()
+            effectiveInfo = WasmSiteOverrideStore.effectiveInfo()
+        },
     )
 }
 

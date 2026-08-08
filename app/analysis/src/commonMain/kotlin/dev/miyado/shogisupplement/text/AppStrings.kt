@@ -537,6 +537,39 @@ object AppStrings {
     /** DebugScreen の「完了通知を送付」ボタン。 */
     const val DEBUG_SEND_NOTIFICATION = "完了通知を送付"
 
+    /** iOS専用デバッグ画面（WASM資産の配信元URL切替）のタイトル。 */
+    const val DEBUG_SCREEN_TITLE = "デバッグ: 配信元URL"
+
+    /** 配信元URL入力欄のラベル。 */
+    const val DEBUG_WASM_SITE_FIELD_LABEL = "配信元URL"
+
+    /** 配信元URL入力欄のプレースホルダ（ローカル配信の例）。 */
+    const val DEBUG_WASM_SITE_PLACEHOLDER = "http://127.0.0.1:8925/"
+
+    /** 現在有効な配信元URLの表示。[url]＝実際に使われるURL、[source]＝その由来ラベル。 */
+    fun debugWasmSiteEffective(url: String, source: String): String = "現在有効: $url（$source）"
+
+    /** 配信元の由来ラベル: 環境変数（KENTO_SITE_BASE_URL_OVERRIDE）が優先された。 */
+    const val DEBUG_WASM_SITE_SOURCE_ENV = "環境変数"
+
+    /** 配信元の由来ラベル: この画面での保存値が使われている。 */
+    const val DEBUG_WASM_SITE_SOURCE_SAVED = "保存値"
+
+    /** 配信元の由来ラベル: 環境変数・保存値のいずれも無く本番Pagesを使っている。 */
+    const val DEBUG_WASM_SITE_SOURCE_PRODUCTION = "本番"
+
+    /** 保存ボタン。 */
+    const val DEBUG_WASM_SITE_SAVE = "保存"
+
+    /** 保存値をクリアして本番配信へ戻すボタン。 */
+    const val DEBUG_WASM_SITE_CLEAR = "本番に戻す"
+
+    /** 保存失敗時（スキーム無し等の不正なURL）のエラー表示。 */
+    const val DEBUG_WASM_SITE_INVALID = "URLの形式が正しくありません（例: http://127.0.0.1:8925/）"
+
+    /** 保存成功時の一時表示。次回起動から反映される旨を明示する。 */
+    const val DEBUG_WASM_SITE_SAVED = "保存しました。次回起動から有効になります。"
+
     // ═══ 26. レポート画面の検討モード ════════════════════════════════════════
 
     /**

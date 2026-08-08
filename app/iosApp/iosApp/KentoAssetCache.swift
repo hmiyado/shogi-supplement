@@ -242,16 +242,26 @@ final class KentoAssetCache {
 
     // MARK: - 配信元・対象ファイル一覧（docs/copy-kento-assets.sh と対応させる）
 
-    /// 配信元サイトのルートURL。DEBUGビルドに限り環境変数で差し替え可能
-    /// （未公開の資産をローカル配信で検証するためのフック）。
+    /// 配信元サイトのルートURL。DEBUGビルドに限り環境変数・デバッグ画面の保存値で
+    /// 差し替え可能（未公開のWASMバイナリをローカル配信で検証するためのフック）。
+    /// 優先順位: 環境変数 > 保存値 > 本番。識別子と既定値は `KentoSiteOverride` が単一の源。
+    ///
+    /// Why not この分岐をDEBUG外にも残す: `#if DEBUG` の外側に置くとRelease配布物にも
+    /// UserDefaultsの読み取りコード自体は含まれてしまい、意図せず保存値を拾うリスクを
+    /// 完全には排除できない。ここではRelease版バイナリにこの読み取りコードそのものを
+    /// 含めない（コンパイル時に除去する）ことで「保存値を一切読まない」を担保する。
     private static var siteBaseURL: URL {
         #if DEBUG
-        if let override = ProcessInfo.processInfo.environment["KENTO_SITE_BASE_URL_OVERRIDE"],
+        if let override = ProcessInfo.processInfo.environment[KentoSiteOverride.shared.environmentKey],
            let url = URL(string: override) {
             return url
         }
+        if let saved = UserDefaults.standard.string(forKey: KentoSiteOverride.shared.defaultsKey),
+           let url = URL(string: saved) {
+            return url
+        }
         #endif
-        return URL(string: "https://shogi-supplement.miyado.dev/")!
+        return URL(string: KentoSiteOverride.shared.productionUrl)!
     }
 
     private static var kentoBaseURL: URL {
