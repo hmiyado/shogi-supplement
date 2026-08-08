@@ -242,8 +242,24 @@ final class KentoAssetCache {
 
     // MARK: - 配信元・対象ファイル一覧（docs/copy-kento-assets.sh と対応させる）
 
-    private static let kentoBaseURL = URL(string: "https://shogi-supplement.miyado.dev/kento/")!
-    private static let kentoAssetsBaseURL = URL(string: "https://shogi-supplement.miyado.dev/kento-assets/")!
+    /// 配信元サイトのルートURL。DEBUGビルドに限り環境変数で差し替え可能
+    /// （未公開の資産をローカル配信で検証するためのフック）。
+    private static var siteBaseURL: URL {
+        #if DEBUG
+        if let override = ProcessInfo.processInfo.environment["KENTO_SITE_BASE_URL_OVERRIDE"],
+           let url = URL(string: override) {
+            return url
+        }
+        #endif
+        return URL(string: "https://shogi-supplement.miyado.dev/")!
+    }
+
+    private static var kentoBaseURL: URL {
+        siteBaseURL.appendingPathComponent("kento", isDirectory: true)
+    }
+    private static var kentoAssetsBaseURL: URL {
+        siteBaseURL.appendingPathComponent("kento-assets", isDirectory: true)
+    }
 
     /// docs/kento/ 直下のホストページ・ブリッジ/Worker JS（バージョン概念なし。
     /// エンジンVERSIONの切替と同じタイミングでまとめて再取得する簡略化）。
