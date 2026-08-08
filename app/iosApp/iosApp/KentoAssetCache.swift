@@ -152,10 +152,18 @@ final class KentoAssetCache {
 
     /// 1ファイルを取得し [destination] へ書き込む。戻り値は
     /// [KentoAssetCachePolicy.isFileComplete] によるサイズ照合の結果。
+    ///
+    /// HTTPステータスを明示的に確認する: `URLSession.data(from:)` は404等の非2xxでも
+    /// エラーを投げず「本文（例えばPagesの404 HTMLページ）」をそのまま返してしまう。
+    /// ステータスを見ずにサイズ照合だけに頼ると、404ページ自身のContent-Lengthと
+    /// 実バイト数は一致してしまうため「完全なファイル」と誤判定する。
     private static func downloadFile(from url: URL, to destination: URL) async throws -> Bool {
         let (data, response) = try await URLSession.shared.data(from: url)
-        let declaredLength = (response as? HTTPURLResponse)?.expectedContentLength
-        let declared: Int64? = (declaredLength ?? -1) >= 0 ? declaredLength : nil
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw KentoAssetCacheError.httpError(url: url)
+        }
+        let declaredLength = http.expectedContentLength
+        let declared: Int64? = declaredLength >= 0 ? declaredLength : nil
 
         try FileManager.default.createDirectory(
             at: destination.deletingLastPathComponent(), withIntermediateDirectories: true
@@ -169,7 +177,10 @@ final class KentoAssetCache {
     }
 
     private static func fetchText(_ url: URL) async throws -> String {
-        let (data, _) = try await URLSession.shared.data(from: url)
+        let (data, response) = try await URLSession.shared.data(from: url)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw KentoAssetCacheError.httpError(url: url)
+        }
         guard let text = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
               !text.isEmpty else {
             throw KentoAssetCacheError.emptyVersion
@@ -252,4 +263,5 @@ final class KentoAssetCache {
 enum KentoAssetCacheError: Error {
     case incompleteDownload
     case emptyVersion
+    case httpError(url: URL)
 }
