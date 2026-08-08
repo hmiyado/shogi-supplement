@@ -906,7 +906,7 @@ private fun IosSettingsScreenHost(
 /**
  * デバッグ画面（[DebugScreen]。iOS専用・DEBUGビルド限定）のホスト。
  *
- * WASM資産（KentoAssetCache.swift）の配信元URLをDEBUGオーバーライドできるようにする
+ * WASMバイナリ（KentoAssetCache.swift）の配信元URLをDEBUGオーバーライドできるようにする
  * ([WasmSiteOverrideStore] 参照。永続化はNSUserDefaults・Swift側と同じキーを共有）。
  * 保存・クリア直後に [effectiveInfo] を再計算して渡し直す（[DebugScreen] 自身は
  * 楽観的な内部状態を持たない設計。KDoc参照）。

@@ -36,7 +36,7 @@ import org.jetbrains.compose.ui.tooling.preview.Preview
 /**
  * DEBUGビルド限定のデバッグ画面（iOS。SettingsScreenの「デバッグ画面」行から遷移）。
  *
- * 現状の内容はWASM資産（検討モードの端末内解析）の配信元URL切替のみ。実機
+ * 現状の内容はWASMバイナリ（検討モードの端末内解析）の配信元URL切替のみ。実機
  * （`devicectl`起動）では環境変数 `KENTO_SITE_BASE_URL_OVERRIDE` を注入できないため、
  * この画面から入力・永続保存して起動方法を問わず切り替えられるようにする狙い
  * （実際の優先順位判定・保存はプラットフォーム側。iOSは

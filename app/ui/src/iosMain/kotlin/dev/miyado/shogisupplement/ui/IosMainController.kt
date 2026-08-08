@@ -245,7 +245,7 @@ class IosMainController(
             }
             runner.analyzePosition(sfen, moves)
         }
-        // ローカルWASM優先・不可時（資産未準備・ホスト起動失敗）はサーバーへ
+        // ローカルWASM優先・不可時（WASMバイナリ未準備・ホスト起動失敗）はサーバーへ
         // （FailoverEngine KDoc参照。WasmStudyEngineはfail-fastで即座に例外を投げるため
         // ダウンロード中等で数十秒待たせてから切り替わることはない）。
         return { FailoverEngine(primary = WasmStudyEngine(), secondary = remoteEngine) }
@@ -259,7 +259,7 @@ class IosMainController(
      * engineFactory 自体が例外を投げるだけなので、判定を分けても着手のたびにErrorが
      * 出るか手動リトライでErrorが出るかの違いしかない）。ローカルWASM＋サーバー
      * フォールバック合成のときだけ、[WasmStudyBridge.localReadyProvider]
-     * （= 資産キャッシュの準備状態）を実際に見て、未準備なら false を返す
+     * （= WASMバイナリキャッシュの準備状態）を実際に見て、未準備なら false を返す
      * （サーバーへ自動でフォールバックさせない＝クォータ保護）。
      */
     private fun studyLocalEngineLikelyAvailable(): () -> Boolean {

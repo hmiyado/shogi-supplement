@@ -130,7 +130,7 @@ final class WasmAnalysisHost: NSObject {
     private static let messageHandlerName = "wasmAnalysis"
 
     /// ホストページのURL。DEBUGビルドに限り環境変数で差し替え可能
-    /// （ホストページだけローカル配信に差し替え、エンジン資産(assetBaseUrl)は
+    /// （ホストページだけローカル配信に差し替え、エンジンWASMバイナリ(assetBaseUrl)は
     /// 本番配信のまま検証するためのフック）。
     private static var hostPageURL: URL {
         #if DEBUG

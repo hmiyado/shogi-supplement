@@ -4,10 +4,10 @@
 # リポジトリのコミット履歴をそのまま配信する仕組みではない(ビルド成果物の配置)ため、
 # コミット不要でも配信は成立する。docs/kento-assets/は.gitignore対象。
 #
-# バージョン付きサブディレクトリへ配置する理由: ページ側は資産の参照先を
+# バージョン付きサブディレクトリへ配置する理由: ページ側はWASMバイナリの参照先を
 # 「ベースURL(1箇所の設定)＋/<エンジンバージョン>/」で組み立てる想定になっている。
 # ここでもengine-wasm/VERSIONの値をそのままサブディレクトリ名に使うことで、
-# ページ側の実行時判断と本スクリプトの配置が食い違わないようにする。将来資産を
+# ページ側の実行時判断と本スクリプトの配置が食い違わないようにする。将来WASMバイナリを
 # CloudFront+S3等の外部ホストへ移す場合も同じ構造(ベースURL＋バージョン付きパス)を
 # 使う想定。
 set -euo pipefail
@@ -43,10 +43,10 @@ cp "$SRC_OUT_BROWSER"/VERSION "$DEST"/VERSION
 echo "コピー完了: $DEST_VERSIONED (バージョン: $VERSION)"
 du -sh "$DEST_VERSIONED"
 
-# :webApp (CMP for Web・レポート画面本体) のwasmJs本番ビルド。エンジン資産と違って
+# :webApp (CMP for Web・レポート画面本体) のwasmJs本番ビルド。エンジンWASMバイナリと違って
 # 毎回このリポジトリのソースから再現できる(上流フェッチもDockerも不要)ため、
 # このスクリプト自身がGradleビルドまで完結させる。バージョン付きディレクトリに
-# 分けない理由: 外部からfetchする資産ではなく、このリポジトリのコミットと
+# 分けない理由: 外部からfetchするWASMバイナリではなく、このリポジトリのコミットと
 # 常に同じ内容になる(バージョンという概念がそもそも無い)。
 WEBAPP_DIST="$APP_DIR/webApp/build/dist/wasmJs/productionExecutable"
 echo ":webApp (CMP for Web) をビルドします..."

@@ -2,7 +2,7 @@ package dev.miyado.shogisupplement.engine
 
 /**
  * iOS端末内WASM解析（検討モード・ドリル等のオンデマンド単発局面解析）向け、
- * ローカル資産キャッシュ（docs/kento/・docs/kento-assets/一式）の版管理・完全性判定を担う
+ * WASMバイナリのローカルキャッシュ（docs/kento/・docs/kento-assets/一式）の版管理・完全性判定を担う
  * 純粋関数群。
  *
  * ネットワークI/O・ファイルI/Oはこの型の外（iOS側の実行部）が担い、ここでは
@@ -16,12 +16,12 @@ package dev.miyado.shogisupplement.engine
  */
 object KentoAssetCachePolicy {
 
-    /** ローカルに保存済みの資産の状態。[version] は保存済みディレクトリ名（無ければnull）。 */
+    /** ローカルに保存済みのWASMバイナリの状態。[version] は保存済みディレクトリ名（無ければnull）。 */
     data class LocalState(val version: String?, val isComplete: Boolean)
 
     /** [decide] の判断結果。 */
     sealed class Decision {
-        /** [version] のローカル資産をそのまま使ってよい（再取得不要）。 */
+        /** [version] のローカルWASMバイナリをそのまま使ってよい（再取得不要）。 */
         data class UseLocal(val version: String) : Decision()
 
         /** [version] を新規取得（または再取得）する必要がある。 */

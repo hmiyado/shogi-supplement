@@ -367,7 +367,7 @@ class StudyControllerTest {
     }
 
     /**
-     * Preparing 中にローカルエンジンが使えるようになった（資産ダウンロード完了相当）とき、
+     * Preparing 中にローカルエンジンが使えるようになった（WASMバイナリのダウンロード完了相当）とき、
      * ユーザー操作なしで解析が拾われることを確認する。localEngineLikelyAvailable を
      * 可変フラグで返し、ポーリング間隔の経過を TestCoroutineScheduler の仮想時間で進める。
      */

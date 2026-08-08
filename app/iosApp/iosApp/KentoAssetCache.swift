@@ -1,7 +1,7 @@
 import SharedUi
 import Foundation
 
-/// WASM解析の資産一式（ホストページ・ブリッジ/Worker JS・エンジンwasm・評価関数）を
+/// WASM解析のバイナリ・ページ一式（ホストページ・ブリッジ/Worker JS・エンジンwasm・評価関数）を
 /// 本番Pagesからダウンロードし、Application Support配下へバージョン別ディレクトリで
 /// 保存するキャッシュ。
 ///
@@ -68,7 +68,7 @@ final class KentoAssetCache {
             remoteVersion = try await Self.fetchText(Self.kentoAssetsBaseURL.appendingPathComponent("VERSION"))
         } catch {
             // バージョン確認自体が失敗（オフライン等）: 既にローカルへ完全に保存済みの版が
-            // あればそれをそのまま使う（オフライン検討はこの経路で機能する。ローカル資産が
+            // あればそれをそのまま使う（オフライン検討はこの経路で機能する。ローカルWASMバイナリが
             // 無ければサーバーへ委ねるほかない）。
             if let existing = Self.findAnyComplete() {
                 setState(.ready(rootURL: existing.rootURL, version: existing.version))
@@ -95,7 +95,7 @@ final class KentoAssetCache {
             Self.deleteOtherVersions(keeping: fetch.version)
             setState(.ready(rootURL: rootURL, version: fetch.version))
         } catch {
-            // 失敗時は資産未準備のまま（次回起動時に再試行する）。
+            // 失敗時はWASMバイナリ未準備のまま（次回起動時に再試行する）。
             setState(.notReady)
         }
     }
@@ -278,7 +278,7 @@ final class KentoAssetCache {
         "study-worker.js",
     ]
 
-    /// docs/kento-assets/<VERSION>/ 配下のエンジン資産（docs/copy-kento-assets.sh参照）。
+    /// docs/kento-assets/<VERSION>/ 配下のエンジンWASMバイナリ（docs/copy-kento-assets.sh参照）。
     private static let engineFiles = [
         "yaneuraou-simd.js", "yaneuraou-simd.wasm",
         "yaneuraou-nosimd.js", "yaneuraou-nosimd.wasm",

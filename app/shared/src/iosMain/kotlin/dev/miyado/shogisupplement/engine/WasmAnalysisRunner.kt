@@ -59,13 +59,13 @@ class WasmAnalysisRunner : GameAnalyzer {
 
     companion object {
         /**
-         * WASMエンジン資産（VERSION・yaneuraou-*.wasm・nn.bin）の本番配信先。
+         * エンジンWASMバイナリ（VERSION・yaneuraou-*.wasm・nn.bin）の本番配信先。
          * docs/copy-kento-assets.sh が生成し、Pages（[docs/CNAME]のカスタムドメイン）配下へ
          * デプロイする（docs/kento-assets/。バージョン付きサブディレクトリの解決は
          * docs/kento/webapp-bridge.js の resolveAssetDirUrl が担う）。
          *
          * Why not ANALYSIS_BASE_URLのようにビルド時設定にする: サーバー解析ベースURLは
-         * dev/prodで環境が分かれるが、Pages資産は本番配信のみ（開発用の別配信は無い）ため
+         * dev/prodで環境が分かれるが、PagesのWASMバイナリは本番配信のみ（開発用の別配信は無い）ため
          * 設定項目を増やす理由が無い。
          */
         private const val ASSET_BASE_URL = "https://shogi-supplement.miyado.dev/kento-assets"

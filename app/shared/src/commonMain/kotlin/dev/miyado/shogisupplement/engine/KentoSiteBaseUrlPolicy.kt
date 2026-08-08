@@ -1,7 +1,7 @@
 package dev.miyado.shogisupplement.engine
 
 /**
- * WASM資産（KentoAssetCache.swift）配信元URLのDEBUGオーバーライド入力を正規化する純粋関数。
+ * WASMバイナリ（KentoAssetCache.swift）配信元URLのDEBUGオーバーライド入力を正規化する純粋関数。
  *
  * iOSにXCTest等のユニットテスト基盤が無く検証方針がJVMテスト完結（CLAUDE.md参照）のため、
  * 手入力の妥当性判断はここに置きjvmTestで検証できるようにする。

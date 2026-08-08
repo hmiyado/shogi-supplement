@@ -531,7 +531,7 @@ object AppStrings {
     /** DebugScreen の「完了通知を送付」ボタン。 */
     const val DEBUG_SEND_NOTIFICATION = "完了通知を送付"
 
-    /** iOS専用デバッグ画面（WASM資産の配信元URL切替）のタイトル。 */
+    /** iOS専用デバッグ画面（WASMバイナリの配信元URL切替）のタイトル。 */
     const val DEBUG_SCREEN_TITLE = "デバッグ: 配信元URL"
 
     /** 配信元URL入力欄のラベル。 */

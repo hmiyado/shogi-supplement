@@ -140,7 +140,7 @@ object DrillDemoFactory {
             val remoteJudge = RemoteDrillSecondaryJudge { sfen -> runner.analyzePosition(sfen) }
             // ローカルWASMは出題局面・ユーザー手後局面の2回とも無料で解析できるため
             // EngineDrillSecondaryJudge（端末エンジン版と同型・2回解析）を使う。WasmStudyEngine
-            // はfail-fastなので、資産未準備等で1回目のanalyzeSfenが即座に例外を投げ、
+            // はfail-fastなので、WASMバイナリ未準備等で1回目のanalyzeSfenが即座に例外を投げ、
             // ここでサーバー版（1回だけ解析してクォータを節約するRemoteDrillSecondaryJudge）へ
             // 切り替わる（DrillSecondaryJudge単位のフェイルオーバー。Engine単位で合成すると
             // secondaryも2回解析する構成になりRemoteDrillSecondaryJudgeの節約が失われるため

@@ -24,7 +24,7 @@ object WasmAnalysisBridge {
      * 実処理へのクロージャ。
      * @param runId 呼び出し元（[WasmAnalysisRunner]）が発行する一意な実行ID
      * @param movesJson 棋譜のUSI手列をJSON配列文字列化したもの
-     * @param assetBaseUrl WASMエンジン資産（VERSION・wasm本体・評価関数）のベースURL（絶対URL）
+     * @param assetBaseUrl エンジンWASMバイナリ（VERSION・wasm本体・評価関数）のベースURL（絶対URL）
      */
     var startHandler: ((runId: String, movesJson: String, assetBaseUrl: String) -> Unit)? = null
 
@@ -77,7 +77,7 @@ object WasmAnalysisBridge {
         callback?.invoke()
     }
 
-    /** Swift側: 解析が失敗した（資産取得失敗・ページ読み込み失敗・WKWebViewプロセス終了等）。 */
+    /** Swift側: 解析が失敗した（WASMバイナリ取得失敗・ページ読み込み失敗・WKWebViewプロセス終了等）。 */
     fun onError(runId: String, message: String) {
         if (runId != activeRunId) return
         val callback = onErrorCallback

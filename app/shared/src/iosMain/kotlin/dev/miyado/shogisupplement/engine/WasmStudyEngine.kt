@@ -26,9 +26,9 @@ import platform.Foundation.NSUUID
  * 完全一致させる不変条件のため、フォーマットの食い違いは許されない）。
  *
  * [WasmStudyBridge.analyzeHandler] が未登録、または即座に受理できない
- * （ホスト未初期化・資産未準備・別リクエストが処理中）場合は即座に例外を投げる
+ * （ホスト未初期化・WASMバイナリ未準備・別リクエストが処理中）場合は即座に例外を投げる
  * （fail-fast。呼び出し側の合成——[FailoverEngine]——がサーバー経路へ即座に
- * 切り替えられるよう、資産ダウンロード中などに数十秒待たせないため）。
+ * 切り替えられるよう、WASMバイナリのダウンロード中などに数十秒待たせないため）。
  */
 class WasmStudyEngine : Engine {
 

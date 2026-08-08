@@ -45,7 +45,7 @@ private const val STUDY_LOCAL_ENGINE_POLL_INTERVAL_MS = 2_000L
  * - [evalDisplayProvider]: 形勢の表示単位（'cp'/'wp'）を都度取得する。
  * - [localEngineLikelyAvailable]: 自動発火してよいか（サーバーへ静かにフォールバックして
  *   クォータを消費しないか）の見込み判定。既定はネイティブエンジン常駐環境（Android・
- *   iOSエンジン入り版）向けの `{ true }`。iOS engineless 版はローカルWASM資産の準備状況を
+ *   iOSエンジン入り版）向けの `{ true }`。iOS engineless 版はローカルWASMバイナリの準備状況を
  *   見る実判定をホストが注入する。
  *
  * 検討手順は分岐元（baseSfen）ごとに木構造で保持し、「検討終了（endStudy）」では
@@ -377,7 +377,7 @@ class StudyController(
      *
      * [localEngineLikelyAvailable] が true ならその場で解析を開始する。false なら
      * [StudyEvalState.Preparing] にして、見込みが変わるまで [pollJob] で再判定を続ける
-     * （資産ダウンロード完了後にユーザー操作なしで評価が出るようにするため）。
+     * （WASMバイナリのダウンロード完了後にユーザー操作なしで評価が出るようにするため）。
      */
     private fun maybeAutoAnalyze() {
         pollJob?.cancel()
