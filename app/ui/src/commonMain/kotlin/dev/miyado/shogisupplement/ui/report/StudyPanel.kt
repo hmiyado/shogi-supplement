@@ -42,6 +42,7 @@ import dev.miyado.shogisupplement.board.ShogiMove
 import dev.miyado.shogisupplement.notation.JapaneseNotation
 import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.ShogiSecondaryButton
+import dev.miyado.shogisupplement.ui.theme.IbmPlexMonoFamily
 import dev.miyado.shogisupplement.ui.theme.LightInk
 import dev.miyado.shogisupplement.ui.theme.ShipporiMinchoFamily
 import dev.miyado.shogisupplement.ui.theme.TextStyleDataMove
@@ -176,7 +177,11 @@ internal fun StudyPanel(
 
             HorizontalDivider(color = shogiColors.line)
 
-            // 手ごとの評価値はチップ側に併記するため、スロットは数値を持たない。
+            // 着手・チップ移動のたび StudyController が自動発火するため、評価スロットは
+            // 排他的な状態表示（DESIGN.md No-jitter）が主目的で、手動ボタンは
+            // Preparing（ローカルエンジンが使える見込みが無い）・Error（解析失敗）の
+            // 2状態にのみ出す（None は分岐元そのもの・moves空で「そもそも何もしない」。
+            // Loading/Value は自動で先へ進むため手動操作の出番が無い）。
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -184,32 +189,62 @@ internal fun StudyPanel(
                 contentAlignment = Alignment.CenterStart,
             ) {
                 when (val es = studyState.evalState) {
-                    StudyEvalState.None, StudyEvalState.Error -> {
+                    StudyEvalState.None -> Unit
+                    StudyEvalState.Preparing -> {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (es is StudyEvalState.Error) {
-                                Text(
-                                    AppStrings.evalSuffix(AppStrings.EVAL_UNAVAILABLE),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = shogiColors.ink2,
-                                )
-                                Spacer(Modifier.width(8.dp))
-                            }
-                            AnalyzeButton(enabled = studyState.moves.isNotEmpty(), onClick = onAnalyze)
+                            Text(
+                                AppStrings.STUDY_EVAL_PREPARING,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = shogiColors.ink2,
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            AnalyzeButton(onClick = onAnalyze)
+                        }
+                    }
+                    StudyEvalState.Error -> {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                AppStrings.evalSuffix(AppStrings.EVAL_UNAVAILABLE),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = shogiColors.ink2,
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            AnalyzeButton(onClick = onAnalyze)
                         }
                     }
                     StudyEvalState.Loading -> {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             CircularProgressIndicator(modifier = Modifier.height(16.dp).width(16.dp), strokeWidth = 2.dp)
                             Spacer(Modifier.width(8.dp))
-                            Text(AppStrings.EVAL_LOADING, style = MaterialTheme.typography.bodySmall, color = shogiColors.ink2)
+                            Text(
+                                AppStrings.STUDY_EVAL_ANALYZING,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = shogiColors.ink2,
+                            )
                         }
                     }
                     is StudyEvalState.Value -> {
-                        Text(
-                            AppStrings.STUDY_EVAL_ANALYZED,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = shogiColors.ink2,
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                es.label.text,
+                                style = MaterialTheme.typography.titleMedium.copy(fontFamily = IbmPlexMonoFamily),
+                                color = when {
+                                    es.label.sign > 0 -> MaterialTheme.colorScheme.primary
+                                    es.label.sign < 0 -> shogiColors.loss
+                                    else -> MaterialTheme.colorScheme.onSurface
+                                },
+                            )
+                            if (es.bestMoveText != null) {
+                                Spacer(Modifier.width(10.dp))
+                                Text(
+                                    AppStrings.studyBestMoveLabel(es.bestMoveText),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = shogiColors.ink2,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -218,13 +253,13 @@ internal fun StudyPanel(
 }
 
 /**
- * 検討パネルの「解析」ボタン。「進む」の意匠は文字（▶等）ではなく
+ * 検討パネルの評価スロット手動リトライボタン。「進む」の意匠は文字（▶等）ではなく
  * KeyboardArrowRight アイコン＋「+」で表す（miyadoさん実機確認: 生の「▶」文字がiOSで
  * 絵文字レンダリングされてしまうため。読み筋延長ボタンと同じ表現に統一）。
  */
 @Composable
-private fun AnalyzeButton(enabled: Boolean, onClick: () -> Unit) {
-    ShogiSecondaryButton(onClick = onClick, enabled = enabled) {
+private fun AnalyzeButton(onClick: () -> Unit) {
+    ShogiSecondaryButton(onClick = onClick) {
         Text(AppStrings.STUDY_ANALYZE_LABEL)
         Icon(
             Icons.AutoMirrored.Filled.KeyboardArrowRight,

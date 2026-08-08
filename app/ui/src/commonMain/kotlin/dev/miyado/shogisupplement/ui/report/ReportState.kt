@@ -23,6 +23,12 @@ import dev.miyado.shogisupplement.board.ShogiSquare
  */
 sealed class StudyEvalState {
     object None : StudyEvalState()
+
+    /**
+     * ローカルエンジンが使える見込みが無く、自動発火を保留している。[Loading] とは
+     * 文言・見た目を変える（バッチ解析の「解析中」・WASM解析中とユーザーが混同しないため）。
+     */
+    object Preparing : StudyEvalState()
     object Loading : StudyEvalState()
 
     /**
@@ -31,8 +37,14 @@ sealed class StudyEvalState {
      *   計算する分子/分母として使う。表示単位（cp/wp）に関わらず常にcp軸で保持する
      *   （差の計算をcp軸に統一するため。Why not wp軸で差を出す: 勝率は非線形なため
      *   「差」の直感的な意味が薄れる。cp軸の差の方が一貫して解釈しやすい）。
+     * @param bestMoveText PVの先頭手の棋譜表記（例:「▲2六歩」）。PVが空・整形失敗なら null
+     *   （数値のみ表示する）。
      */
-    data class Value(val label: PositionEvalDisplay.EvalLabel, val userCp: Int? = null) : StudyEvalState()
+    data class Value(
+        val label: PositionEvalDisplay.EvalLabel,
+        val userCp: Int? = null,
+        val bestMoveText: String? = null,
+    ) : StudyEvalState()
     object Error : StudyEvalState()
 }
 

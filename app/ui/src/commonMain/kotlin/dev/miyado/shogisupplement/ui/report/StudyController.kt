@@ -9,8 +9,12 @@ import dev.miyado.shogisupplement.board.ShogiMove
 import dev.miyado.shogisupplement.board.ShogiSquare
 import dev.miyado.shogisupplement.board.Side
 import dev.miyado.shogisupplement.engine.Engine
+import dev.miyado.shogisupplement.engine.PvInfo
+import dev.miyado.shogisupplement.notation.JapaneseNotation
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,14 +26,27 @@ import kotlinx.coroutines.withContext
 private const val STUDY_ANALYSIS_NODES = 200_000
 
 /**
+ * ローカルエンジンが使える見込みが無い（[StudyEvalState.Preparing]）ときの再判定間隔。
+ * 「使える見込みか」の実体判断はプラットフォーム側が注入する
+ * [StudyController.localEngineLikelyAvailable] に委ねるため、ここでは秒単位の
+ * 粗い間隔でポーリングするだけで足りる。
+ */
+private const val STUDY_LOCAL_ENGINE_POLL_INTERVAL_MS = 2_000L
+
+/**
  * レポート画面の検討モードを担う状態・ロジック。
  *
  * DrillViewModel（judgeWithEngine 注入）・AccountViewModel と同じ「ホストがエンジン生成/
  * 評価値表示単位を注入する」パターンを使う:
- * - [engineFactory]: 検討評価が必要になったとき（「解析」ボタン押下時。オンデマンド）呼ばれ、
+ * - [engineFactory]: 検討評価が必要になったとき（着手・チップ移動での自動発火、または
+ *   [StudyEvalState.Preparing]/[StudyEvalState.Error] 時の手動リトライ）呼ばれ、
  *   以後 [studyEngine] として生かしっぱなしにする。エンジンの起動/破棄ライフサイクルは
  *   呼び出し元＝ホストの責務。
  * - [evalDisplayProvider]: 形勢の表示単位（'cp'/'wp'）を都度取得する。
+ * - [localEngineLikelyAvailable]: 自動発火してよいか（サーバーへ静かにフォールバックして
+ *   クォータを消費しないか）の見込み判定。既定はネイティブエンジン常駐環境（Android・
+ *   iOSエンジン入り版）向けの `{ true }`。iOS engineless 版はローカルWASM資産の準備状況を
+ *   見る実判定をホストが注入する。
  *
  * 検討手順は分岐元（baseSfen）ごとに木構造で保持し、「検討終了（endStudy）」では
  * 破棄しない。レポート画面を開いている間は [treesByOrigin] に残り続け、同じ分岐元から
@@ -46,6 +63,7 @@ class StudyController(
     private val ioDispatcher: CoroutineDispatcher,
     private val engineFactory: () -> Engine,
     private val evalDisplayProvider: () -> String,
+    private val localEngineLikelyAvailable: () -> Boolean = { true },
 ) {
 
     /** レポート画面の検討モード状態（null = 検討していない）。 */
@@ -72,8 +90,15 @@ class StudyController(
     private var nextNodeIdCounter = 1L
     private fun nextNodeId(): Long = nextNodeIdCounter++
 
-    /** オンデマンド解析の実行中フラグ（多重発火防止。連打しても1回分だけ実行する）。 */
+    /** 解析の実行中フラグ（自動発火・手動リトライ共有。多重発火防止で1回分だけ実行する）。 */
     private var studyEvalRunning = false
+
+    /**
+     * [StudyEvalState.Preparing] 中の再判定ループ（[localEngineLikelyAvailable] が
+     * true に変わるのを待つ）。局面が変わるたび [maybeAutoAnalyze] が先頭でキャンセルする
+     * ため、常に「直前に評価対象だった局面」向けの1本だけが生きている。
+     */
+    private var pollJob: Job? = null
 
     /**
      * 検討モードを開始する（レポートビューアで盤上の駒または持ち駒をタップしたときに呼ぶ）。
@@ -306,6 +331,8 @@ class StudyController(
 
     /** 検討モードを終了する（エンジンをquitし、盤面状態を破棄する）。検討木は破棄しない。 */
     fun endStudy() {
+        pollJob?.cancel()
+        pollJob = null
         studyEngine?.quit()
         studyEngine = null
         studyBoard = null
@@ -319,51 +346,114 @@ class StudyController(
      * （画面を開いている間は保持するため。endStudy では破棄しない）。
      */
     fun dispose() {
+        pollJob?.cancel()
+        pollJob = null
         studyEngine?.quit()
         studyEngine = null
         treesByOrigin.clear()
     }
 
     /**
-     * 現在局面をオンデマンドで解析する（「解析 ▶+」ボタン）。moves が空（分岐元そのもの）
-     * のときは何もしない——分岐元の形勢はパネル冒頭に既に表示されているため、
-     * 同じ局面を改めて解析する意味がない。
+     * 現在局面の解析を明示的にリトライする（[StudyEvalState.Preparing]／[StudyEvalState.Error]
+     * 時にのみ表示される「解析」ボタン）。moves が空（分岐元そのもの）のときは何もしない
+     * ——分岐元の形勢はパネル冒頭に既に表示されているため、同じ局面を改めて解析する意味がない。
      *
-     * 自動発火はせず、明示操作でのみ実行するオンデマンド延長パターン。
+     * [localEngineLikelyAvailable] の判定を経ずに常に [startAnalysis] を呼ぶ
+     * （明示タップは見込み判定を待たせない。ローカル不可なら engineFactory 側の
+     * フォールバック合成——iOS engineless の FailoverEngine——がサーバーへ切り替える）。
+     * Preparing 中の再判定ループは不要になるため止める。
      */
     fun analyzeCurrentPosition() {
         val s = _studyState.value ?: return
         if (s.moves.isEmpty()) return
+        pollJob?.cancel()
+        pollJob = null
+        startAnalysis(s.baseSfen, s.moves, s.flip)
+    }
+
+    /**
+     * 着手・チップ移動後に呼ぶ自動発火の入り口。moves が空、または既に評価済み
+     * （None 以外。Error も含む——失敗は手動リトライ待ちの終端状態として扱う）なら何もしない。
+     *
+     * [localEngineLikelyAvailable] が true ならその場で解析を開始する。false なら
+     * [StudyEvalState.Preparing] にして、見込みが変わるまで [pollJob] で再判定を続ける
+     * （資産ダウンロード完了後にユーザー操作なしで評価が出るようにするため）。
+     */
+    private fun maybeAutoAnalyze() {
+        pollJob?.cancel()
+        pollJob = null
+        val s = _studyState.value ?: return
+        if (s.moves.isEmpty()) return
+        if (s.evalState != StudyEvalState.None) return
+        if (!localEngineLikelyAvailable()) {
+            _studyState.update { it?.copy(evalState = StudyEvalState.Preparing) }
+            val baseSfen = s.baseSfen
+            val moves = s.moves
+            val flip = s.flip
+            pollJob = scope.launch {
+                while (true) {
+                    delay(STUDY_LOCAL_ENGINE_POLL_INTERVAL_MS)
+                    if (!localEngineLikelyAvailable()) continue
+                    val cur = _studyState.value
+                    // 局面が変わっていた、または手動リトライ等で既にPreparingを抜けていたら
+                    // このループの役目は終わっている。
+                    if (cur == null || cur.baseSfen != baseSfen || cur.moves != moves) return@launch
+                    if (cur.evalState != StudyEvalState.Preparing) return@launch
+                    startAnalysis(baseSfen, moves, flip)
+                    return@launch
+                }
+            }
+            return
+        }
+        startAnalysis(s.baseSfen, s.moves, s.flip)
+    }
+
+    /**
+     * [baseSfen]+[moves] の局面をエンジンで解析し、完了したら結果を検討木へキャッシュする。
+     * [studyEvalRunning] による単一実行ガードのため、既に他局面の解析が進行中のときは
+     * 何もしない——[maybeAutoAnalyze] が呼び出し元（着手・チップ移動）と解析完了の両方から
+     * 呼ばれるため、進行中の解析が完了した時点で「今の局面がまだ未評価なら」拾い直される
+     * （速い連続着手でも最終的に今の局面が解析される。途中で通り過ぎた局面は解析されない）。
+     *
+     * 解析完了時、結果は常に [baseSfen]+[moves] の木へキャッシュする（呼び出し時点の局面と
+     * 一致するかに関わらず）。表示中の evalState を上書きするのは局面が一致する場合のみで、
+     * 一致しない（解析中に局面が進んでいた）場合も chipEvalStates は更新する
+     * （通り過ぎた手のチップに評価値が後から併記される。ShogiHome同様の見え方）。
+     */
+    private fun startAnalysis(baseSfen: String, moves: List<String>, flip: Boolean) {
         if (studyEvalRunning) return
         studyEvalRunning = true
         _studyState.update { it?.copy(evalState = StudyEvalState.Loading) }
 
         scope.launch {
-            val cur = _studyState.value
-            if (cur == null) {
-                studyEvalRunning = false
-                return@launch
-            }
             val evalResult = withContext(ioDispatcher) {
                 runCatching {
                     val engine = studyEngine ?: engineFactory().also { studyEngine = it }
-                    val pv1 = engine.analyzeSfen(cur.baseSfen, cur.moves, nodes = STUDY_ANALYSIS_NODES)
+                    val pv1 = engine.analyzeSfen(baseSfen, moves, nodes = STUDY_ANALYSIS_NODES)
                         .firstOrNull() ?: error("PV empty")
-                    studyEvalLabel(cur.baseSfen, cur.moves, pv1.score, cur.flip)
+                    studyEvalLabel(baseSfen, moves, pv1, flip)
                 }.getOrElse { StudyEvalState.Error }
             }
             studyEvalRunning = false
+
+            val tree = (treesByOrigin[baseSfen] ?: StudyTree()).withEvalState(moves, evalResult)
+            treesByOrigin[baseSfen] = tree
+
             val latest = _studyState.value
-            // 解析中にチップ操作等で局面が変わっていたら結果を捨てる（stale防止。
-            // オンデマンド解析は都度ボタンで明示的に呼ばれるため、
-            // 単純に「今の局面と違えば破棄」で十分）。
-            if (latest == null || latest.baseSfen != cur.baseSfen || latest.moves != cur.moves) return@launch
-            val tree = (treesByOrigin[latest.baseSfen] ?: StudyTree()).withEvalState(latest.moves, evalResult)
-            treesByOrigin[latest.baseSfen] = tree
-            // chipEvalStates も更新する（今解析した手のチップに評価値を併記するため）。
-            _studyState.update {
-                it?.copy(evalState = evalResult, chipEvalStates = tree.evalStatesAlong(latest.displayLine))
+            when {
+                latest == null -> Unit
+                latest.baseSfen == baseSfen && latest.moves == moves -> {
+                    _studyState.update {
+                        it?.copy(evalState = evalResult, chipEvalStates = tree.evalStatesAlong(latest.displayLine))
+                    }
+                }
+                latest.baseSfen == baseSfen -> {
+                    _studyState.update { it?.copy(chipEvalStates = tree.evalStatesAlong(latest.displayLine)) }
+                }
             }
+            // 解析中に局面が進んでいた場合、今の局面がまだ未評価なら拾い直す
+            // （studyEvalRunning が false に戻った直後なので、ここで即座に再発火できる）。
+            maybeAutoAnalyze()
         }
     }
 
@@ -421,6 +511,9 @@ class StudyController(
             evalState = tree.evalStateAt(newMoves),
             showTurnHint = false,
         )
+        // 新しい局面（未評価なら）の自動発火を判定する。チップタップ等で既に評価済みの
+        // 局面へ戻ったときは maybeAutoAnalyze 内の evalState != None ガードで何もしない。
+        maybeAutoAnalyze()
     }
 
     /** displayLine 上の depth 手目まで（0 = 検討開始局面）を現在局面として適用する。 */
@@ -431,6 +524,7 @@ class StudyController(
 
     /**
      * エンジンPVのスコア（手番側視点）を先手視点に正規化して表示ラベル + 自分視点cpに変換する。
+     * あわせて PV 先頭手（最善手）を現局面基準の棋譜表記へ変換する。
      *
      * PvInfo.score のドキュメント（dev.miyado.shogisupplement.engine.Engine.kt）:
      * 「手番側視点のスコア」。position_eval・BlunderJudge と同じ規約
@@ -441,7 +535,7 @@ class StudyController(
      * userCp は共通のcpエンコード規約（常にcp軸で保持する）に合わせるため、詰みも含めて
      * 同じ方式でエンコードしたうえでユーザー視点に正規化する。
      */
-    private fun studyEvalLabel(baseSfen: String, moves: List<String>, score: Score, userIsGote: Boolean): StudyEvalState {
+    private fun studyEvalLabel(baseSfen: String, moves: List<String>, pv: PvInfo, userIsGote: Boolean): StudyEvalState {
         val board = runCatching { ShogiBoard.fromSfen(baseSfen) }.getOrNull()
             ?: return StudyEvalState.Error
         moves.forEach { m -> runCatching { board.push(ShogiMove.fromUsi(m)) } }
@@ -449,6 +543,7 @@ class StudyController(
         // mate_in=0 の勝敗判定用（parity のみ使うダミーply）。
         val syntheticPly = if (moverIsSente) 0 else 1
 
+        val score = pv.score
         val moverCp = BlunderJudge.toCp(score)
         val senteCp = if (moverIsSente) moverCp else -moverCp
         val userCp = if (userIsGote) -senteCp else senteCp
@@ -474,6 +569,11 @@ class StudyController(
                 )
             }
         }
-        return label?.let { StudyEvalState.Value(it, userCp = userCp) } ?: StudyEvalState.None
+        // board はこの時点で現局面（baseSfen+moves適用後）のまま——PV先頭手はここからの
+        // 指し手なので、チップと同じ JapaneseNotation.format(usi, board) で整形できる。
+        val bestMoveText = pv.pv.firstOrNull()?.let { usi ->
+            runCatching { JapaneseNotation.format(usi, board) }.getOrNull()
+        }
+        return label?.let { StudyEvalState.Value(it, userCp = userCp, bestMoveText = bestMoveText) } ?: StudyEvalState.None
     }
 }

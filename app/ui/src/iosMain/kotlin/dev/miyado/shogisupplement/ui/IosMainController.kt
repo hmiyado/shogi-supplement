@@ -20,6 +20,7 @@ import dev.miyado.shogisupplement.engine.FailoverAnalyzer
 import dev.miyado.shogisupplement.engine.FailoverEngine
 import dev.miyado.shogisupplement.engine.RemoteAnalysisRunner
 import dev.miyado.shogisupplement.engine.WasmAnalysisRunner
+import dev.miyado.shogisupplement.engine.WasmStudyBridge
 import dev.miyado.shogisupplement.engine.WasmStudyEngine
 import dev.miyado.shogisupplement.kifu.ClipboardKifValidator
 import dev.miyado.shogisupplement.kifu.KifParser
@@ -209,6 +210,7 @@ class IosMainController(
         repository = gameRepository,
         engineFactory = studyEngineFactory(),
         evalDisplayProvider = { _evalDisplay.value },
+        localEngineLikelyAvailable = studyLocalEngineLikelyAvailable(),
     )
 
     /**
@@ -247,6 +249,27 @@ class IosMainController(
         // （FailoverEngine KDoc参照。WasmStudyEngineはfail-fastで即座に例外を投げるため
         // ダウンロード中等で数十秒待たせてから切り替わることはない）。
         return { FailoverEngine(primary = WasmStudyEngine(), secondary = remoteEngine) }
+    }
+
+    /**
+     * StudyController の着手自動発火（検討モード）を許してよいかの見込み判定。
+     *
+     * [studyEngineFactory] と同じ条件分岐: エンジン入り版・サーバー未設定のダミー版は
+     * 常に true（前者は常駐ネイティブエンジンでクォータの心配が無い。後者はどのみち
+     * engineFactory 自体が例外を投げるだけなので、判定を分けても着手のたびにErrorが
+     * 出るか手動リトライでErrorが出るかの違いしかない）。ローカルWASM＋サーバー
+     * フォールバック合成のときだけ、[WasmStudyBridge.localReadyProvider]
+     * （= 資産キャッシュの準備状態）を実際に見て、未準備なら false を返す
+     * （サーバーへ自動でフォールバックさせない＝クォータ保護）。
+     */
+    private fun studyLocalEngineLikelyAvailable(): () -> Boolean {
+        val auth = authRepository
+        val baseUrl = analysisBaseUrl
+        val runnerHttpClient = studyAnalysisHttpClient
+        if (IosEngineHost.ENGINE_LINKED || auth == null || baseUrl == null || runnerHttpClient == null) {
+            return { true }
+        }
+        return { WasmStudyBridge.localReadyProvider?.invoke() ?: false }
     }
 
     /** 読み筋オンデマンド延長の状態 Map（blunderId → PvExtState）。ReportViewModel へ委譲。 */

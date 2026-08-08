@@ -5,11 +5,13 @@ import dev.miyado.shogisupplement.board.ShogiBoard
 import dev.miyado.shogisupplement.engine.Engine
 import dev.miyado.shogisupplement.engine.PvInfo
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -54,13 +56,16 @@ class StudyControllerTest {
     private val startSfen = ShogiBoard().toSfen()
     private val noOrigin = StudyOrigin(label = "開始局面", userCp = null)
 
-    private fun newController(engine: FakeEngine = FakeEngine()) =
-        StudyController(
-            scope = testScope,
-            ioDispatcher = testDispatcher,
-            engineFactory = { engine },
-            evalDisplayProvider = { "cp" },
-        ) to engine
+    private fun newController(
+        engine: FakeEngine = FakeEngine(),
+        localEngineLikelyAvailable: () -> Boolean = { true },
+    ) = StudyController(
+        scope = testScope,
+        ioDispatcher = testDispatcher,
+        engineFactory = { engine },
+        evalDisplayProvider = { "cp" },
+        localEngineLikelyAvailable = localEngineLikelyAvailable,
+    ) to engine
 
     @Test
     fun `検討木はendStudyでは破棄されず同じ分岐元で再開すると続きから辿れる`() {
@@ -259,6 +264,11 @@ class StudyControllerTest {
         assertEquals(StudyEvalState.None, controller.studyState.value?.evalState)
     }
 
+    /**
+     * 自動発火（localEngineLikelyAvailable 既定 = true）を無効化し、
+     * analyzeCurrentPosition（Preparing/Error時の手動リトライボタン相当）単体の挙動を
+     * 検証する。着手だけでは解析されず、明示呼び出しでのみ解析が走る。
+     */
     @Test
     fun `engineFactoryが例外を投げるとStudyEvalStateはErrorになる`() {
         val controller = StudyController(
@@ -266,6 +276,7 @@ class StudyControllerTest {
             ioDispatcher = testDispatcher,
             engineFactory = { error("engine unavailable") },
             evalDisplayProvider = { "cp" },
+            localEngineLikelyAvailable = { false },
         )
         controller.startStudy(
             baseSfen = startSfen,
@@ -278,6 +289,11 @@ class StudyControllerTest {
         )
         controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 7))
         controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 6))
+        assertEquals(
+            StudyEvalState.Preparing,
+            controller.studyState.value?.evalState,
+            "自動発火は無効化しているので着手直後はPreparingのまま",
+        )
 
         controller.analyzeCurrentPosition()
 
@@ -286,6 +302,34 @@ class StudyControllerTest {
 
     @Test
     fun `analyzeCurrentPositionは解析結果をevalStateに反映する`() {
+        val (controller, engine) = newController(
+            FakeEngine(score = Score.Cp(120)),
+            localEngineLikelyAvailable = { false },
+        )
+        controller.startStudy(
+            baseSfen = startSfen,
+            flip = false,
+            originIsBestPv = false,
+            originPlyIndex = 0,
+            originSelectedIdx = null,
+            originAbsolutePly = 0,
+            origin = noOrigin,
+        )
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 7))
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 6))
+        assertEquals(0, engine.analyzeCallCount, "自動発火は無効化しているので着手だけでは呼ばれない")
+
+        controller.analyzeCurrentPosition()
+
+        assertEquals(1, engine.analyzeCallCount)
+        val evalState = controller.studyState.value?.evalState
+        assertTrue(evalState is StudyEvalState.Value)
+    }
+
+    // ─── 自動発火（着手・チップ移動で自動的に評価が出る）───────────────────────
+
+    @Test
+    fun `着手すると自動的に解析が走りevalStateがValueになる`() {
         val (controller, engine) = newController(FakeEngine(score = Score.Cp(120)))
         controller.startStudy(
             baseSfen = startSfen,
@@ -299,11 +343,114 @@ class StudyControllerTest {
         controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 7))
         controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 6))
 
-        controller.analyzeCurrentPosition()
+        assertEquals(1, engine.analyzeCallCount, "ボタン操作なしで自動的に解析が走る")
+        assertIs<StudyEvalState.Value>(controller.studyState.value?.evalState)
+    }
+
+    @Test
+    fun `ローカルエンジンが使える見込みが無いときは自動発火せずPreparingになる`() {
+        val (controller, engine) = newController(localEngineLikelyAvailable = { false })
+        controller.startStudy(
+            baseSfen = startSfen,
+            flip = false,
+            originIsBestPv = false,
+            originPlyIndex = 0,
+            originSelectedIdx = null,
+            originAbsolutePly = 0,
+            origin = noOrigin,
+        )
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 7))
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 6))
+
+        assertEquals(0, engine.analyzeCallCount, "サーバークォータ保護のため着手だけでは解析しない")
+        assertEquals(StudyEvalState.Preparing, controller.studyState.value?.evalState)
+    }
+
+    /**
+     * Preparing 中にローカルエンジンが使えるようになった（資産ダウンロード完了相当）とき、
+     * ユーザー操作なしで解析が拾われることを確認する。localEngineLikelyAvailable を
+     * 可変フラグで返し、ポーリング間隔の経過を TestCoroutineScheduler の仮想時間で進める。
+     */
+    @Test
+    fun `Preparing中にローカルエンジンが使えるようになるとユーザー操作なしで解析される`() {
+        var available = false
+        val (controller, engine) = newController(localEngineLikelyAvailable = { available })
+        controller.startStudy(
+            baseSfen = startSfen,
+            flip = false,
+            originIsBestPv = false,
+            originPlyIndex = 0,
+            originSelectedIdx = null,
+            originAbsolutePly = 0,
+            origin = noOrigin,
+        )
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 7))
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 6))
+        assertEquals(StudyEvalState.Preparing, controller.studyState.value?.evalState)
+        assertEquals(0, engine.analyzeCallCount)
+
+        available = true
+        testScope.testScheduler.advanceUntilIdle()
 
         assertEquals(1, engine.analyzeCallCount)
-        val evalState = controller.studyState.value?.evalState
-        assertTrue(evalState is StudyEvalState.Value)
+        assertIs<StudyEvalState.Value>(controller.studyState.value?.evalState)
+    }
+
+    /**
+     * 速い連続着手のレース対策: 局面Aの解析が完了する前に局面Bへ進んだとき、
+     * Aの結果を捨てずにキャッシュ（チップへ反映）しつつ、最終的に現在局面（B）が
+     * 解析されることを確認する。[Engine.analyzeSfen] は同期呼び出しのため、
+     * UnconfinedTestDispatcher（scope）+ StandardTestDispatcher（ioDispatcher）を
+     * 組み合わせて「Aのエンジン呼び出しがまだ完了していない」状態を仮想時間で作る。
+     */
+    @Test
+    fun `解析中に次の手を指すと古い局面の結果は捨てずにキャッシュしつつ現在局面が解析される`() {
+        val engine = FakeEngine(score = Score.Cp(50))
+        val ioTestDispatcher = StandardTestDispatcher(testScope.testScheduler)
+        val controller = StudyController(
+            scope = testScope,
+            ioDispatcher = ioTestDispatcher,
+            engineFactory = { engine },
+            evalDisplayProvider = { "cp" },
+        )
+        controller.startStudy(
+            baseSfen = startSfen,
+            flip = false,
+            originIsBestPv = false,
+            originPlyIndex = 0,
+            originSelectedIdx = null,
+            originAbsolutePly = 0,
+            origin = noOrigin,
+        )
+        // 局面A（7g7f）: エンジン呼び出しは ioTestDispatcher 上でまだ実行されていない
+        // （advanceしていないため）。studyEvalRunning は true のまま止まっている。
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 7))
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 6))
+        assertEquals(StudyEvalState.Loading, controller.studyState.value?.evalState)
+        assertEquals(0, engine.analyzeCallCount, "ioDispatcherをまだ進めていないのでエンジン未呼び出し")
+
+        // 局面B（3c3d）へ進む: Aの解析が実行中（studyEvalRunning=true）のためBは発火されない。
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(3, 3))
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(3, 4))
+        assertEquals(listOf("7g7f", "3c3d"), controller.studyState.value?.moves)
+        assertEquals(
+            StudyEvalState.None,
+            controller.studyState.value?.evalState,
+            "Aの解析実行中はBの自動発火が保留される（空スロットのまま）",
+        )
+
+        // A・Bの解析（Bはaの完了後にmaybeAutoAnalyzeが拾って発火する）を仮想時間で進める。
+        testScope.testScheduler.advanceUntilIdle()
+
+        assertEquals(2, engine.analyzeCallCount, "AがBに割り込まれず、Bも取りこぼされない")
+        assertEquals(
+            listOf("7g7f", "3c3d"),
+            controller.studyState.value?.moves,
+            "現在局面はBのまま",
+        )
+        assertIs<StudyEvalState.Value>(controller.studyState.value?.evalState)
+        // 通り過ぎたA（7g7f）の結果もチップへ後から併記される。
+        assertIs<StudyEvalState.Value>(controller.studyState.value?.chipEvalStates?.getOrNull(0))
     }
 
     // ─── displayLine（先の手を消さず表示し続ける。実機確認対応）───────────────────

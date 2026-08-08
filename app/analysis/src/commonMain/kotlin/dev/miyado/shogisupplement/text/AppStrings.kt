@@ -298,12 +298,6 @@ object AppStrings {
      */
     const val EVAL_UNAVAILABLE = "—"
 
-    /**
-     * 形勢サフィックスに使う「解析中」プレースホルダー。
-     * 検討モードでエンジン評価が完了するまで evalSuffix() 経由で「（…）」を表示する。
-     */
-    const val EVAL_LOADING = "…"
-
     // ═══ 8. エラー ════════════════════════════════════════════════════════════
 
     fun errorMessage(message: String): String = "エラー: $message"
@@ -596,9 +590,21 @@ object AppStrings {
     /** 分岐元行。label = 分岐元の手＋形勢（例:「42手目 ▲３四飛（−320）」）。 */
     fun studyOriginLine(label: String): String = "${label}から分岐"
 
+    /** 評価スロットの手動リトライボタンのラベル。 */
     const val STUDY_ANALYZE_LABEL = "解析"
 
-    const val STUDY_EVAL_ANALYZED = "解析済み"
+    /**
+     * ローカルエンジンが使える見込みが無く自動発火を保留中の文言。解析中表示と紛れないよう、
+     * 「解析していない・準備段階」であることを明示する語にする（WASMバイナリのダウンロード
+     * 未完・サーバーフォールバック中のどちらの原因でも成立する言い回し）。
+     */
+    const val STUDY_EVAL_PREPARING = "解析の準備中"
+
+    /** 評価スロットの解析中表示。 */
+    const val STUDY_EVAL_ANALYZING = "解析中"
+
+    /** 評価スロットの最善手表示（例:「最善 ▲2六歩」）。moveText は棋譜表記済みの文字列。 */
+    fun studyBestMoveLabel(moveText: String): String = "最善 $moveText"
 
     fun studyChipEvalSuffix(text: String): String = "($text)"
 

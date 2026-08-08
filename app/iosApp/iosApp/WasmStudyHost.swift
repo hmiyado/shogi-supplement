@@ -27,6 +27,15 @@ final class WasmStudyHost: NSObject {
             self?.beginAnalyze(requestId: requestId, baseSfenArg: baseSfenArg, movesJson: movesJson)
                 ?? KotlinBoolean(bool: false)
         }
+        // 検討モードの自動発火（StudyController.maybeAutoAnalyze）向け見込み判定。
+        // KentoAssetCache.state はどのスレッドからでも読める（NSLock保護）ため、
+        // メインスレッド外（ioDispatcher）からの呼び出しでも安全。
+        WasmStudyBridge.shared.localReadyProvider = {
+            if case .ready = KentoAssetCache.shared.state {
+                return KotlinBoolean(bool: true)
+            }
+            return KotlinBoolean(bool: false)
+        }
     }
 
     /// 受理判定〜JS呼び出しの発火までを1つの `DispatchQueue.main.sync` の中で行う。

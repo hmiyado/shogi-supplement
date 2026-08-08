@@ -46,12 +46,15 @@ import org.robolectric.annotation.GraphicsMode
  *   （「詰み」規約表示。ナビラベルのサフィックスとして表示）
  * - report_viewer_study_selection: 検討モード・選択マス＋合法手ドット表示（着手前）
  * - report_viewer_study_eval: 検討モード・1手指した後、チップに評価値併記
- *   （例:「(+120)」。評価スロットは「解析済み」の簡素表示）
- * - report_viewer_study_branch: 検討パネル・分岐あり（下向きチェブロン付きチップ）＋解析中スピナー
+ *   （例:「(+120)」）＋評価スロットに数値（mono）＋最善手（「最善 ▲2六歩」）
+ * - report_viewer_study_branch: 検討パネル・分岐あり（下向きチェブロン付きチップ）＋
+ *   解析中スピナー（着手で自動発火した状態）
  * - report_viewer_study_line_ahead: 検討パネル・1手戻った直後（displayLineがmovesより
  *   1手長い）。先の手のチップが淡色（ink3）で残り続けることを確認
  * - report_viewer_study_selected_chip_dark: ダークテーマでの現在手チップ（highlight背景）
  *   の文字コントラスト確認（濃墨固定色。実機確認: ダークテーマで白文字になり読めなかった対応）
+ * - report_viewer_study_preparing: ローカルエンジンが使える見込みが無く自動発火を保留中
+ *   （「解析の準備中」＋手動リトライボタン。No-jitter: 他状態と同じ56dpスロット位置）
  *
  * トップバーは32dpインライン行（TopAppBar 64dpは使わない）。計器行（評価値行/
  * 「この変化の形勢」行/検討評価行/▶ヒント行/スピナー・エラー行）は持たず、ナビ行に統合する。
@@ -472,6 +475,7 @@ class ReportViewerScreenshotTest {
                                 dev.miyado.shogisupplement.ui.report.StudyEvalState.Value(
                                     PositionEvalDisplay.EvalLabel(text = "+120", sign = 1),
                                     userCp = 120,
+                                    bestMoveText = "▲2六歩",
                                 ),
                             ),
                             origin = dev.miyado.shogisupplement.ui.report.StudyOrigin(
@@ -487,6 +491,7 @@ class ReportViewerScreenshotTest {
                             evalState = dev.miyado.shogisupplement.ui.report.StudyEvalState.Value(
                                 PositionEvalDisplay.EvalLabel(text = "+120", sign = 1),
                                 userCp = 120,
+                                bestMoveText = "▲2六歩",
                             ),
                         ),
                     )
@@ -604,6 +609,7 @@ class ReportViewerScreenshotTest {
                                 dev.miyado.shogisupplement.ui.report.StudyEvalState.Value(
                                     PositionEvalDisplay.EvalLabel(text = "+120", sign = 1),
                                     userCp = 120,
+                                    bestMoveText = "▲2六歩",
                                 ),
                             ),
                             origin = dev.miyado.shogisupplement.ui.report.StudyOrigin(
@@ -619,7 +625,50 @@ class ReportViewerScreenshotTest {
                             evalState = dev.miyado.shogisupplement.ui.report.StudyEvalState.Value(
                                 PositionEvalDisplay.EvalLabel(text = "+120", sign = 1),
                                 userCp = 120,
+                                bestMoveText = "▲2六歩",
                             ),
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * ローカルエンジンが使える見込みが無く自動発火を保留中の状態（着手はしたが評価が
+     * 出ていない）。No-jitter確認: 評価スロットの位置・高さは他の状態（Loading/Value等）
+     * と同じ56dpスロットのまま、中身だけが「解析の準備中」＋手動リトライボタンに入れ替わる。
+     */
+    @Test
+    fun report_viewer_study_preparing() {
+        val blunder = sampleBlunder()
+        captureRoboImage(
+            filePath = "src/test/snapshots/report_viewer_study_preparing.png",
+            roborazziOptions = roborazziOptions,
+        ) {
+            ShogiTheme {
+                Surface {
+                    ReportScreen(
+                        game = sampleGame(),
+                        reports = listOf(blunder),
+                        flip = false,
+                        strengthDisplayText = "52 ±27",
+                        onBack = {},
+                        studyState = dev.miyado.shogisupplement.ui.report.StudyState(
+                            baseSfen = blunder.sfenBefore,
+                            moves = listOf("7f7e"),
+                            displayLine = listOf("7f7e"),
+                            origin = dev.miyado.shogisupplement.ui.report.StudyOrigin(
+                                label = "40手目 ▲３四飛（−320）",
+                                userCp = -320,
+                            ),
+                            originIsBestPv = false,
+                            originPlyIndex = 40,
+                            originSelectedIdx = null,
+                            originAbsolutePly = 40,
+                            flip = false,
+                            branchFlags = listOf(false),
+                            evalState = dev.miyado.shogisupplement.ui.report.StudyEvalState.Preparing,
                         ),
                     )
                 }

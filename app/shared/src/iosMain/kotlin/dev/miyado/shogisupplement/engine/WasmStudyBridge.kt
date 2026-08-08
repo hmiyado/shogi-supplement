@@ -25,6 +25,17 @@ object WasmStudyBridge {
      */
     var analyzeHandler: ((requestId: String, baseSfenArg: String, movesJson: String) -> Boolean)? = null
 
+    /**
+     * Swift側（WasmStudyHost）が起動時に代入する、ローカルWASM解析が使える見込みかの判定。
+     *
+     * [analyzeHandler] は常に登録済み（起動時に一度だけ代入される）なため「登録の有無」は
+     * 見込み判定に使えない。実体は資産キャッシュの準備状態
+     * （`KentoAssetCache.state == .ready`）で、[analyzeHandler] の受理判定
+     * （WKWebViewページの読み込み完了まで含む）より粗い。true でも実際の呼び出しが
+     * fail-fast で false へ倒れる可能性は残る（[WasmStudyEngine] のKDoc参照）。
+     */
+    var localReadyProvider: (() -> Boolean)? = null
+
     private var activeRequestId: String? = null
     private var onResultCallback: ((String) -> Unit)? = null
     private var onErrorCallback: ((String) -> Unit)? = null

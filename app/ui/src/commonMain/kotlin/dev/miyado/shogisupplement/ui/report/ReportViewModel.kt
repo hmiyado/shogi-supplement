@@ -38,6 +38,8 @@ import kotlinx.coroutines.withContext
  * @param repository DB操作用リポジトリ
  * @param engineFactory 読み筋延長・検討評価が必要な場合に呼ばれるエンジン生成関数
  * @param evalDisplayProvider 形勢の表示単位（'cp'/'wp'）を都度取得する関数
+ * @param localEngineLikelyAvailable 検討モードの着手自動発火を許してよいか（StudyController参照）。
+ *   既定 `{ true }` はネイティブエンジン常駐環境（Android・iOSエンジン入り版）向け
  */
 class ReportViewModel(
     private val scope: CoroutineScope,
@@ -45,10 +47,12 @@ class ReportViewModel(
     private val engineFactory: () -> Engine,
     private val evalDisplayProvider: () -> String,
     private val ioDispatcher: CoroutineDispatcher = defaultIoDispatcher,
+    private val localEngineLikelyAvailable: () -> Boolean = { true },
 ) {
 
     /** 検討モード。MainViewModel からはこのインスタンス経由で操作する。 */
-    val studyController = StudyController(scope, ioDispatcher, engineFactory, evalDisplayProvider)
+    val studyController =
+        StudyController(scope, ioDispatcher, engineFactory, evalDisplayProvider, localEngineLikelyAvailable)
     val studyState: StateFlow<StudyState?> get() = studyController.studyState
 
     /** 読み筋オンデマンド延長の状態 Map（blunderId → PvExtState）。 */
