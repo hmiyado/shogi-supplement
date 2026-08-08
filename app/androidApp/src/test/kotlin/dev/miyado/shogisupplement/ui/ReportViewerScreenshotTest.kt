@@ -54,7 +54,11 @@ import org.robolectric.annotation.GraphicsMode
  * - report_viewer_study_selected_chip_dark: ダークテーマでの現在手チップ（highlight背景）
  *   の文字コントラスト確認（濃墨固定色。実機確認: ダークテーマで白文字になり読めなかった対応）
  * - report_viewer_study_preparing: ローカルエンジンが使える見込みが無く自動発火を保留中
- *   （「解析の準備中」＋手動リトライボタン。No-jitter: 他状態と同じ56dpスロット位置）
+ *   （「解析の準備中」＋スピナーのみ・手動リトライボタンは出さない。No-jitter: 他状態と
+ *   同じ56dpスロット位置）
+ * - report_viewer_study_pv_scroll: 読み筋40手（先読み22手を含む）でチップがカード端まで
+ *   折り返し、チップ領域の縦スペースを超えた分がカード内スクロールになる状態。
+ *   パネル外形（高さ）は他の検討状態と変わらないことを確認する
  *
  * トップバーは32dpインライン行（TopAppBar 64dpは使わない）。計器行（評価値行/
  * 「この変化の形勢」行/検討評価行/▶ヒント行/スピナー・エラー行）は持たず、ナビ行に統合する。
@@ -637,7 +641,8 @@ class ReportViewerScreenshotTest {
     /**
      * ローカルエンジンが使える見込みが無く自動発火を保留中の状態（着手はしたが評価が
      * 出ていない）。No-jitter確認: 評価スロットの位置・高さは他の状態（Loading/Value等）
-     * と同じ56dpスロットのまま、中身だけが「解析の準備中」＋手動リトライボタンに入れ替わる。
+     * と同じ56dpスロットのまま、中身だけが「解析の準備中」＋スピナーに入れ替わる
+     * （自動回復する読み込み中状態のため、Loadingと同型でボタンは出さない）。
      */
     @Test
     fun report_viewer_study_preparing() {
@@ -669,6 +674,67 @@ class ReportViewerScreenshotTest {
                             flip = false,
                             branchFlags = listOf(false),
                             evalState = dev.miyado.shogisupplement.ui.report.StudyEvalState.Preparing,
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * 読み筋40手（先読み22手を含む）。FlowRow でカード端まで折り返し、チップ領域の縦スペースを超えた分はカード内
+     * スクロールになる。No-jitter確認: 手数が多くてもパネルの外形（Cardの高さ）は
+     * report_viewer_study_eval 等の短い読み筋のケースと変わらない
+     * （チップ領域だけが weight(1f) + verticalScroll で伸縮を吸収する）。
+     */
+    @Test
+    fun report_viewer_study_pv_scroll() {
+        val blunder = sampleBlunder()
+        // 開始局面から24手すべてが合法・棋譜表記へ整形可能な手順（不正な手が混ざると
+        // チップが生USI表記へフォールバックし、折り返し検証のスクリーンショットとして
+        // 成立しなくなる）。
+        val playedMoves = listOf(
+            "7g7f", "3c3d", "2g2f", "4c4d", "3i4h", "3a4b", "5g5f", "5c5d",
+            "4i5h", "4b4c", "5i6h", "8b3b", "6h7h", "5a6b", "9g9f", "6b7b",
+            "8g8f", "7b8b",
+        )
+        val futureMoves = listOf(
+            "8h7g", "7a7b", "7i8h", "9c9d", "6g6f", "6c6d", "5h6g", "4a5b",
+            "2f2e", "2b3c", "2e2d", "2c2d", "2h2d", "3c2d", "8f8e", "9d9e",
+            "9f9e", "9a9e", "8e8d", "8c8d", "P*8e", "8d8e",
+        )
+        val displayLine = playedMoves + futureMoves
+        captureRoboImage(
+            filePath = "src/test/snapshots/report_viewer_study_pv_scroll.png",
+            roborazziOptions = roborazziOptions,
+        ) {
+            ShogiTheme {
+                Surface {
+                    ReportScreen(
+                        game = sampleGame(),
+                        reports = listOf(blunder),
+                        flip = false,
+                        strengthDisplayText = "52 ±27",
+                        onBack = {},
+                        studyState = dev.miyado.shogisupplement.ui.report.StudyState(
+                            baseSfen = dev.miyado.shogisupplement.board.ShogiBoard().toSfen(),
+                            moves = playedMoves,
+                            displayLine = displayLine,
+                            origin = dev.miyado.shogisupplement.ui.report.StudyOrigin(
+                                label = "開始局面",
+                                userCp = null,
+                            ),
+                            originIsBestPv = false,
+                            originPlyIndex = 0,
+                            originSelectedIdx = null,
+                            originAbsolutePly = 0,
+                            flip = false,
+                            branchFlags = displayLine.indices.map { it == 2 || it == 9 },
+                            evalState = dev.miyado.shogisupplement.ui.report.StudyEvalState.Value(
+                                PositionEvalDisplay.EvalLabel(text = "+820", sign = 1),
+                                userCp = 820,
+                                bestMoveText = "▲６八玉",
+                            ),
                         ),
                     )
                 }

@@ -2,10 +2,11 @@ package dev.miyado.shogisupplement.ui.report
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,8 +17,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -55,12 +56,18 @@ import dev.miyado.shogisupplement.ui.theme.shogiColors
  * （高さを個別に計算して揃えているのではなく、同じ排他スロットを共有することで構造的に
  * 一致させている。DESIGN.md No-jitter原則）。
  *
- * 内部は上から: 見出し（「検討中」。終了ボタンはナビ行側にのみ置く——実機確認で
- * 「終了ボタンが2つある」との指摘があり撤去した）／分岐元行／手順チップ列（横スクロール・
- * 固定高さ）／可変の空白／評価スロット（下端固定・固定高さ）。手順チップ列を横スクロール
- * にしているのは、折り返し（FlowRow）だと分岐の増減や手数でパネルの外形自体が変わって
- * しまうため（「パネル外形は不変」要件を満たすには行数が変わらないことが必須）。
+ * 内部は上から: 見出し行（「検討中」＋分岐元行を1つの Row に統合。終了ボタンはナビ行側に
+ * のみ置く——実機確認で「終了ボタンが2つある」との指摘があり撤去した）／評価スロット
+ * （見出し直下・固定高さ56dp。排他入替はここだけ）／区切り線／手順チップ列（FlowRow で
+ * カード端に折り返し、残りの縦スペースを weight(1f) で使い切り、それでも溢れた分だけ
+ * chip-flow 領域内で verticalScroll する）。
+ *
+ * チップ列を横スクロールではなく折り返しにできるのは、折り返した分の高さ増加を
+ * weight(1f) 領域の内部スクロールに閉じ込めているため——単純な FlowRow だけだと
+ * 分岐の増減や手数でパネルの外形自体が伸縮してしまうが、「残りスペースぶんだけ確保して
+ * 溢れたら内部スクロール」にすることで、パネルの外形（高さ）は分岐の手数に関わらず不変になる。
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun StudyPanel(
     studyState: StudyState,
@@ -83,39 +90,113 @@ internal fun StudyPanel(
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
     ) {
         Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
-            Text(
-                text = AppStrings.STUDY_PANEL_TITLE,
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontFamily = ShipporiMinchoFamily,
-                    fontWeight = FontWeight.Bold,
-                ),
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            Spacer(Modifier.height(8.dp))
-
-            // ── 分岐元行: 「42手目 ▲３四飛（−320）から分岐」 ──
-            Text(
-                text = AppStrings.studyOriginLine(studyState.origin.label),
-                style = MaterialTheme.typography.bodySmall,
-                color = shogiColors.ink2,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-
-            Spacer(Modifier.height(8.dp))
-
-            // displayLine 全体を描画する（moves より先＝まだ進んでいない手も淡色で表示し
-            // 続ける。実機確認: 「戻ると先のチップが消える」対応。現在手は highlight 背景）。
-            val scrollState = rememberScrollState()
+            // ── 見出し行: 「検討中」＋分岐元行（「42手目 ▲３四飛（−320）から分岐」）。
+            // タイトルは幅固定で省略しない、分岐元行が残り幅を使って maxLines=1 + ellipsis になる。
             Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = AppStrings.STUDY_PANEL_TITLE,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontFamily = ShipporiMinchoFamily,
+                        fontWeight = FontWeight.Bold,
+                    ),
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.alignByBaseline(),
+                )
+                Text(
+                    text = AppStrings.studyOriginLine(studyState.origin.label),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = shogiColors.ink2,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f).alignByBaseline(),
+                )
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            // 評価スロット（見出し行の直下・固定高さ56dp。排他入替はここだけ。
+            // DESIGN.md No-jitter原則）。着手・チップ移動のたび StudyController が
+            // 自動発火するため、手動ボタンは Error（解析失敗）のみに出す（None は
+            // 分岐元そのもの・moves空で「そもそも何もしない」。Preparing はローカル
+            // エンジンが使える見込みが無いだけの自動回復待ちの読み込み中状態のため、
+            // Loading と同型（スピナー＋テキストのみ）にし手動ボタンは出さない）。
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(40.dp)
-                    .horizontalScroll(scrollState),
-                verticalAlignment = Alignment.CenterVertically,
+                    .height(56.dp),
+                contentAlignment = Alignment.CenterStart,
+            ) {
+                when (val es = studyState.evalState) {
+                    StudyEvalState.None -> Unit
+                    StudyEvalState.Preparing -> {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(modifier = Modifier.height(16.dp).width(16.dp), strokeWidth = 2.dp)
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                AppStrings.STUDY_EVAL_PREPARING,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = shogiColors.ink2,
+                            )
+                        }
+                    }
+                    StudyEvalState.Error -> {
+                        AnalyzeButton(onClick = onAnalyze)
+                    }
+                    StudyEvalState.Loading -> {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(modifier = Modifier.height(16.dp).width(16.dp), strokeWidth = 2.dp)
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                AppStrings.STUDY_EVAL_ANALYZING,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = shogiColors.ink2,
+                            )
+                        }
+                    }
+                    is StudyEvalState.Value -> {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                es.label.text,
+                                style = MaterialTheme.typography.titleMedium.copy(fontFamily = IbmPlexMonoFamily),
+                                color = when {
+                                    es.label.sign > 0 -> MaterialTheme.colorScheme.primary
+                                    es.label.sign < 0 -> shogiColors.loss
+                                    else -> MaterialTheme.colorScheme.onSurface
+                                },
+                            )
+                            if (es.bestMoveText != null) {
+                                Spacer(Modifier.width(10.dp))
+                                Text(
+                                    AppStrings.studyBestMoveLabel(es.bestMoveText),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = shogiColors.ink2,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            HorizontalDivider(color = shogiColors.line)
+
+            Spacer(Modifier.height(8.dp))
+
+            // 読み筋チップ列。displayLine 全体を描画する（moves より先＝まだ進んでいない
+            // 手も淡色で表示し続ける。実機確認: 「戻ると先のチップが消える」対応。現在手は
+            // highlight 背景）。カード端で折り返し（FlowRow）、残りの縦スペースを
+            // weight(1f) で使い切り、それでも溢れた分だけこの領域内で縦スクロールする。
+            FlowRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 studyState.displayLine.forEachIndexed { depth, moveUsi ->
                     val isCurrent = depth == studyState.moves.size - 1
@@ -171,102 +252,17 @@ internal fun StudyPanel(
                     }
                 }
             }
-
-            // 可変の空白: 評価スロットを下端に固定するための伸縮領域（margin-top:autoに相当）。
-            Spacer(Modifier.weight(1f))
-
-            HorizontalDivider(color = shogiColors.line)
-
-            // 着手・チップ移動のたび StudyController が自動発火するため、評価スロットは
-            // 排他的な状態表示（DESIGN.md No-jitter）が主目的で、手動ボタンは
-            // Preparing（ローカルエンジンが使える見込みが無い）・Error（解析失敗）の
-            // 2状態にのみ出す（None は分岐元そのもの・moves空で「そもそも何もしない」。
-            // Loading/Value は自動で先へ進むため手動操作の出番が無い）。
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                contentAlignment = Alignment.CenterStart,
-            ) {
-                when (val es = studyState.evalState) {
-                    StudyEvalState.None -> Unit
-                    StudyEvalState.Preparing -> {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                AppStrings.STUDY_EVAL_PREPARING,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = shogiColors.ink2,
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            AnalyzeButton(onClick = onAnalyze)
-                        }
-                    }
-                    StudyEvalState.Error -> {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                AppStrings.evalSuffix(AppStrings.EVAL_UNAVAILABLE),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = shogiColors.ink2,
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            AnalyzeButton(onClick = onAnalyze)
-                        }
-                    }
-                    StudyEvalState.Loading -> {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            CircularProgressIndicator(modifier = Modifier.height(16.dp).width(16.dp), strokeWidth = 2.dp)
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                AppStrings.STUDY_EVAL_ANALYZING,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = shogiColors.ink2,
-                            )
-                        }
-                    }
-                    is StudyEvalState.Value -> {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                es.label.text,
-                                style = MaterialTheme.typography.titleMedium.copy(fontFamily = IbmPlexMonoFamily),
-                                color = when {
-                                    es.label.sign > 0 -> MaterialTheme.colorScheme.primary
-                                    es.label.sign < 0 -> shogiColors.loss
-                                    else -> MaterialTheme.colorScheme.onSurface
-                                },
-                            )
-                            if (es.bestMoveText != null) {
-                                Spacer(Modifier.width(10.dp))
-                                Text(
-                                    AppStrings.studyBestMoveLabel(es.bestMoveText),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = shogiColors.ink2,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }
-                        }
-                    }
-                }
-            }
         }
     }
 }
 
 /**
- * 検討パネルの評価スロット手動リトライボタン。「進む」の意匠は文字（▶等）ではなく
- * KeyboardArrowRight アイコン＋「+」で表す（miyadoさん実機確認: 生の「▶」文字がiOSで
- * 絵文字レンダリングされてしまうため。読み筋延長ボタンと同じ表現に統一）。
+ * 検討パネルの評価スロット手動リトライボタン（Error状態のみに出す）。
  */
 @Composable
 private fun AnalyzeButton(onClick: () -> Unit) {
     ShogiSecondaryButton(onClick = onClick) {
         Text(AppStrings.STUDY_ANALYZE_LABEL)
-        Icon(
-            Icons.AutoMirrored.Filled.KeyboardArrowRight,
-            contentDescription = null,
-            modifier = Modifier.size(18.dp),
-        )
-        Text("+")
     }
 }
 
