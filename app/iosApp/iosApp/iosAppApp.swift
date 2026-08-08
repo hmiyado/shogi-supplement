@@ -1,3 +1,4 @@
+import SharedUi
 import Sentry
 import SwiftUI
 
@@ -9,6 +10,9 @@ struct iosAppApp: App {
     // ピッカー提示ハンドラを登録する。起動時に一度参照して確実に初期化させる
     // （lazy static のため、参照するまでは init が走らない）。
     init() {
+        // Kotlin側ロガーの出力実行はSwiftへ委ねる（Kotlin/Nativeは可変長引数のNSLogを
+        // 正しく呼べないため）。他の初期化がエラーログを出す前に最初に登録する。
+        LogSink.shared.handler = { line in NSLog("%@", line) }
         Self.startSentry()
         // App Check（匿名アカウント量産への防御）。プロバイダファクトリの設定は
         // FirebaseApp.configure()より前に行う必要があるため、他の初期化より先に呼ぶ
