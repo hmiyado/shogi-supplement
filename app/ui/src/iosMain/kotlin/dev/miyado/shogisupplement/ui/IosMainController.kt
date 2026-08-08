@@ -17,8 +17,10 @@ import dev.miyado.shogisupplement.engine.IosCoefficients
 import dev.miyado.shogisupplement.engine.IosEngineHost
 import dev.miyado.shogisupplement.engine.IsolatedEngine
 import dev.miyado.shogisupplement.engine.FailoverAnalyzer
+import dev.miyado.shogisupplement.engine.FailoverEngine
 import dev.miyado.shogisupplement.engine.RemoteAnalysisRunner
 import dev.miyado.shogisupplement.engine.WasmAnalysisRunner
+import dev.miyado.shogisupplement.engine.WasmStudyEngine
 import dev.miyado.shogisupplement.kifu.ClipboardKifValidator
 import dev.miyado.shogisupplement.kifu.KifParser
 import dev.miyado.shogisupplement.kifu.UserSideSuggester
@@ -233,16 +235,18 @@ class IosMainController(
             httpClient = runnerHttpClient,
             appCheckTokenProvider = AppCheckTokenBridge::getToken,
         )
-        return {
-            RemoteStudyEngine { sfen, moves ->
-                // サーバー解析はJWT必須のため、未ログインならここで匿名サインインする
-                // （通常は取込解析時に済んでいるはずで、ここに来るのは保険）。
-                if (auth.currentUser.value == null) {
-                    auth.signInAnonymously()
-                }
-                runner.analyzePosition(sfen, moves)
+        val remoteEngine = RemoteStudyEngine { sfen, moves ->
+            // サーバー解析はJWT必須のため、未ログインならここで匿名サインインする
+            // （通常は取込解析時に済んでいるはずで、ここに来るのは保険）。
+            if (auth.currentUser.value == null) {
+                auth.signInAnonymously()
             }
+            runner.analyzePosition(sfen, moves)
         }
+        // ローカルWASM優先・不可時（資産未準備・ホスト起動失敗）はサーバーへ
+        // （FailoverEngine KDoc参照。WasmStudyEngineはfail-fastで即座に例外を投げるため
+        // ダウンロード中等で数十秒待たせてから切り替わることはない）。
+        return { FailoverEngine(primary = WasmStudyEngine(), secondary = remoteEngine) }
     }
 
     /** 読み筋オンデマンド延長の状態 Map（blunderId → PvExtState）。ReportViewModel へ委譲。 */

@@ -11,8 +11,10 @@ import dev.miyado.shogisupplement.drill.DrillJudge
 import dev.miyado.shogisupplement.drill.EngineDrillSecondaryJudge
 import dev.miyado.shogisupplement.drill.RemoteDrillSecondaryJudge
 import dev.miyado.shogisupplement.engine.Engine
+import dev.miyado.shogisupplement.engine.FailoverEngine
 import dev.miyado.shogisupplement.engine.IosEngineHost
 import dev.miyado.shogisupplement.engine.RemoteAnalysisRunner
+import dev.miyado.shogisupplement.engine.WasmStudyEngine
 import dev.miyado.shogisupplement.judge.Judgement
 import dev.miyado.shogisupplement.judge.VerdictKind
 import dev.miyado.shogisupplement.pipeline.BlunderReport
@@ -45,8 +47,8 @@ object DrillDemoFactory {
      *
      * @param authRepository   null（既定）= Supabase未設定ビルド。二次判定は常に端末エンジン版。
      * @param analysisBaseUrl  null（既定）= サーバー解析未設定。[authRepository] と両方が
-     *   非null のときだけサーバー版の二次判定（[RemoteDrillSecondaryJudge]）を使う
-     *   （IosMainController.confirmSideAndAnalyze と同じ graceful degradation の方針）。
+     *   非null のときだけローカルWASM優先・不可時はサーバー版の二次判定（[buildSecondaryJudge]）を
+     *   使う（IosMainController.confirmSideAndAnalyze と同じ graceful degradation の方針）。
      */
     fun create(
         authRepository: AuthRepository? = null,
@@ -67,16 +69,17 @@ object DrillDemoFactory {
             settingsRepository = settingsRepository,
             judgeWithEngine = buildSecondaryJudge(authRepository, analysisBaseUrl),
             // 読み筋のオンデマンド延長（結果画面の「最善」タブ）のエンジンも二次判定と同じ
-            // 出し分け（エンジン入り=常駐エンジン／engineless=サーバー単発局面解析）。
-            // PvExtensionRunner は延長解析後に無条件で quit() を呼ぶため、どちらの実装も
-            // quit() を no-op にして常駐エンジン・HTTPクライアントを壊さない。
+            // 出し分け（エンジン入り=常駐エンジン／engineless=ローカルWASM優先・不可時サーバー）。
+            // PvExtensionRunner は延長解析後に無条件で quit() を呼ぶため、どの実装も
+            // quit() を no-op にして常駐エンジン・常駐ホスト・HTTPクライアントを壊さない。
             engineFactory = buildStudyEngineFactory(authRepository, analysisBaseUrl),
         )
     }
 
     /**
      * 読み筋延長向けのエンジンファクトリ。エンジン入り版は常駐エンジン、engineless版は
-     * サーバー設定があるときだけ [RemoteStudyEngine]。どちらも無ければ従来どおり
+     * サーバー設定があるときだけローカルWASM優先・不可時はサーバー（[FailoverEngine]。
+     * IosMainController.studyEngineFactory と同じ出し分け）。どちらも無ければ従来どおり
      * [IosEngineHost.studyEngineFactory] の例外を投げるダミー（engineless版で
      * ANALYSIS_BASE_URL未設定＝出荷前の設定漏れのときだけ到達する経路）。
      */
@@ -102,16 +105,15 @@ object DrillDemoFactory {
             httpClient = httpClient,
             appCheckTokenProvider = AppCheckTokenBridge::getToken,
         )
-        return {
-            RemoteStudyEngine { sfen, moves ->
-                // サーバー解析はJWT必須のため、未ログインならここで匿名サインインする
-                // （通常はドリル到達前に済んでいるはずで、ここに来るのは保険）。
-                if (authRepository.currentUser.value == null) {
-                    authRepository.signInAnonymously()
-                }
-                runner.analyzePosition(sfen, moves)
+        val remoteEngine = RemoteStudyEngine { sfen, moves ->
+            // サーバー解析はJWT必須のため、未ログインならここで匿名サインインする
+            // （通常はドリル到達前に済んでいるはずで、ここに来るのは保険）。
+            if (authRepository.currentUser.value == null) {
+                authRepository.signInAnonymously()
             }
+            runner.analyzePosition(sfen, moves)
         }
+        return { FailoverEngine(primary = WasmStudyEngine(), secondary = remoteEngine) }
     }
 
     /** 二次判定（曖昧領域のみ呼ばれる）を、サーバー設定の有無で端末エンジン版/サーバー版に出し分ける。 */
@@ -136,23 +138,37 @@ object DrillDemoFactory {
                 appCheckTokenProvider = AppCheckTokenBridge::getToken,
             )
             val remoteJudge = RemoteDrillSecondaryJudge { sfen -> runner.analyzePosition(sfen) }
+            // ローカルWASMは出題局面・ユーザー手後局面の2回とも無料で解析できるため
+            // EngineDrillSecondaryJudge（端末エンジン版と同型・2回解析）を使う。WasmStudyEngine
+            // はfail-fastなので、資産未準備等で1回目のanalyzeSfenが即座に例外を投げ、
+            // ここでサーバー版（1回だけ解析してクォータを節約するRemoteDrillSecondaryJudge）へ
+            // 切り替わる（DrillSecondaryJudge単位のフェイルオーバー。Engine単位で合成すると
+            // secondaryも2回解析する構成になりRemoteDrillSecondaryJudgeの節約が失われるため
+            // 意図的に分けている）。
+            val wasmJudge = EngineDrillSecondaryJudge { sfen -> WasmStudyEngine().analyzeSfen(sfen) }
             return { blunder, userMoveUsi ->
+                // IosMainController.confirmSideAndAnalyze と同じ理由: サーバー解析はJWT必須
+                // なので、匿名サインインすらしていない初回でも通るよう先に保証する
+                // （WASM側はJWT不要だが、フォールバック時に二重で確認する手間を避けるため
+                // ここでまとめて保証する）。
+                if (authRepository.currentUser.value == null) {
+                    authRepository.signInAnonymously()
+                }
                 try {
-                    // IosMainController.confirmSideAndAnalyze と同じ理由: サーバー解析はJWT必須
-                    // なので、匿名サインインすらしていない初回でも通るよう先に保証する。
-                    if (authRepository.currentUser.value == null) {
-                        authRepository.signInAnonymously()
-                    }
-                    remoteJudge.judge(blunder, userMoveUsi)
+                    wasmJudge.judge(blunder, userMoveUsi)
                 } catch (e: Exception) {
-                    // ネットワーク断・401等: 不正解として返す（Androidのエンジン起動失敗時と同じ方針）
-                    DrillJudge.DrillResult(
-                        isCorrect = false,
-                        lossWp = Double.NaN,
-                        userMoveUsi = userMoveUsi,
-                        bestMoveUsi = blunder.bestUsi,
-                        reason = DrillJudge.Reason.ENGINE_EVAL,
-                    )
+                    try {
+                        remoteJudge.judge(blunder, userMoveUsi)
+                    } catch (e2: Exception) {
+                        // ネットワーク断・401等: 不正解として返す（Androidのエンジン起動失敗時と同じ方針）
+                        DrillJudge.DrillResult(
+                            isCorrect = false,
+                            lossWp = Double.NaN,
+                            userMoveUsi = userMoveUsi,
+                            bestMoveUsi = blunder.bestUsi,
+                            reason = DrillJudge.Reason.ENGINE_EVAL,
+                        )
+                    }
                 }
             }
         }
