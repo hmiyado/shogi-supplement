@@ -19,6 +19,9 @@ struct iosAppApp: App {
         // 起動時に一度参照して確実に初期化させる（lazy static のため、参照するまではinitが
         // 走らない）。Engineless（ストア版）でも常に登録する（WasmAnalysisHost.swift KDoc参照）。
         _ = WasmAnalysisHost.shared
+        // WasmStudyHost の init で WasmStudyBridge へ実処理のクロージャを登録する
+        // （対話的解析。WasmAnalysisHostと同じ理由で起動時に一度参照する）。
+        _ = WasmStudyHost.shared
         // 検討モード・ドリル等の対話的解析（単発局面）向けローカル資産キャッシュの取得を
         // 裏で開始する（進捗UIは無し。準備できるまで対話的解析はサーバーへ向かう。
         // KentoAssetCache KDoc参照）。エンジン入り版でも起動コストは無視できるため常に呼ぶ

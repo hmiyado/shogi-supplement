@@ -235,9 +235,11 @@ final class KentoAssetCache {
     private static let kentoAssetsBaseURL = URL(string: "https://shogi-supplement.miyado.dev/kento-assets/")!
 
     /// docs/kento/ 直下のホストページ・ブリッジ/Worker JS（バージョン概念なし。
-    /// エンジンVERSIONの切替と同じタイミングでまとめて再取得する簡略化。
-    /// study-worker.js はWasmStudyHost.swift実装時に追加）。
-    private static let kentoFiles = ["wasm-analysis-host.html", "webapp-bridge.js", "analysis-worker.js"]
+    /// エンジンVERSIONの切替と同じタイミングでまとめて再取得する簡略化）。
+    private static let kentoFiles = [
+        "wasm-analysis-host.html", "wasm-analysis-host.js", "webapp-bridge.js", "analysis-worker.js",
+        "study-worker.js",
+    ]
 
     /// docs/kento-assets/<VERSION>/ 配下のエンジン資産（docs/copy-kento-assets.sh参照）。
     private static let engineFiles = [

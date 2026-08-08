@@ -6,65 +6,21 @@
 </head>
 <body>
 <!--
-  iOSアプリのWKWebViewが読み込む内部ページ（ユーザーが直接開くページではない）。
-  docs/kento/webapp-bridge.js（Web版=:webAppと共通の2Worker並列解析JS）をそのまま動かし、
-  window.__startAnalysis/__cancelAnalysis 経由でネイティブ層（iosApp/iosApp/
-  WasmAnalysisHost.swift）から叩けるようにするだけの薄いホスト。
-  webapp-bridge.js・analysis-worker.js自体は変更しない（Web版とプロトコルを共有し続ける）。
+  WKWebViewが読み込む内部ページ（ユーザーが直接開くページではない）。2つの独立した機能を
+  公開する:
+
+  - バッチ解析（1局まるごと）: window.__startAnalysis(movesJson, assetBaseUrl) /
+    __cancelAnalysis()。docs/kento/webapp-bridge.js（Web版=:webAppと共通の2Worker並列解析JS。
+    変更しない）をそのまま動かし、"wasmAnalysis" ハンドラへ通知する。
+  - 対話的単発局面解析: window.__initStudy(assetBaseUrl) /
+    __analyzePosition(requestId, baseSfenArg, movesJson)。docs/kento/study-worker.js
+    （バッチ用analysis-worker.jsとは別プロトコル。ファイル冒頭のコメント参照）を運用し、
+    "wasmStudy" ハンドラへ通知する。
+
+  どちらか一方の機能だけを使う場合、対応するメッセージハンドラだけを登録すればよい:
+  未登録側への postMessage は post()/postStudy() の try/catch が黙って無視する。
 -->
 <script src="webapp-bridge.js"></script>
-<script>
-  function post(type, extra) {
-    try {
-      window.webkit.messageHandlers.wasmAnalysis.postMessage(Object.assign({ type: type }, extra || {}));
-    } catch (e) {
-      // WKScriptMessageHandler未登録などpostMessage自体が失敗する状況では
-      // 通知のしようがないため何もしない。
-    }
-  }
-
-  window.onerror = function (message) {
-    post("page-error", { message: String(message) });
-  };
-
-  var activeHandle = null;
-
-  // baseSfenArgは常に"startpos"固定（GameAnalyzer.analyzeGameは常に平手初期局面基準）。
-  window.__startAnalysis = function (movesJson, assetBaseUrl) {
-    window.kentoBridge.resolveAssetDirUrl(
-      assetBaseUrl,
-      function (assetDirUrl) {
-        activeHandle = window.kentoBridge.runAnalysis(
-          "startpos",
-          movesJson,
-          assetDirUrl,
-          function (resultJson) {
-            post("position", { result: JSON.parse(resultJson) });
-          },
-          function () {
-            activeHandle = null;
-            post("done");
-          },
-          function (message) {
-            activeHandle = null;
-            post("error", { message: message });
-          },
-        );
-      },
-      function (message) {
-        post("error", { message: "エンジン資産バージョンの解決に失敗: " + message });
-      },
-    );
-  };
-
-  window.__cancelAnalysis = function () {
-    if (activeHandle) {
-      activeHandle.cancel();
-      activeHandle = null;
-    }
-  };
-
-  post("ready");
-</script>
+<script src="wasm-analysis-host.js"></script>
 </body>
 </html>
