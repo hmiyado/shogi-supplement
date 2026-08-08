@@ -80,9 +80,6 @@ targets:
         # CADisableMinimumFrameDurationOnPhone は GENERATE_INFOPLIST_FILE の
         # INFOPLIST_KEY_ 機構（既知キーのみ対応）では注入できないため、実ファイルを使用。
         GENERATE_INFOPLIST_FILE: NO
-        # app/gradle.propertiesのshogisupplement.versionCodeと常に同値に保つ
-        # （強制アップデート判定はCFBundleVersion=この値をmin_buildと比較する。
-        # ずれるとローカルビルドが誤ブロック/誤通過する）
         CURRENT_PROJECT_VERSION: 2
         INFOPLIST_FILE: iosApp/Info.plist
         # :ui が :shared を export した umbrella framework（SharedUi）に統一。
@@ -142,6 +139,18 @@ targets:
           SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) ENGINELESS"
           OTHER_LDFLAGS: "-framework SharedUi -lsqlite3 -lc++ -ObjC"
     preBuildScripts:
+      - name: "Verify CURRENT_PROJECT_VERSION matches gradle.properties versionCode"
+        script: |
+          set -e
+          EXPECTED="$(grep '^shogisupplement.versionCode=' "$SRCROOT/../gradle.properties" | cut -d= -f2)"
+          if [ -z "$EXPECTED" ]; then
+            echo "error: shogisupplement.versionCode が gradle.properties に見つかりません" >&2
+            exit 1
+          fi
+          if [ "$CURRENT_PROJECT_VERSION" != "$EXPECTED" ]; then
+            echo "error: CURRENT_PROJECT_VERSION ($CURRENT_PROJECT_VERSION) が gradle.properties の shogisupplement.versionCode ($EXPECTED) と不一致。project.yml を直してください" >&2
+            exit 1
+          fi
       - name: "Build Shared+UI Kotlin Framework (gradlew :ui:linkDebugFramework<Target>)"
         # シミュレータ/実機どちらでビルドされるかで:uiのK/Nターゲットを、
         # Debug/Releaseで:uiのリンクタスクを、それぞれ切り替える

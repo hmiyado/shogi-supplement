@@ -5,7 +5,6 @@ cd "$(dirname "$0")/.."
 
 KEY_ID="BM62Q97564"
 ISSUER_ID="9f6a60f5-d95c-484a-9c8c-574f65a93b7b"
-# ビルド番号はgradle.propertiesのshogisupplement.versionCodeと一致させる。
 # Why notタイムスタンプ一意化: 強制アップデート判定がCFBundleVersionを
 # min_buildと比較するため、判定に使う値と実際のビルド番号が同一源である必要がある。
 # 再アップロードにはversionCodeの繰り上げコミットが必要になるが、それが正しい運用
