@@ -80,12 +80,15 @@ platform :ios do
       configuration: "Release-Engineless",
       project: File.join(IOS_PROJECT_DIR, "iosApp.xcodeproj"),
       archive_path: ARCHIVE_PATH,
-      export_options: EXPORT_OPTIONS,
+      # gymはexport_optionsへ内部で書き足す（teamID等）ため、定数をそのまま渡すと
+      # Ruby 3.4の凍結定数でFrozenErrorになる。呼び出しごとに複製を渡す。
+      export_options: EXPORT_OPTIONS.dup,
       xcargs: "CURRENT_PROJECT_VERSION=#{build_number} DEVELOPMENT_TEAM=#{TEAM_ID} " \
               "CODE_SIGN_STYLE=Automatic -allowProvisioningUpdates " \
               "-authenticationKeyID #{KEY_ID} -authenticationKeyIssuerID #{ISSUER_ID}",
-      export_xcargs: "-allowProvisioningUpdates -authenticationKeyID #{KEY_ID} " \
-                     "-authenticationKeyIssuerID #{ISSUER_ID}"
+      # 認証引数はapp_store_connect_api_key設定時にgymが自動付与するため
+      # ここで渡すと-authenticationKeyIDの二重指定でxcodebuildが失敗する。
+      export_xcargs: "-allowProvisioningUpdates"
     )
 
     pilot(
@@ -101,12 +104,26 @@ platform :ios do
   desc "betaの後、メタデータ・スクリーンショットとともに審査へ提出する（自動リリースはしない）"
   lane :release do
     beta
+    submit
+  end
+
+  desc "アップロード済みビルドをメタデータとともに審査へ提出する（beta抜き。deliver失敗からの再開用）"
+  lane :submit do
+    app_store_connect_api_key(
+      key_id: KEY_ID,
+      issuer_id: ISSUER_ID,
+      key_filepath: ENV.fetch("ASC_KEY_PATH") {
+        UI.user_error!("ASC_KEY_PATH（App Store Connect APIキー.p8のパス）を環境変数で指定してください")
+      }
+    )
 
     deliver(
       submit_for_review: true,
       automatic_release: false,
       skip_binary_upload: true, # バイナリはbetaのpilotで送信済み
-      force: true # ローカル実行なので確認プロンプトで待たせない
+      force: true, # ローカル実行なので確認プロンプトで待たせない
+      # APIキー認証のprecheckはIAPを検査できない（fastlaneの制約）。IAP未使用のため除外
+      precheck_include_in_app_purchases: false
     )
   end
 end

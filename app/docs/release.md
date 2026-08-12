@@ -33,8 +33,11 @@ Sentry/FirebaseのXCFrameworkと同じ扱いでコミットされない。
 ファイルの場所は実行時に環境変数 `ASC_KEY_PATH` で渡す:
 
 ```sh
-ASC_KEY_PATH=/path/to/AuthKey_BM62Q97564.p8 bundle exec fastlane ios beta
+LC_ALL=en_US.UTF-8 ASC_KEY_PATH=/path/to/AuthKey_BM62Q97564.p8 bundle exec fastlane ios beta
 ```
+
+fastlaneはUTF-8ロケール必須（未設定シェルだと日本語入りplistの解析で
+invalid byte sequenceで落ちる）。
 
 **`.p8` はリポジトリに絶対に置かない・コピーしない**。
 
