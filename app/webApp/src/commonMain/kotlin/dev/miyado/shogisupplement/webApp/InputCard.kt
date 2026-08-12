@@ -92,15 +92,26 @@ internal fun InputCard(
 
             Spacer(Modifier.height(10.dp))
             if (analyzing) {
+                // 最初の局面結果が届く(progressDone>=1)までは、WorkerがWASMバイナリを
+                // 取得中でも進捗が0のまま動かず無応答に見えるため、その間だけ文言を差し替える。
+                // 補足行はTextノード自体は常に描画し中身だけ空文字にすることで、
+                // 準備中→解析中の切り替わりでカード高さが動かないようにする(No-jitter)。
+                val preparing = progressDone == 0
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                     Text(
-                        AppStrings.kentoAnalyzing(progressDone, progressTotal),
+                        if (preparing) AppStrings.STUDY_EVAL_PREPARING else AppStrings.kentoAnalyzing(progressDone, progressTotal),
                         style = MaterialTheme.typography.labelSmall,
                         color = shogiColors.ink2,
                         modifier = Modifier.padding(start = 8.dp),
                     )
                 }
+                Text(
+                    if (preparing) AppStrings.KENTO_ENGINE_DOWNLOAD_NOTE else "",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = shogiColors.ink3,
+                    modifier = Modifier.padding(start = 24.dp, top = 2.dp),
+                )
                 Spacer(Modifier.height(8.dp))
                 Button(onClick = onCancel, modifier = Modifier.fillMaxWidth()) {
                     Text(AppStrings.KENTO_CANCEL_BUTTON)

@@ -756,6 +756,9 @@ object AppStrings {
     /** 解析中の進捗表示。done/total は局面数。 */
     fun kentoAnalyzing(done: Int, total: Int): String = "解析中... $done/${total}局面"
 
+    /** WASMバイナリの初回ダウンロードは数分かかりうるため、その旨を明示する補足。 */
+    const val KENTO_ENGINE_DOWNLOAD_NOTE = "初回は解析エンジンのダウンロードに時間がかかります"
+
     /** KIFの場所ヘッダが無い棋譜でレポート画面タイトルになる語。 */
     const val KENTO_PASTED_GAME_TITLE = "貼り付けた棋譜"
 
