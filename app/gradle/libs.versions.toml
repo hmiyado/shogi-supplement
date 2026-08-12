@@ -7,7 +7,7 @@ jvm-toolchain = "17"
 # 消費するにもKotlin 2.3系が必要（shared/build.gradle.kts参照）。
 kotlin = "2.3.21"
 agp = "8.13.2"
-serialization = "1.9.0"
+serialization = "1.11.0"
 coroutines = "1.10.2"
 androidx-activity-compose = "1.13.0"
 compose-bom = "2025.12.01"
