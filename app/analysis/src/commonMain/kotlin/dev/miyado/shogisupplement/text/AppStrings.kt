@@ -697,7 +697,7 @@ object AppStrings {
     const val CONSENT_INTRO =
         "将棋サプリは棋譜をサーバーで解析し、棋力帯相応の悪手をドリルとして出題します。" +
         "解析にはサーバーを使うため、匿名のアカウントを作成します。名前・メールアドレスの入力は必要ありません。"
-    const val CONSENT_BETA_NOTICE = "ベータ期間中は1日30局まで解析できます。"
+    const val CONSENT_BETA_NOTICE = "ベータ版では1日30局まで早く解析できます。30局を超えると解析が遅くなります"
     const val CONSENT_RESEARCH_UPLOAD_TEXT =
         "解析した棋譜と結果を匿名で研究利用（アプリ改善・棋力推定の較正）のためにサーバーへ送信することに同意します"
     const val CONSENT_REQUIRED_NOTE = "同意すると利用を開始できます。"
