@@ -80,7 +80,7 @@ targets:
         # CADisableMinimumFrameDurationOnPhone は GENERATE_INFOPLIST_FILE の
         # INFOPLIST_KEY_ 機構（既知キーのみ対応）では注入できないため、実ファイルを使用。
         GENERATE_INFOPLIST_FILE: NO
-        CURRENT_PROJECT_VERSION: 2
+        CURRENT_PROJECT_VERSION: 3
         INFOPLIST_FILE: iosApp/Info.plist
         # :ui が :shared を export した umbrella framework（SharedUi）に統一。
         # :shared.framework は二重リンクせず、SharedUi 経由で :shared の公開APIも使う。

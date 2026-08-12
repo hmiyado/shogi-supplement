@@ -35,7 +35,7 @@ android {
         // gradle.propertiesのshogisupplement.versionCodeが単一の値源（:sharedのBuildConfigと共用。
         // 詳細はgradle.propertiesのコメント参照）。
         versionCode = providers.gradleProperty("shogisupplement.versionCode").get().toInt()
-        versionName = "1.1"
+        versionName = "1.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
