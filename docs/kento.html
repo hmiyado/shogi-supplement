@@ -13,7 +13,28 @@
 </style>
 </head>
 <body>
-<div id="composeApp"></div>
+<div id="composeApp">
+  <!-- Compose Wasm本体(十数MB)の読み込み中はcomposeAppが空でページが無反応に見えるため、
+       静的HTMLのローダーを置く。Composeはこのdivへcanvasを追加するので、
+       canvasの出現をもって役目を終える(下のscript)。 -->
+  <div id="appLoading" class="app-loading" role="status">
+    <div class="app-loading-spinner" aria-hidden="true"></div>
+    <p>読み込んでいます…</p>
+  </div>
+</div>
+<script>
+  (function () {
+    const container = document.getElementById("composeApp");
+    const loading = document.getElementById("appLoading");
+    const observer = new MutationObserver(() => {
+      if (container.querySelector("canvas")) {
+        loading.remove();
+        observer.disconnect();
+      }
+    });
+    observer.observe(container, { childList: true, subtree: true });
+  })();
+</script>
 <footer>
   <p class="footer-nav">
     <a href="./index.html">将棋サプリ トップ</a>
