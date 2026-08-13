@@ -1,0 +1,90 @@
+name: Renovate Verification
+
+on:
+  pull_request:
+
+concurrency:
+  group: renovate-verify-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  jvm-and-wasm:
+    if: github.event.pull_request.user.login == 'renovate[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+
+      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3.2.2
+
+      - name: Configure npm minimum release age
+        run: |
+          sudo npm install -g npm@11
+          npm config set min-release-age 7 --location=user
+
+      - name: Install binaryen
+        env:
+          BINARYEN_VERSION: "131"
+        run: |
+          curl -fsSL "https://github.com/WebAssembly/binaryen/releases/download/version_${BINARYEN_VERSION}/binaryen-version_${BINARYEN_VERSION}-x86_64-linux.tar.gz" \
+            | sudo tar xz -C /opt
+          WASM_OPT="/opt/binaryen-version_${BINARYEN_VERSION}/bin/wasm-opt"
+          "$WASM_OPT" --version
+          echo "WASM_OPT_PATH=$WASM_OPT" >> "$GITHUB_ENV"
+
+      - name: Run JVM tests and Wasm distribution
+        working-directory: app
+        run: >-
+          ./gradlew :ui:test :shared:jvmTest :server:worker:test :analysis:jvmTest
+          :webApp:wasmJsBrowserDistribution --no-parallel --stacktrace
+
+      - name: Upload Linux reports
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: renovate-linux-reports
+          path: |
+            app/ui/build/reports
+            app/shared/build/reports
+            app/server/worker/build/reports
+            app/analysis/build/reports
+            app/webApp/build/reports
+          retention-days: 7
+
+  ios-compile:
+    if: github.event.pull_request.user.login == 'renovate[bot]'
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+
+      - name: Compile iOS simulator target
+        working-directory: app
+        run: ./gradlew :ui:compileKotlinIosSimulatorArm64 --no-parallel --stacktrace
+
+      - name: Upload iOS reports
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: renovate-ios-reports
+          path: |
+            app/ui/build/reports
+            app/shared/build/reports
+          retention-days: 7
