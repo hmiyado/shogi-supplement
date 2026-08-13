@@ -1,5 +1,6 @@
 package dev.miyado.shogisupplement.transfer
 
+import dev.miyado.shogisupplement.api.ApiHeaders
 import dev.miyado.shogisupplement.api.transfer.TransferRequest
 import dev.miyado.shogisupplement.api.transfer.TransferSessionJson
 import dev.miyado.shogisupplement.auth.AuthRepository
@@ -47,10 +48,10 @@ class RemoteTransferRestoreService(
         val response = try {
             httpClient.post("$baseUrl/v1/transfer") {
                 if (appCheckToken != null) {
-                    header("X-Firebase-AppCheck", appCheckToken)
+                    header(ApiHeaders.APP_CHECK, appCheckToken)
                 }
-                header("X-App-Platform", platform)
-                header("X-App-Build", currentBuildNumber().toString())
+                header(ApiHeaders.APP_PLATFORM, platform)
+                header(ApiHeaders.APP_BUILD, currentBuildNumber().toString())
                 contentType(ContentType.Application.Json)
                 setBody(json.encodeToString(TransferRequest.serializer(), TransferRequest(kAuth = Base64.encode(kAuth))))
             }

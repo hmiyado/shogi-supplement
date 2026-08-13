@@ -1,5 +1,6 @@
 package dev.miyado.shogisupplement.engine
 
+import dev.miyado.shogisupplement.api.ApiHeaders
 import dev.miyado.shogisupplement.blunder.Score
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -334,15 +335,13 @@ class RemoteAnalysisRunnerTest {
         }
     }
 
-    // ─── X-App-Platform / X-App-Build（Worker側の強制アップデート検証向け） ────────
-
     @Test
-    fun `analyzeGame always sends X-App-Platform and X-App-Build headers`() = runTest {
+    fun `analyzeGame always sends app version headers`() = runTest {
         var capturedPlatform: String? = null
         var capturedBuild: String? = null
         val engine = MockEngine { request ->
-            capturedPlatform = request.headers["X-App-Platform"]
-            capturedBuild = request.headers["X-App-Build"]
+            capturedPlatform = request.headers[ApiHeaders.APP_PLATFORM]
+            capturedBuild = request.headers[ApiHeaders.APP_BUILD]
             respond(content = ByteReadChannel(resultLine), status = HttpStatusCode.OK, headers = ndjsonHeaders)
         }
 
@@ -355,10 +354,10 @@ class RemoteAnalysisRunnerTest {
     }
 
     @Test
-    fun `analyzePosition also sends X-App-Platform and X-App-Build headers`() = runTest {
+    fun `analyzePosition also sends app version headers`() = runTest {
         var capturedPlatform: String? = null
         val engine = MockEngine { request ->
-            capturedPlatform = request.headers["X-App-Platform"]
+            capturedPlatform = request.headers[ApiHeaders.APP_PLATFORM]
             respond(
                 content = ByteReadChannel(
                     """{"result":[[{"multipv":1,"score":{"type":"cp","value":1},"pv":[],"nodes":400000}]],""" +
@@ -375,13 +374,11 @@ class RemoteAnalysisRunnerTest {
         assertEquals("ios", capturedPlatform)
     }
 
-    // ─── Firebase App Checkトークンの注入（SDK組み込み自体は別タスク） ────────────
-
     @Test
-    fun `appCheckTokenProvider unset means no X-Firebase-AppCheck header is sent`() = runTest {
+    fun `appCheckTokenProvider unset means no app check header is sent`() = runTest {
         var capturedHeader: String? = null
         val engine = MockEngine { request ->
-            capturedHeader = request.headers["X-Firebase-AppCheck"]
+            capturedHeader = request.headers[ApiHeaders.APP_CHECK]
             respond(content = ByteReadChannel(resultLine), status = HttpStatusCode.OK, headers = ndjsonHeaders)
         }
 
@@ -391,10 +388,10 @@ class RemoteAnalysisRunnerTest {
     }
 
     @Test
-    fun `appCheckTokenProvider returning null means no X-Firebase-AppCheck header is sent`() = runTest {
+    fun `appCheckTokenProvider returning null means no app check header is sent`() = runTest {
         var capturedHeader: String? = null
         val engine = MockEngine { request ->
-            capturedHeader = request.headers["X-Firebase-AppCheck"]
+            capturedHeader = request.headers[ApiHeaders.APP_CHECK]
             respond(content = ByteReadChannel(resultLine), status = HttpStatusCode.OK, headers = ndjsonHeaders)
         }
 
@@ -404,10 +401,10 @@ class RemoteAnalysisRunnerTest {
     }
 
     @Test
-    fun `appCheckTokenProvider returning a token attaches X-Firebase-AppCheck header on analyzeGame`() = runTest {
+    fun `appCheckTokenProvider returning a token attaches app check header on analyzeGame`() = runTest {
         var capturedHeader: String? = null
         val engine = MockEngine { request ->
-            capturedHeader = request.headers["X-Firebase-AppCheck"]
+            capturedHeader = request.headers[ApiHeaders.APP_CHECK]
             respond(content = ByteReadChannel(resultLine), status = HttpStatusCode.OK, headers = ndjsonHeaders)
         }
 
@@ -417,10 +414,10 @@ class RemoteAnalysisRunnerTest {
     }
 
     @Test
-    fun `appCheckTokenProvider returning a token attaches X-Firebase-AppCheck header on analyzePosition`() = runTest {
+    fun `appCheckTokenProvider returning a token attaches app check header on analyzePosition`() = runTest {
         var capturedHeader: String? = null
         val engine = MockEngine { request ->
-            capturedHeader = request.headers["X-Firebase-AppCheck"]
+            capturedHeader = request.headers[ApiHeaders.APP_CHECK]
             respond(
                 content = ByteReadChannel(
                     """{"result":[[{"multipv":1,"score":{"type":"cp","value":1},"pv":[],"nodes":400000}]],""" +

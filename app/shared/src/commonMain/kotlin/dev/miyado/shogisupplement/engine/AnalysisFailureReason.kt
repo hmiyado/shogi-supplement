@@ -1,13 +1,6 @@
 package dev.miyado.shogisupplement.engine
 
-/**
- * [AnalysisOrchestrator.Outcome.Failed] の失敗理由。
- * [RemoteAnalysisException] の各サブタイプと1対1で対応し、それ以外の例外は [Unknown] にまとめる。
- *
- * 呼び出し側（iOSのエラーダイアログ等）が理由別に文言・挙動を分岐したい場合に使う。
- * message フィールドだけを見る既存呼び出し側（Android の AnalysisService・デバッグレシーバ）は
- * この型を無視しても動作は変わらない。
- */
+/** [RemoteAnalysisException]の各サブタイプは対応させ、その他は[Unknown]に集約する。 */
 sealed class AnalysisFailureReason {
     /** HTTP 401: [dev.miyado.shogisupplement.auth.AuthRepository.refreshSession] による自動復旧
      * （[AuthRetryingAnalyzer]）も失敗した後の認可エラー。 */
@@ -25,7 +18,7 @@ sealed class AnalysisFailureReason {
     /** HTTP 400: リクエスト不正（想定外。moves_usiが空など）。 */
     data object BadRequest : AnalysisFailureReason()
 
-    /** HTTP 426: X-App-Buildがapp_policy.min_build未満（Worker側の強制アップデート検証）。 */
+    /** HTTP 426: アプリ版情報のbuildがapp_policy.min_build未満。 */
     data object UpgradeRequired : AnalysisFailureReason()
 
     /** サーバー側エンジン失敗（NDJSON終端の error 行）。 */

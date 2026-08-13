@@ -1,5 +1,6 @@
 package dev.miyado.shogisupplement.server.worker
 
+import dev.miyado.shogisupplement.api.ApiHeaders
 import dev.miyado.shogisupplement.api.analysis.EngineMetaJson
 import dev.miyado.shogisupplement.server.worker.fakes.FakeAnalysisJobRepository
 import dev.miyado.shogisupplement.server.worker.fakes.FakeAppCheckVerifier
@@ -159,7 +160,7 @@ class RoutesTest {
         }
         val response = client.post("/v1/analyses") {
             header("Authorization", "Bearer valid-token")
-            header("X-Firebase-AppCheck", "valid-app-check-token")
+            header(ApiHeaders.APP_CHECK, "valid-app-check-token")
             contentType(ContentType.Application.Json)
             setBody("""{"moves_usi":["7g7f"]}""")
         }
@@ -184,8 +185,6 @@ class RoutesTest {
         assertTrue(lines.last().contains("\"engine_meta\""))
     }
 
-    // ── 426: 強制アップデート（X-App-Platform/X-App-Build） ───────────────────
-
     @Test
     fun `blocked platform and build returns 426 with the existing error body shape`() = testApplication {
         application {
@@ -196,8 +195,8 @@ class RoutesTest {
         }
         val response = client.post("/v1/analyses") {
             header("Authorization", "Bearer valid-token")
-            header("X-App-Platform", "ios")
-            header("X-App-Build", "1")
+            header(ApiHeaders.APP_PLATFORM, "ios")
+            header(ApiHeaders.APP_BUILD, "1")
             contentType(ContentType.Application.Json)
             setBody("""{"moves_usi":["7g7f"]}""")
         }
@@ -207,7 +206,7 @@ class RoutesTest {
     }
 
     @Test
-    fun `missing X-App-Platform or X-App-Build headers skips the check (1_0 client compatibility)`() = testApplication {
+    fun `missing app version headers skips the check (1_0 client compatibility)`() = testApplication {
         application {
             install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
             routing {
@@ -216,7 +215,6 @@ class RoutesTest {
         }
         val response = client.post("/v1/analyses") {
             header("Authorization", "Bearer valid-token")
-            // X-App-Platform/X-App-Build を送らない旧クライアントを模す。
             contentType(ContentType.Application.Json)
             setBody("""{"moves_usi":["7g7f"]}""")
         }

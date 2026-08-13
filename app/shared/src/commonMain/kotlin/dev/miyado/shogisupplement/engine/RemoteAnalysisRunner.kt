@@ -1,5 +1,6 @@
 package dev.miyado.shogisupplement.engine
 
+import dev.miyado.shogisupplement.api.ApiHeaders
 import dev.miyado.shogisupplement.api.analysis.AnalysisRequest
 import dev.miyado.shogisupplement.api.analysis.AnalysisResultJson
 import dev.miyado.shogisupplement.api.analysis.ErrorJson
@@ -27,27 +28,9 @@ import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.jsonObject
 
 /**
- * `POST /v1/analyses`（app/server/worker）を叩く [GameAnalyzer] 実装。
- *
- * リクエスト/レスポンスのJSON形式は [dev.miyado.shogisupplement.api.analysis] のDTOをサーバーと直接
- * 共有する（フィールド名を手作業で突き合わせる必要はない）。
- *
- * @property baseUrl ワーカーのベースURL
- * @property accessTokenProvider 呼び出しごとにSupabase JWTを取得する関数。トークン更新は
- *   呼び出し側の責務
- * @property platform 強制アップデート検証用のX-App-Platformヘッダ値（"android"/"ios"。
- *   app_policyテーブルのplatform列と同じ語彙。[dev.miyado.shogisupplement.supabase.SupabaseServices]
- *   のplatformパラメータと同じく呼び出し側が明示する）。ビルド番号は[currentBuildNumber]
- *   （expect/actual）でこのクラス自身が解決するため引数に取らない。
- * @property maxRetries 切断時に同一リクエストを再POSTする上限回数
- * @property retryBackoffMs 再POSTまでの待機時間の基準値（試行回数に比例。指数バックオフに
- *   しないのは、サーバー側の完了待ちが最大280秒のポーリングで律速されるため）
- * @property appCheckTokenProvider Firebase App Checkトークンを取得する関数。iOS側は
- *   `AppCheckTokenBridge::getToken`（:ui iosMain）を渡す（IosMainController/DrillDemoFactory
- *   参照）。nullのまま、またはトークン取得が失敗（例外/null）した場合はヘッダ自体を
- *   付けない＝サーバー側の段階導入（FIREBASE_PROJECT_NUMBER未設定）と同じく検証は素通りになる。
- *   ここで例外を握りつぶさないのは意図的: 呼び出し側（SDK組み込み後）が失敗を検知できるよう、
- *   nullを返す/返さないの判断自体は呼び出し側の関数の責務に留める。
+ * @property platform `app_policy.platform`の語彙（"android" / "ios"）。
+ * @property retryBackoffMs 試行回数に比例する待機時間。最大280秒のサーバーポーリングが律速のため指数化しない。
+ * @property appCheckTokenProvider nullはApp Checkヘッダーを省略し、例外は解析失敗として伝播する。
  */
 class RemoteAnalysisRunner(
     private val baseUrl: String,
@@ -61,10 +44,8 @@ class RemoteAnalysisRunner(
     private val json = Json { ignoreUnknownKeys = true }
 
     /**
-     * サーバーは moves_hash で冪等なので、通信切断時は同一の [moves] で再POSTするだけで
-     * 安全に復旧できる。切断とみなすのはストリームが最終行(result/error)を受け取る前に
-     * 終わった場合とHTTP例外のみ。401/403/429/400・終端error行は再試行せず
-     * [RemoteAnalysisException] として即座に伝える。
+     * `moves_hash`の冪等性を前提に、切断時だけ同じリクエストを再送する。
+     * 認可・クォータ・不正・更新要求のHTTPエラーと終端error行は再送せず[RemoteAnalysisException]として伝播する。
      */
     override suspend fun analyzeGame(
         moves: List<String>,
@@ -76,14 +57,7 @@ class RemoteAnalysisRunner(
         onPositionResult = onPositionResult,
     )
 
-    /**
-     * ドリルの二次判定（曖昧領域）向けの単発局面解析。サーバー側は sfen+moves モード
-     * （EngineInput.Position）で処理し、1局面ぶんのMultiPV結果だけを返す。
-     * リトライ・冪等（moves_hash）の仕組みは [analyzeGame] と共通（[executeWithRetry] 参照）。
-     *
-     * @param sfen  出発局面のSFEN
-     * @param moves sfen 後にさらに進める USI 手列（省略可）
-     */
+    /** `sfen`から`moves`を進めた単一局面へ、[analyzeGame]と同じ再送・冪等性を適用する。 */
     suspend fun analyzePosition(sfen: String, moves: List<String> = emptyList()): List<PvInfo> {
         val perPosition = executeWithRetry(
             AnalysisRequest(sfen = sfen, moves = moves),
@@ -136,12 +110,12 @@ class RemoteAnalysisRunner(
         return httpClient.preparePost("$baseUrl/v1/analyses") {
             header("Authorization", "Bearer $token")
             if (appCheckToken != null) {
-                header("X-Firebase-AppCheck", appCheckToken)
+                header(ApiHeaders.APP_CHECK, appCheckToken)
             }
             // Why not appCheckTokenのように取得失敗時だけ省く: 欠如時はサーバー側が
             // fail-open/1.0クライアント互換としてスキップするだけなので、条件付きにする理由が無い。
-            header("X-App-Platform", platform)
-            header("X-App-Build", currentBuildNumber().toString())
+            header(ApiHeaders.APP_PLATFORM, platform)
+            header(ApiHeaders.APP_BUILD, currentBuildNumber().toString())
             contentType(ContentType.Application.Json)
             setBody(json.encodeToString(AnalysisRequest.serializer(), request))
         }.execute { response ->
@@ -173,9 +147,7 @@ class RemoteAnalysisRunner(
         onPositionResult: ((ply: Int, pvs: List<PvInfo>) -> Unit)?,
     ): List<List<PvInfo>> {
         val channel = response.bodyAsChannel()
-        // position行で既に発火済みのplyを覚えておく（並列ワーカーの完了順で届くため
-        // ply順とは限らない）。最終result行のforEachIndexedで同じplyを再度発火すると、
-        // 呼び出し側から見て「局面ごとに1回」の前提が崩れる。
+        // position行は並列ワーカーの完了順で届くため、最終result行との重複通知を防ぐ。
         val deliveredPlies = mutableSetOf<Int>()
         while (true) {
             val line = channel.readLine() ?: break
@@ -219,7 +191,6 @@ class RemoteAnalysisRunner(
             .getOrDefault("")
 }
 
-// [RemoteAnalysisRunner.analyzeGame] が返す型付きエラー。UIでの文言化は呼び出し側の責務。
 sealed class RemoteAnalysisException(message: String, cause: Throwable? = null) : Exception(message, cause) {
     /** HTTP 401: Supabase JWTが無効・期限切れ。 */
     class Unauthorized(message: String) : RemoteAnalysisException(message)
@@ -236,7 +207,7 @@ sealed class RemoteAnalysisException(message: String, cause: Throwable? = null) 
     /** HTTP 400: リクエスト不正（想定外。moves_usiが空など）。 */
     class BadRequest(message: String) : RemoteAnalysisException(message)
 
-    /** HTTP 426: X-App-Buildがapp_policy.min_build未満（Worker側の強制アップデート検証）。 */
+    /** HTTP 426: アプリ版情報のbuildがapp_policy.min_build未満。 */
     class UpgradeRequired(message: String) : RemoteAnalysisException(message)
 
     /** NDJSON終端の `{"error": ...}` 行（ストリーム途中のエンジン失敗。HTTPは200のまま）。 */

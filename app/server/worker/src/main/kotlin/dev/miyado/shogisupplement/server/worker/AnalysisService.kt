@@ -53,7 +53,7 @@ sealed class AnalysisRequestOutcome {
     data class QuotaExceeded(val resetAt: Instant) : AnalysisRequestOutcome()
     data class BadRequest(val reason: String) : AnalysisRequestOutcome()
 
-    /** X-App-Platform/X-App-Buildのbuildがapp_policy.min_build未満（426を返す）。 */
+    /** アプリ版情報のbuildがapp_policy.min_build未満（426を返す）。 */
     data object UpgradeRequired : AnalysisRequestOutcome()
 
     // [emit] は `write` コールバック（1行=1回呼ぶ。改行はemit内で付与済み）を受け取り、
@@ -63,8 +63,8 @@ sealed class AnalysisRequestOutcome {
 
 class AnalysisWaitTimeoutException(message: String) : Exception(message)
 
-// 認可の順序（不変条件・変更しないこと）: 強制アップデート検証（X-App-Platform/X-App-Build
-// が両方揃った場合のみ。片方でも欠如・build不正・ポリシー取得失敗はfail-openでスキップ。
+// 認可の順序（不変条件・変更しないこと）: 強制アップデート検証（プラットフォームとbuildが
+// 両方揃った場合のみ。片方でも欠如・build不正・ポリシー取得失敗はfail-openでスキップ。
 // 1.0クライアント互換のため認証より前段に置く）→
 // App Check検証（有効時のみ。ヘッダ欠如/検証失敗は401）→ JWT検証 → user_bans照合（BAN即403）→
 // クォータ判定（超過は429＋翌日リセット時刻）→ moves_hash冪等チェック（解析済みなら即返却／
@@ -185,10 +185,8 @@ class AnalysisService(
         AnalysisJobStatus.RUNNING -> {
             val ageMs = Duration.between(existing.createdAt, clock.instant()).toMillis()
             if (ageMs > staleRunningTimeoutMs) {
-                // Why not このままwaitForCompletionへ進める: 解析側が切断時のキャンセルに
-                // 巻き込まれてmarkDone/markErrorへ到達できなかった行は、待っても
-                // running のまま変化しないためタイムアウトし続ける。created_atで停止を
-                // 検知し、resetして自分のリクエストで解析をやり直す方が復旧できる。
+                // Why not waitForCompletion: 切断で解析が中断した行はrunningのまま変化せず、
+                // 待機を続けてもタイムアウトするため、ここで自己復旧する。
                 analysisJobRepository.resetToRunning(existing.id)
                 AnalysisRequestOutcome.Stream(runEmitter(existing.id, input))
             } else {
@@ -220,13 +218,8 @@ class AnalysisService(
     }
 
     /**
-     * 新規解析を実行し、進捗→最終行をNDJSONで書き出すエミッタ。
-     *
-     * 解析本体＋markDone/markErrorは[analysisScope]のasyncで実行し、リクエスト側の[write]とは
-     * 独立させる。進捗は非suspendコールバックからChannelへ送るだけにし、writeへの転送は
-     * このリクエスト側コルーチンが担う。write失敗（クライアント切断）はここで握りつぶし、
-     * 転送を打ち切るだけにとどめる（analysisScope側は別スコープのため、伝播させなくても
-     * 独立してmarkDone/markErrorまで完走する）。
+     * [analysisScope]の解析はwriteと独立してmarkDone/markErrorまで完走する。
+     * Why not 同じスコープ: write失敗で解析も中断しrunning行が残るため、配信だけ打ち切る。
      */
     private fun runEmitter(jobId: String, input: EngineInput): suspend (suspend (String) -> Unit) -> Unit =
         { write ->

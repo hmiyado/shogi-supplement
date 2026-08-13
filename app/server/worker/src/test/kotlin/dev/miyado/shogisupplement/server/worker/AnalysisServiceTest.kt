@@ -96,8 +96,6 @@ class AnalysisServiceTest {
         return lines
     }
 
-    // ── 426: 強制アップデート（X-App-Platform/X-App-Build。認証より前段でゲートする） ──
-
     @Test
     fun `blocked platform and build returns UpgradeRequired before checking JWT`() = runTest {
         val authVerifier = FakeAuthVerifier(mapOf("valid-token" to "user-1"))

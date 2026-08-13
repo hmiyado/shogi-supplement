@@ -1,5 +1,6 @@
 package dev.miyado.shogisupplement.server.worker
 
+import dev.miyado.shogisupplement.api.ApiHeaders
 import dev.miyado.shogisupplement.api.analysis.AnalysisRequest
 import dev.miyado.shogisupplement.api.analysis.ErrorJson
 import dev.miyado.shogisupplement.api.analysis.QuotaExceededJson
@@ -18,9 +19,6 @@ import org.slf4j.LoggerFactory
 
 private val log = LoggerFactory.getLogger("dev.miyado.shogisupplement.server.worker.Routes")
 private val NDJSON = ContentType.parse("application/x-ndjson")
-private const val APP_CHECK_HEADER = "X-Firebase-AppCheck"
-private const val PLATFORM_HEADER = "X-App-Platform"
-private const val BUILD_HEADER = "X-App-Build"
 
 // HTTP変換の薄い層のみを担い、認可・冪等・解析の実処理は[AnalysisService]に委譲する。
 fun Routing.registerAnalysisRoutes(service: AnalysisService) {
@@ -30,9 +28,9 @@ fun Routing.registerAnalysisRoutes(service: AnalysisService) {
 
     post("/v1/analyses") {
         val authorizationHeader = call.request.headers[HttpHeaders.Authorization]
-        val appCheckHeader = call.request.headers[APP_CHECK_HEADER]
-        val platformHeader = call.request.headers[PLATFORM_HEADER]
-        val buildHeader = call.request.headers[BUILD_HEADER]
+        val appCheckHeader = call.request.headers[ApiHeaders.APP_CHECK]
+        val platformHeader = call.request.headers[ApiHeaders.APP_PLATFORM]
+        val buildHeader = call.request.headers[ApiHeaders.APP_BUILD]
 
         val request = try {
             call.receive<AnalysisRequest>()

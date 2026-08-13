@@ -21,7 +21,7 @@ sealed class TransferOutcome {
     /** App Check検証失敗。 */
     data class Unauthorized(val reason: String) : TransferOutcome()
 
-    /** X-App-Platform/X-App-Buildがapp_policy.min_build未満。 */
+    /** アプリ版情報のbuildがapp_policy.min_build未満。 */
     data object UpgradeRequired : TransferOutcome()
 
     /** IPレート制限超過。 */

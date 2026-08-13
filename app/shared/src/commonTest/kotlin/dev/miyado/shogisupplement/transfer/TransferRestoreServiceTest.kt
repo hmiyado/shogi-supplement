@@ -1,5 +1,6 @@
 package dev.miyado.shogisupplement.transfer
 
+import dev.miyado.shogisupplement.api.ApiHeaders
 import dev.miyado.shogisupplement.auth.AuthRepository
 import dev.miyado.shogisupplement.auth.AuthUser
 import dev.miyado.shogisupplement.crypto.TRANSFER_SECRET_BYTES
@@ -166,7 +167,7 @@ class TransferRestoreServiceTest {
     }
 
     @Test
-    fun `X-App-PlatformとX-App-Buildヘッダを送る`() = runTest {
+    fun `アプリ版情報ヘッダを送る`() = runTest {
         var captured: HttpRequestData? = null
         val engine = MockEngine { request ->
             captured = request
@@ -179,7 +180,7 @@ class TransferRestoreServiceTest {
 
         service(engine).restore(validCode)
 
-        assertEquals("ios", captured?.headers?.get("X-App-Platform"))
-        assertTrue(captured?.headers?.get("X-App-Build") != null)
+        assertEquals("ios", captured?.headers?.get(ApiHeaders.APP_PLATFORM))
+        assertTrue(captured?.headers?.get(ApiHeaders.APP_BUILD) != null)
     }
 }
