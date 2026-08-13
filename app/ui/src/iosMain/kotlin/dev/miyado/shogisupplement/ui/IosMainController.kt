@@ -8,6 +8,8 @@ import dev.miyado.shogisupplement.db.GameRepository
 import dev.miyado.shogisupplement.db.RatingSettings
 import dev.miyado.shogisupplement.crash.NoopCrashReporter
 import dev.miyado.shogisupplement.db.SettingsRepository
+import dev.miyado.shogisupplement.download.GameImportOutcome
+import dev.miyado.shogisupplement.download.ReconstructedGame
 import dev.miyado.shogisupplement.engine.AnalysisOrchestrator
 import dev.miyado.shogisupplement.engine.AnalysisRunner
 import dev.miyado.shogisupplement.engine.AuthRetryingAnalyzer
@@ -701,18 +703,10 @@ class IosMainController(
 
     /** analyzer構築〜orchestrator実行のみを担う（状態遷移は呼び出し元 [launchAnalysis] の責務）。 */
     private suspend fun runAnalysis(pending: PendingAnalysis, id: String): AnalysisOrchestrator.Outcome {
+        analyzerConfigurationError()?.let { return it }
+
         val auth = authRepository
         val baseUrl = analysisBaseUrl
-
-        // engineless（サーバー解析専用）フレーバーはANALYSIS_BASE_URL未設定時に
-        // 端末エンジンへフォールバックする手段が無い（IosEngineHostのengineless実装は
-        // 常にnull/例外を返すダミー）。フォールバック分岐（下のelse節）へ進んで
-        // AnalysisOrchestrator経由で不可解な例外を出す前に、ここで専用エラーを出して
-        // 中止する（通常は出荷前の設定漏れでのみ到達する経路）。
-        if (!IosEngineHost.ENGINE_LINKED && baseUrl == null) {
-            return AnalysisOrchestrator.Outcome.Failed(AppStrings.ANALYSIS_SERVER_NOT_CONFIGURED)
-        }
-
         // サーバー解析はJWTでユーザーを識別するため、未ログインならここで匿名サインインする。
         // signInAnonymously の自動呼び出しはここ（明示的なサーバー解析経路）に限定し、
         // 既存アカウントがある場合は currentUser が非null のため再発行されない。
@@ -723,7 +717,79 @@ class IosMainController(
             }
         }
 
-        val analyzer: GameAnalyzer = if (auth != null && baseUrl != null) {
+        val orchestrator = AnalysisOrchestrator(
+            repository = gameRepository,
+            coefTable = coefTable,
+            analyzer = buildAnalyzer(),
+        )
+        return orchestrator.analyzeAndSave(
+            kifContent = pending.kifText,
+            fileName = pending.fileName,
+            userSide = pending.userSide,
+            ratingService = pending.ratingService,
+            ratingRaw = pending.ratingRaw,
+            ratingRule = pending.ratingRule,
+            // 現行のNDJSON形式では局面ごとの中間結果を送らずprogress行が定期的に
+            // 届くだけのため、フォアグラウンド復帰の無進捗判定（[onWillEnterForeground]）は
+            // 引き続きこちらで更新する。ProgressiveReportStateへの反映はonPositionResultの
+            // 責務にする（1コールバックに混ぜるとテストが両方の関心を一度に検証しづらいため）。
+            onProgress = { _, _ -> lastProgressAtEpochSeconds = currentEpochSeconds() },
+            onPositionResult = { ply, pvs ->
+                InProgressAnalysisRegistry.shared.updatePosition(id, ply, pvs)
+                val current = _importState.value
+                if (current is ImportState.Analyzing) {
+                    _importState.value = current.copy(progressive = current.progressive.withPosition(ply, pvs))
+                }
+            },
+        )
+    }
+
+    /**
+     * 棋譜ダウンロード復元（[dev.miyado.shogisupplement.ui.restore.GameRestoreViewModel]）の
+     * 1局ぶんの取込コールバック。復元は既に非匿名セッションを前提とするため、
+     * [runAnalysis] と違い匿名サインインは行わない。
+     */
+    suspend fun importDownloadedGame(game: ReconstructedGame): GameImportOutcome {
+        if (analyzerConfigurationError() != null) return GameImportOutcome(success = false)
+        val orchestrator = AnalysisOrchestrator(
+            repository = gameRepository,
+            coefTable = coefTable,
+            analyzer = buildAnalyzer(),
+        )
+        val outcome = orchestrator.analyzeAndSave(
+            kifContent = game.kifText,
+            fileName = game.fileName,
+            userSide = game.userSide,
+            ratingService = game.ratingService,
+            ratingRaw = game.ratingRaw,
+            ratingRule = game.ratingRule,
+            contentHash = game.contentHash,
+            sourcePlaceOverride = game.sourcePlaceOverride,
+        )
+        return when (outcome) {
+            is AnalysisOrchestrator.Outcome.Completed -> GameImportOutcome(success = true, gameId = outcome.gameId)
+            is AnalysisOrchestrator.Outcome.Failed -> GameImportOutcome(success = false)
+        }
+    }
+
+    /**
+     * engineless（サーバー解析専用）フレーバーはANALYSIS_BASE_URL未設定時に
+     * 端末エンジンへフォールバックする手段が無い（IosEngineHostのengineless実装は
+     * 常にnull/例外を返すダミー）。[buildAnalyzer] のフォールバック分岐へ進んで
+     * AnalysisOrchestrator経由で不可解な例外を出す前に、ここで専用エラーを検出して
+     * 中止できるようにする（通常は出荷前の設定漏れでのみ到達する経路）。
+     */
+    private fun analyzerConfigurationError(): AnalysisOrchestrator.Outcome.Failed? =
+        if (!IosEngineHost.ENGINE_LINKED && analysisBaseUrl == null) {
+            AnalysisOrchestrator.Outcome.Failed(AppStrings.ANALYSIS_SERVER_NOT_CONFIGURED)
+        } else {
+            null
+        }
+
+    private fun buildAnalyzer(): GameAnalyzer {
+        val auth = authRepository
+        val baseUrl = analysisBaseUrl
+        return if (auth != null && baseUrl != null) {
             // サーバー解析（クォータ429・サーバー障害・接続断リトライ上限）が使えないときは
             // 端末内WKWebView×WASMやねうら王（WasmAnalysisRunner）へフォールバックし、同じ棋譜を
             // 最初から解析し直す。サーバー・端末は同一の解析条件を保証するため結果に差は無く、
@@ -756,32 +822,6 @@ class IosMainController(
                 disposeEngine = IosEngineHost.keepAliveDispose,
             )
         }
-
-        val orchestrator = AnalysisOrchestrator(
-            repository = gameRepository,
-            coefTable = coefTable,
-            analyzer = analyzer,
-        )
-        return orchestrator.analyzeAndSave(
-            kifContent = pending.kifText,
-            fileName = pending.fileName,
-            userSide = pending.userSide,
-            ratingService = pending.ratingService,
-            ratingRaw = pending.ratingRaw,
-            ratingRule = pending.ratingRule,
-            // 現行のNDJSON形式では局面ごとの中間結果を送らずprogress行が定期的に
-            // 届くだけのため、フォアグラウンド復帰の無進捗判定（[onWillEnterForeground]）は
-            // 引き続きこちらで更新する。ProgressiveReportStateへの反映はonPositionResultの
-            // 責務にする（1コールバックに混ぜるとテストが両方の関心を一度に検証しづらいため）。
-            onProgress = { _, _ -> lastProgressAtEpochSeconds = currentEpochSeconds() },
-            onPositionResult = { ply, pvs ->
-                InProgressAnalysisRegistry.shared.updatePosition(id, ply, pvs)
-                val current = _importState.value
-                if (current is ImportState.Analyzing) {
-                    _importState.value = current.copy(progressive = current.progressive.withPosition(ply, pvs))
-                }
-            },
-        )
     }
 
     private fun currentDateTimeLabel(): String {

@@ -68,10 +68,13 @@ import dev.miyado.shogisupplement.ui.home.HomeScreen
 import dev.miyado.shogisupplement.ui.license.LicenseInfoScreen
 import dev.miyado.shogisupplement.ui.report.AnalyzingReportScreen
 import dev.miyado.shogisupplement.ui.report.ReportScreen
+import dev.miyado.shogisupplement.ui.restore.GameRestoreScreen
+import dev.miyado.shogisupplement.ui.restore.GameRestoreViewModel
 import dev.miyado.shogisupplement.ui.settings.RatingSettingsDialog
 import dev.miyado.shogisupplement.ui.settings.SettingsScreen
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
 import dev.miyado.shogisupplement.ui.transfercode.TransferCodeInputDialog
+import dev.miyado.shogisupplement.ui.transfercode.TransferCodeInputUiState
 import dev.miyado.shogisupplement.ui.transfercode.TransferCodeInputViewModel
 import dev.miyado.shogisupplement.ui.transfercode.TransferCodeScreen
 import dev.miyado.shogisupplement.upload.UploadResult
@@ -247,6 +250,9 @@ private sealed class DemoRoute {
     object TransferCode : DemoRoute()
     object GameList : DemoRoute()
     object Debug : DemoRoute()
+
+    /** 引き継ぎコード復元成功後の遷移先（サーバー上の自分の棋譜をダウンロード復元する画面）。 */
+    object GameRestore : DemoRoute()
 }
 
 @OptIn(ExperimentalNativeApi::class)
@@ -457,6 +463,7 @@ private fun DemoApp(
                 },
                 services = supabaseServices,
                 analysisBaseUrl = analysisBaseUrl,
+                onRestoreSuccess = { route = DemoRoute.GameRestore },
             )
         }
         DemoRoute.Debug -> {
@@ -503,6 +510,23 @@ private fun DemoApp(
                 onBack = { route = DemoRoute.Home },
                 onGameClick = { game -> route = DemoRoute.Report(game.id) },
             )
+        }
+        DemoRoute.GameRestore -> {
+            val services = supabaseServices
+            if (services == null) {
+                // 設定なしでこのルートには到達しない（引き継ぎコード自体がSupabase設定必須）が、
+                // 念のため戻す。
+                route = DemoRoute.Home
+            } else {
+                IosGameRestoreScreenHost(
+                    services = services,
+                    controller = controller,
+                    onFinish = {
+                        route = DemoRoute.Home
+                        controller.reloadHome()
+                    },
+                )
+            }
         }
     }
 }
@@ -866,6 +890,8 @@ private fun IosSettingsScreenHost(
     /** 引き継ぎコード入力ダイアログの配線用。null（Supabase未設定ビルド）なら行ごと非表示。 */
     services: SupabaseServices? = null,
     analysisBaseUrl: String? = null,
+    /** 引き継ぎコード復元成功後の遷移先（棋譜ダウンロード復元画面）。 */
+    onRestoreSuccess: () -> Unit = {},
 ) {
     val themeMode by controller.themeMode.collectAsState()
     val evalDisplay by controller.evalDisplay.collectAsState()
@@ -896,6 +922,10 @@ private fun IosSettingsScreenHost(
             services = services,
             analysisBaseUrl = analysisBaseUrl,
             onDismiss = { showTransferCodeInput = false },
+            onRestoreSuccess = {
+                showTransferCodeInput = false
+                onRestoreSuccess()
+            },
         )
     }
 
@@ -1017,6 +1047,11 @@ private fun IosTransferCodeScreenHost(
  * [TransferCodeInputViewModel] を[services]・[analysisBaseUrl]から都度組み立てる
  * （[IosTransferCodeScreenHost] と違い設定画面の上に重ねるダイアログのため、
  * 表示のたびに生成してonDismissで手放す軽量な作りで十分）。
+ *
+ * 復元成功（[TransferCodeInputUiState.Success]）は成功ダイアログを見せてから閉じるのではなく、
+ * 即座に [onRestoreSuccess] で棋譜ダウンロード復元画面へ遷移する
+ * （同じ「アカウントを切り替えました」の見出しをその画面がそのまま引き継ぐため、
+ * ここで一度見せてから閉じると同じ文言を二度見せることになる）。
  */
 @OptIn(ExperimentalNativeApi::class)
 @Composable
@@ -1024,6 +1059,7 @@ private fun IosTransferCodeInputHost(
     services: SupabaseServices,
     analysisBaseUrl: String,
     onDismiss: () -> Unit,
+    onRestoreSuccess: () -> Unit,
 ) {
     val vm = remember(services, analysisBaseUrl) {
         TransferCodeInputViewModel(
@@ -1039,6 +1075,12 @@ private fun IosTransferCodeInputHost(
     }
     val state by vm.uiState.collectAsState()
 
+    LaunchedEffect(state) {
+        if (state is TransferCodeInputUiState.Success) {
+            onRestoreSuccess()
+        }
+    }
+
     TransferCodeInputDialog(
         state = state,
         onSubmit = vm::submit,
@@ -1048,6 +1090,33 @@ private fun IosTransferCodeInputHost(
             vm.dismissError()
             onDismiss()
         },
+    )
+}
+
+/**
+ * 復元成功画面（棋譜ダウンロード）のホスト。エンジン解析部分
+ * （[dev.miyado.shogisupplement.download.GameDownloadService] の1局ぶんの取込コールバック）は
+ * [IosMainController.importDownloadedGame] に委ねる（通常のクリップボード取込と同じ
+ * analyzer選定ロジックを共有する。IosMainController.buildAnalyzer参照）。
+ */
+@Composable
+private fun IosGameRestoreScreenHost(
+    services: SupabaseServices,
+    controller: IosMainController,
+    onFinish: () -> Unit,
+) {
+    val vm = remember(services) {
+        GameRestoreViewModel(
+            gameDownloadService = services.gameDownloadService,
+            importGame = controller::importDownloadedGame,
+        )
+    }
+    val state by vm.uiState.collectAsState()
+    GameRestoreScreen(
+        state = state,
+        onStart = vm::startDownload,
+        onRetry = vm::retry,
+        onFinish = onFinish,
     )
 }
 
