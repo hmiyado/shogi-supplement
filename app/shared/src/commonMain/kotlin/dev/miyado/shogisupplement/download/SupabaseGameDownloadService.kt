@@ -132,6 +132,7 @@ class SupabaseGameDownloadService(
         val rows = mutableListOf<UploadedGameRow>()
         var offset = 0L
         while (true) {
+            // RLSが自分の行だけに絞るため、user_idでの絞り込みは書かない。
             val page = supabase.from(TABLE)
                 .select {
                     order("created_at", Order.ASCENDING)
