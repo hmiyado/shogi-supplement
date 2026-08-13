@@ -11,6 +11,12 @@ on:
     paths:
       - "app/**"
       - ".github/workflows/vrt.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "app/**"
+      - ".github/workflows/vrt.yml"
   workflow_dispatch:
 
 concurrency:
