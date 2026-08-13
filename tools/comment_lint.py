@@ -175,7 +175,10 @@ def collect(args):
     for root in args.paths or ["app"]:
         target = Path(root)
         if target.is_file():
-            paths.append(target)
+            # ビルドスクリプト（.kts）は対象外。設定の意図を説明する記述が主で、
+            # ソースと同じ分量基準では測れないため（--staged / --diff も同じ扱い）。
+            if target.suffix == ".kt":
+                paths.append(target)
             continue
         paths.extend(p for p in target.rglob("*.kt") if "/build/" not in str(p))
     return [str(p) for p in paths]

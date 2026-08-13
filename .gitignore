@@ -111,3 +111,9 @@ docs/composeResources/
 # engine-wasm/fetch_upstream.sh・build_wasm_browser.shで都度生成する運用にする
 engine-wasm/upstream/
 engine-wasm/out-browser/
+
+# codex（OpenAI CLI）がローカルに生成する設定・指示ファイル。
+# 指示の正はCLAUDE.mdで、AGENTS.mdはそこから複製された古い版になりうる。
+AGENTS.md
+.codex/
+.agents/

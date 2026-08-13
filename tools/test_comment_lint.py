@@ -107,6 +107,13 @@ class CollectTest(unittest.TestCase):
             self.assertEqual([path], comment_lint.collect(args))
 
 
+    def test_ビルドスクリプトは検査対象にしない(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = write(tmp, "build.gradle.kts", "// c\nval x = 1\n")
+            args = argparse.Namespace(paths=[path], staged=False, diff=None, stats=False)
+            self.assertEqual([], comment_lint.collect(args))
+
+
 class CliTest(unittest.TestCase):
     def test_違反があれば終了コード1を返す(self):
         with tempfile.TemporaryDirectory() as tmp:
