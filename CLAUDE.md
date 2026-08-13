@@ -15,6 +15,6 @@ QA・レビュー時は DESIGN.md に合わない実装をフラグする。
 
 **コミットを作る前に必ず self-code-review を実施する**
 （.claude/skills/self-code-review/SKILL.md。/self-code-review でも起動可）。
-コメント規約（コードはHow／テストはWhat／コミットログはWhy／コメントはWhy not）・
-混入チェック・文言・デザイン準拠の規定はすべてそこにある。
+混入チェック・文言・デザイン準拠の規定はスキルにある。
+コメント規約の正は docs/comment-policy.md（機械チェックは tools/comment_lint.py）。
 委譲されたエージェントがコミットを作る場合も同様。

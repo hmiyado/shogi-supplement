@@ -1,0 +1,19 @@
+name: Comment Lint
+
+on:
+  pull_request:
+    paths:
+      - "**/*.kt"
+      - "tools/comment_lint.py"
+      - ".github/workflows/comment-lint.yml"
+
+jobs:
+  comment-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          # 差分検査のためbase側の履歴が要る
+          fetch-depth: 0
+      - name: Check comments on changed files
+        run: python3 tools/comment_lint.py --diff "origin/${{ github.base_ref }}"
