@@ -24,8 +24,6 @@ private const val TABLE = "uploaded_games"
 
 /**
  * 復元された端末シークレットSからK_encを導出し、`uploaded_games.private_enc`を復号する。
- * `uploaded_games` の RLS「own rows」は`for all`のため、authenticatedロールでのSELECTは
- * 自分の行に許可済みで、`user_id`の明示filterは不要。
  * エンジン選定はプラットフォーム依存のため、解析・保存はコールバックへ委ねる。
  */
 class SupabaseGameDownloadService(
