@@ -17,10 +17,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-/**
- * 復元成功画面（棋譜ダウンロード）の VRT。
- * 件数確認中・件数表示・進捗・完了（全件成功/一部失敗）・0件・エラーの各状態を golden にする。
- */
+/** 件数確認から部分失敗まで、復元画面の全状態を保証するVRT。 */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(

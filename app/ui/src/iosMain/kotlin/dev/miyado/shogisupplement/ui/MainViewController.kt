@@ -88,40 +88,7 @@ import platform.UIKit.UIApplication
 import platform.UIKit.UIPasteboard
 import platform.UIKit.UIViewController
 
-/**
- * iOS 側から呼び出す ComposeUIViewController のエントリ。
- *
- * androidApp と同じ協力オブジェクト群（[HomeViewModel]・[ReportViewModel]・[StudyController]）を
- * [IosMainController] 経由で使用する。レポート画面は検討モード（駒タップ→着手→エンジン評価）・
- * 読み筋延長（▶+）が動作する。設定画面（[SettingsScreen]）も接続している。
- * 「棋譜を追加する」はファイル/クリップボードの選択ダイアログ経由（[KifSourceDialog]）。
- * ファイルは Swift 側 UIDocumentPickerViewController（KifFilePickerCoordinator.swift）→
- * [IosFileImportBridge] → [IosMainController.handleFileImport] という経路。
- * OSSライセンス画面（[LicenseInfoScreen]）は設定→ライセンスから遷移する。
- * アカウント（データ提供＝匿名認証＋アップロード）は設定→アカウントから遷移する
- * （Supabase設定が無いビルドでは行ごと非表示）。棋力設定はiOS未移植のため非表示。
- * ヘルプはWebヘルプ（Safari）へ接続する。
- * 引き継ぎコード表示（[TransferCodeScreen]）は設定→引き継ぎコードから遷移する
- * （アカウントと同じくSupabase設定が無いビルドでは非表示）。
- *
- * **同意オンボーディング（iOS専用・初回起動必須）**: Supabase設定が供給されているビルドで
- * `consent_accepted_at` 未保存のときだけ [ConsentScreen] を全画面表示し、他のルートへは
- * 進めない（[IosConsentScreenHost] 参照）。同意すると
- * [dev.miyado.shogisupplement.supabase.SupabaseServices.consentOrchestrator] が
- * 同意フラグ保存→匿名サインイン→自動アップロードON→引き継ぎシークレット登録を行う。
- * Supabase未設定ビルド（開発用）はオンボーディングをスキップして従来どおり起動する。
- *
- * 画面遷移:
- *   （初回起動・Supabase設定ありのみ）同意オンボーディング → 同意して始める → ホーム
- *   ホーム（実データ: games一覧＋推定棋力カード＋今日の1問）
- *     → 棋譜タップ → レポート（実データ・検討モード・読み筋延長が動作）→ 戻る
- *     → 「棋譜を追加する」タップ → ファイル/クリップボード選択ダイアログ
- *       → （ファイル）DocumentPicker → KIF検証 → 先後選択ダイアログ
- *       → （クリップボード）KIF検証 → 先後選択ダイアログ
- *       → 解析中（進捗%・固定行=No-jitter）→ 完了でホームへ戻り再読込
- *     → 今日の1問タップ → ドリル（DrillViewModel駆動）→ 戻る
- *     → ⚙タップ → 設定（テーマ／形勢表示単位／先後確認省略の永続化／ライセンス）→ 戻る
- */
+/** Supabase設定時、未同意なら他ルートを遮断し、同意処理の完了後だけホームへ進める。 */
 @OptIn(ExperimentalNativeApi::class)
 fun MainViewController(): UIViewController = ComposeUIViewController {
     val gameRepository = remember { DatabaseFactory.gameRepository() }
@@ -137,12 +104,7 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
                 gameRepository,
                 settingsRepository,
                 IosTransferSecretStore(),
-                // Debugビルド（Xcode CONFIGURATION=Debug/Debug-Engineless。project.ymlの
-                // preBuildScriptsが:ui:linkDebugFrameworkIos...を呼ぶ構成）は検証用のdev行
-                // （ios-dev）を読み、本番行（ios）を動かさずに動作確認できるようにする
-                // （resolvePolicyPlatform参照）。Platform.isDebugBinaryはこのframework自体が
-                // debug/releaseどちらでコンパイルされたかを返すため、Swift側の#if DEBUGを
-                // 素通しするより実際にリンクされたバイナリと必ず一致する。
+                // framework実体との不一致を避けるため、Swift側ではなくKotlinバイナリのDebug判定を使う。
                 platform = resolvePolicyPlatform("ios", Platform.isDebugBinary),
             )
         }
@@ -207,12 +169,7 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
     }
 }
 
-/**
- * 同意オンボーディング画面のホスト。[ConsentScreen] は状態hoisting方式のため、
- * 送信中フラグ（二重タップ防止）と [SupabaseServices.consentOrchestrator] の呼び出しをここで担う。
- * 戻るボタンは無い＝この画面が表示されている間、呼び出し元（MainViewController）は
- * 他のルートへ遷移させない（同意必須の設計どおり）。
- */
+/** 送信中は二重送信を防ぎ、戻る経路を持たせず同意完了まで他ルートを遮断する。 */
 @Composable
 private fun IosConsentScreenHost(
     services: SupabaseServices,
@@ -262,7 +219,6 @@ private fun DemoApp(
     settingsRepository: SettingsRepository,
     supabaseServices: SupabaseServices?,
     controller: IosMainController,
-    /** ドリルの二次判定をサーバー版にするかどうかの判定に使う（IosDrillScreen参照）。 */
     analysisBaseUrl: String? = null,
 ) {
     var route by remember { mutableStateOf<DemoRoute>(DemoRoute.Home) }
@@ -620,12 +576,7 @@ private fun KifSourceOptionRow(label: String, onClick: () -> Unit) {
     )
 }
 
-/**
- * 「棋譜を追加する」タップ後の先後選択ダイアログ。
- * androidApp の UserSideDialog（KifImportFlow.kt）と同じ挙動:
- * 推定側（アカウント名一致 or 前回選択）を初期選択にし、アカウント名一致のときだけ
- * 「次回から省略」チェックボックスを表示する。
- */
+/** アカウント名一致時だけ、次回から先後確認を省略できる。 */
 @Composable
 private fun UserSideSimpleDialog(
     senteName: String?,
@@ -702,12 +653,6 @@ private fun UserSideOptionRow(selected: Boolean, label: String, onClick: () -> U
     }
 }
 
-/**
- * レポート画面（実データ）。gameId から [IosMainController.loadReport]（内部で
- * [ReportViewModel] 経由）で対局＋悪手を読み込む。検討モード・読み筋延長は
- * controller が保持する ReportViewModel/StudyController を実際に駆動する
- * （androidApp の ReportHost.kt と同型の配線）。
- */
 @Composable
 private fun IosReportScreenHost(
     gameId: Long,
@@ -868,17 +813,7 @@ private fun IosDrillScreen(
     }
 }
 
-/**
- * 設定画面。SettingsScreen（:ui commonMain）を iOS の
- * [IosMainController] に接続する。Android専用の項目（通知等）は現時点の SettingsScreen には
- * 存在しないため非表示判断は不要。
- *
- * アカウント（データ提供）は Supabase 設定が供給されているビルドでのみ表示する
- * （[onOpenAccount] が null のときは [SettingsScreen] 側で行自体を非表示）。
- * 棋力設定は [RatingSettingsDialog]（:ui commonMain・Androidと共通実装）を開く。
- * ヘルプはWebヘルプ（Safari）へ、OSSライセンスは [LicenseInfoScreen] へ、それぞれ接続する。
- * [onOpenDebug] は [onOpenAccount] 等と同じく非null=表示・null=非表示（DEBUGビルドのみ非null）。
- */
+/** オプションの遷移コールバックがnullなら対応する設定行を表示しない。 */
 @Composable
 private fun IosSettingsScreenHost(
     controller: IosMainController,
@@ -955,14 +890,7 @@ private fun IosSettingsScreenHost(
     )
 }
 
-/**
- * デバッグ画面（[DebugScreen]。iOS専用・DEBUGビルド限定）のホスト。
- *
- * WASMバイナリ（KentoAssetCache.swift）の配信元URLをDEBUGオーバーライドできるようにする
- * ([WasmSiteOverrideStore] 参照。永続化はNSUserDefaults・Swift側と同じキーを共有）。
- * 保存・クリア直後に [effectiveInfo] を再計算して渡し直す（[DebugScreen] 自身は
- * 楽観的な内部状態を持たない設計。KDoc参照）。
- */
+/** 保存・クリア後は永続値から再計算し、楽観的な状態を表示しない。 */
 @Composable
 private fun IosDebugScreenHost(onBack: () -> Unit) {
     var effectiveInfo by remember { mutableStateOf(WasmSiteOverrideStore.effectiveInfo()) }
@@ -989,10 +917,6 @@ private fun IosDebugScreenHost(onBack: () -> Unit) {
     )
 }
 
-/**
- * アカウント画面（データ提供）。androidApp の AccountHost と同じ配線を
- * iOS向けに行う（AccountViewModel は commonMain・状態hoisting＋コールバック方式）。
- */
 @Composable
 private fun IosAccountScreenHost(
     services: SupabaseServices,
@@ -1020,12 +944,7 @@ private fun IosAccountScreenHost(
     )
 }
 
-/**
- * 引き継ぎコード表示画面（設定→引き継ぎコード）のホスト。
- * コードは端末シークレットSの派生（suspend）のため、画面表示のたびに
- * [SupabaseServices.getOrCreateTransferCode] で非同期に読み込む（S自体はKeychain永続化済みなら
- * 再生成されない。[dev.miyado.shogisupplement.crypto.TransferSecretManager.getOrCreateSecret] 参照）。
- */
+/** コードは画面ごとに非同期導出するが、KeychainにSがあれば再生成しない。 */
 @Composable
 private fun IosTransferCodeScreenHost(
     services: SupabaseServices,
@@ -1042,17 +961,7 @@ private fun IosTransferCodeScreenHost(
     )
 }
 
-/**
- * 引き継ぎコード入力ダイアログ（設定→引き継ぎコードを入力）のホスト。
- * [TransferCodeInputViewModel] を[services]・[analysisBaseUrl]から都度組み立てる
- * （[IosTransferCodeScreenHost] と違い設定画面の上に重ねるダイアログのため、
- * 表示のたびに生成してonDismissで手放す軽量な作りで十分）。
- *
- * 復元成功（[TransferCodeInputUiState.Success]）は成功ダイアログを見せてから閉じるのではなく、
- * 即座に [onRestoreSuccess] で棋譜ダウンロード復元画面へ遷移する
- * （同じ「アカウントを切り替えました」の見出しをその画面がそのまま引き継ぐため、
- * ここで一度見せてから閉じると同じ文言を二度見せることになる）。
- */
+/** 成功見出しの重複を避けるため、復元成功時は確認を挟まず復元画面へ遷移する。 */
 @OptIn(ExperimentalNativeApi::class)
 @Composable
 private fun IosTransferCodeInputHost(
@@ -1093,12 +1002,7 @@ private fun IosTransferCodeInputHost(
     )
 }
 
-/**
- * 復元成功画面（棋譜ダウンロード）のホスト。エンジン解析部分
- * （[dev.miyado.shogisupplement.download.GameDownloadService] の1局ぶんの取込コールバック）は
- * [IosMainController.importDownloadedGame] に委ねる（通常のクリップボード取込と同じ
- * analyzer選定ロジックを共有する。IosMainController.buildAnalyzer参照）。
- */
+/** 復元棋譜も通常取込と同じエンジン選定を共有する。 */
 @Composable
 private fun IosGameRestoreScreenHost(
     services: SupabaseServices,
@@ -1137,15 +1041,7 @@ private fun openUrl(url: String) {
     UIApplication.sharedApplication.openURL(nsUrl, options = emptyMap<Any?, Any>(), completionHandler = null)
 }
 
-/**
- * 依存OSS一覧（AboutLibraries）を compose resources から読み込む。
- * Android の `res/raw/aboutlibraries.json`（`./gradlew :androidApp:exportLibraryDefinitions` で
- * 生成）と同じ内容を ui/src/commonMain/composeResources/files/ に複製したものを読む
- * （iOS には Android の Context 経由読み込みに相当する手段がないため）。
- * フォント読み込み（ui/theme/Type.ios.kt）と同じ runBlocking パターンで同期化する。
- * 読み込みに失敗しても一覧が空になるだけでヘッダ・リポジトリリンクは表示できるため、
- * 画面全体をクラッシュさせず null にフォールバックする。
- */
+/** iOSではContextがないため同梱resourceを同期読込し、失敗時は画面を壊さずnullにする。 */
 private fun loadBundledLibraries(): Libs? = runCatching {
     val json = runBlocking { Res.readBytes("files/aboutlibraries.json") }.decodeToString()
     Libs.Builder().withJson(json).build()

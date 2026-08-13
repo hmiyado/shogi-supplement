@@ -24,19 +24,10 @@ import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
 
 /**
- * Supabase連携（匿名認証＋棋譜アップロード）の依存一式を組み立てるファクトリ。
- *
  * supabase-kt の型は公開APIに出さない（AuthRepository 等のインターフェースのみを公開する）。
- * これにより消費側モジュール（:ui）は supabase-kt への直接依存なしで配線できる。
- *
  * @param transferSecretStore private_enc暗号化用のK_enc導出元（端末シークレットSの永続化）。
- *   Context相当の引数が要る/要らないがプラットフォームで違う（androidApp/db/AppDatabase.kt が
- *   Context を明示的に受け取る既存パターンと同じ理由）ため、呼び出し側
- *   （:ui iosMain/MainViewController.kt）で組み立てて渡す
  * @param platform 強制アップデート判定（[forceUpdatePolicyChecker]）の対象プラットフォーム行。
- *   "android" / "ios"（app_policyテーブルのplatform列と同じ語彙。Debugビルドは呼び出し側が
- *   [dev.miyado.shogisupplement.policy.resolvePolicyPlatform] で "android-dev" / "ios-dev" に
- *   変換してから渡す）
+ *   `app_policy.platform`と同じ語彙（"android" / "ios"、Debugは末尾"-dev"）。
  */
 class SupabaseServices(
     supabaseUrl: String,

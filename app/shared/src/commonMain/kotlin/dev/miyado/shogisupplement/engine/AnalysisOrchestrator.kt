@@ -17,23 +17,8 @@ import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.util.sha256Hex
 
 /**
- * 「1局のKIFを解析してDBに保存するまで」を共通化したオーケストレータ。
- *
- * KIFパース→エンジン解析→悪手判定→強さ推定→DB保存のコア部分を担う。
- * URI読み込み・フォアグラウンド通知・ファイル名解決・自動アップロードなどの
- * Android専用処理は含まない。iOS（クリップボード取込）・Android（AnalysisService）の
- * 両方から使う。
- *
- * 注入界面:
- * - [analyzer]: 局面解析の実行者。端末解析（[AnalysisRunner]）とサーバー解析
- *   （[RemoteAnalysisRunner]）のどちらを渡しても以降の処理は変わらない。
- * - [repository]: [GameRepository]（重複チェック・過去局集計・保存）
- * - [coefTable]: 係数表（判定ロジックの不変条件はこのオーケストレータでは一切変更しない）
- * - [onProgress]: (done, total) の進捗コールバック
- *
  * 判定ロジック・係数表・解析条件（go nodes 400000 / Threads=1 / MultiPV=2 / FV_SCALE=20）は
- * 一切変更しない。それらは [GameAnalyzer] 実装と [ReportPipeline] にすでに実装済みのものを
- * そのまま使う。
+ * [GameAnalyzer] と [ReportPipeline] が保持し、この層では変更しない。
  */
 class AnalysisOrchestrator(
     private val repository: GameRepository,
@@ -51,12 +36,9 @@ class AnalysisOrchestrator(
         data class Completed(val gameId: Long, val alreadyExisted: Boolean) : Outcome()
 
         /**
-         * 解析失敗。
          * @param message 表示用メッセージ（日本語）。[RemoteAnalysisException] 由来は
          *   [RemoteAnalysisErrorMapper] でローカライズ済み、それ以外は例外の生メッセージ。
-         * @param reason 失敗理由の型。既定値 [AnalysisFailureReason.Unknown] のため、reason を
-         *   参照しない既存呼び出し側（Android の AnalysisService・デバッグレシーバ）は
-         *   message だけを見続けても壊れない。
+         * @param reason 失敗理由。省略時は [AnalysisFailureReason.Unknown]。
          */
         data class Failed(
             val message: String,
@@ -65,26 +47,9 @@ class AnalysisOrchestrator(
     }
 
     /**
-     * KIFテキストを解析し、結果をDBへ保存する。
-     *
-     * @param kifContent KIF原文
-     * @param fileName 表示用ファイル名
-     * @param userSide ユーザーの側（"sente"/"gote"/null=両側を対象に解析）
-     * @param ratingService レートのサービス名（申告のみ・相応判定には使わない）
-     * @param ratingRaw サービス上のraw値
-     * @param ratingRule ルール文字列
-     * @param contentHash 重複チェック・保存に使うcontent_hash。null（既定）なら[kifContent]から
-     *   算出する。非nullを渡すのは、渡す側が既に確定した値を持っており[kifContent]自体からの
-     *   再算出では一致しない場合（例: 再構成されたKIFテキストは書式が原本と異なり、
-     *   ハッシュも変わってしまう）。その場合は再算出せず渡された値をそのまま信頼する。
-     * @param sourcePlaceOverride source_placeの上書き値。null（既定）なら[kifContent]と
-     *   headersの「場所」から[KifuDecomposer.classifySource]で判定する。非nullを渡すのは、
-     *   [kifContent]だけでは判定に必要な情報（KIOUマーカー行等）が失われていて
-     *   判定し直せない場合。その場合は渡された正規化済みの値をそのまま信頼する。
-     * @param onProgress (done, total) の進捗コールバック
-     * @param onPositionResult 局面ごとの中間結果コールバック（[GameAnalyzer.analyzeGame] の
-     *   契約をそのまま透過する）。プログレッシブ解析表示の配線用で、既定値の no-op のままなら
-     *   従来どおり全局面完了後にのみ評価・保存が進む
+     * @param contentHash nullならKIFから算出。非nullは再構成で原本と書式が変わる場合の原本ハッシュ。
+     * @param sourcePlaceOverride nullならKIFから判定。非nullは再構成で失われた出典の正規化済み値。
+     * @param onPositionResult 局面ごとの中間結果。既定のno-opでは全局面完了後のみ評価・保存する。
      */
     suspend fun analyzeAndSave(
         kifContent: String,
@@ -101,13 +66,11 @@ class AnalysisOrchestrator(
         return try {
             val effectiveContentHash = contentHash ?: sha256Hex(kifContent)
 
-            // 重複チェック
             val existingId = repository.getByHash(effectiveContentHash)
             if (existingId != null) {
                 return Outcome.Completed(existingId, alreadyExisted = true)
             }
 
-            // KIFパース
             val game = KifParser().parse(kifContent)
 
             val allPv = analyzer.analyzeGame(
@@ -116,11 +79,9 @@ class AnalysisOrchestrator(
                 onProgress = onProgress,
             )
 
-            // MultiPV=2 で解析済みのため pv2 も保持する（ドリルの一次判定＝pv1/pv2 圏内かどうかの
-            // 端末内判定に使う）。
+            // 再解析なしで第2候補まで判定できるよう、MultiPV=2の結果を保持する。
             val evals = allPv.map { pvList -> pvList.toPositionEval() }
 
-            // 悪手レポート生成（2パス: 悪手抽出 → 強さ推定 → 相応判定）
             val sides = if (userSide != null) setOf(userSide) else setOf("sente", "gote")
             val analysisResult = ReportPipeline.analyze(
                 moves = game.moves,
@@ -129,7 +90,6 @@ class AnalysisOrchestrator(
                 coef = coefTable,
             )
 
-            // DB保存（kif_text + moves_usi も保存、game.rating は推定値）
             val gameId = repository.saveAnalysis(
                 fileName = fileName,
                 contentHash = effectiveContentHash,
@@ -144,22 +104,17 @@ class AnalysisOrchestrator(
                 ratingService = ratingService,
                 ratingRaw = ratingRaw,
                 ratingRule = ratingRule,
-                // 生の「場所」ヘッダはローカルDBにも残さない（lishogiでは対局を一意特定できる
-                // URLが入るため）。判定は KifuDecomposer.classifySource に一本化し、
-                // アップロード用の分解処理と同じ結果になるようにする（sourcePlaceOverride指定時は
-                // それを正とする。理由はこの関数のKDoc参照）。
+                // 「場所」には対局識別URLが入り得るため保存せず、正規化した出典だけを残す。
                 sourcePlace = sourcePlaceOverride
                     ?: KifuDecomposer.classifySource(kifContent, game.headers["場所"]).wireValue,
                 gameWinner = game.winner,
                 endReason = game.endReason,
             )
 
-            // 全局面の評価値を sente 視点に正規化して保存
-            // t=0: 先手番（評価値そのまま）、t=1: 後手番（評価値を反転）
-            // best_usi/second_score_cp/second_mate_in/second_usi: 再解析せず後から計算できるよう、この時点で保存しておく。
+            // 評価値はsente視点に正規化し、後からの計算に必要な第2候補も保存する。
             val positionEvalRows = evals.mapIndexedNotNull { t, posEval ->
                 val score = posEval.score ?: return@mapIndexedNotNull null
-                val flip = t % 2 == 1 // 後手番なら反転
+                val flip = t % 2 == 1
                 val bestUsi = posEval.pv.firstOrNull()
                 val (secondScoreCp, secondMateIn) = when (val pv2Score = posEval.pv2Score) {
                     null -> null to null
@@ -191,18 +146,11 @@ class AnalysisOrchestrator(
 
             Outcome.Completed(gameId, alreadyExisted = false)
         } catch (e: kotlinx.coroutines.CancellationException) {
-            // キャンセルは失敗ではなくコルーチンの中断。Failedに変換すると呼び出し側が
-            // ユーザー向けエラーとして表示してしまうため、必ず再throwして伝播させる
+            // キャンセルは失敗結果へ変換せず、構造化並行性を保つため必ず伝播させる。
             throw e
         } catch (e: Exception) {
-            // RemoteAnalysisException はサーバーが理由を明示して返した想定内の失敗
-            // （401/403/429/400=クライアント起因、EngineFailure=サーバー側で記録済み、
-            // ConnectionLost=ネットワーク事情）のため、二重報告を避けてcaptureExceptionしない。
-            // KifuParseException も送信しない: 想定内のユーザー入力エラーであることに加え、
-            // メッセージに問題のKIF行（棋譜の断片）を含むため、クラッシュレポートに
-            // 棋譜データを乗せない誓約（プライバシーポリシー）に反する。
-            // ローカルのエラーダイアログには従来どおり行を含むメッセージを表示する。
-            // それ以外の例外（DB保存失敗・端末エンジン内部エラー等）は従来どおり送信する。
+            // 想定内のリモート失敗は二重報告しない。KIF解析失敗は棋譜断片を含み得るため送信しない。
+            // その他の未報告例外だけをクラッシュレポートへ送る。
             val expected = e is RemoteAnalysisException || e is KifuParseException
             if (!expected && !e.isAlreadyReported()) {
                 crashReporter.captureException(e)

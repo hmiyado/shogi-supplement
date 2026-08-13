@@ -1,25 +1,15 @@
 package dev.miyado.shogisupplement.download
 
 /**
- * 引き継ぎコード復元後、サーバー上の自分の棋譜をローカルDBへ取り込む。
- *
- * 実装: SupabaseGameDownloadService（:shared・Supabase REST取得 + PrivateEncCodec復号 +
- * KifuReconstructorでKIF再構成）。
- *
- * エンジン解析（KIF原文→エンジン解析→DB保存）自体はこのインターフェースの責務外——
- * どのエンジン実装を使うかの選定はプラットフォーム依存（iosMainの構成ルートの責務）で、
- * この抽象自体はプラットフォームに依存させたくない。そのため [downloadAndImport] は
- * 1局ぶんの取込・保存処理を [importGame] コールバックとして受け取る形にする。
+ * エンジン選定はプラットフォーム依存のため、この抽象は解析を行わず、
+ * 1局ぶんの取込・保存処理を [importGame] として受け取る。
  */
 interface GameDownloadService {
 
-    /** サーバー上の自分の棋譜数を数える（ダウンロード開始前のN局表示用・軽量なcountクエリ）。 */
     suspend fun countRemoteGames(): Result<Int>
 
     /**
-     * サーバー上の自分の棋譜を全件取得し、ローカル未取込分だけ [importGame] へ渡して取り込む。
      * 1局の取込失敗は他局の処理を止めない（部分失敗を許容し、最後にまとめて件数を返す）。
-     *
      * @param onProgress (done, total) の進捗コールバック。doneはスキップ・失敗も含めて処理済み件数。
      * @param importGame 1局ぶんの「KIF再構成済みテキスト→エンジン解析→DB保存」を行うコールバック。
      */

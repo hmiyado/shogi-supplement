@@ -23,19 +23,10 @@ import kotlinx.serialization.Serializable
 private const val TABLE = "uploaded_games"
 
 /**
- * [GameDownloadService] のSupabase postgrest-kt実装。
- *
- * 引き継ぎコード復元（[dev.miyado.shogisupplement.transfer.RemoteTransferRestoreService]）が
- * 成功すると端末シークレットSが復元先アカウントのものへ上書きされる（`transferSecretStore.save`）。
- * ここではそのSから[TransferSecretKeys.deriveEncKey]でK_encを導出し、`uploaded_games.private_enc`
- * （[dev.miyado.shogisupplement.upload.SupabaseUploadRepository] が暗号化した対局者名等）を復号する。
- *
+ * 復元された端末シークレットSからK_encを導出し、`uploaded_games.private_enc`を復号する。
  * `uploaded_games` の RLS「own rows」は`for all`のため、authenticatedロールでのSELECTは
- * 自分の行に既に許可されている（`user_id`での明示filterは不要。infra/supabase/migrations
- * 20260726120000_create_analysis_infra.sql参照）。
- *
- * エンジン解析自体は行わない（[GameDownloadService] のKDoc参照）。1局ぶんの
- * 「KIF再構成→エンジン解析→DB保存」は [ReconstructedGame] → [GameImportOutcome] のコールバックに委ねる。
+ * 自分の行に許可済みで、`user_id`の明示filterは不要。
+ * エンジン選定はプラットフォーム依存のため、解析・保存はコールバックへ委ねる。
  */
 class SupabaseGameDownloadService(
     private val supabase: SupabaseClient,
@@ -104,11 +95,8 @@ class SupabaseGameDownloadService(
     }
 
     /**
-     * 1行ぶんの復号・KIF再構成・取込コールバック呼び出し。
-     *
      * private_encが無い行（アップロード側の任意フィールドが未設定のケース）は復号をスキップし、
-     * マスク再構成（[KifuReconstructor.reconstruct] の private=null 分岐）で進める
-     * （行単位の欠損で全体を止めない）。
+     * マスク再構成で進め、行単位の欠損で全体を止めない。
      */
     private suspend fun importRow(
         row: UploadedGameRow,

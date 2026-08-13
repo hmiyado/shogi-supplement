@@ -1,24 +1,10 @@
 package dev.miyado.shogisupplement.text
 
 /**
- * ユーザーに見える文言の一元管理。
- *
- * 文言の最終確認・修正はこのファイルの編集だけで済むようにする（miyadoさん指示）。
  * 動的な値はテンプレート関数の引数で受け取る。
- *
- * セクション構成:
- *   1. 悪手カテゴリ（ラベル・一行説明）
- *   2. 相応判定（verdict 表示名・note テンプレート・教材名）
- *   3. ホーム画面
- *   4. 棋力設定ダイアログ・自分の側ダイアログ
- *   5. 解析中画面・通知
- *   6. レポート画面（棋譜ビューア・悪手カード）
- *   7. ドリル画面
- *   8. エラー
  */
 object AppStrings {
 
-    // ═══ 1. 悪手カテゴリ（ラベル・一行説明）═════════════════════════════════
     // 内部キー（BlunderClassifier 出力）は変更禁止。表示のみここで変換する。
 
     /** 内部キー → UI 表示ラベル。 */
@@ -31,7 +17,6 @@ object AppStrings {
         "位置的・その他" to "形勢のミス（その他）",
     )
 
-    // ═══ 2. 相応判定（verdict・note・教材名）═════════════════════════════════
 
     /** verdict 表示名（記号＋名前）。DB に保存されるためリリース後の変更は移行が必要。 */
     const val VERDICT_PRIORITY = "◎ 優先出題"
@@ -48,11 +33,8 @@ object AppStrings {
     )
 
     /**
-     * 詰み見逃しの教材名。n = 実際の見逃し手数（JudgeInput.missedMateIn 直接）。
-     * 例: n=5 → "5手で勝ち切る問題"、n=11 → "11手で勝ち切る問題"
-     * 係数表バケット（1手/3手/5手/7手+）は内部の rate 引き用のみに使用し、表示には出さない。
-     * 「詰将棋」と呼ばない理由: エンジンのmateは受けなしの勝ち確定手数で、連続王手の
-     * 詰み筋とは限らない（必至型の実例: wars_game3）。df-pnによる厳密な区別は未実装。
+     * @param n 実際の見逃し手数。係数表の手数バケットではない。
+     * 「詰将棋」にしない理由: エンジンのmateは連続王手の詰み筋とは限らない。
      */
     fun problemMate(n: Int): String = "${n}手で勝ち切る問題"
 
@@ -65,10 +47,8 @@ object AppStrings {
         "あなたの棋力帯の${n}手詰の詰め逃し率: $pct"
 
     /**
-     * 係数表の帯名（レート表記）→ 表示用の偏差値帯ラベル。
      * 境界は帯端レート（1300/1600/1900/2200）を [StrengthNorm] v1 で換算した値。
-     * 係数表の帯名自体を偏差値表記に変えない理由: 帯名は係数表・DB保存noteの
-     * 正規化キーとして流通しており、表記だけの問題は表示側の写像で閉じるのが安全。
+     * 帯名を変えない理由: 係数表・DB保存noteの正規化キーとして流通している。
      */
     val bandDeviationLabels: Map<String, String> = mapOf(
         "<1300" to "偏差値36未満",
@@ -89,7 +69,6 @@ object AppStrings {
     fun noteSkipRare(bandName: String, gamesPerBand: Int): String =
         "あなたの棋力帯(${bandLabel(bandName)}): 約${gamesPerBand}局に1回"
 
-    // ═══ 3. ホーム画面 ═══════════════════════════════════════════════════════
 
     const val APP_TITLE = "将棋サプリ"
     const val HOME_OPEN_KIF = "棋譜を追加する"
@@ -99,16 +78,13 @@ object AppStrings {
     const val HOME_PAST_ANALYSES = "過去の解析"
     const val HOME_NO_GAMES = "まだ解析した棋譜がありません。\n「棋譜を追加する」から.kifファイルを選ぶか、コピーした棋譜を貼り付けてください。"
 
-    // 強さ指標カード
     const val STRENGTH_CARD_TITLE = "推定棋力（偏差値）"
     fun strengthDetail(gameCount: Int): String = "直近${gameCount}局から算出"
 
-    // ゲームカード
     fun gameMoveCount(count: Long): String = "${count}手"
     fun playersLine(senteName: String?, goteName: String?): String =
         "先手: ${senteName ?: "不明"}  後手: ${goteName ?: "不明"}"
 
-    // ═══ 4. 棋力設定ダイアログ・自分の側ダイアログ ═══════════════════════════
 
     const val RATING_DIALOG_TITLE = "棋力設定"
     const val RATING_FIELD_ACCOUNT_NAME = "アカウント名（先後自動選択に使用）"
@@ -154,18 +130,14 @@ object AppStrings {
     fun sideGote(goteName: String?): String = if (goteName != null) "後手（$goteName）" else "後手"
     const val START_ANALYSIS = "解析開始"
 
-    // ═══ 5. 解析中画面・通知 ══════════════════════════════════════════════════
 
     /** ホーム一覧の解析中カードに出すバッジ文言。 */
     const val ANALYZING_BADGE = "解析中"
 
     /**
-     * 解析中の進捗表示（レポート画面の進捗バナー・ホーム一覧の解析中カードで共用）。
-     *
      * Why not 局面数（0手目の初期局面込み）表示: 解析対象は0..moves.sizeの局面数だが、
      * ユーザーはNを手数として読むため、局面数のまま出すと盤・グラフより1手遅れて見える。
-     * 呼び出し側は currentMove=(progressive.confirmedThrough-1).coerceAtLeast(0)・
-     * totalMoves=moves.size を渡す（盤・グラフ先端と同じ基準に揃える）。
+     * @param currentMove 盤・グラフ先端と同じ、0手目を除いた手数。
      */
     fun analyzingProgress(currentMove: Int, totalMoves: Int): String = "解析中... $currentMove / $totalMoves 手"
 
@@ -184,7 +156,6 @@ object AppStrings {
     const val NOTIF_ERROR_TITLE = "解析エラー"
     const val UNKNOWN_ERROR = "不明なエラー"
 
-    // ═══ 6. レポート画面（棋譜ビューア・悪手カード）═══════════════════════════
 
     const val BACK = "戻る"
     const val TAB_MAINLINE = "本譜"
@@ -202,12 +173,10 @@ object AppStrings {
         "大きな悪手はありませんでした（結果: $endReasonLabel）。" +
         "内容は悪くない負けです——時間配分や小さな形勢の目減りが敗因かもしれません。"
 
-    // 悪手カード
     fun blunderCardPly(ply: Long): String = "${ply}手目"
     const val BLUNDER_CARD_ACTUAL = "実戦"
     const val BLUNDER_CARD_BEST = "最善"
 
-    // ═══ 7. ドリル画面 ════════════════════════════════════════════════════════
 
     const val DRILL_TITLE = "ドリル／次の一手"
     const val DRILL_EMPTY_TITLE = "ドリルの対象がありません"
@@ -231,20 +200,13 @@ object AppStrings {
     const val DRILL_GO_HOME = "ホームへ"
     const val DRILL_NEXT = "次の問題"
 
-    // ═══ 19. 棋譜一覧・直近の解析 ════════════════════════════════════════════
 
-    /** ホーム画面の「直近の解析」見出し。 */
     const val HOME_RECENT_ANALYSES = "直近の解析"
-    /** ホーム画面の「すべて見る」リンク。 */
     const val HOME_VIEW_ALL = "すべて見る"
-    /** 棋譜一覧画面のタイトル。 */
     const val GAME_LIST_TITLE = "棋譜一覧"
-    /** ゲームカードの勝利バッジ。 */
     const val GAME_RESULT_WIN = "勝ち"
-    /** ゲームカードの敗北バッジ。 */
     const val GAME_RESULT_LOSS = "負け"
 
-    // ─── 棋譜一覧の絞り込み ────────────────────────────────────────────────
 
     const val GAME_LIST_FILTER_SOURCE = "出典"
     const val GAME_LIST_FILTER_SIDE = "先後"
@@ -256,7 +218,6 @@ object AppStrings {
     const val GAME_LIST_FILTER_PERIOD_7D = "直近7日"
     const val GAME_LIST_FILTER_PERIOD_30D = "直近30日"
     const val GAME_LIST_FILTER_CLEAR = "絞り込みを解除"
-    /** 絞り込み適用中の件数表示。全件と一致する場合は呼び出し側で使わない想定。 */
     fun gameListFilteredCount(shown: Int, total: Int): String = "${shown} / ${total}件"
     fun gameListTotalCount(total: Int): String = "${total}件"
     /** 一覧上部の絞り込みボタンのラベル・アイコンのcontentDescription。 */
@@ -265,21 +226,18 @@ object AppStrings {
     /** 絞り込み条件ボトムシートの適用ボタン（条件を確定して一覧に反映する）。 */
     const val GAME_LIST_FILTER_APPLY = "検索"
 
-    // ═══ 20. ドリル結果ビューア ══════════════════════════════════════════════
 
     /** ドリル結果 KifuLineViewer のタブ: ユーザーの手筋。 */
     const val DRILL_VIEWER_TAB_YOUR = "あなたの手"
     /** ドリル結果 KifuLineViewer のタブ: 最善手筋。 */
     const val DRILL_VIEWER_TAB_BEST = "最善手"
 
-    // ═══ 21. 棋譜クリップボードコピー ════════════════════════════════════════
 
     /** レポート画面コピーアイコンの contentDescription。 */
     const val KIF_COPY_ICON_DESC = "棋譜をコピー"
     /** 棋譜コピー後のSnackbarメッセージ。 */
     const val KIF_COPIED_MESSAGE = "棋譜をコピーしました"
 
-    // ═══ 25. 最善の変化タブの形勢表示 ════════════════════════════════════════
     // 最善の変化はエンジンPVのため線に沿って形勢はほぼ一定。分岐点の評価値
     // （blunder_report.cp_before）を全plyで常時表示する（手送りで値は変えない）。
     // ナビ行のラベルに evalSuffix() で直接連結する方式で表示する。
@@ -292,27 +250,21 @@ object AppStrings {
     fun evalSuffix(label: String): String = "（$label）"
 
     /**
-     * 形勢サフィックスに使う「不明・失敗」プレースホルダー。
-     * 読み筋延長エラー時・検討モードの評価失敗時に evalSuffix() 経由で
-     * 「（—）」として表示する（詳細メッセージは表示しない）。
+     * 評価失敗時は詳細を出さず「（—）」と表示する。
      */
     const val EVAL_UNAVAILABLE = "—"
 
-    // ═══ 8. エラー ════════════════════════════════════════════════════════════
 
     fun errorMessage(message: String): String = "エラー: $message"
     fun gameNotFound(gameId: Long): String = "ゲームが見つかりません: $gameId"
 
-    // ═══ 9. 対局者名（レポート） ═══════════════════════════════════════════════
 
     const val PLAYER_YOU = "（あなた）"
     const val PLAYER_UNKNOWN = "不明"
 
-    // ═══ 10. 棋譜リスト ═══════════════════════════════════════════════════════
 
     const val MOVE_LIST_TITLE = "指し手一覧"
 
-    // ═══ 23. この一局の指し手の強さ ═══════════════════════════════════════════
 
     /**
      * 悪手カードリスト先頭・caption行のプレフィックス（値は Mono で続く）。
@@ -320,13 +272,11 @@ object AppStrings {
      */
     const val GAME_STRENGTH_PREFIX = "この一局からの推定棋力（偏差値・参考値）: "
 
-    // ═══ 11. 認証エラーメッセージ（匿名認証 v1）════════════════════════════════
 
     const val AUTH_ERROR_NETWORK = "ネットワークに接続できません。接続を確認してお試しください"
     const val AUTH_ERROR_ANON_SIGN_IN_GENERIC = "データ提供の開始に失敗しました。時間をおいてお試しください"
     const val AUTH_ERROR_DELETE_GENERIC = "データの削除に失敗しました。時間をおいてお試しください"
 
-    // ═══ 14. アカウント（棋譜提供）画面 ═════════════════════════════════════
 
     const val ACCOUNT_SECTION_TITLE = "棋譜提供"
     const val ACCOUNT_NOT_PROVIDING_DESCRIPTION =
@@ -351,7 +301,6 @@ object AppStrings {
     fun accountUploadResult(success: Int, failed: Int): String =
         "アップロード完了: 成功${success}局${if (failed > 0) " / 失敗${failed}局" else ""}"
 
-    // ═══ 12. 申告棋力表示
     /** StrengthCard の申告棋力行プレフィックス。 */
     const val STRENGTH_DECLARED_PREFIX = "申告: "
 
@@ -363,10 +312,7 @@ object AppStrings {
     }
 
     /**
-     * source_place（[dev.miyado.shogisupplement.kifu.KifuSource.wireValue]）の表示ラベル。
-     * "other"・null・未知の値はnull（呼び出し側はファイル名等へフォールバックする想定。
-     * ReportScreenのトップバー参照）。source_placeは正規化コードのみを保持するため、
-     * ここで人が読める文言に変換してから表示する。
+     * `source_place`の表示ラベル。"other"・null・未知値はnull。
      */
     fun sourcePlaceLabel(sourcePlace: String?): String? = when (sourcePlace) {
         "wars" -> "将棋ウォーズ"
@@ -496,10 +442,8 @@ object AppStrings {
     fun positionEvalWp(pct: Int): String = "勝率$pct%"
 
     /**
-     * レポート手送り時の局面評価値: 詰み表示。
-     * userMate = ユーザー視点の詰み手数（正 = 自分が詰ます、負 = 詰まされる）。
-     * 符号は cpSignedLabel と同じ規約（+は半角、−は全角マイナス U+2212）。
-     * 色分けは表示側（EvalLabel.sign）が担うため、ここでは「勝ち／負け」の文言を持たない。
+     * @param userMate ユーザー視点の詰み手数。正は自分が詰ます、負は詰まされる。
+     * 符号は半角+と全角マイナスU+2212を使う。
      */
     fun positionEvalMate(userMate: Int): String =
         if (userMate > 0) "+${userMate}手詰" else "−${-userMate}手詰"
@@ -509,7 +453,6 @@ object AppStrings {
     /** mate_in=0 局面の詰み表示（ユーザーが詰まされた側）。符号規約は positionEvalMate と同じ。 */
     const val POSITION_EVAL_MATE_ZERO_LOSS = "−詰み"
 
-    // ═══ 22. 先後確認の省略 ══════════════════════════════════════════════════
 
     /** 側選択ダイアログのチェックボックス（アカウント名一致時のみ表示）。 */
     const val SKIP_SIDE_CONFIRM_CHECKBOX = "次回からこの確認を省略"
@@ -518,7 +461,6 @@ object AppStrings {
     /** 設定画面の行サブテキスト。 */
     const val SETTINGS_ROW_SKIP_SIDE_CONFIRM_SUB = "アカウント名が一致したら確認せず解析を開始"
 
-    // ═══ 17. デバッグ（DEBUG ビルドのみ設定画面に表示）═══════════════════════════
 
     /** 設定画面のデバッグセクション見出し。 */
     const val SETTINGS_DEBUG_SECTION = "デバッグ"
@@ -564,7 +506,6 @@ object AppStrings {
     /** 保存成功時の一時表示。次回起動から反映される旨を明示する。 */
     const val DEBUG_WASM_SITE_SAVED = "保存しました。次回起動から有効になります。"
 
-    // ═══ 26. レポート画面の検討モード ════════════════════════════════════════
 
     /**
      * 手番でない側の駒をタップしたときのヒント。検討中はナビ行中央のラベルを
@@ -583,7 +524,6 @@ object AppStrings {
 
     // 検討モードの評価エラーはナビ行に evalSuffix(EVAL_UNAVAILABLE) で表示する。
 
-    // ═══ 35. 検討パネル（グラフ＋サマリー領域の排他表示・分岐チップ列）══════════════
 
     const val STUDY_PANEL_TITLE = "検討中"
 
@@ -618,7 +558,6 @@ object AppStrings {
     /** 通常モードのナビ行中央（現在手表示）に付ける、棋譜リストへのタップ導線ヒント。 */
     const val MOVE_LIST_DROPDOWN_HINT = " ▾"
 
-    // ═══ 27. レポート画面トップバー ══════════════════════════════════════════
     // トップバーは32dpの1行インライン行（MainActivity.kt ReportScreen）。
     // 棋戦名使用時のファイル名は3行目として表示せず、Info アイコンの
     // 対局情報ダイアログに集約する。
@@ -630,11 +569,6 @@ object AppStrings {
     /** 対局情報ダイアログの閉じるボタン。 */
     const val GAME_INFO_CLOSE = "閉じる"
 
-    // ═══ 28. iOS CMPデモ（:ui MainViewController の画面切り替え）══════════════
-    // デモは HomeScreen・ReportScreen・DrillScreen 側の既存 AppStrings をそのまま使うため、
-    // デモ専用の文字列はここにはない。
-
-    // ═══ 29. OSSライセンス画面（iOS/Android共通）══════════════════════════════
     // :ui commonMain の LicenseInfoScreen が唯一の実装（Android/iOSとも同じ画面を使う）。
     // 依存OSSの完全な一覧は AboutLibraries（Libs）を LibrariesContainer に渡して描画するため、
     // 手動要約の文字列は持たない（旧 LICENSE_OSS_HEADER/BODY は撤去）。
@@ -666,9 +600,6 @@ object AppStrings {
     /** タップでリポジトリURLを開くリンクの表示文言。実URL値はプラットフォーム側の定数を使う。 */
     const val LICENSE_SOURCE_URL = "https://github.com/hmiyado/shogi-supplement"
 
-    // ═══ 30. サーバー解析エラー（RemoteAnalysisException）══════════════════════
-    // dev.miyado.shogisupplement.engine.RemoteAnalysisErrorMapper が
-    // AnalysisOrchestrator.Outcome.Failed.message の生成に使う。
 
     /** 401: セッション再取得（AuthRetryingAnalyzer）を試みても解決しなかった場合。 */
     const val SERVER_ANALYSIS_ERROR_UNAUTHORIZED = "セッションの更新に失敗しました。時間をおいてお試しください"

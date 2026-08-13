@@ -60,29 +60,10 @@ import platform.UIKit.UIApplicationWillEnterForegroundNotification
 import platform.UIKit.UIPasteboard
 
 /**
- * iOSデモアプリのトップレベル状態管理。
- *
- * androidApp の MainViewModel（「薄いルーター」。同クラスKDoc参照）と同じ役割を、
- * androidx ViewModel/Application が存在しない iOS 側で担う。DrillViewModel と同じ
- * 「StateFlow + defaultIoDispatcher」パターンのプレーンな Kotlin クラスとして実装し、
- * MainViewController.kt から `remember { IosMainController(...) }` で保持する。
- *
- * - ホーム表示データの計算は [HomeViewModel]（:ui commonMain）に一本化している。
- * - レポート表示・読み筋延長・検討モードは [ReportViewModel]（内部で [StudyController] を
- *   保持）に一本化している。androidApp の MainViewModel と同じく、これらは androidx
- *   ViewModel のライフサイクルに縛られないプレーンな協力オブジェクトとして本クラスが保持する。
- * - クリップボード取込フロー（KIF検証→先後選択→解析）はVM外の構造をそのまま使う。
- * - テーマ・形勢表示単位・先後確認省略の user_settings 読み書きも本クラスが担う。
- *
- * 検討モード・読み筋延長に注入するエンジンは [IosEngineHost.studyEngineFactory] を使う。
- * androidApp 版は呼び出しごとに使い捨てプロセスを生成するため ReportViewModel/StudyController
- * が `engine.quit()` を無条件に呼んでも無害だが、iOS はプロセス内エンジンを一度しか起動できない
- * ため、quit() を no-op にする委譲ラッパー（[IosEngineHost.studyEngineFactory] 内部実装）で
- * 常駐エンジンを守っている（ドリル判定・取込解析と検討モード・読み筋延長は同一の常駐エンジンを
- * 共有する）。
- *
- * **解析の再開**: バックグラウンド遷移でストリームが失われても、サーバー側は解析を完走する
- * （moves_hash冪等）ため、[PendingAnalysisStore] に保存した申告情報から再実行して復旧する。
+ * iOSはプロセス内エンジンを一度しか起動できないため、`quit()`をno-opにしたラッパーで
+ * ドリル・取込・検討・読み筋延長の常駐エンジンを共有する。
+ * バックグラウンド遷移でストリームが失われてもサーバー解析はmoves_hashで冪等に完走するため、
+ * [PendingAnalysisStore]の申告情報から再実行して復旧する。
  */
 class IosMainController(
     private val gameRepository: GameRepository,
@@ -166,10 +147,7 @@ class IosMainController(
     private val coefTable = IosCoefficients.getInstance()
 
     /**
-     * サーバー解析用の HttpClient（analysisBaseUrl 設定時のみ生成・使い回す）。
-     * 解析は1リクエストで全局面を返すまでストリームを保持するため、既定のタイムアウトでは
-     * 途中で切れる。タイムアウト値は Android の DebugServerAnalysisReceiver と同じ
-     * （Cloud Runのリクエストタイムアウトより長く取る）。
+     * 全局面のストリーム完了前に切れないよう、Cloud Runより長いタイムアウトで使い回す。
      */
     private val analysisHttpClient: HttpClient? = analysisBaseUrl?.let {
         HttpClient(Darwin) {
@@ -181,10 +159,7 @@ class IosMainController(
     }
 
     /**
-     * 検討モード・読み筋延長のオンデマンド単発局面解析用 HttpClient（analysisBaseUrl 設定時のみ
-     * 生成）。[analysisHttpClient]（1局まるごとの解析用・10分/5分タイムアウト）とは分ける。
-     * 検討パネルのLoading表示にはキャンセル手段が無く、通信不良時にそのタイムアウトまで
-     * 張り付いてしまうため、単発局面向けの短い値にする。
+     * 検討パネルにはキャンセル手段がないため、単発局面解析は短いタイムアウトへ分離する。
      */
     private val studyAnalysisHttpClient: HttpClient? = analysisBaseUrl?.let {
         HttpClient(Darwin) {
@@ -216,14 +191,8 @@ class IosMainController(
     )
 
     /**
-     * StudyController/PvExtensionRunner（検討モード・読み筋延長）向けのエンジンファクトリ。
-     *
-     * エンジン入り版（[IosEngineHost.ENGINE_LINKED] = true）は常駐エンジンをそのまま使う
-     * （従来どおり）。engineless版はサーバー解析が設定済み（authRepository・analysisBaseUrl
-     * とも非null）なときだけ [RemoteStudyEngine] を返す。それ以外（engineless版で
-     * ANALYSIS_BASE_URL未設定＝出荷前の設定漏れ）は従来どおり [IosEngineHost.studyEngineFactory]
-     * の例外を投げるダミーのまま——このケースはそもそも取込解析自体が動かない
-     * （[runAnalysis] 参照）ため、検討モードだけ個別にエラー文言を出す意味が無い。
+     * エンジン入り版は常駐エンジンを共有する。engineless版は認証とURLがある場合だけ
+     * [RemoteStudyEngine]を返し、設定漏れでは取込解析と同じく例外を投げる。
      */
     private fun studyEngineFactory(): () -> Engine {
         val auth = authRepository
@@ -254,15 +223,8 @@ class IosMainController(
     }
 
     /**
-     * StudyController の着手自動発火（検討モード）を許してよいかの見込み判定。
-     *
-     * [studyEngineFactory] と同じ条件分岐: エンジン入り版・サーバー未設定のダミー版は
-     * 常に true（前者は常駐ネイティブエンジンでクォータの心配が無い。後者はどのみち
-     * engineFactory 自体が例外を投げるだけなので、判定を分けても着手のたびにErrorが
-     * 出るか手動リトライでErrorが出るかの違いしかない）。ローカルWASM＋サーバー
-     * フォールバック合成のときだけ、[WasmStudyBridge.localReadyProvider]
-     * （= WASMバイナリキャッシュの準備状態）を実際に見て、未準備なら false を返す
-     * （サーバーへ自動でフォールバックさせない＝クォータ保護）。
+     * WASM＋サーバー構成では、未準備時の自動フォールバックによるクォータ消費を防ぐため
+     * [WasmStudyBridge.localReadyProvider]がfalseなら着手解析を自動発火しない。
      */
     private fun studyLocalEngineLikelyAvailable(): () -> Boolean {
         val auth = authRepository
@@ -289,7 +251,7 @@ class IosMainController(
     /** 現在進行中の解析コルーチン（再開時に前回分をキャンセルするため保持する）。 */
     private var currentAnalysisJob: Job? = null
 
-    /** 直近の進捗更新のエポック秒。[onWillEnterForeground] の無進捗判定に使う。 */
+    /** 直近の進捗更新のエポック秒。 */
     private var lastProgressAtEpochSeconds: Long? = null
 
     /**
@@ -416,14 +378,8 @@ class IosMainController(
         }
     }
 
-    // ─── クリップボード取込フロー ──────────────────────────────
-
     /**
-     * クリップボードを読み取って取込フローへ渡す。
-     *
-     * UIPasteboard.string の同期読みは pasteboardd とのIPC・Universal Clipboard の
-     * iCloudフェッチで数秒ブロックすることがあり、メインスレッド（タップハンドラ）で
-     * 呼ぶと App Hang になる（Sentry実測）。そのためバックグラウンドの [scope] で読む。
+     * UIPasteboardの同期読みはIPCやiCloud取得でブロックし得るため、[scope]で読む。
      */
     fun handleClipboardImport() {
         scope.launch {
@@ -454,7 +410,6 @@ class IosMainController(
     }
 
     /**
-     * KIF検証後の分岐（androidApp の KifImportFlow.startKifFlow と同じ判断）:
      * 1. アカウント名が全サービス未設定 → 先に棋力設定（[ImportState.RatingSetup]）
      * 2. アカウント名一致＋省略設定ON → 確認なしで即解析
      * 3. それ以外 → 先後選択ダイアログ（推定側を初期選択に）
@@ -574,10 +529,8 @@ class IosMainController(
     fun getAllServiceRanks(): Map<String, Map<String, Int>> = settingsRepository.getAllServiceRanks()
 
     /**
-     * ホームの解析中カードをタップしたときの再接続。
      * レジストリの現在スナップショットからImportState.Analyzingへ入る（0からやり直さない）。
-     * 既に完了・失敗して解析が消えていた場合（タップと完了のレース）は何もしない
-     * （直後にホームの一覧側が通常のカードへ更新される）。
+     * 完了・失敗との競合でスナップショットが消えていれば何もしない。
      */
     fun resumeAnalyzing(id: String) {
         val session = InProgressAnalysisRegistry.shared.snapshot(id) ?: return
@@ -600,9 +553,7 @@ class IosMainController(
     }
 
     /**
-     * DocumentPicker（Swift側 KifFilePickerCoordinator）で選ばれたファイルの
-     * テキストを検証する。[handlePastedText] のファイル版。text が null はデコード失敗
-     * （UTF-8/Shift_JISいずれでも読めなかった等）を表し、空/不正と同じエラー表示に流す。
+     * @param text nullはUTF-8/Shift_JISのデコード失敗で、空・不正と同じエラーにする。
      */
     fun handleFileImport(fileName: String, text: String?) {
         when {
@@ -626,7 +577,6 @@ class IosMainController(
     fun confirmSideAndAnalyze(userSide: String) {
         val current = _importState.value
         if (current !is ImportState.SideConfirm) return
-        // 次回の先後推定のフォールバックに使う（androidApp の startAnalysis と同じ）。
         settingsRepository.saveLastUserSide(userSide)
 
         val fileName = current.sourceFileName ?: AppStrings.clipboardFileName(currentDateTimeLabel())
@@ -645,10 +595,8 @@ class IosMainController(
     private fun launchAnalysis(pending: PendingAnalysis) {
         currentAnalysisJob?.cancel()
         lastProgressAtEpochSeconds = currentEpochSeconds()
-        // 手順はKIF原文パース直後（エンジン解析の開始前）から確定しているため、
-        // サーバー/端末どちらの解析が終わるより先にAnalyzingの初期状態を作れる。
         val moves = runCatching { KifParser().parse(pending.kifText).moves }.getOrElse { emptyList() }
-        // idはcontent_hash（AnalysisOrchestrator.analyzeAndSaveが保存に使う値と同一）。
+        // idは保存時のcontent_hashと同一。
         // レジストリはIosMainController（プロセス生存期間のシングルトン）だけが書く
         // ——importStateはdismissImportで破棄されるがレジストリ側は生き続ける。
         val id = sha256Hex(pending.kifText)
@@ -729,10 +677,7 @@ class IosMainController(
             ratingService = pending.ratingService,
             ratingRaw = pending.ratingRaw,
             ratingRule = pending.ratingRule,
-            // 現行のNDJSON形式では局面ごとの中間結果を送らずprogress行が定期的に
-            // 届くだけのため、フォアグラウンド復帰の無進捗判定（[onWillEnterForeground]）は
-            // 引き続きこちらで更新する。ProgressiveReportStateへの反映はonPositionResultの
-            // 責務にする（1コールバックに混ぜるとテストが両方の関心を一度に検証しづらいため）。
+            // NDJSONのprogress行は無進捗判定だけを更新し、局面状態とは分離する。
             onProgress = { _, _ -> lastProgressAtEpochSeconds = currentEpochSeconds() },
             onPositionResult = { ply, pvs ->
                 InProgressAnalysisRegistry.shared.updatePosition(id, ply, pvs)
@@ -773,11 +718,7 @@ class IosMainController(
     }
 
     /**
-     * engineless（サーバー解析専用）フレーバーはANALYSIS_BASE_URL未設定時に
-     * 端末エンジンへフォールバックする手段が無い（IosEngineHostのengineless実装は
-     * 常にnull/例外を返すダミー）。[buildAnalyzer] のフォールバック分岐へ進んで
-     * AnalysisOrchestrator経由で不可解な例外を出す前に、ここで専用エラーを検出して
-     * 中止できるようにする（通常は出荷前の設定漏れでのみ到達する経路）。
+     * engineless版には端末フォールバックがないため、URL未設定を専用エラーとして先に返す。
      */
     private fun analyzerConfigurationError(): AnalysisOrchestrator.Outcome.Failed? =
         if (!IosEngineHost.ENGINE_LINKED && analysisBaseUrl == null) {
@@ -790,11 +731,7 @@ class IosMainController(
         val auth = authRepository
         val baseUrl = analysisBaseUrl
         return if (auth != null && baseUrl != null) {
-            // サーバー解析（クォータ429・サーバー障害・接続断リトライ上限）が使えないときは
-            // 端末内WKWebView×WASMやねうら王（WasmAnalysisRunner）へフォールバックし、同じ棋譜を
-            // 最初から解析し直す。サーバー・端末は同一の解析条件を保証するため結果に差は無く、
-            // 追加ダイアログなしで発動する（426=強制アップデートはフォールバックしない。
-            // FailoverAnalyzer KDoc参照）。
+            // 429・障害・接続断では同条件のWASMで最初から再解析する。426では切り替えない。
             FailoverAnalyzer(
                 delegate = AuthRetryingAnalyzer(
                     delegate = RemoteAnalysisRunner(

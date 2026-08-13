@@ -32,12 +32,7 @@ import org.jetbrains.compose.ui.tooling.preview.Preview
 private val STATUS_SLOT_HEIGHT = 56.dp
 
 /**
- * 復元成功画面（引き継ぎコード復元後に遷移）。
- *
- * 見出しは引き継ぎコード入力成功と同じ文言（[AppStrings.TRANSFER_CODE_INPUT_SUCCESS]）を
- * 再利用する。件数表示・進捗・完了はすべて[STATUS_SLOT_HEIGHT]の固定スロット内で
- * 排他的に入れ替える。ボタン行は常に「ホームへ」（ghost・常時操作可）と主ボタン
- * （件数確認中/復元完了以外は棋譜を復元する or 再試行）の2つを固定表示する。
+ * 状態切替で画面が揺れないよう、件数・進捗・完了は固定高スロット内で排他的に表示する。
  */
 @Composable
 fun GameRestoreScreen(
