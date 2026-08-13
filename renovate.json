@@ -1,5 +1,15 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended"],
-  "minimumReleaseAge": "7 days"
+  "minimumReleaseAge": "7 days",
+  "packageRules": [
+    {
+      "description": "Lifecycle 2.11 requires AGP 9.1.1+ and compileSdk 37, while this project uses AGP 8.13.2 and compileSdk 36.",
+      "matchPackageNames": [
+        "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel",
+        "androidx.lifecycle:lifecycle-viewmodel-compose"
+      ],
+      "allowedVersions": "<2.11.0"
+    }
+  ]
 }
