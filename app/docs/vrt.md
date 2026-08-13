@@ -1,33 +1,41 @@
-# VRT（スクリーンショットテスト）
+# VRT（画面のスクリーンショット比較）の回し方
 
-Roborazzi + Robolectric で JVM 上でレンダリングし、`androidApp/src/test/snapshots/` にゴールデン画像を保存する。
+Roborazziで画面を描画し、`androidApp/src/test/snapshots/` の画像と比較する。
 
-| 操作 | コマンド |
-|------|---------|
-| ゴールデン更新 | `./gradlew :androidApp:recordRoborazziDebug` |
-| CI 照合（差分検出） | `./gradlew :androidApp:verifyRoborazziDebug` |
-| テストのみ（照合なし） | `./gradlew :androidApp:testDebugUnitTest` |
+## 開発ループでは変更に関係する画面だけ流す
 
-## ゴールデンの所在と命名
+全件は30〜70分かかり、テストJVMがOOMしやすい。**変更した画面のテストクラスだけ**を指定する。
 
-- 正本はテストコード: `androidApp/src/test/kotlin/.../ui/*ScreenshotTest.kt` の各テストが
-  `filePath = "src/test/snapshots/<画面>_<状態>.png"` で1枚ずつ撮影する。
-  一覧が必要なときは `ls androidApp/src/test/snapshots/` か
-  `grep -r "src/test/snapshots" androidApp/src/test` を見る
-- 新しい画面・状態を追加するときは既存の `<画面>_<状態>` 命名に合わせる
-  （例: `drill_result_with_eval` / `report_viewer_best_pv_mate`）
-- 未使用ゴールデンを作らない: テストから参照されない PNG は削除する
+```sh
+cd app
+./gradlew :androidApp:verifyRoborazziDebug --tests "*ReportViewer*"
+```
 
-## 注意
+画面と対応するテストクラスは `androidApp/src/test/kotlin/**/…ScreenshotTest.kt` にある。
+どれが関係するか迷ったら、変更したComposable名でテストを検索する。
 
-- `account_delete_dialog` は AlertDialog（別ウィンドウ）を含むため `captureScreenRoboImage`＋
-  `createComposeRule` で撮影する（ComponentActivity は `ui-test-manifest` を
-  debugImplementation にして解決）
-- `licenses_screen` は `res/raw/aboutlibraries.json`（`./gradlew :androidApp:exportLibraryDefinitions`
-  で生成・コミット）に依存する。依存ライブラリを追加・更新したら export を再実行し
-  golden も更新すること
-- レポート/ドリルのナビ行ラベルは `TextOverflow.MiddleEllipsis` を使い、長い手表記のときは
-  「42手目 ▲６…（−350）」のように両端（手数プレフィックスと形勢サフィックス）を保護する
-  （`KifuLineViewer.kt` にも同じ overflow を適用）
-- `drill_result_with_eval_ply1` は No-jitter 検証用: 1手送った状態でナビラベルより下の
-  Y座標が `drill_result_with_eval` と不変であることを確認する
+意図した見た目の変更なら記録し直してから差分を目視する。
+
+```sh
+./gradlew :androidApp:recordRoborazziDebug --tests "*ReportViewer*"
+git diff --stat androidApp/src/test/snapshots
+```
+
+**記録し直したら、変更したつもりのない画像が混ざっていないか必ず確認する**
+（描画のゆらぎで無関係な画像が書き換わることがある。その場合は `git checkout` で戻す）。
+
+## 全件はCIに任せる
+
+`.github/workflows/vrt.yml` がPull Requestで全件を検証する。失敗時は比較画像
+（期待・実際・差分）が成果物として残るので、そこで回帰かどうかを判断する。
+
+手元で全件を流したいときは、CIと同じコマンドを使う。
+
+```sh
+./gradlew :androidApp:verifyRoborazziDebug
+```
+
+## goldenを追加するとき
+
+テストJVMのメモリは画像の枚数に比例して逼迫する。追加後に一括実行がOOMで落ちるように
+なったら、`androidApp/build.gradle.kts` の `maxHeapSize` と `setForkEvery` を見直す。

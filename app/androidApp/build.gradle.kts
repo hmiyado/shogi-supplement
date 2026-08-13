@@ -118,8 +118,11 @@ android {
             isReturnDefaultValues = true
             all {
                 it.systemProperty("robolectric.graphicsMode", "NATIVE")
-                // VRT一括実行でのテストJVMのOOM対策（Sentryテストノイズの根本の片割れ）
-                it.maxHeapSize = "2g"
+                // VRT一括実行でのテストJVMのOOM対策（Sentryテストノイズの根本の片割れ）。
+                // Why not ヒープ増量だけ: 描画分がクラスをまたいで積み上がるため、
+                // goldenが増えるたびに上限へ張り付く。一定クラスごとにJVMを作り直す。
+                it.maxHeapSize = "4g"
+                it.setForkEvery(5L)
             }
         }
     }

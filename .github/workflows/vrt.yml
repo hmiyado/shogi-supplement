@@ -1,0 +1,55 @@
+name: VRT
+
+# 画面のスクリーンショット比較（Roborazzi）を全件実行する。
+# Why not ローカルの開発ループで全件回す: 1回30〜70分かかりテストJVMがOOMしやすい。
+# 開発中は変更に関係する画面だけを流し（app/docs/vrt.md）、全件の担保はここで行う。
+on:
+  schedule:
+    # GitHub ActionsのcronはUTC。18:00 UTC = 03:00 JST。
+    - cron: "0 18 * * *"
+  pull_request:
+    paths:
+      - "app/**"
+      - ".github/workflows/vrt.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: vrt-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5.6.0
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      # Why not v6以降: キャッシュ機能がMIT対象外の商用コンポーネントへ分離され、
+      # 使用にGradle社のTerms of Useへの同意が必要になったため（worker-test.ymlと同じ理由）。
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+
+      - uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3.2.2
+
+      - name: Verify screenshots
+        working-directory: app
+        run: ./gradlew :androidApp:verifyRoborazziDebug --stacktrace
+
+      # 失敗時は比較画像（期待・実際・差分）を成果物として残す。差分の中身を見ないと
+      # 意図した変更か回帰かを判断できないため。
+      - name: Upload comparison images
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: vrt-comparison
+          path: |
+            app/androidApp/build/outputs/roborazzi
+            app/androidApp/build/reports/tests/testDebugUnitTest
+          retention-days: 7
