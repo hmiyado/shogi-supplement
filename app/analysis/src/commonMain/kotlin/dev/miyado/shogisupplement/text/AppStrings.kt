@@ -801,4 +801,41 @@ object AppStrings {
 
     /** バージョン表示の値部分。例: versionName="1.2.0", buildNumber=42 → "1.2.0 (42)" */
     fun forceUpdateVersionValue(versionName: String, buildNumber: Int): String = "$versionName ($buildNumber)"
+
+    // ═══ 37. 棋譜復元（引き継ぎコード復元後の棋譜ダウンロード）═══════════════════════
+    // 見出し文言は TRANSFER_CODE_INPUT_SUCCESS（アカウントを切り替えました）を再利用する
+    // （同じ意味の文言をここで別に持たない）。ホームへ戻るボタンは DRILL_GO_HOME を再利用する。
+
+    const val GAME_RESTORE_LOADING_NOTE = "サーバー上の棋譜を確認しています"
+
+    /** サーバー上の自分の棋譜件数の案内。0件は [GAME_RESTORE_EMPTY_NOTE] を使う。 */
+    fun gameRestoreCount(count: Int): String = "サーバーに $count 局の棋譜があります。"
+
+    const val GAME_RESTORE_EMPTY_NOTE = "サーバーに保存された棋譜はありません。"
+    const val GAME_RESTORE_BUTTON = "棋譜を復元する"
+
+    /**
+     * ダウンロード進捗（進捗スロット表示・全体をMono表記）。
+     * AnalyzingProgress と同じ「ラベル込み1文をMono表示」パターン（AnalyzingReportScreen参照）。
+     * 例: done=3, total=10 → "復元中... 3 / 10 局"
+     */
+    fun gameRestoreProgress(done: Int, total: Int): String = "復元中... $done / $total 局"
+
+    /** 完了時（全件成功）。 */
+    fun gameRestoreCompletedAll(succeeded: Int): String = "$succeeded 局を復元しました。"
+
+    /**
+     * 完了時（一部失敗）。色分け（DESIGN.md「数値の符号規約: 損失・悪化=朱」）は文言に含めず、
+     * 表記自体は中立に保つ。
+     */
+    fun gameRestoreCompletedPartial(succeeded: Int, failed: Int): String =
+        "$succeeded 局を復元しました（$failed 局は失敗）。"
+
+    const val GAME_RESTORE_ERROR_NOT_AUTHENTICATED = "ログイン状態を確認できませんでした。設定からやり直してください。"
+    const val GAME_RESTORE_ERROR_NO_SECRET = "復元用のデータが見つかりませんでした。もう一度お試しください。"
+    const val GAME_RESTORE_ERROR_NETWORK = "通信に失敗しました。しばらくしてから再度お試しください。"
+    const val GAME_RESTORE_RETRY_BUTTON = "再試行"
+
+    /** ダウンロード復元した棋譜のfileName。開始日時ヘッダがあればそれを使い、無ければ汎用ラベル。 */
+    fun restoredGameFileName(startedAt: String?): String = startedAt ?: "復元した棋譜"
 }

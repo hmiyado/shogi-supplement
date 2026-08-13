@@ -88,6 +88,51 @@ class AnalysisOrchestratorTest {
         assertEquals("other", analyzeAndGetSourcePlace(kif, "other.kif"))
     }
 
+    @Test
+    fun `contentHashを明示指定すると原文から再計算されずその値がgame_contentHashに保存される`() = runBlocking {
+        val (orchestrator, repository) = newOrchestrator()
+        val kif = singleMoveKif(listOf("手合割：平手", "先手：太郎", "後手：花子"))
+        val explicitHash = "explicit-hash-from-server"
+        val outcome = orchestrator.analyzeAndSave(kif, fileName = "restored.kif", contentHash = explicitHash)
+        val completed = outcome as? AnalysisOrchestrator.Outcome.Completed
+            ?: fail("解析に失敗した: ${(outcome as AnalysisOrchestrator.Outcome.Failed).message}")
+        assertEquals(explicitHash, repository.getGameById(completed.gameId)?.contentHash)
+    }
+
+    @Test
+    fun `contentHash指定時の重複チェックはその値でgetByHashされ既存game_idが返る`() = runBlocking {
+        val (orchestrator, repository) = newOrchestrator()
+        val kif = singleMoveKif(listOf("手合割：平手", "先手：太郎", "後手：花子"))
+        val sharedHash = "shared-hash"
+        val first = orchestrator.analyzeAndSave(kif, fileName = "restored.kif", contentHash = sharedHash)
+            as? AnalysisOrchestrator.Outcome.Completed ?: fail("1回目の解析に失敗した")
+        // 2回目は原文が同じでも別のfileNameで呼ぶ（原文再計算だと同じハッシュになるため区別できない
+        // ケースを避け、explicitHashの指定自体がgetByHash判定に使われていることを固定する）。
+        val second = orchestrator.analyzeAndSave(kif, fileName = "restored2.kif", contentHash = sharedHash)
+            as? AnalysisOrchestrator.Outcome.Completed ?: fail("2回目の解析に失敗した")
+        assertEquals(first.gameId, second.gameId)
+        assertEquals(false, first.alreadyExisted)
+        assertEquals(true, second.alreadyExisted)
+        // 冪等ヒットなのでrepositoryには1件しか保存されていない
+        assertEquals(1, repository.getAllGames().size)
+    }
+
+    @Test
+    fun `sourcePlaceOverrideを指定すると原文からの判定より優先される`() {
+        // 場所ヘッダはlishogiのURL形式（本来ならlishogi判定）だが、overrideでkiouを強制する。
+        val kif = singleMoveKif(
+            listOf("場所：https://lishogi.org/abcd1234", "手合割：平手", "先手：太郎", "後手：花子"),
+        )
+        val sourcePlace = runBlocking {
+            val (orchestrator, repository) = newOrchestrator()
+            val outcome = orchestrator.analyzeAndSave(kif, fileName = "override.kif", sourcePlaceOverride = "kiou")
+            val completed = outcome as? AnalysisOrchestrator.Outcome.Completed
+                ?: fail("解析に失敗した: ${(outcome as AnalysisOrchestrator.Outcome.Failed).message}")
+            repository.getGameById(completed.gameId)?.sourcePlace
+        }
+        assertEquals("kiou", sourcePlace)
+    }
+
     /** pv1/pv2を区別して返すFakeEngine。plyごとに異なる値を返し、先手視点への正規化を検証する。 */
     private class PvAwareFakeEngine : Engine {
         override fun analyze(moves: List<String>, nodes: Int): List<PvInfo> = if (moves.isEmpty()) {

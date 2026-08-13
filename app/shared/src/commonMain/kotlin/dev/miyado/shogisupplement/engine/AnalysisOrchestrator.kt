@@ -73,6 +73,14 @@ class AnalysisOrchestrator(
      * @param ratingService レートのサービス名（申告のみ・相応判定には使わない）
      * @param ratingRaw サービス上のraw値
      * @param ratingRule ルール文字列
+     * @param contentHash 重複チェック・保存に使うcontent_hash。null（既定）なら[kifContent]から
+     *   算出する。非nullを渡すのは、渡す側が既に確定した値を持っており[kifContent]自体からの
+     *   再算出では一致しない場合（例: 再構成されたKIFテキストは書式が原本と異なり、
+     *   ハッシュも変わってしまう）。その場合は再算出せず渡された値をそのまま信頼する。
+     * @param sourcePlaceOverride source_placeの上書き値。null（既定）なら[kifContent]と
+     *   headersの「場所」から[KifuDecomposer.classifySource]で判定する。非nullを渡すのは、
+     *   [kifContent]だけでは判定に必要な情報（KIOUマーカー行等）が失われていて
+     *   判定し直せない場合。その場合は渡された正規化済みの値をそのまま信頼する。
      * @param onProgress (done, total) の進捗コールバック
      * @param onPositionResult 局面ごとの中間結果コールバック（[GameAnalyzer.analyzeGame] の
      *   契約をそのまま透過する）。プログレッシブ解析表示の配線用で、既定値の no-op のままなら
@@ -85,14 +93,16 @@ class AnalysisOrchestrator(
         ratingService: String? = null,
         ratingRaw: Long? = null,
         ratingRule: String? = null,
+        contentHash: String? = null,
+        sourcePlaceOverride: String? = null,
         onProgress: (done: Int, total: Int) -> Unit = { _, _ -> },
         onPositionResult: (ply: Int, pvs: List<PvInfo>) -> Unit = { _, _ -> },
     ): Outcome {
         return try {
-            val contentHash = sha256Hex(kifContent)
+            val effectiveContentHash = contentHash ?: sha256Hex(kifContent)
 
             // 重複チェック
-            val existingId = repository.getByHash(contentHash)
+            val existingId = repository.getByHash(effectiveContentHash)
             if (existingId != null) {
                 return Outcome.Completed(existingId, alreadyExisted = true)
             }
@@ -122,7 +132,7 @@ class AnalysisOrchestrator(
             // DB保存（kif_text + moves_usi も保存、game.rating は推定値）
             val gameId = repository.saveAnalysis(
                 fileName = fileName,
-                contentHash = contentHash,
+                contentHash = effectiveContentHash,
                 moves = game.moves,
                 headers = game.headers,
                 reports = analysisResult.reports,
@@ -136,8 +146,10 @@ class AnalysisOrchestrator(
                 ratingRule = ratingRule,
                 // 生の「場所」ヘッダはローカルDBにも残さない（lishogiでは対局を一意特定できる
                 // URLが入るため）。判定は KifuDecomposer.classifySource に一本化し、
-                // アップロード用の分解処理と同じ結果になるようにする。
-                sourcePlace = KifuDecomposer.classifySource(kifContent, game.headers["場所"]).wireValue,
+                // アップロード用の分解処理と同じ結果になるようにする（sourcePlaceOverride指定時は
+                // それを正とする。理由はこの関数のKDoc参照）。
+                sourcePlace = sourcePlaceOverride
+                    ?: KifuDecomposer.classifySource(kifContent, game.headers["場所"]).wireValue,
                 gameWinner = game.winner,
                 endReason = game.endReason,
             )

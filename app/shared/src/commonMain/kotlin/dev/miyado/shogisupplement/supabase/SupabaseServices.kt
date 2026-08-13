@@ -9,6 +9,8 @@ import dev.miyado.shogisupplement.crypto.TransferSecretRegistrar
 import dev.miyado.shogisupplement.crypto.TransferSecretStore
 import dev.miyado.shogisupplement.db.GameRepository
 import dev.miyado.shogisupplement.db.SettingsRepository
+import dev.miyado.shogisupplement.download.GameDownloadService
+import dev.miyado.shogisupplement.download.SupabaseGameDownloadService
 import dev.miyado.shogisupplement.policy.AppPolicyRepository
 import dev.miyado.shogisupplement.policy.ForceUpdatePolicyChecker
 import dev.miyado.shogisupplement.policy.SupabasePolicyRepository
@@ -64,6 +66,14 @@ class SupabaseServices(
     /** K_authハッシュの登録（設計書 付録「引き継ぎコードの詳細仕様」節）。 */
     val transferSecretRegistrar: TransferSecretRegistrar =
         SupabaseTransferSecretRegistrar(client, transferSecretStore)
+
+    /**
+     * サーバー上の自分の棋譜をローカルDBへ取り込む（[GameDownloadService] のKDoc参照）。
+     * エンジン解析部分（1局ぶんの取込コールバック）はプラットフォーム別のエンジン選定が要るため、
+     * ここでは組み立てない（未設定のまま [GameDownloadService.downloadAndImport] へ渡す）。
+     */
+    val gameDownloadService: GameDownloadService =
+        SupabaseGameDownloadService(client, transferSecretStore, authRepository, gameRepository)
 
     /** 同意オンボーディング（iOS専用・初回起動必須）の完了処理。 */
     val consentOrchestrator: ConsentOrchestrator = ConsentOrchestrator(
