@@ -16,16 +16,16 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/**
- * StudyController の検討木の永続化・分岐操作を検証する。
- *
- * レポート画面を開いている間は検討木を保持し、endStudy では破棄せず、
- * dispose（画面を離れる）で初めて破棄する、という挙動が主眼。
- *
- * エンジンは固定PVを返すFakeEngineを注入する。
- */
+/** 検討木の永続化・分岐操作を保証する。 */
 @OptIn(ExperimentalCoroutinesApi::class)
 class StudyControllerTest {
+
+    private class NoPvEngine : Engine {
+        override fun analyze(moves: List<String>, nodes: Int): List<PvInfo> = emptyList()
+        override fun analyzeSfen(sfen: String, additionalMoves: List<String>, nodes: Int): List<PvInfo> = emptyList()
+        override fun quit() = Unit
+        override fun newGame() = Unit
+    }
 
     private class FakeEngine(private val score: Score = Score.Cp(0)) : Engine {
         var analyzeCallCount = 0
@@ -86,10 +86,6 @@ class StudyControllerTest {
         controller.endStudy()
         assertNull(controller.studyState.value, "endStudyでstudyStateはnullに戻る")
 
-        // 同じ baseSfen で再開: moves はルート（空）に戻るが、木は保持されているため
-        // 同じ手を指し直せば新規ノードではなく既存ノードが再利用される
-        // （検討木の再利用ロジック。ここではnodeId比較はできないが、
-        // branchFlagsを介した間接検証として「2本目の別の手を指した後の分岐数」で確認する）。
         controller.startStudy(
             baseSfen = startSfen,
             flip = false,
@@ -101,16 +97,12 @@ class StudyControllerTest {
         )
         assertEquals(emptyList(), controller.studyState.value?.moves, "再開直後はルート（moves空）から")
 
-        // 前回と同じ7g7fを指す。
         controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 7))
         controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 6))
-        // 別の手（2g2f）を指すため、いったん戻って別の駒を選ぶ。
         controller.studyStepBack()
         controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(2, 7))
         controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(2, 6))
         assertEquals(listOf("2g2f"), controller.studyState.value?.moves)
-        // 7g7fが1本目の木に既に存在していたため、2g2fを指した時点で兄弟が2本
-        // （7g7f・2g2f）になっている＝木が保持されていたことの間接証拠。
         assertEquals(listOf(true), controller.studyState.value?.branchFlags)
     }
 
@@ -144,7 +136,6 @@ class StudyControllerTest {
         controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(2, 7))
         controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(2, 6))
         assertEquals(listOf("2g2f"), controller.studyState.value?.moves)
-        // dispose で木が破棄されたため、2g2fは兄弟なし（1本道）のはず。
         assertEquals(listOf(false), controller.studyState.value?.branchFlags)
     }
 
@@ -175,7 +166,6 @@ class StudyControllerTest {
             originAbsolutePly = 1,
             origin = noOrigin,
         )
-        // altSfen は初めての分岐元なので、2g2f を指しても兄弟は無い（1本道）。
         controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(2, 3))
         controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(2, 4))
         assertEquals(listOf(false), controller.studyState.value?.branchFlags)
@@ -209,7 +199,6 @@ class StudyControllerTest {
             "2手が兄弟として存在するので branchFlags[0] は true",
         )
 
-        // チップタップ相当（onChipTapped(0)）でルートへ戻り、7g7fがまだ辿れることを確認。
         controller.onChipTapped(0)
         controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 7))
         controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 6))
@@ -264,11 +253,6 @@ class StudyControllerTest {
         assertEquals(StudyEvalState.None, controller.studyState.value?.evalState)
     }
 
-    /**
-     * 自動発火（localEngineLikelyAvailable 既定 = true）を無効化し、
-     * analyzeCurrentPosition（Preparing/Error時の手動リトライボタン相当）単体の挙動を
-     * 検証する。着手だけでは解析されず、明示呼び出しでのみ解析が走る。
-     */
     @Test
     fun `engineFactoryが例外を投げるとStudyEvalStateはErrorになる`() {
         val controller = StudyController(
@@ -326,7 +310,52 @@ class StudyControllerTest {
         assertTrue(evalState is StudyEvalState.Value)
     }
 
-    // ─── 自動発火（着手・チップ移動で自動的に評価が出る）───────────────────────
+    @Test
+    fun `指せる手が無くなった局面で読み筋が無ければ詰みとして表示する`() {
+        // 5三の金を5二へ動かすと後手玉が詰む（5九の飛車が金を支える）。
+        val controller = StudyController(
+            scope = testScope,
+            ioDispatcher = testDispatcher,
+            engineFactory = { NoPvEngine() },
+            evalDisplayProvider = { "cp" },
+        )
+        controller.startStudy(
+            baseSfen = "4k4/9/4G4/9/9/9/9/9/4R4 b - 1",
+            flip = false,
+            originIsBestPv = false,
+            originPlyIndex = 0,
+            originSelectedIdx = null,
+            originAbsolutePly = 0,
+            origin = noOrigin,
+        )
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(5, 3))
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(5, 2))
+
+        assertIs<StudyEvalState.Value>(controller.studyState.value?.evalState)
+    }
+
+    @Test
+    fun `指せる手があるのに読み筋が無ければエラーにする`() {
+        val controller = StudyController(
+            scope = testScope,
+            ioDispatcher = testDispatcher,
+            engineFactory = { NoPvEngine() },
+            evalDisplayProvider = { "cp" },
+        )
+        controller.startStudy(
+            baseSfen = startSfen,
+            flip = false,
+            originIsBestPv = false,
+            originPlyIndex = 0,
+            originSelectedIdx = null,
+            originAbsolutePly = 0,
+            origin = noOrigin,
+        )
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 7))
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 6))
+
+        assertEquals(StudyEvalState.Error, controller.studyState.value?.evalState)
+    }
 
     @Test
     fun `着手すると自動的に解析が走りevalStateがValueになる`() {
@@ -366,11 +395,6 @@ class StudyControllerTest {
         assertEquals(StudyEvalState.Preparing, controller.studyState.value?.evalState)
     }
 
-    /**
-     * Preparing 中にローカルエンジンが使えるようになった（WASMバイナリのダウンロード完了相当）とき、
-     * ユーザー操作なしで解析が拾われることを確認する。localEngineLikelyAvailable を
-     * 可変フラグで返し、ポーリング間隔の経過を TestCoroutineScheduler の仮想時間で進める。
-     */
     @Test
     fun `Preparing中にローカルエンジンが使えるようになるとユーザー操作なしで解析される`() {
         var available = false
@@ -396,13 +420,7 @@ class StudyControllerTest {
         assertIs<StudyEvalState.Value>(controller.studyState.value?.evalState)
     }
 
-    /**
-     * 速い連続着手のレース対策: 局面Aの解析が完了する前に局面Bへ進んだとき、
-     * Aの結果を捨てずにキャッシュ（チップへ反映）しつつ、最終的に現在局面（B）が
-     * 解析されることを確認する。[Engine.analyzeSfen] は同期呼び出しのため、
-     * UnconfinedTestDispatcher（scope）+ StandardTestDispatcher（ioDispatcher）を
-     * 組み合わせて「Aのエンジン呼び出しがまだ完了していない」状態を仮想時間で作る。
-     */
+    /** 局面Aの解析中にBへ進むレースで、AをキャッシュしBを取りこぼさないことを保証する。 */
     @Test
     fun `解析中に次の手を指すと古い局面の結果は捨てずにキャッシュしつつ現在局面が解析される`() {
         val engine = FakeEngine(score = Score.Cp(50))
@@ -422,14 +440,11 @@ class StudyControllerTest {
             originAbsolutePly = 0,
             origin = noOrigin,
         )
-        // 局面A（7g7f）: エンジン呼び出しは ioTestDispatcher 上でまだ実行されていない
-        // （advanceしていないため）。studyEvalRunning は true のまま止まっている。
         controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 7))
         controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 6))
         assertEquals(StudyEvalState.Loading, controller.studyState.value?.evalState)
         assertEquals(0, engine.analyzeCallCount, "ioDispatcherをまだ進めていないのでエンジン未呼び出し")
 
-        // 局面B（3c3d）へ進む: Aの解析が実行中（studyEvalRunning=true）のためBは発火されない。
         controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(3, 3))
         controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(3, 4))
         assertEquals(listOf("7g7f", "3c3d"), controller.studyState.value?.moves)
@@ -439,7 +454,6 @@ class StudyControllerTest {
             "Aの解析実行中はBの自動発火が保留される（空スロットのまま）",
         )
 
-        // A・Bの解析（Bはaの完了後にmaybeAutoAnalyzeが拾って発火する）を仮想時間で進める。
         testScope.testScheduler.advanceUntilIdle()
 
         assertEquals(2, engine.analyzeCallCount, "AがBに割り込まれず、Bも取りこぼされない")
@@ -449,11 +463,8 @@ class StudyControllerTest {
             "現在局面はBのまま",
         )
         assertIs<StudyEvalState.Value>(controller.studyState.value?.evalState)
-        // 通り過ぎたA（7g7f）の結果もチップへ後から併記される。
         assertIs<StudyEvalState.Value>(controller.studyState.value?.chipEvalStates?.getOrNull(0))
     }
-
-    // ─── displayLine（先の手を消さず表示し続ける。実機確認対応）───────────────────
 
     @Test
     fun `1手戻ってもdisplayLineは縮まず先の手が残り続ける`() {
@@ -541,7 +552,6 @@ class StudyControllerTest {
             "リセット直後はまだ旧ラインを表示している",
         )
 
-        // 別の手（2g2f）を指す＝分岐に入る。
         controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(2, 7))
         controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(2, 6))
 
