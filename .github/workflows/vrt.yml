@@ -83,7 +83,11 @@ jobs:
           echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
 
+      # Why not ジョブの制限時間だけに任せる: 超過するとジョブはcancelled扱いになり、
+      # 下のfailure()が発火せず比較画像もテストレポートも残らない。ジョブより短い
+      # 制限をステップに置き、止まったときは失敗として成果物を残す。
       - name: Verify screenshots
+        timeout-minutes: 45
         working-directory: app
         run: ./gradlew :androidApp:verifyRoborazziDebug ${{ matrix.shard.tests }} --stacktrace
 
