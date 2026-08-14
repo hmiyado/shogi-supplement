@@ -2,6 +2,9 @@ package dev.miyado.shogisupplement.ui
 
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onRoot
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
 import com.github.takahirom.roborazzi.RoborazziOptions
 import com.github.takahirom.roborazzi.captureRoboImage
@@ -14,58 +17,14 @@ import dev.miyado.shogisupplement.ui.report.MoveListSheet
 import dev.miyado.shogisupplement.ui.report.ReportScreen
 import dev.miyado.shogisupplement.ui.report.StudyEvalState
 import dev.miyado.shogisupplement.ui.report.StudyState
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-/**
- * 棋譜ビューア型レポート画面の VRT（スクリーンショットテスト）。
- *
- * 画面下部（罫線より下）は ReportBodyMode で排他表示: 既定は SUMMARY（グラフ＋
- * 悪手サマリー）。悪手（グラフの朱マーカー・悪手カード）を選ぶか「悪手一覧を見る」で
- * LIST（本譜/最善の変化タブ＋既存のカードリスト）に切り替わる。initialSelectedIndex
- * 指定時は自動的に LIST（選択済み状態を再現するため）。選択なしで LIST だけを
- * 再現したいときは initialBodyModeList = true を使う。
- *
- * - report_viewer_mainline: 既定表示（SUMMARY）・初期局面
- * - report_viewer_mainline_flipped: 既定表示（SUMMARY）・後手視点（flip=true）
- * - report_viewer_no_blunders: 既定表示（SUMMARY）・悪手なし
- * - report_viewer_with_eval: 既定表示（SUMMARY）・評価値グラフあり
- * - report_viewer_eval_graph_and_match_rate: 評価値グラフ＋エンジン一致率
- *   （悪手位置の朱マーカー・詰み絡み点のクランプ表示・現在手ライン=2手目を含む）
- * - report_viewer_eval_graph_flipped_gote: 後手ユーザーでのグラフ符号反転
- *   （上=自分有利になることを確認）
- * - report_viewer_list_no_selection: 「悪手一覧を見る」導線で選択なしに LIST へ
- *   （サマリーへ戻る行＋タブ＋一覧）
- * - report_viewer_best_pv_end: LIST・最善の変化タブ・ライン末尾（ナビラベルに形勢サフィックス、
- *   ▶ボタンが「▶+」primary色に変わる）
- * - report_viewer_best_pv_mid: LIST・最善の変化タブ・中間局面（ナビラベルに形勢サフィックス）
- * - report_viewer_best_pv_mate: LIST・最善の変化タブ・中間局面・詰み絡み cp_before
- *   （「詰み」規約表示。ナビラベルのサフィックスとして表示）
- * - report_viewer_study_selection: 検討モード・選択マス＋合法手ドット表示（着手前）
- * - report_viewer_study_eval: 検討モード・1手指した後、チップに評価値併記
- *   （例:「(+120)」）＋評価スロットに数値（mono）＋最善手（「最善 ▲2六歩」）
- * - report_viewer_study_branch: 検討パネル・分岐あり（下向きチェブロン付きチップ）＋
- *   解析中スピナー（着手で自動発火した状態）
- * - report_viewer_study_line_ahead: 検討パネル・1手戻った直後（displayLineがmovesより
- *   1手長い）。先の手のチップが淡色（ink3）で残り続けることを確認
- * - report_viewer_study_selected_chip_dark: ダークテーマでの現在手チップ（highlight背景）
- *   の文字コントラスト確認（濃墨固定色。実機確認: ダークテーマで白文字になり読めなかった対応）
- * - report_viewer_study_preparing: ローカルエンジンが使える見込みが無く自動発火を保留中
- *   （「解析の準備中」＋スピナーのみ・手動リトライボタンは出さない。No-jitter: 他状態と
- *   同じ56dpスロット位置）
- * - report_viewer_study_pv_scroll: 読み筋40手（先読み22手を含む）でチップがカード端まで
- *   折り返し、チップ領域の縦スペースを超えた分がカード内スクロールになる状態。
- *   パネル外形（高さ）は他の検討状態と変わらないことを確認する
- *
- * トップバーは32dpインライン行（TopAppBar 64dpは使わない）。計器行（評価値行/
- * 「この変化の形勢」行/検討評価行/▶ヒント行/スピナー・エラー行）は持たず、ナビ行に統合する。
- * 座標ラベル余白は2dp。
- *
- * ゴールデン更新: ./gradlew :androidApp:recordRoborazziDebug
- */
+/** 棋譜ビューア型レポート画面の状態別 VRT。 */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(
@@ -75,11 +34,27 @@ import org.robolectric.annotation.GraphicsMode
 )
 class ReportViewerScreenshotTest {
 
+    @get:Rule
+    val composeRule = createComposeRule()
+
     @OptIn(ExperimentalRoborazziApi::class)
     private val roborazziOptions = RoborazziOptions(
         recordOptions = RoborazziOptions.RecordOptions(resizeScale = 0.5),
         compareOptions = RoborazziOptions.CompareOptions(changeThreshold = 0.01f),
     )
+
+    /**
+     * Why not ラムダ版 captureRoboImage: Espresso の idle 待ちが、フレームを流し続ける
+     * 無限アニメーションでは終わらない。Compose テスト規則はこれを idle 判定から除く。
+     */
+    private fun captureViaComposeRule(fileName: String, content: @Composable () -> Unit) {
+        composeRule.setContent(content)
+        composeRule.waitForIdle()
+        composeRule.onRoot().captureRoboImage(
+            filePath = "src/test/snapshots/$fileName.png",
+            roborazziOptions = roborazziOptions,
+        )
+    }
 
     private fun sampleGame() = GameRecord(
         id = 1L,
@@ -91,7 +66,6 @@ class ReportViewerScreenshotTest {
         analyzedAt = 1_780_000_000L,
         rating = 1750L,
         coefVersion = "hao_v1",
-        // 最初の4手だけ登録（初期局面→41手目のテストは別途）
         movesUsi = listOf("7g7f", "3c3d", "2g2f", "8c8d"),
         userSide = "sente",
     )
@@ -114,15 +88,10 @@ class ReportViewerScreenshotTest {
         note = "あなたの棋力帯(偏差値47-59): 約3局に1回",
         problemType = "手筋 (両取り・素抜き) の問題",
         priority = 2.9978349024480666,
-        // bestPv は sfenBefore から見て完全に合法な手順でなければならない。"2f6f 2d2e" だと
-        // 2手目 "2d2e" の移動元 (file2,rank4) に駒がなく非合法となり、JapaneseNotation.format が
-        // 例外を投げてナビラベルが生USI「2d2e」にフォールバックしてしまう。"2f6f 8c8d" を使い、
-        // report_viewer_best_pv_end golden が正しい日本語表記「42手目 △８四歩」で
-        // 描画されることを確認する。
+        // bestPv は sfenBefore から合法な手順にする。非合法手では JapaneseNotation.format が
+        // 例外となり、ナビラベルが生USIへフォールバックする。
         bestPv = "2f6f 8c8d",
         punishPv = "2d2e 2f2e",
-        // 最善の変化タブの形勢行用。side="sente"=手番側視点=ユーザー視点なので
-        // -350 はそのままユーザー側劣勢として表示される。
         cpBefore = -350L,
     )
 
@@ -236,13 +205,9 @@ class ReportViewerScreenshotTest {
                             PositionEvalRow(ply = 0, scoreCp = 50, mateIn = null, bestUsi = "7g7f"),
                             PositionEvalRow(ply = 1, scoreCp = -30, mateIn = null, bestUsi = "8c8d"),
                             PositionEvalRow(ply = 2, scoreCp = 180, mateIn = null, bestUsi = "2g2f"),
-                            // 悪手（ply=3）直後の下落点＝グラフ上の朱マーカー位置
                             PositionEvalRow(ply = 3, scoreCp = -620, mateIn = null, bestUsi = "8b3b"),
-                            // 詰み絡み（クランプ下限に張り付く）
                             PositionEvalRow(ply = 4, scoreCp = null, mateIn = -7, bestUsi = "2f2e"),
                         ),
-                        // 現在手ライン（グラフ）とナビ行の同期を確認するため、
-                        // マーカー位置（ply=3）とは別の位置（ply=2）に置く。
                         initialPlyIndex = 2,
                         onBack = {},
                     )
@@ -251,11 +216,7 @@ class ReportViewerScreenshotTest {
         }
     }
 
-    /**
-     * 後手ユーザーでのグラフ符号反転確認。score_cp は先手視点保存で ply=0 が -400
-     * （先手劣勢＝後手/自分優勢）のため、自分視点に正規化すると +400 でゼロ基準線の
-     * 上側に描かれる（「上=自分有利」になっていることを確認する）。
-     */
+    /** 後手ユーザーへの符号反転後も、グラフ上側が自分有利になることを示す。 */
     @Test
     fun report_viewer_eval_graph_flipped_gote() {
         captureRoboImage(
@@ -306,7 +267,6 @@ class ReportViewerScreenshotTest {
     @Test
     fun report_viewer_best_pv_end() {
         val blunder = sampleBlunder()
-        // bestPv = "2f6f 2d2e"（2手）なので initialPlyIndex=2 でライン末尾を再現する。
         val bestPvMoveCount = blunder.bestPv!!.split(" ").filter { it.isNotBlank() }.size
         captureRoboImage(
             filePath = "src/test/snapshots/report_viewer_best_pv_end.png",
@@ -354,11 +314,9 @@ class ReportViewerScreenshotTest {
         }
     }
 
-    /** 最善の変化タブ・詰み絡み cp_before（|cp| >= 29_000 は生数字でなく「詰み」表示）。
-     *  ライン末尾はヒント表示に置き換わるため、中間局面（initialPlyIndex=1）で形勢行を写す。 */
+    /** 最善の変化タブ中間局面で、詰み域の cpBefore を「詰み」と表示する。 */
     @Test
     fun report_viewer_best_pv_mate() {
-        // side="sente"=userSide → userCp = 30_000 >= 29_000 → 「この変化の形勢 詰み」（紺青）
         val blunder = sampleBlunder().copy(cpBefore = 30_000L)
         captureRoboImage(
             filePath = "src/test/snapshots/report_viewer_best_pv_mate.png",
@@ -408,15 +366,7 @@ class ReportViewerScreenshotTest {
         }
     }
 
-    // ═══ レポート画面の検討モード ══════════════════════════════════════════════
-    //
-    // エンジンは起動せず、表示状態（StudyState）を直接パラメータ注入する
-    // （既存の initialSelectedIndex 等の VRT 用パラメータと同じ踏襲パターン）。
-    //
-    // sampleBlunder().sfenBefore のランク6（"P1P4RP"）には file7=先手歩がいる
-    // （USI "7f"）。1マス前進先の file7,rank5（"5gpp1" の空マス帯）は空きマス
-    // （USI "7e"）なので、selectedFrom=7f・legalDestinations={7e}・moves=["7f7e"] は
-    // 実際に整合した一連の状態になる。
+    // 選択元・合法手・指し手は sfenBefore と整合させる。不整合だと表示状態として成立しない。
 
     /** 検討モード・選択マス＋合法手ドット表示（着手前・検討ナビラベルはヒント文言）。 */
     @Test
@@ -504,17 +454,11 @@ class ReportViewerScreenshotTest {
         }
     }
 
-    /**
-     * 検討パネル・分岐あり（下向きチェブロン付きチップ）＋解析中スピナー。最善の変化タブ起点。
-     * 手順チップ列の2手目に兄弟変化があることを KeyboardArrowDown アイコンで示す。
-     */
+    /** 分岐チェブロン付きチップと解析中スピナーを同時に示す。 */
     @Test
     fun report_viewer_study_branch() {
         val blunder = sampleBlunder()
-        captureRoboImage(
-            filePath = "src/test/snapshots/report_viewer_study_branch.png",
-            roborazziOptions = roborazziOptions,
-        ) {
+        captureViaComposeRule("report_viewer_study_branch") {
             ShogiTheme {
                 Surface {
                     ReportScreen(
@@ -545,10 +489,7 @@ class ReportViewerScreenshotTest {
         }
     }
 
-    /**
-     * 検討パネル・1手戻った直後（displayLineはmovesより1手長い）。先の手のチップ
-     * （3c3d）が淡色（ink3）で残り続けることを示す（実機確認: 「戻ると先が消える」対応）。
-     */
+    /** 1手戻っても displayLine 上の先の手を淡色で残す。 */
     @Test
     fun report_viewer_study_line_ahead() {
         val blunder = sampleBlunder()
@@ -586,10 +527,7 @@ class ReportViewerScreenshotTest {
         }
     }
 
-    /**
-     * 現在手チップ（highlight背景）の文字は、テーマ追従だとダークテーマでコントラスト
-     * 不足になるため、常に LightInk（濃墨固定色）を使う。
-     */
+    /** ダークテーマでも highlight 背景の現在手チップを濃墨で表示する。 */
     @Test
     fun report_viewer_study_selected_chip_dark() {
         val blunder = sampleBlunder()
@@ -638,19 +576,11 @@ class ReportViewerScreenshotTest {
         }
     }
 
-    /**
-     * ローカルエンジンが使える見込みが無く自動発火を保留中の状態（着手はしたが評価が
-     * 出ていない）。No-jitter確認: 評価スロットの位置・高さは他の状態（Loading/Value等）
-     * と同じ56dpスロットのまま、中身だけが「解析の準備中」＋スピナーに入れ替わる
-     * （自動回復する読み込み中状態のため、Loadingと同型でボタンは出さない）。
-     */
+    /** 準備中も56dp枠を保ち、手動ボタンなしのスピナーへ入れ替える。 */
     @Test
     fun report_viewer_study_preparing() {
         val blunder = sampleBlunder()
-        captureRoboImage(
-            filePath = "src/test/snapshots/report_viewer_study_preparing.png",
-            roborazziOptions = roborazziOptions,
-        ) {
+        captureViaComposeRule("report_viewer_study_preparing") {
             ShogiTheme {
                 Surface {
                     ReportScreen(
@@ -681,18 +611,11 @@ class ReportViewerScreenshotTest {
         }
     }
 
-    /**
-     * 読み筋40手（先読み22手を含む）。FlowRow でカード端まで折り返し、チップ領域の縦スペースを超えた分はカード内
-     * スクロールになる。No-jitter確認: 手数が多くてもパネルの外形（Cardの高さ）は
-     * report_viewer_study_eval 等の短い読み筋のケースと変わらない
-     * （チップ領域だけが weight(1f) + verticalScroll で伸縮を吸収する）。
-     */
+    /** 40手を折り返してカード内だけをスクロールし、パネル外形を保つ。 */
     @Test
     fun report_viewer_study_pv_scroll() {
         val blunder = sampleBlunder()
-        // 開始局面から24手すべてが合法・棋譜表記へ整形可能な手順（不正な手が混ざると
-        // チップが生USI表記へフォールバックし、折り返し検証のスクリーンショットとして
-        // 成立しなくなる）。
+        // 全手を開始局面から合法にする。不正な手は生USIへフォールバックし、折り返し幅が変わる。
         val playedMoves = listOf(
             "7g7f", "3c3d", "2g2f", "4c4d", "3i4h", "3a4b", "5g5f", "5c5d",
             "4i5h", "4b4c", "5i6h", "8b3b", "6h7h", "5a6b", "9g9f", "6b7b",
@@ -742,17 +665,9 @@ class ReportViewerScreenshotTest {
         }
     }
 
-    // 兄弟変化ポップ（DropdownMenu）表示状態のVRTは録画時に断念した。
-    // captureRoboImage（ComposeTestRule非経由のトップレベル版）はPopupが別ウィンドウで
-    // 開くため取り込めず、NoMatchingViewException で失敗する。ポップの中身（未解析は「—」・
-    // 現在ラインへの「（いま）」付与・選択で切替）のロジック自体は別のユニットテストでカバーしている。
+    // Why not 兄弟変化ポップのVRT: Popupは別ウィンドウに開き、captureRoboImageで取得できない。
 
-    // ═══ レポート画面トップバー圧縮 ════════════════════════════════════════════
-
-    /**
-     * 棋戦名（source_place）ありの実運用に近いケース。トップバーは常に2行
-     * （タイトル＋対局者）で、ファイル名の3行目は表示しない。
-     */
+    /** 棋戦名があってもトップバーをタイトルと対局者の2行に保つ。 */
     @Test
     fun report_viewer_source_place() {
         captureRoboImage(
@@ -762,7 +677,6 @@ class ReportViewerScreenshotTest {
             ShogiTheme {
                 Surface {
                     ReportScreen(
-                        // source_place は正規化コード（AppStrings.sourcePlaceLabel で表示文言に変換される）。
                         game = sampleGame().copy(sourcePlace = "wars"),
                         reports = listOf(sampleBlunder()),
                         flip = false,
@@ -774,11 +688,7 @@ class ReportViewerScreenshotTest {
         }
     }
 
-    // 対局情報ダイアログの VRT は AlertDialog が別ウィンドウに描画されるため、
-    // captureScreenRoboImage を使う ReportGameInfoDialogScreenshotTest に分離
-    // （AccountDeleteDialogScreenshotTest と同じ規約）。
-
-    // ═══ プログレッシブ解析表示: 完了直後バナー ════════════════════════════════
+    // AlertDialogは別ウィンドウに描画されるため、対局情報VRTはcaptureScreenRoboImage側で扱う。
 
     /** justCompleted=true の遷移直後。ナビ行スロットが完了通知バナーに排他入替される。 */
     @Test

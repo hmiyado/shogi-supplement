@@ -39,3 +39,8 @@ git diff --stat androidApp/src/test/snapshots
 
 テストJVMのメモリは画像の枚数に比例して逼迫する。追加後に一括実行がOOMで落ちるように
 なったら、`androidApp/build.gradle.kts` の `maxHeapSize` と `setForkEvery` を見直す。
+
+**スピナーなど終わらないアニメーションを含む状態は `createComposeRule` で撮る**
+（`GameRestoreScreenScreenshotTest` や `ReportViewerScreenshotTest.captureViaComposeRule` が例）。
+ラムダ版の `captureRoboImage { }` はメインルーパーがidleになるまで待つため、
+終わらないアニメーションがあるとテストが停止したまま戻らない。
