@@ -28,6 +28,12 @@ private const val STUDY_ANALYSIS_NODES = 200_000
 private const val STUDY_LOCAL_ENGINE_POLL_INTERVAL_MS = 2_000L
 
 /**
+ * Why not 準備完了まで無期限に待たない理由: 資産が壊れていると準備完了が永久に来ないため、
+ * 待ちに上限を設けて失敗として確定させる。
+ */
+private const val STUDY_LOCAL_ENGINE_PREPARE_TIMEOUT_MS = 30_000L
+
+/**
  * 検討木は分岐元ごとに [dispose] まで保持し、[endStudy] では破棄しない。
  */
 class StudyController(
@@ -291,15 +297,24 @@ class StudyController(
             val moves = s.moves
             val flip = s.flip
             pollJob = scope.launch {
+                var waitedMs = 0L
                 while (true) {
                     delay(STUDY_LOCAL_ENGINE_POLL_INTERVAL_MS)
-                    if (!localEngineLikelyAvailable()) continue
+                    waitedMs += STUDY_LOCAL_ENGINE_POLL_INTERVAL_MS
                     val cur = _studyState.value
                     // 局面変更または明示再試行後のループは結果を反映しない。
                     if (cur == null || cur.baseSfen != baseSfen || cur.moves != moves) return@launch
                     if (cur.evalState != StudyEvalState.Preparing) return@launch
-                    startAnalysis(baseSfen, moves, flip)
-                    return@launch
+                    // Why not 判定を1回に減らさない理由: iOS実装（WasmStudyHost）では
+                    // この呼び出し自体がウォームアップの起点を兼ねる。
+                    if (localEngineLikelyAvailable()) {
+                        startAnalysis(baseSfen, moves, flip)
+                        return@launch
+                    }
+                    if (waitedMs >= STUDY_LOCAL_ENGINE_PREPARE_TIMEOUT_MS) {
+                        _studyState.update { it?.copy(evalState = StudyEvalState.Error) }
+                        return@launch
+                    }
                 }
             }
             return

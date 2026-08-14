@@ -420,6 +420,102 @@ class StudyControllerTest {
         assertIs<StudyEvalState.Value>(controller.studyState.value?.evalState)
     }
 
+    @Test
+    fun `Preparingが上限まで続くとErrorへ昇格する`() {
+        val (controller, engine) = newController(localEngineLikelyAvailable = { false })
+        controller.startStudy(
+            baseSfen = startSfen,
+            flip = false,
+            originIsBestPv = false,
+            originPlyIndex = 0,
+            originSelectedIdx = null,
+            originAbsolutePly = 0,
+            origin = noOrigin,
+        )
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 7))
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 6))
+        assertEquals(StudyEvalState.Preparing, controller.studyState.value?.evalState)
+
+        testScope.testScheduler.advanceUntilIdle()
+
+        assertEquals(StudyEvalState.Error, controller.studyState.value?.evalState)
+        assertEquals(0, engine.analyzeCallCount, "昇格自体はサーバー解析を発火しない")
+    }
+
+    @Test
+    fun `上限直前にローカルエンジンが使えるようになればErrorにせず解析する`() {
+        var available = false
+        val (controller, engine) = newController(localEngineLikelyAvailable = { available })
+        controller.startStudy(
+            baseSfen = startSfen,
+            flip = false,
+            originIsBestPv = false,
+            originPlyIndex = 0,
+            originSelectedIdx = null,
+            originAbsolutePly = 0,
+            origin = noOrigin,
+        )
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 7))
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 6))
+
+        testScope.testScheduler.advanceTimeBy(28_000)
+        assertEquals(StudyEvalState.Preparing, controller.studyState.value?.evalState)
+        available = true
+        testScope.testScheduler.advanceUntilIdle()
+
+        assertEquals(1, engine.analyzeCallCount)
+        assertIs<StudyEvalState.Value>(controller.studyState.value?.evalState)
+    }
+
+    @Test
+    fun `Error昇格後も明示再試行なら解析できる`() {
+        val (controller, engine) = newController(
+            FakeEngine(score = Score.Cp(120)),
+            localEngineLikelyAvailable = { false },
+        )
+        controller.startStudy(
+            baseSfen = startSfen,
+            flip = false,
+            originIsBestPv = false,
+            originPlyIndex = 0,
+            originSelectedIdx = null,
+            originAbsolutePly = 0,
+            origin = noOrigin,
+        )
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 7))
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 6))
+        testScope.testScheduler.advanceUntilIdle()
+        assertEquals(StudyEvalState.Error, controller.studyState.value?.evalState)
+
+        controller.analyzeCurrentPosition()
+
+        assertEquals(1, engine.analyzeCallCount)
+        assertIs<StudyEvalState.Value>(controller.studyState.value?.evalState)
+    }
+
+    @Test
+    fun `Error昇格後にさらに着手すると新しい局面はPreparingからやり直す`() {
+        val (controller, _) = newController(localEngineLikelyAvailable = { false })
+        controller.startStudy(
+            baseSfen = startSfen,
+            flip = false,
+            originIsBestPv = false,
+            originPlyIndex = 0,
+            originSelectedIdx = null,
+            originAbsolutePly = 0,
+            origin = noOrigin,
+        )
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 7))
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 6))
+        testScope.testScheduler.advanceUntilIdle()
+        assertEquals(StudyEvalState.Error, controller.studyState.value?.evalState)
+
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(3, 3))
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(3, 4))
+
+        assertEquals(StudyEvalState.Preparing, controller.studyState.value?.evalState)
+    }
+
     /** 局面Aの解析中にBへ進むレースで、AをキャッシュしBを取りこぼさないことを保証する。 */
     @Test
     fun `解析中に次の手を指すと古い局面の結果は捨てずにキャッシュしつつ現在局面が解析される`() {
