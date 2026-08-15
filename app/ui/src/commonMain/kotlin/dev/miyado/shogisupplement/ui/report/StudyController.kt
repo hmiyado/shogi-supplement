@@ -8,10 +8,10 @@ import dev.miyado.shogisupplement.board.ShogiBoard
 import dev.miyado.shogisupplement.board.ShogiMove
 import dev.miyado.shogisupplement.board.ShogiSquare
 import dev.miyado.shogisupplement.board.Side
-import dev.miyado.shogisupplement.engine.Engine
 import dev.miyado.shogisupplement.engine.PvInfo
+import dev.miyado.shogisupplement.engine.StudyEngine
 import dev.miyado.shogisupplement.notation.JapaneseNotation
-import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -20,7 +20,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /** 解析予算は 200,000 nodes。 */
 private const val STUDY_ANALYSIS_NODES = 200_000
@@ -38,8 +37,7 @@ private const val STUDY_LOCAL_ENGINE_PREPARE_TIMEOUT_MS = 30_000L
  */
 class StudyController(
     private val scope: CoroutineScope,
-    private val ioDispatcher: CoroutineDispatcher,
-    private val engineFactory: () -> Engine,
+    private val studyEngineFactory: () -> StudyEngine,
     private val evalDisplayProvider: () -> String,
     private val localEngineLikelyAvailable: () -> Boolean = { true },
 ) {
@@ -47,7 +45,7 @@ class StudyController(
     private val _studyState = MutableStateFlow<StudyState?>(null)
     val studyState: StateFlow<StudyState?> = _studyState.asStateFlow()
 
-    private var studyEngine: Engine? = null
+    private var studyEngine: StudyEngine? = null
 
     private var studyBoard: ShogiBoard? = null
 
@@ -332,13 +330,15 @@ class StudyController(
         _studyState.update { it?.copy(evalState = StudyEvalState.Loading) }
 
         scope.launch {
-            val evalResult = withContext(ioDispatcher) {
-                runCatching {
-                    val engine = studyEngine ?: engineFactory().also { studyEngine = it }
-                    val pv1 = engine.analyzeSfen(baseSfen, moves, nodes = STUDY_ANALYSIS_NODES).firstOrNull()
-                    if (pv1 == null) terminalEvalLabel(baseSfen, moves, flip)
-                    else studyEvalLabel(baseSfen, moves, pv1, flip)
-                }.getOrElse { StudyEvalState.Error }
+            val evalResult = try {
+                val engine = studyEngine ?: studyEngineFactory().also { studyEngine = it }
+                val pv1 = engine.analyzeSfen(baseSfen, moves, nodes = STUDY_ANALYSIS_NODES).firstOrNull()
+                if (pv1 == null) terminalEvalLabel(baseSfen, moves, flip)
+                else studyEvalLabel(baseSfen, moves, pv1, flip)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Throwable) {
+                StudyEvalState.Error
             }
             studyEvalRunning = false
 

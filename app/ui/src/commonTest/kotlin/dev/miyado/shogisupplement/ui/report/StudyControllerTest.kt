@@ -2,6 +2,7 @@ package dev.miyado.shogisupplement.ui.report
 
 import dev.miyado.shogisupplement.blunder.Score
 import dev.miyado.shogisupplement.board.ShogiBoard
+import dev.miyado.shogisupplement.engine.BlockingStudyEngine
 import dev.miyado.shogisupplement.engine.Engine
 import dev.miyado.shogisupplement.engine.PvInfo
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -61,8 +62,7 @@ class StudyControllerTest {
         localEngineLikelyAvailable: () -> Boolean = { true },
     ) = StudyController(
         scope = testScope,
-        ioDispatcher = testDispatcher,
-        engineFactory = { engine },
+        studyEngineFactory = { BlockingStudyEngine(engine, testDispatcher) },
         evalDisplayProvider = { "cp" },
         localEngineLikelyAvailable = localEngineLikelyAvailable,
     ) to engine
@@ -257,8 +257,7 @@ class StudyControllerTest {
     fun `engineFactoryが例外を投げるとStudyEvalStateはErrorになる`() {
         val controller = StudyController(
             scope = testScope,
-            ioDispatcher = testDispatcher,
-            engineFactory = { error("engine unavailable") },
+            studyEngineFactory = { error("engine unavailable") },
             evalDisplayProvider = { "cp" },
             localEngineLikelyAvailable = { false },
         )
@@ -315,8 +314,7 @@ class StudyControllerTest {
         // 5三の金を5二へ動かすと後手玉が詰む（5九の飛車が金を支える）。
         val controller = StudyController(
             scope = testScope,
-            ioDispatcher = testDispatcher,
-            engineFactory = { NoPvEngine() },
+            studyEngineFactory = { BlockingStudyEngine(NoPvEngine(), testDispatcher) },
             evalDisplayProvider = { "cp" },
         )
         controller.startStudy(
@@ -338,8 +336,7 @@ class StudyControllerTest {
     fun `指せる手があるのに読み筋が無ければエラーにする`() {
         val controller = StudyController(
             scope = testScope,
-            ioDispatcher = testDispatcher,
-            engineFactory = { NoPvEngine() },
+            studyEngineFactory = { BlockingStudyEngine(NoPvEngine(), testDispatcher) },
             evalDisplayProvider = { "cp" },
         )
         controller.startStudy(
@@ -523,8 +520,7 @@ class StudyControllerTest {
         val ioTestDispatcher = StandardTestDispatcher(testScope.testScheduler)
         val controller = StudyController(
             scope = testScope,
-            ioDispatcher = ioTestDispatcher,
-            engineFactory = { engine },
+            studyEngineFactory = { BlockingStudyEngine(engine, ioTestDispatcher) },
             evalDisplayProvider = { "cp" },
         )
         controller.startStudy(

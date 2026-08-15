@@ -6,6 +6,7 @@ import dev.miyado.shogisupplement.db.EngineMatchRate
 import dev.miyado.shogisupplement.db.GameRepository
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.PositionEvalRow
+import dev.miyado.shogisupplement.engine.BlockingStudyEngine
 import dev.miyado.shogisupplement.engine.Engine
 import dev.miyado.shogisupplement.strength.StrengthEstimator
 import dev.miyado.shogisupplement.strength.toDisplayString
@@ -25,21 +26,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * レポート画面（棋譜ビューア）の表示状態を担う協力オブジェクト。
+ * レポート画面（棋譜ビューア）の表示状態。
  *
- * MainViewModel（androidApp）が単一のトップレベル ViewModel としてナビゲーション状態
- * （MainUiState）を保持するアーキテクチャのため、本クラスは androidx ViewModel を
- * 継承した独立コンポーネントにはせず、MainViewModel が保持するプレーンな協力オブジェクトに
- * している（Compose の viewModel() から個別取得すると二重のライフサイクル管理になるため）。
- * [dispose] を呼び出し元（MainViewModel）の onCleared 相当のタイミングで呼ぶこと。
- *
- * @param scope 非同期処理に使うスコープ（呼び出し元の viewModelScope を注入）
- * @param ioDispatcher DB/エンジン処理用ディスパッチャ（テスト時はUnconfinedを注入）
- * @param repository DB操作用リポジトリ
- * @param engineFactory 読み筋延長・検討評価が必要な場合に呼ばれるエンジン生成関数
- * @param evalDisplayProvider 形勢の表示単位（'cp'/'wp'）を都度取得する関数
- * @param localEngineLikelyAvailable 検討モードの着手自動発火を許してよいか（StudyController参照）。
- *   既定 `{ true }` はネイティブエンジン常駐環境（Android・iOSエンジン入り版）向け
+ * Why not androidx ViewModel: Compose の viewModel() から個別取得するとライフサイクルが
+ * 二重になる。所有者が [dispose] を呼ぶ協力オブジェクトにする。
  */
 class ReportViewModel(
     private val scope: CoroutineScope,
@@ -50,25 +40,20 @@ class ReportViewModel(
     private val localEngineLikelyAvailable: () -> Boolean = { true },
 ) {
 
-    /** 検討モード。MainViewModel からはこのインスタンス経由で操作する。 */
-    val studyController =
-        StudyController(scope, ioDispatcher, engineFactory, evalDisplayProvider, localEngineLikelyAvailable)
+    /** Why not engineFactoryをそのまま渡す: 同期のエンジンは待てる実行文脈へ隔離する必要がある。 */
+    val studyController = StudyController(
+        scope,
+        { BlockingStudyEngine(engineFactory(), ioDispatcher) },
+        evalDisplayProvider,
+        localEngineLikelyAvailable,
+    )
     val studyState: StateFlow<StudyState?> get() = studyController.studyState
 
     /** 読み筋オンデマンド延長の状態 Map（blunderId → PvExtState）。 */
     private val _pvExtState = MutableStateFlow<Map<Long, PvExtState>>(emptyMap())
     val pvExtState: StateFlow<Map<Long, PvExtState>> = _pvExtState.asStateFlow()
 
-    /**
-     * 読み筋のオンデマンド延長。
-     *
-     * @param blunderId      延長対象の blunder_report.id
-     * @param sfenAtLineEnd  ライン末尾局面の SFEN
-     * @param currentPvStr   現在の best_pv 文字列（null = 未保存）
-     * @param onUpdated      延長成功時に (blunderId, 新しいbest_pv文字列) を渡すコールバック。
-     *   呼び出し元（MainViewModel）が現在表示中の MainUiState.ShowReport.reports を
-     *   更新するために使う（レポート表示状態そのものは MainUiState 側にあるため）。
-     */
+    /** 読み筋のオンデマンド延長。[currentPvStr] のnullは未保存、[onUpdated] は延長成功時のみ呼ぶ。 */
     fun extendBestPv(
         blunderId: Long,
         sfenAtLineEnd: String,
@@ -123,12 +108,7 @@ class ReportViewModel(
         ReportResult(g, r, fl, st, pe, mr, br)
     }
 
-    /**
-     * 1局の強さ指標テキストを計算する。
-     *
-     * Why not 悪手レポート一覧から再計算する: v2の6特徴量は再現できないため、
-     * 解析時にReportPipelineが計算済みのgame.ratingをそのまま使う。
-     */
+    /** Why not 悪手レポート一覧から再計算: v2の6特徴量は再現できず、解析時に計算済みの値を使う。 */
     fun computeSingleGameStrengthText(game: GameRecord): String? {
         val side = game.userSide ?: return null
         val userMoves = userMoveCount(game.moveCount, side)
