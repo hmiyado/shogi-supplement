@@ -31,6 +31,12 @@ resource "google_cloud_run_v2_service" "analysis_worker" {
           cpu    = var.worker_cpu
           memory = var.worker_memory
         }
+
+        # Why not CPU常時割当（プロバイダ既定）: インスタンスが生きている間ずっと課金され、
+        # リクエストの合間の待機が費用の大半を占める。切断後も解析を完走させる設計
+        # （AnalysisServiceのanalysisScope）はこの割当を前提にしていないが、
+        # 中断した行はstaleとして次のリクエストで再解析される。
+        cpu_idle = true
       }
 
       # 非機微な接続設定（すべて公開URL）は通常のenvで渡す。
