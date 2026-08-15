@@ -12,13 +12,54 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import dev.miyado.shogisupplement.board.PieceType
+import dev.miyado.shogisupplement.board.ShogiSquare
 import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.UserSideDialog
 import dev.miyado.shogisupplement.ui.report.ReportScreen
+import dev.miyado.shogisupplement.ui.report.StudyOrigin
+import dev.miyado.shogisupplement.ui.report.StudyState
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
+import kotlinx.coroutines.flow.StateFlow
+
+internal interface WebStudyActions {
+    val studyState: StateFlow<StudyState?>
+
+    fun startStudy(
+        baseSfen: String,
+        flip: Boolean,
+        originIsBestPv: Boolean,
+        originPlyIndex: Int,
+        originSelectedIdx: Int?,
+        originAbsolutePly: Int,
+        origin: StudyOrigin,
+        tappedSquare: ShogiSquare?,
+        tappedHandPieceType: PieceType?,
+    )
+
+    fun onStudySquareTapped(sq: ShogiSquare)
+    fun onStudyHandPieceTapped(pieceType: PieceType)
+    fun onStudyPromoteDecision(promote: Boolean)
+    fun studyStepBack()
+    fun studyResetToStart()
+    fun endStudy()
+    fun onStudyChipTapped(depth: Int)
+    fun onStudyBranchChipTapped(depth: Int)
+    fun onStudyBranchPopupDismiss()
+    fun onStudyBranchOptionSelected(depth: Int, moveUsi: String)
+    fun onStudyAnalyze()
+}
+
+internal object WebStudyBinding {
+    var actions: WebStudyActions? by mutableStateOf(null)
+}
 
 @Composable
 fun App(
@@ -63,19 +104,38 @@ private fun AppContent(
 ) {
     val report = state.report
     if (report != null) {
+        val studyActions = WebStudyBinding.actions
+        val studyState = studyActions?.studyState?.collectAsState()?.value
         ReportScreen(
             game = report.game,
             reports = report.reports,
             flip = report.game.userSide == "gote",
             strengthDisplayText = report.strengthText,
+            evalDisplay = "cp",
             positionEvals = report.positionEvals,
             matchRateDisplayText = report.matchRateText,
             blunderRateDisplayText = report.blunderRateText,
             onBack = onBack,
-            // 検討モード（盤タップでの分岐検討）・読み筋延長はWeb版の対象外。
-            // Web版のエンジン実行はKIF全体を1バッチとしてWorkerへ投げる方式のため、
-            // 検討中の任意局面を都度エンジンへ問い合わせる経路を持たない
-            // （engineFactoryを注入しないため、既定値のno-opコールバックのまま渡す）。
+            studyState = studyState,
+            onStartStudy = { baseSfen, flip, originIsBestPv, originPlyIndex, originSelectedIdx, originAbsolutePly, origin, tappedSquare, tappedHandPieceType ->
+                studyActions?.startStudy(
+                    baseSfen, flip, originIsBestPv, originPlyIndex, originSelectedIdx,
+                    originAbsolutePly, origin, tappedSquare, tappedHandPieceType,
+                )
+            },
+            onStudySquareTapped = { sq -> studyActions?.onStudySquareTapped(sq) },
+            onStudyHandPieceTapped = { pieceType -> studyActions?.onStudyHandPieceTapped(pieceType) },
+            onStudyPromoteDecision = { promote -> studyActions?.onStudyPromoteDecision(promote) },
+            onStudyStepBack = { studyActions?.studyStepBack() },
+            onStudyResetToStart = { studyActions?.studyResetToStart() },
+            onStudyEnd = { studyActions?.endStudy() },
+            onStudyChipTapped = { depth -> studyActions?.onStudyChipTapped(depth) },
+            onStudyBranchChipTapped = { depth -> studyActions?.onStudyBranchChipTapped(depth) },
+            onStudyBranchPopupDismiss = { studyActions?.onStudyBranchPopupDismiss() },
+            onStudyBranchOptionSelected = { depth, moveUsi -> studyActions?.onStudyBranchOptionSelected(depth, moveUsi) },
+            onStudyAnalyze = { studyActions?.onStudyAnalyze() },
+            // Why not 読み筋延長を有効にしない理由: Web版のWorkerは任意局面からのPV延長を
+            // 実行する経路を持たないため。
             pvExtensionEnabled = false,
         )
     } else {

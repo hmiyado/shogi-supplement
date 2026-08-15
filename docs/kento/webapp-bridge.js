@@ -19,6 +19,13 @@
     return new URL("analysis-worker.js", bridgeScriptUrl).href;
   }
 
+  function resolveStudyWorkerScriptUrl() {
+    if (!bridgeScriptUrl) {
+      throw new Error("webapp-bridge.js: document.currentScript が取得できません");
+    }
+    return new URL("study-worker.js", bridgeScriptUrl).href;
+  }
+
   function detectSimd128() {
     try {
       const bytes = new Uint8Array([
@@ -146,6 +153,123 @@
     };
   }
 
+  /**
+   * @typedef {Object} StudyEngine
+   * @property {(baseSfenArg: string, movesJson: string, onResult: (resultJson: string) => void, onError: (message: string) => void) => void} analyze
+   * @property {() => void} dispose
+   */
+
+  /**
+   * @param {string} assetDirUrl
+   * @returns {StudyEngine}
+   */
+  function createStudyEngine(assetDirUrl) {
+    const workerScriptUrl = resolveStudyWorkerScriptUrl();
+    let worker = null;
+    let prepared = false;
+    let pendingRequest = null;
+    let activeRequest = null;
+    let disposed = false;
+
+    function startWorker() {
+      if (disposed) return;
+      const nextWorker = new Worker(workerScriptUrl);
+      worker = nextWorker;
+      prepared = false;
+      nextWorker.onmessage = (ev) => handleMessage(nextWorker, ev.data);
+      nextWorker.onerror = (err) => {
+        failWorker(nextWorker, `Workerエラー: ${err.message || err}`);
+      };
+      nextWorker.postMessage({ type: "prepare", variant: VARIANT, assetDirUrl });
+    }
+
+    function recycleWorker(targetWorker) {
+      if (worker !== targetWorker) return;
+      targetWorker.terminate();
+      worker = null;
+      prepared = false;
+      startWorker();
+    }
+
+    function rejectRequest(request, message) {
+      if (!request || request.finished || disposed) return;
+      request.finished = true;
+      request.onError(message);
+    }
+
+    function failWorker(targetWorker, message) {
+      if (disposed || worker !== targetWorker) return;
+      const request = activeRequest || pendingRequest;
+      activeRequest = null;
+      pendingRequest = null;
+      try {
+        rejectRequest(request, message);
+      } finally {
+        recycleWorker(targetWorker);
+      }
+    }
+
+    function handleMessage(targetWorker, msg) {
+      if (disposed || worker !== targetWorker) return;
+      if (msg.type === "prepared") {
+        prepared = true;
+        if (pendingRequest) {
+          activeRequest = pendingRequest;
+          pendingRequest = null;
+          targetWorker.postMessage({
+            type: "analyze",
+            baseSfenArg: activeRequest.baseSfenArg,
+            movesJson: activeRequest.movesJson,
+          });
+        }
+      } else if (msg.type === "result") {
+        const request = activeRequest;
+        try {
+          if (request && !request.finished) {
+            request.finished = true;
+            request.onResult(JSON.stringify(msg.result));
+          }
+        } finally {
+          // callMain後のWorkerは再利用できず、コールバックも二重実行させない。
+          activeRequest = null;
+          recycleWorker(targetWorker);
+        }
+      } else if (msg.type === "error") {
+        failWorker(targetWorker, String(msg.message));
+      }
+    }
+
+    startWorker();
+
+    return {
+      analyze(baseSfenArg, movesJson, onResult, onError) {
+        // 黙って返すと待ち側が永久に再開しないため、破棄済みでも必ず応答する。
+        if (disposed) {
+          onError("検討エンジンは破棄済みです");
+          return;
+        }
+        if (pendingRequest || activeRequest) {
+          onError("検討エンジンはすでに解析中です");
+          return;
+        }
+        const request = { baseSfenArg, movesJson, onResult, onError, finished: false };
+        if (prepared) {
+          activeRequest = request;
+          worker.postMessage({ type: "analyze", baseSfenArg, movesJson });
+        } else {
+          pendingRequest = request;
+        }
+      },
+      dispose() {
+        disposed = true;
+        pendingRequest = null;
+        activeRequest = null;
+        if (worker) worker.terminate();
+        worker = null;
+      },
+    };
+  }
+
   function goHome() {
     window.location.href = new URL("index.html", document.baseURI).href;
   }
@@ -156,6 +280,7 @@
     resolveAssetDirUrl,
     checkAssetsAvailable,
     runAnalysis,
+    createStudyEngine,
     goHome,
   };
 })();

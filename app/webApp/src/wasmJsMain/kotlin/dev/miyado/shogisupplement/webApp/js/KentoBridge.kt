@@ -10,6 +10,17 @@ external interface CancelHandle : JsAny {
     fun cancel()
 }
 
+external interface StudyEngineHandle : JsAny {
+    fun analyze(
+        baseSfenArg: String,
+        movesJson: String,
+        onResult: (String) -> Unit,
+        onError: (String) -> Unit,
+    )
+
+    fun dispose()
+}
+
 external interface KentoBridge : JsAny {
     val variant: String
 
@@ -29,6 +40,8 @@ external interface KentoBridge : JsAny {
         onDone: () -> Unit,
         onError: (String) -> Unit,
     ): CancelHandle
+
+    fun createStudyEngine(assetDirUrl: String): StudyEngineHandle
 }
 
 @Suppress("UnsafeCastFromDynamic")
