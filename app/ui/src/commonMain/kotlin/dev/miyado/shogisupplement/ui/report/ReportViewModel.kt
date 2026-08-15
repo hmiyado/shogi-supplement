@@ -89,8 +89,9 @@ class ReportViewModel(
         val blunderRateText: String? = null,
     )
 
-    /** 特定のゲームIDのレポート表示状態をDBから読み込む。 */
+    /** Why not 検討状態を残す: 別の棋譜を開いても前の検討が前面に出るため、開き直しで畳む。 */
     suspend fun loadReport(gameId: Long): ReportResult = withContext(ioDispatcher) {
+        studyController.endStudy()
         val games = repository.getAllGames()
         val g = games.firstOrNull { it.id == gameId }
         val r = if (g != null) repository.getReports(gameId) else emptyList()
