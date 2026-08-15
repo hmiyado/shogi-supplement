@@ -22,6 +22,11 @@ on:
       - "app/settings.gradle.kts"
       - ".github/workflows/worker-image-deploy.yml"
 
+  # Why not pushだけ: コードを変えずに焼き直したいときの経路が無く、手元のarm64では
+  # amd64向けビルドが通らないためCloud Buildへ逃げることになる。同じ成果物を別経路で
+  # 作らずに済ませる。実行したブランチのイメージが本番へ出る点に注意。
+  workflow_dispatch:
+
 # 同時デプロイの競合（Cloud Runへの同時リビジョン切替）を避けるため直列化する。
 # 後続pushで前のデプロイを取り消さない（cancel-in-progress: false）:
 # デプロイ半ばでのキャンセルはイメージpush済み・Cloud Run未反映のような中途半端な
