@@ -20,6 +20,7 @@ import dev.miyado.shogisupplement.server.worker.auth.AuthVerifier
 import dev.miyado.shogisupplement.server.worker.auth.extractBearerToken
 import dev.miyado.shogisupplement.server.worker.repo.AnalysisJobRecord
 import dev.miyado.shogisupplement.server.worker.repo.AnalysisJobRepository
+import dev.miyado.shogisupplement.server.worker.repo.AppUsageRepository
 import dev.miyado.shogisupplement.server.worker.repo.AnalysisJobStatus
 import dev.miyado.shogisupplement.server.worker.repo.AppPolicyGate
 import dev.miyado.shogisupplement.server.worker.repo.BanRepository
@@ -90,6 +91,8 @@ class AnalysisService(
     // 既定はAlwaysAllow（常に非ブロック）。appCheckVerifierのnull既定と同じ段階導入の考え方で、
     // 実装を明示的に注入しない限り強制アップデート検証は無効のまま。
     private val appPolicyGate: AppPolicyGate = AppPolicyGate.AlwaysAllow,
+    // 既定はnull（記録しない）。appCheckVerifierと同じ段階導入で、注入しない限り何もしない。
+    private val appUsageRepository: AppUsageRepository? = null,
     // RUNNING行をstale（自己修復対象）とみなす経過時間（環境変数 STALE_RUNNING_TIMEOUT_MS
     // 由来。WorkerConfig参照）。resolveExistingのRUNNING分岐でのみ使う。
     private val staleRunningTimeoutMs: Long = 600_000,
@@ -140,6 +143,8 @@ class AnalysisService(
         if (banRepository.isBanned(userId)) {
             return AnalysisRequestOutcome.Banned
         }
+
+        recordAppUsage(userId, platformHeader, buildHeader)
 
         val input = request.toEngineInput()
             ?: return AnalysisRequestOutcome.BadRequest("moves_usi または sfen のいずれかが必要です")
@@ -221,6 +226,12 @@ class AnalysisService(
      * [analysisScope]の解析はwriteと独立してmarkDone/markErrorまで完走する。
      * Why not 同じスコープ: write失敗で解析も中断しrunning行が残るため、配信だけ打ち切る。
      */
+    private suspend fun recordAppUsage(userId: String, platform: String?, build: String?) {
+        val buildNumber = build?.toIntOrNull() ?: return
+        if (platform == null) return
+        appUsageRepository?.record(userId, platform, buildNumber)
+    }
+
     private fun runEmitter(jobId: String, input: EngineInput): suspend (suspend (String) -> Unit) -> Unit =
         { write ->
             val progressChannel = Channel<String>(Channel.UNLIMITED)

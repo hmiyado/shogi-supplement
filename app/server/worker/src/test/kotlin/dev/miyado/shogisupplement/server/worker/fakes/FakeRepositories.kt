@@ -4,6 +4,7 @@ import dev.miyado.shogisupplement.server.worker.repo.AnalysisJobRecord
 import dev.miyado.shogisupplement.server.worker.repo.AnalysisJobRepository
 import dev.miyado.shogisupplement.server.worker.repo.AnalysisJobStatus
 import dev.miyado.shogisupplement.server.worker.repo.AppPolicyGate
+import dev.miyado.shogisupplement.server.worker.repo.AppUsageRepository
 import dev.miyado.shogisupplement.server.worker.repo.BanRepository
 import dev.miyado.shogisupplement.server.worker.repo.CreateRunningResult
 import dev.miyado.shogisupplement.server.worker.repo.DEFAULT_DAILY_QUOTA
@@ -152,5 +153,13 @@ class FakeAnalysisJobRepository : AnalysisJobRepository {
             engineMeta = null,
         )
         Unit
+    }
+}
+
+class FakeAppUsageRepository : AppUsageRepository {
+    val records = mutableListOf<Triple<String, String, Int>>()
+
+    override suspend fun record(userId: String, platform: String, build: Int) {
+        records.add(Triple(userId, platform, build))
     }
 }

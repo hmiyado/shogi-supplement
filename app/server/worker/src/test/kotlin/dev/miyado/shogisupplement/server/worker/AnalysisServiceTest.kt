@@ -11,6 +11,7 @@ import dev.miyado.shogisupplement.api.analysis.ScoreJson
 import dev.miyado.shogisupplement.engine.Engine
 import dev.miyado.shogisupplement.server.worker.fakes.FakeAnalysisJobRepository
 import dev.miyado.shogisupplement.server.worker.fakes.FakeAppCheckVerifier
+import dev.miyado.shogisupplement.server.worker.fakes.FakeAppUsageRepository
 import dev.miyado.shogisupplement.server.worker.fakes.FakeAppPolicyGate
 import dev.miyado.shogisupplement.server.worker.fakes.FakeAuthVerifier
 import dev.miyado.shogisupplement.server.worker.fakes.FakeBanRepository
@@ -73,6 +74,7 @@ class AnalysisServiceTest {
         appCheckVerifier: FakeAppCheckVerifier? = null,
         staleRunningTimeoutMs: Long = 600_000,
         appPolicyGate: AppPolicyGate = AppPolicyGate.AlwaysAllow,
+        appUsageRepository: FakeAppUsageRepository = FakeAppUsageRepository(),
     ) = AnalysisService(
         authVerifier = authVerifier,
         banRepository = banRepository,
@@ -88,6 +90,7 @@ class AnalysisServiceTest {
         appCheckVerifier = appCheckVerifier,
         staleRunningTimeoutMs = staleRunningTimeoutMs,
         appPolicyGate = appPolicyGate,
+        appUsageRepository = appUsageRepository,
     )
 
     private suspend fun AnalysisRequestOutcome.Stream.collectLines(): List<String> {
@@ -877,5 +880,30 @@ class AnalysisServiceTest {
 
         val record = jobs.find("user-1", movesHash)
         assertEquals(AnalysisJobStatus.ERROR, record?.status, "write失敗と解析失敗が重なってもmarkErrorされるはず")
+    }
+
+    @Test
+    fun `records the platform and build that reached the server`() = runTest {
+        val usage = FakeAppUsageRepository()
+        val service = buildService(appUsageRepository = usage)
+
+        service.handle(
+            "Bearer valid-token",
+            AnalysisRequest(movesUsi = listOf("7g7f")),
+            platformHeader = "ios",
+            buildHeader = "4",
+        )
+
+        assertEquals(listOf(Triple("user-1", "ios", 4)), usage.records)
+    }
+
+    @Test
+    fun `records nothing when the client sends no version`() = runTest {
+        val usage = FakeAppUsageRepository()
+        val service = buildService(appUsageRepository = usage)
+
+        service.handle("Bearer valid-token", AnalysisRequest(movesUsi = listOf("7g7f")))
+
+        assertEquals(emptyList(), usage.records)
     }
 }
