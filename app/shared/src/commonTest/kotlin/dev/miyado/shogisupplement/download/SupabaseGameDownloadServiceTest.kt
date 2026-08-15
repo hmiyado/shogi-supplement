@@ -210,6 +210,25 @@ class SupabaseGameDownloadServiceTest {
         assertTrue(captured[0].kifText.contains("opponent"), "先後判明時のマスク名（相手側）が入るはず")
     }
 
+    @Test
+    fun `復号できない行もマスク再構成で棋譜を戻す`() = runTest {
+        val contentHash = "hash-broken-private"
+        val json = """
+            [{"id":"row-3","content_hash":"$contentHash","moves_usi":["7g7f"],
+              "headers":{},"result":null,"source_place":null,"side":"gote",
+              "private_enc":"YnJva2VuLWJsb2I="}]
+        """.trimIndent()
+
+        val captured = mutableListOf<ReconstructedGame>()
+        val result = service(rowsResponseEngine(json)).downloadAndImport { game ->
+            captured += game
+            GameImportOutcome(success = true, gameId = 1L)
+        }
+
+        assertEquals(GameDownloadOutcome.Completed(total = 1, succeeded = 1, failed = 0), result)
+        assertTrue(captured[0].kifText.contains("opponent"), "先後判明時のマスク名（相手側）が入るはず")
+    }
+
     // ─── downloadAndImport: 冪等スキップ・部分失敗 ───────────────────────────
 
     @Test

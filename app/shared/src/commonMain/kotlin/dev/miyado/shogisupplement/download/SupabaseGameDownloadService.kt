@@ -93,8 +93,8 @@ class SupabaseGameDownloadService(
     }
 
     /**
-     * private_encが無い行（アップロード側の任意フィールドが未設定のケース）は復号をスキップし、
-     * マスク再構成で進め、行単位の欠損で全体を止めない。
+     * Why not 秘匿項目を復号できない行を失敗にする: 鍵が食い違うと棋譜そのものを失う。
+     * 対局者名等を伏せてでも棋譜を戻す。
      */
     private suspend fun importRow(
         row: UploadedGameRow,
@@ -102,8 +102,10 @@ class SupabaseGameDownloadService(
         importGame: suspend (ReconstructedGame) -> GameImportOutcome,
     ): GameImportOutcome {
         val privateFields = row.privateEnc?.let { encoded ->
-            val blob = Base64.decode(encoded)
-            PrivateEncCodec.decrypt(kEnc, blob, row.contentHash.encodeToByteArray())
+            runCatching {
+                val blob = Base64.decode(encoded)
+                PrivateEncCodec.decrypt(kEnc, blob, row.contentHash.encodeToByteArray())
+            }.getOrNull()
         }
         val public = PublicKifuFields(
             movesUsi = row.movesUsi,
