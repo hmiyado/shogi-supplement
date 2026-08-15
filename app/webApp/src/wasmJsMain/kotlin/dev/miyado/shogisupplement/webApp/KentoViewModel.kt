@@ -58,7 +58,6 @@ class KentoViewModel(private val scope: CoroutineScope) : WebStudyActions {
             if (available) assetDirUrl = resolveAssetDirUrl()
             state = state.copy(assetsAvailable = available)
         }
-        WebStudyBinding.actions = this
     }
 
     fun setKifText(text: String) {
@@ -163,7 +162,6 @@ class KentoViewModel(private val scope: CoroutineScope) : WebStudyActions {
     fun dispose() {
         analysisJob?.cancel()
         studyController.dispose()
-        if (WebStudyBinding.actions === this) WebStudyBinding.actions = null
     }
 
     private suspend fun resolveAssetDirUrl(): String = suspendCancellableCoroutine { cont ->
