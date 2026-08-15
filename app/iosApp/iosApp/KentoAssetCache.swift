@@ -1,3 +1,4 @@
+import CryptoKit
 import SharedUi
 import Foundation
 
@@ -12,10 +13,13 @@ import Foundation
 /// 取得は常時実行する（Wi-Fi等の条件を付けない。1回あたり約65MB・初回のみ）。
 /// 進捗UIは持たず、準備状態は [state]（`.notReady`/`.downloading`/`.ready`）で公開する。
 ///
-/// 完全性の判定にSHA-256等のハッシュを使わない理由: 配信元（docs/copy-kento-assets.sh）が
-/// 検証用ハッシュファイルを生成していないため。HTTPレスポンスの宣言サイズ
-/// （Content-Length）と実際に書き込んだバイト数の一致で妥協する
-/// （[KentoAssetCachePolicy.isFileComplete] 参照）。
+/// 完全性は配信側のマニフェスト（docs/generate-kento-manifest.sh）のSHA-256と照合する。
+/// 保存済みの資産も起動ごとに照合し、壊れていれば取得し直す。
+///
+/// Why not マニフェストが取れないときに未準備へ倒す: アプリの更新が配信側より先に
+/// 届くとマニフェストがまだ無い。その間はサイズ照合と存在確認だけで動かし、
+/// 配信が追いついたら自動でハッシュ照合に切り替わる。
+/// 保存済みマニフェスト自体が壊れた場合は検証不能として取得し直す。
 final class KentoAssetCache {
     static let shared = KentoAssetCache()
 
@@ -78,7 +82,8 @@ final class KentoAssetCache {
             return
         }
 
-        let local = Self.localState(forVersion: remoteVersion)
+        let manifest = await Self.fetchManifest()
+        let local = Self.localState(forVersion: remoteVersion, manifest: manifest)
         let decision = KentoAssetCachePolicy.shared.decide(remoteVersion: remoteVersion, local: local)
 
         if let useLocal = decision as? KentoAssetCachePolicy.DecisionUseLocal {
@@ -91,7 +96,7 @@ final class KentoAssetCache {
         }
 
         do {
-            let rootURL = try await downloadVersion(fetch.version)
+            let rootURL = try await downloadVersion(fetch.version, manifest: manifest)
             Self.deleteOtherVersions(keeping: fetch.version)
             setState(.ready(rootURL: rootURL, version: fetch.version))
         } catch {
@@ -103,7 +108,7 @@ final class KentoAssetCache {
     /// [version] の全ファイルを一時ディレクトリへ取得し、全ファイルの完全性を確認できたら
     /// 最終ディレクトリへ原子的に移動する（中断ダウンロードが「完全」な最終ディレクトリとして
     /// 残らないようにするため）。
-    private func downloadVersion(_ version: String) async throws -> URL {
+    private func downloadVersion(_ version: String, manifest: KentoAssetManifest.Parsed?) async throws -> URL {
         let tempDir = FileManager.default.temporaryDirectory
             .appendingPathComponent("kento-assets-download-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
@@ -114,7 +119,8 @@ final class KentoAssetCache {
         for name in Self.kentoFiles {
             let ok = try await Self.downloadFile(
                 from: Self.kentoBaseURL.appendingPathComponent(name),
-                to: tempDir.appendingPathComponent("kento", isDirectory: true).appendingPathComponent(name)
+                to: tempDir.appendingPathComponent("kento", isDirectory: true).appendingPathComponent(name),
+                expectedHash: manifest?.expected(path: "kento/\(name)")
             )
             completeFlags.append(ok)
         }
@@ -123,7 +129,8 @@ final class KentoAssetCache {
         // ベースURL直下のこのファイルを読んでバージョン付きサブディレクトリを解決する）。
         let versionMarkerOk = try await Self.downloadFile(
             from: Self.kentoAssetsBaseURL.appendingPathComponent("VERSION"),
-            to: tempDir.appendingPathComponent("kento-assets", isDirectory: true).appendingPathComponent("VERSION")
+            to: tempDir.appendingPathComponent("kento-assets", isDirectory: true).appendingPathComponent("VERSION"),
+            expectedHash: manifest?.expected(path: "kento-assets/VERSION")
         )
         completeFlags.append(versionMarkerOk)
 
@@ -131,7 +138,8 @@ final class KentoAssetCache {
             let ok = try await Self.downloadFile(
                 from: Self.kentoAssetsBaseURL.appendingPathComponent(version).appendingPathComponent(name),
                 to: tempDir.appendingPathComponent("kento-assets", isDirectory: true)
-                    .appendingPathComponent(version, isDirectory: true).appendingPathComponent(name)
+                    .appendingPathComponent(version, isDirectory: true).appendingPathComponent(name),
+                expectedHash: manifest?.expected(path: "kento-assets/\(version)/\(name)")
             )
             completeFlags.append(ok)
         }
@@ -139,6 +147,15 @@ final class KentoAssetCache {
         let boxedFlags = completeFlags.map { KotlinBoolean(bool: $0) }
         guard KentoAssetCachePolicy.shared.isVersionComplete(perFileComplete: boxedFlags) else {
             throw KentoAssetCacheError.incompleteDownload
+        }
+
+        // 保存済み資産をオフラインでも照合できるよう、取得に使ったマニフェストを一緒に置く。
+        if let manifestJson = Self.lastManifestJson {
+            try? manifestJson.write(
+                to: tempDir.appendingPathComponent(Self.manifestFileName),
+                atomically: true,
+                encoding: .utf8
+            )
         }
 
         let finalDir = Self.finalDir(version: version)
@@ -157,7 +174,7 @@ final class KentoAssetCache {
     /// エラーを投げず「本文（例えばPagesの404 HTMLページ）」をそのまま返してしまう。
     /// ステータスを見ずにサイズ照合だけに頼ると、404ページ自身のContent-Lengthと
     /// 実バイト数は一致してしまうため「完全なファイル」と誤判定する。
-    private static func downloadFile(from url: URL, to destination: URL) async throws -> Bool {
+    private static func downloadFile(from url: URL, to destination: URL, expectedHash: String?) async throws -> Bool {
         let (data, response) = try await URLSession.shared.data(from: url)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
             throw KentoAssetCacheError.httpError(url: url)
@@ -170,10 +187,49 @@ final class KentoAssetCache {
         )
         try data.write(to: destination, options: .atomic)
 
-        return KentoAssetCachePolicy.shared.isFileComplete(
+        let sizeOk = KentoAssetCachePolicy.shared.isFileComplete(
             declaredContentLength: declared.map { KotlinLong(longLong: $0) },
             actualBytes: Int64(data.count)
         )
+        guard sizeOk else { return false }
+        guard let expectedHash else { return true }
+        return KentoAssetManifest.shared.matches(expected: expectedHash, actual: Self.sha256Hex(data))
+    }
+
+    private static func sha256Hex(_ data: Data) -> String {
+        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    }
+
+    /// 大きなファイル（評価関数nn.binは数十MB）を一度に読み込まずに済ませる。
+    private static func sha256Hex(fileAt url: URL) -> String? {
+        guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
+        defer { try? handle.close() }
+        var hasher = SHA256()
+        while let chunk = try? handle.read(upToCount: 1 << 20), !chunk.isEmpty {
+            hasher.update(data: chunk)
+        }
+        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
+    }
+
+    /// 取得できたマニフェストのJSON本文（保存済み資産と一緒に置くため保持する）。
+    private static var lastManifestJson: String?
+    private static let manifestFileName = "MANIFEST.json"
+
+    /// 配信側のマニフェスト。取得できない・壊れている場合はnil（照合なしで動く）。
+    private static func fetchManifest() async -> KentoAssetManifest.Parsed? {
+        guard let json = try? await fetchText(kentoAssetsBaseURL.appendingPathComponent(manifestFileName)) else {
+            lastManifestJson = nil
+            return nil
+        }
+        lastManifestJson = json
+        return KentoAssetManifest.shared.parse(json: json)
+    }
+
+    /// 保存済み資産と一緒に置いたマニフェスト（オフラインでの照合に使う）。
+    private static func storedManifest(version: String) -> KentoAssetManifest.Parsed? {
+        let url = finalDir(version: version).appendingPathComponent(manifestFileName)
+        guard let json = try? String(contentsOf: url, encoding: .utf8) else { return nil }
+        return KentoAssetManifest.shared.parse(json: json)
     }
 
     private static func fetchText(_ url: URL) async throws -> String {
@@ -199,19 +255,25 @@ final class KentoAssetCache {
         rootDir.appendingPathComponent(version, isDirectory: true)
     }
 
-    /// [version] のローカル保存状態。最終ディレクトリへの移動は全ファイル確認後にのみ行う
-    /// （[downloadVersion] 参照）ため、期待ファイルが全て存在すれば完全とみなせる
-    /// （バイト単位の再照合は初回ダウンロード時にのみ行い、以後の起動では期待サイズを
-    /// 保持していないため再照合しない。ディスク破損等の極端なケースまでは救わない）。
-    private static func localState(forVersion version: String) -> KentoAssetCachePolicy.LocalState {
+    /// [version] のローカル保存状態。マニフェストがあれば保存済みファイルのSHA-256を
+    /// 照合する（中身が壊れた資産をreadyと誤判定しないため）。マニフェストが無い場合は
+    /// 存在確認だけに落とす。
+    private static func localState(
+        forVersion version: String,
+        manifest: KentoAssetManifest.Parsed?
+    ) -> KentoAssetCachePolicy.LocalState {
         let dir = finalDir(version: version)
         guard FileManager.default.fileExists(atPath: dir.path) else {
             return KentoAssetCachePolicy.LocalState(version: nil, isComplete: false)
         }
-        let allExist = expectedRelativePaths(version: version).allSatisfy {
-            FileManager.default.fileExists(atPath: dir.appendingPathComponent($0).path)
+        let complete = expectedRelativePaths(version: version).allSatisfy { relativePath in
+            let fileURL = dir.appendingPathComponent(relativePath)
+            guard FileManager.default.fileExists(atPath: fileURL.path) else { return false }
+            guard let expected = manifest?.expected(path: relativePath) else { return manifest == nil }
+            guard let actual = sha256Hex(fileAt: fileURL) else { return false }
+            return KentoAssetManifest.shared.matches(expected: expected, actual: actual)
         }
-        return KentoAssetCachePolicy.LocalState(version: allExist ? version : nil, isComplete: allExist)
+        return KentoAssetCachePolicy.LocalState(version: complete ? version : nil, isComplete: complete)
     }
 
     /// バージョン確認自体ができない（オフライン等）ときのための、既存の完全な版の探索。
@@ -219,7 +281,7 @@ final class KentoAssetCache {
     private static func findAnyComplete() -> (rootURL: URL, version: String)? {
         guard let entries = try? FileManager.default.contentsOfDirectory(atPath: rootDir.path) else { return nil }
         for version in entries {
-            let state = localState(forVersion: version)
+            let state = localState(forVersion: version, manifest: storedManifest(version: version))
             if state.isComplete {
                 return (finalDir(version: version), version)
             }

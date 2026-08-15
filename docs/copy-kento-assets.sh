@@ -74,3 +74,7 @@ du -sh "$KENTO_DIR/webApp.js"
 # ビルド時にコピーしてfetchで読む(複数箇所に正本を分散させないため)。
 cp "$REPO_ROOT/app/androidApp/src/main/assets/coefficients_hao_isolate_v1.json" "$KENTO_DIR"/
 echo "コピー完了: $KENTO_DIR/coefficients_hao_isolate_v1.json"
+
+# 完全性検証用のマニフェスト。全ファイルを配置し終えた後に採る（途中で採ると
+# 未配置のファイルが載らない）。
+"$SCRIPT_DIR/generate-kento-manifest.sh" "$SCRIPT_DIR" "$DEST/MANIFEST.json"
