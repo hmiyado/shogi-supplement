@@ -4,7 +4,7 @@
 #
 # 前提: クリップボードに有効なKIF以外のテキストが入っていること。設定込みの実行入口は
 # .maestro/run-ios.sh。
-appId: dev.miyado.shogisupplement.ios
+appId: dev.miyado.shogisupplement.ios.debug
 ---
 - launchApp:
     clearState: false

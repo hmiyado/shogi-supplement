@@ -33,7 +33,10 @@ Maestro による実機（シミュレータ/エミュレータ）E2E。フロ�
    （エンジンのシミュレータ向け静的ライブラリ）を用意する
    （`app/iosApp/scripts/fetch-sentry.sh` / `fetch-firebase.sh`、`app/iosApp/engine/build_ios.sh`）
 3. `xcodegen generate` → `iosApp` スキームをDebug構成でシミュレータ向けにビルドし、対象
-   シミュレータへインストールする
+   シミュレータへインストールする。Debug構成のバンドルIDは
+   `dev.miyado.shogisupplement.ios.debug`（ストア版と同居させるため分けてある）で、
+   フローの `appId` もこちらを指す。ストア版を対象に流したいときは `appId` を
+   `dev.miyado.shogisupplement.ios` に変える
 4. クリップボード経由の取込フロー（`03_kif_import_via_clipboard.yaml`）はOSクリップボードに
    有効なKIFが入っていることが前提。KIF投入込みの実行入口 `.maestro/run-ios.sh` を使えば
    手作業は不要（MaestroのsetClipboardは内部クリップボード専用でUIPasteboardには効かないため、

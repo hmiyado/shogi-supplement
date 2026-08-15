@@ -1,4 +1,4 @@
-appId: dev.miyado.shogisupplement.ios
+appId: dev.miyado.shogisupplement.ios.debug
 ---
 - launchApp:
     clearState: false

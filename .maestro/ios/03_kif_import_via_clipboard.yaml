@@ -7,10 +7,10 @@
 # 棋力設定ダイアログは対局サービスのアカウント名が1つも未設定のときだけ先に出る。
 # 初回実行後は出なくなるため、毎回試すなら
 # `maestro test --clear-state` や `clearState: true` でアプリのデータをリセットすること。
-appId: dev.miyado.shogisupplement.ios
+appId: dev.miyado.shogisupplement.ios.debug
 # 共通フロー（appId: ${APP_ID}）へ引き渡す
 env:
-  APP_ID: dev.miyado.shogisupplement.ios
+  APP_ID: dev.miyado.shogisupplement.ios.debug
 ---
 - launchApp:
     clearState: false

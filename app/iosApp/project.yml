@@ -118,7 +118,12 @@ targets:
         # "not an allowed client of SwiftUICore" を起こすため無効化する。
         ENABLE_DEBUG_DYLIB: NO
       configs:
+        # Debug系のバンドルIDを分け、ストア版・TestFlight版と同じ端末に同居させる。
+        # Firebaseはアプリ単位で設定が分かれるため、Debug系は専用の
+        # GoogleService-Info-Debug.plistとApp Checkデバッグトークンの登録が要る
+        # （どちらも無ければFirebase連携は起動せず、他の機能はそのまま動く）。
         Debug:
+          PRODUCT_BUNDLE_IDENTIFIER: dev.miyado.shogisupplement.ios.debug
           "FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]": "$(SRCROOT)/../ui/build/bin/iosSimulatorArm64/debugFramework"
           "FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]": "$(SRCROOT)/../ui/build/bin/iosArm64/debugFramework"
         Release:
@@ -128,6 +133,7 @@ targets:
         # iosEngineless有無で変わらない。中身が違うだけ）。OTHER_LDFLAGSだけ -lshogiengine を外す
         # （リンク自体を外すのが目的のため、baseの値を丸ごと上書きする）。
         Debug-Engineless:
+          PRODUCT_BUNDLE_IDENTIFIER: dev.miyado.shogisupplement.ios.debug
           "FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]": "$(SRCROOT)/../ui/build/bin/iosSimulatorArm64/debugFramework"
           "FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]": "$(SRCROOT)/../ui/build/bin/iosArm64/debugFramework"
           OTHER_LDFLAGS: "-framework SharedUi -lsqlite3 -lc++ -ObjC"
@@ -220,10 +226,17 @@ targets:
       # local/GoogleService-Info.plist が無いビルドでは何もしない＝Swift側
       # （IosFirebaseAppCheck.swift）がバンドル内に無いことを見てFirebase初期化ごと
       # スキップする（graceful degradation。他のconfig生成と同じ方針）。
+      #
+      # Why not Debug系でも本番のplistを使う: バンドルIDが一致しないとApp Checkの
+      # 検証が常に403になり、Firebase初期化自体は成功するため切り分けが難しい。
+      # Debug系専用のファイルが無いときは何もコピーしない（Firebase連携を起動しない）。
       - name: "Copy GoogleService-Info.plist (from iosApp/local, if present)"
         script: |
           set -e
-          SRC="$SRCROOT/local/GoogleService-Info.plist"
+          case "$CONFIGURATION" in
+            Debug|Debug-Engineless) SRC="$SRCROOT/local/GoogleService-Info-Debug.plist" ;;
+            *) SRC="$SRCROOT/local/GoogleService-Info.plist" ;;
+          esac
           OUT_DIR="$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH"
           mkdir -p "$OUT_DIR"
           if [ -f "$SRC" ]; then
@@ -278,6 +291,17 @@ targets:
       # Why not Info.plist本体へ記載: ATS例外はDebug限定にしたいがInfo.plistは全構成共通で、
       # Debug用plistの複製を作ると同期問題が再発する。ビルド後の生成物へ注入して
       # Releaseの配布物には一切含めない。
+      # バンドルIDを分けても、アイコンと名前が同じでは同居した2つを見分けられない。
+      - name: "Mark the app as a development build (Debug only)"
+        script: |
+          set -e
+          case "$CONFIGURATION" in
+            Debug|Debug-Engineless)
+              PLIST="$TARGET_BUILD_DIR/$INFOPLIST_PATH"
+              /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName 将棋サプリ Dev" "$PLIST"
+              ;;
+          esac
+        basedOnDependencyAnalysis: false
       - name: "Allow local networking (Debug only, for local asset delivery)"
         script: |
           set -e

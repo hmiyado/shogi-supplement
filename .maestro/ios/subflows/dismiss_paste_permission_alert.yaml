@@ -2,7 +2,7 @@
 # セッション中は記憶されるため、2回目以降は出ないことがある。iOSバージョンによって
 # ボタン文言が揺れるため候補を順に試す。全ステップoptionalなので出なくてもフローは
 # 止まらない。
-appId: dev.miyado.shogisupplement.ios
+appId: dev.miyado.shogisupplement.ios.debug
 ---
 - extendedWaitUntil:
     visible: "ペーストを許可"
