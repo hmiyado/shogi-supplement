@@ -9,11 +9,12 @@ package dev.miyado.shogisupplement.crypto
  * （[dev.miyado.shogisupplement.consent.ConsentOrchestrator]）をfakeで単体テストできる。
  */
 interface TransferSecretRegistrar {
-    /**
-     * 未登録なら登録を試みる。
-     *
-     * 失敗しても例外を投げず [Result.failure] を返す（呼び出し元の同意フローは
-     * 「登録失敗は致命にしない」設計方針のため、結果を無視してよい）。
-     */
+    /** 未登録なら登録する。失敗は例外にせず [Result.failure]（登録失敗は致命にしない）。 */
     suspend fun registerIfNeeded(userId: String): Result<Unit>
+
+    /**
+     * 認証用シークレットを引き直してハッシュを差し替える。
+     * 失敗時は端末側も巻き戻す（コードとサーバーを食い違わせない）。
+     */
+    suspend fun rotate(): Result<Unit>
 }

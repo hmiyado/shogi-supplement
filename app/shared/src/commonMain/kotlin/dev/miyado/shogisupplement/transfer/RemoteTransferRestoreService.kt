@@ -6,6 +6,7 @@ import dev.miyado.shogisupplement.api.transfer.TransferSessionJson
 import dev.miyado.shogisupplement.auth.AuthRepository
 import dev.miyado.shogisupplement.crypto.TransferCode
 import dev.miyado.shogisupplement.crypto.TransferSecretKeys
+import dev.miyado.shogisupplement.crypto.TransferSecrets
 import dev.miyado.shogisupplement.crypto.TransferSecretStore
 import dev.miyado.shogisupplement.policy.currentBuildNumber
 import io.ktor.client.HttpClient
@@ -41,8 +42,8 @@ class RemoteTransferRestoreService(
     private val json = Json { ignoreUnknownKeys = true }
 
     override suspend fun restore(code: String): TransferRestoreResult {
-        val secret = TransferCode.decode(code) ?: return TransferRestoreResult.InvalidCode
-        val kAuth = TransferSecretKeys.deriveAuthKey(secret)
+        val secrets = TransferCode.decodeSecrets(code) ?: return TransferRestoreResult.InvalidCode
+        val kAuth = TransferSecretKeys.deriveAuthKey(secrets.authSecret)
         val appCheckToken = appCheckTokenProvider?.invoke()
 
         val response = try {
@@ -60,7 +61,7 @@ class RemoteTransferRestoreService(
         }
 
         return when (response.status) {
-            HttpStatusCode.OK -> applySession(response, secret)
+            HttpStatusCode.OK -> applySession(response, secrets)
             HttpStatusCode.NotFound -> TransferRestoreResult.NotFound
             HttpStatusCode.TooManyRequests -> TransferRestoreResult.RateLimited
             HttpStatusCode.UpgradeRequired -> TransferRestoreResult.UpgradeRequired
@@ -68,7 +69,7 @@ class RemoteTransferRestoreService(
         }
     }
 
-    private suspend fun applySession(response: HttpResponse, secret: ByteArray): TransferRestoreResult {
+    private suspend fun applySession(response: HttpResponse, secrets: TransferSecrets): TransferRestoreResult {
         val session = try {
             json.decodeFromString(TransferSessionJson.serializer(), response.bodyAsText())
         } catch (e: Exception) {
@@ -77,7 +78,7 @@ class RemoteTransferRestoreService(
         val imported = authRepository.importSession(session.accessToken, session.refreshToken)
         return imported.fold(
             onSuccess = {
-                transferSecretStore.save(secret)
+                transferSecretStore.save(secrets.toStored())
                 TransferRestoreResult.Success
             },
             onFailure = { e -> TransferRestoreResult.SessionImportFailed(e.message ?: "session import failed") },

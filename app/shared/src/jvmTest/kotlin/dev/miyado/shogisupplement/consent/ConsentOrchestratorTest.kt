@@ -68,6 +68,8 @@ class ConsentOrchestratorTest {
             registeredUserIds.add(userId)
             return result
         }
+
+        override suspend fun rotate(): Result<Unit> = Result.success(Unit)
     }
 
     private fun newSettingsRepository(): SettingsRepository {

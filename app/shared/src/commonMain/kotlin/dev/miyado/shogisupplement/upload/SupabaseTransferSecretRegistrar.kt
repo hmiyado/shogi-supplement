@@ -5,6 +5,7 @@ import dev.miyado.shogisupplement.crypto.TransferSecretManager
 import dev.miyado.shogisupplement.crypto.TransferSecretRegistrar
 import dev.miyado.shogisupplement.crypto.TransferSecretStore
 import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.postgrest.from
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
@@ -12,15 +13,10 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * Supabase postgrest-kt を使った [TransferSecretRegistrar] 実装（user_transfer_secrets）。
+ * サーバーへ送るのは認証鍵のSHA-256ハッシュだけで、シークレット自体は送らない。
  *
- * 端末シークレットS（未生成なら遅延生成。[TransferSecretManager.getOrCreateSecret] 参照）から
- * K_authを導出し、そのSHA-256ハッシュだけをサーバーへ送る（K_auth自体・Sは送らない）。
- *
- * Why not upsert: user_transfer_secretsのRLSはUPDATEを許可していないため、
- * 既存行があるとupsertは失敗する。insertで固定し、2回目以降の呼び出しは
- * unique_violation（23505・primary key = user_id）を「既に登録済み」として吸収する。
- * これにより [registerIfNeeded] を毎回無条件に呼んでも安全。
+ * Why not upsert: 登録は毎回無条件に呼ばれる。insertで固定し、2回目以降は
+ * unique_violation（23505）を「登録済み」として吸収する。
  */
 class SupabaseTransferSecretRegistrar(
     private val supabase: SupabaseClient,
@@ -28,9 +24,29 @@ class SupabaseTransferSecretRegistrar(
 ) : TransferSecretRegistrar {
 
     @OptIn(ExperimentalEncodingApi::class)
+    override suspend fun rotate(): Result<Unit> = runCatching {
+        val previous = TransferSecretManager.getOrCreateSecrets(transferSecretStore)
+        val rotated = TransferSecretManager.rotateAuthSecret(transferSecretStore)
+        val hash = TransferSecretKeys.authKeyHash(TransferSecretKeys.deriveAuthKey(rotated.authSecret))
+        try {
+            supabase.from("user_transfer_secrets")
+                .update(mapOf("key_auth_hash" to Base64.encode(hash))) {
+                    filter { eq("user_id", currentUserId()) }
+                }
+        } catch (e: Throwable) {
+            transferSecretStore.save(previous.toStored())
+            throw e
+        }
+        Unit
+    }
+
+    private suspend fun currentUserId(): String =
+        supabase.auth.currentUserOrNull()?.id ?: error("not authenticated")
+
+    @OptIn(ExperimentalEncodingApi::class)
     override suspend fun registerIfNeeded(userId: String): Result<Unit> = runCatching {
-        val secret = TransferSecretManager.getOrCreateSecret(transferSecretStore)
-        val authKey = TransferSecretKeys.deriveAuthKey(secret)
+        val secrets = TransferSecretManager.getOrCreateSecrets(transferSecretStore)
+        val authKey = TransferSecretKeys.deriveAuthKey(secrets.authSecret)
         val hash = TransferSecretKeys.authKeyHash(authKey)
         val payload = UserTransferSecretPayload(
             userId = userId,

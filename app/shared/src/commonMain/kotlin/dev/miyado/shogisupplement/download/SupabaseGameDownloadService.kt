@@ -3,6 +3,7 @@ package dev.miyado.shogisupplement.download
 import dev.miyado.shogisupplement.auth.AuthRepository
 import dev.miyado.shogisupplement.crypto.PrivateEncCodec
 import dev.miyado.shogisupplement.crypto.TransferSecretKeys
+import dev.miyado.shogisupplement.crypto.TransferSecrets
 import dev.miyado.shogisupplement.crypto.TransferSecretStore
 import dev.miyado.shogisupplement.db.GameRepository
 import dev.miyado.shogisupplement.kifu.KifuReconstructor
@@ -50,8 +51,9 @@ class SupabaseGameDownloadService(
         // getOrCreateではなくload: 未生成のSでK_encを新規生成してしまうと、行ごとに
         // 「復号鍵が違うので全滅する」という分かりにくい失敗（failedの積み上がり）になる。
         // NoSecretという別種の結果として区別できるよう、生成せず即座に打ち切る。
-        val secret = transferSecretStore.load() ?: return GameDownloadOutcome.NoSecret
-        val kEnc = TransferSecretKeys.deriveEncKey(secret)
+        val stored = transferSecretStore.load() ?: return GameDownloadOutcome.NoSecret
+        val secrets = TransferSecrets.fromStored(stored) ?: return GameDownloadOutcome.NoSecret
+        val kEnc = TransferSecretKeys.deriveEncKey(secrets.encSecret)
 
         val rows = try {
             fetchAllRows()

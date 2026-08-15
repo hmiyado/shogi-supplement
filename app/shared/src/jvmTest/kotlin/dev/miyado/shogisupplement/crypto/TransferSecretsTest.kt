@@ -1,5 +1,6 @@
 package dev.miyado.shogisupplement.crypto
 
+import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -94,5 +95,53 @@ class TransferSecretsTest {
         val code = TransferCode.encode(rotated)
         val broken = code.replaceFirst(code.first { it.isLetterOrDigit() }, 'Z')
         assertNull(TransferCode.decodeSecrets(broken))
+    }
+}
+
+class TransferSecretRotationTest {
+
+    private class InMemoryStore(private var stored: ByteArray? = null) : TransferSecretStore {
+        override suspend fun load(): ByteArray? = stored
+        override suspend fun save(secret: ByteArray) {
+            stored = secret
+        }
+
+        override suspend fun clear() {
+            stored = null
+        }
+    }
+
+    @Test
+    fun `引き直すと認証用だけが変わり保存値にも反映される`() = runTest {
+        val store = InMemoryStore()
+        val before = TransferSecretManager.getOrCreateSecrets(store)
+
+        val after = TransferSecretManager.rotateAuthSecret(store)
+
+        assertContentEquals(before.encSecret, after.encSecret, "復号用が変わってはいけない")
+        assertFalse(after.authSecret.contentEquals(before.authSecret), "認証用が変わるはず")
+
+        val reloaded = assertNotNull(TransferSecrets.fromStored(assertNotNull(store.load())))
+        assertContentEquals(after.encSecret, reloaded.encSecret)
+        assertContentEquals(after.authSecret, reloaded.authSecret)
+    }
+
+    @Test
+    fun `何度引き直しても復号用は最初のまま保たれる`() = runTest {
+        val store = InMemoryStore()
+        val first = TransferSecretManager.getOrCreateSecrets(store)
+
+        repeat(3) { TransferSecretManager.rotateAuthSecret(store) }
+
+        val last = TransferSecretManager.getOrCreateSecrets(store)
+        assertContentEquals(first.encSecret, last.encSecret)
+    }
+
+    @Test
+    fun `壊れた保存値は作り直す`() = runTest {
+        val store = InMemoryStore(ByteArray(7))
+        val secrets = TransferSecretManager.getOrCreateSecrets(store)
+        assertEquals(TRANSFER_SECRET_BYTES, secrets.encSecret.size)
+        assertContentEquals(secrets.encSecret, secrets.authSecret)
     }
 }

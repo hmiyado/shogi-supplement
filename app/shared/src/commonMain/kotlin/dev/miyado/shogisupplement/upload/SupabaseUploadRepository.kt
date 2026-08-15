@@ -16,20 +16,9 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * Supabase postgrest-kt を使った UploadRepository 実装（uploaded_games v2）。
- *
- * KIF原文はそのまま送らない:
- * - [KifuDecomposer] で平文列（moves_usi/move_times/headers/result/source_place）と
- *   秘匿フィールド（private_enc）に分解してから送る
- * - private_enc は [TransferSecretStore] から読める端末シークレットSにHKDFをかけて
- *   導出したK_encでAES-256-GCM暗号化する。AADにはcontent_hashを使い、暗号文と行の
- *   紐付けを検証可能にする（行差し替え検出）
- *
- * unique(user_id, content_hash) 違反（重複）は Duplicate として吸収する。
- *
- * @param supabase Auth + Postgrest プラグインを持つ共有 Supabase クライアント
- * @param transferSecretStore K_enc導出元の端末シークレットS永続化（未生成なら遅延生成される。
- *   [TransferSecretManager.getOrCreateSecret] 参照）
+ * Why not KIF原文をそのまま送る: 対局者名等は運営者にも読ませない設計のため、
+ * 平文列と秘匿フィールドへ分解し、後者だけを端末の鍵で暗号化して送る。
+ * AADにcontent_hashを使い、暗号文が別の行へ付け替えられていないことを検証できる形にする。
  */
 class SupabaseUploadRepository(
     private val supabase: SupabaseClient,
@@ -50,8 +39,8 @@ class SupabaseUploadRepository(
             val parsed = parser.parse(kifText)
             val decomposed = KifuDecomposer.decompose(kifText, parsed)
 
-            val secret = TransferSecretManager.getOrCreateSecret(transferSecretStore)
-            val kEnc = TransferSecretKeys.deriveEncKey(secret)
+            val secrets = TransferSecretManager.getOrCreateSecrets(transferSecretStore)
+            val kEnc = TransferSecretKeys.deriveEncKey(secrets.encSecret)
             val aad = game.contentHash.encodeToByteArray()
             val privateEncBytes = PrivateEncCodec.encrypt(kEnc, decomposed.private, aad)
 

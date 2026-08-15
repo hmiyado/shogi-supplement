@@ -26,14 +26,8 @@ interface TransferSecretStore {
 }
 
 /**
- * S の取得・遅延生成をまとめたヘルパー。
- *
- * Why not オンボーディング画面（ConsentOrchestrator）だけでSを生成する: v2アップロード経路は
- * private_enc暗号化にK_encを必要とし、オンボーディングより前にアップロードが起こりうる
- * 経路が別にある（既存の自動アップロード経路は解析完了時に即座に呼ばれるため）。
- * 呼び出し側（ConsentOrchestrator・SupabaseUploadRepository・
- * SupabaseServices.getOrCreateTransferCode）が全員この関数を経由することで、
- * 生成タイミングを気にせず「未生成なら作る」を安全に呼べる。
+ * Why not オンボーディングだけで生成する: 暗号化鍵は同意より前のアップロードでも要る。
+ * 全経路をここへ通し、生成タイミングを気にせず「未生成なら作る」で済ませる。
  */
 object TransferSecretManager {
     suspend fun getOrCreateSecret(store: TransferSecretStore): ByteArray {
@@ -41,5 +35,20 @@ object TransferSecretManager {
         val generated = CryptographyRandom.Default.nextBytes(TRANSFER_SECRET_BYTES)
         store.save(generated)
         return generated
+    }
+
+    /** 保存値を2つのシークレットとして読む。壊れた保存値は作り直す。 */
+    suspend fun getOrCreateSecrets(store: TransferSecretStore): TransferSecrets {
+        store.load()?.let { stored -> TransferSecrets.fromStored(stored)?.let { return it } }
+        val generated = CryptographyRandom.Default.nextBytes(TRANSFER_SECRET_BYTES)
+        store.save(generated)
+        return TransferSecrets(generated, generated)
+    }
+
+    /** 認証用だけを引き直して保存する。復号用は変わらない。 */
+    suspend fun rotateAuthSecret(store: TransferSecretStore): TransferSecrets {
+        val rotated = getOrCreateSecrets(store).rotateAuth()
+        store.save(rotated.toStored())
+        return rotated
     }
 }
