@@ -6,6 +6,8 @@ import dev.miyado.shogisupplement.auth.AuthUser
 import dev.miyado.shogisupplement.crypto.TRANSFER_SECRET_BYTES
 import dev.miyado.shogisupplement.crypto.TransferCode
 import dev.miyado.shogisupplement.crypto.TransferSecretStore
+import dev.miyado.shogisupplement.db.RatingSettings
+import dev.miyado.shogisupplement.db.SettingsRepository
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
@@ -62,14 +64,55 @@ class TransferRestoreServiceTest {
         }
     }
 
+    private class FakeSettingsRepository : SettingsRepository {
+        private var accountDeclined = false
+        private var autoUpload = false
+        private var consentAcceptedAt: Long? = null
+
+        override fun saveRating(rating: Int) {}
+        override fun saveRatingFull(rating: Int, service: String, ratingRaw: Int) {}
+        override fun saveRatingSettings(service: String?, ratingRaw: Int?, ratingRule: String?, serviceAccountName: String?) {}
+        override fun getRatingSettings(): RatingSettings = RatingSettings(1750, "lishogi", 1750, null, null)
+        override fun hasUserSavedRatingSettings(): Boolean = false
+        override fun getRating(): Int = 1750
+        override fun getRatingFull(): Triple<Int, String, Int> = Triple(1750, "lishogi", 1750)
+        override fun getServiceAccountName(): String? = null
+        override fun upsertServiceAccount(service: String, accountName: String) {}
+        override fun getAllServiceAccounts(): Map<String, String> = emptyMap()
+        override fun getServiceAccountByService(service: String): String? = null
+        override fun deleteServiceAccount(service: String) {}
+        override fun hasAnyServiceAccount(): Boolean = false
+        override fun saveLastUserSide(userSide: String?) {}
+        override fun getLastUserSide(): String? = null
+        override fun saveConsentAcceptedAt(epochSeconds: Long) { consentAcceptedAt = epochSeconds }
+        override fun getConsentAcceptedAt(): Long? = consentAcceptedAt
+        override fun saveAccountDeclined(declined: Boolean) { accountDeclined = declined }
+        override fun isAccountDeclined(): Boolean = accountDeclined
+        override fun saveAutoUpload(enabled: Boolean) { autoUpload = enabled }
+        override fun getAutoUpload(): Boolean = autoUpload
+        override fun saveThemeMode(themeMode: String) {}
+        override fun getThemeMode(): String = "system"
+        override fun saveServiceRank(service: String, rule: String, rankRaw: Int) {}
+        override fun getAllServiceRanks(): Map<String, Map<String, Int>> = emptyMap()
+        override fun deleteServiceRank(service: String, rule: String) {}
+        override fun saveEvalDisplay(mode: String) {}
+        override fun getEvalDisplay(): String = "cp"
+        override fun saveSkipSideConfirm(skip: Boolean) {}
+        override fun getSkipSideConfirm(): Boolean = false
+        override fun saveAppPolicyCache(json: String) {}
+        override fun getAppPolicyCache(): String? = null
+    }
+
     private fun service(
         engine: MockEngine,
         authRepository: AuthRepository = FakeAuthRepository(),
         transferSecretStore: TransferSecretStore = FakeTransferSecretStore(),
+        settingsRepository: SettingsRepository = FakeSettingsRepository(),
     ) = RemoteTransferRestoreService(
         baseUrl = "https://analysis-worker.example",
         authRepository = authRepository,
         transferSecretStore = transferSecretStore,
+        settingsRepository = settingsRepository,
         platform = "ios",
         httpClient = HttpClient(engine),
     )
@@ -102,6 +145,37 @@ class TransferRestoreServiceTest {
         assertEquals(TransferRestoreResult.Success, result)
         assertEquals("at-1" to "rt-1", authRepository.lastImported)
         assertTrue(store.saved != null, "importSession成功後はSecretが保存されるはず")
+    }
+
+    @Test
+    fun `復元に成功するとアカウントを作らない判断が戻り棋譜の保存が有効になる`() = runTest {
+        val engine = MockEngine { _ ->
+            respond(
+                content = ByteReadChannel("""{"access_token":"at-1","refresh_token":"rt-1"}"""),
+                status = HttpStatusCode.OK,
+                headers = jsonHeaders,
+            )
+        }
+        val settings = FakeSettingsRepository()
+        settings.saveAccountDeclined(true)
+
+        val result = service(engine, settingsRepository = settings).restore(validCode)
+
+        assertEquals(TransferRestoreResult.Success, result)
+        assertEquals(false, settings.isAccountDeclined(), "復元後はサーバー解析を使えるはず")
+        assertEquals(true, settings.getAutoUpload())
+        assertTrue(settings.getConsentAcceptedAt() != null, "同意済みとして扱うはず")
+    }
+
+    @Test
+    fun `復元に失敗したときは作らない判断を変えない`() = runTest {
+        val engine = MockEngine { _ -> respond(content = ByteReadChannel(""), status = HttpStatusCode.NotFound) }
+        val settings = FakeSettingsRepository()
+        settings.saveAccountDeclined(true)
+
+        service(engine, settingsRepository = settings).restore(validCode)
+
+        assertEquals(true, settings.isAccountDeclined())
     }
 
     @Test

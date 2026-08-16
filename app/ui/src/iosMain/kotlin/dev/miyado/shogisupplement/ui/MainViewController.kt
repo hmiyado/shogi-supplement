@@ -868,6 +868,7 @@ private fun IosSettingsScreenHost(
     if (showTransferCodeInput && services != null && analysisBaseUrl != null) {
         IosTransferCodeInputHost(
             services = services,
+            settingsRepository = controller.settings,
             analysisBaseUrl = analysisBaseUrl,
             onDismiss = { showTransferCodeInput = false },
             onRestoreSuccess = {
@@ -1012,6 +1013,7 @@ private fun IosTransferCodeScreenHost(
 @Composable
 private fun IosTransferCodeInputHost(
     services: SupabaseServices,
+    settingsRepository: SettingsRepository,
     analysisBaseUrl: String,
     onDismiss: () -> Unit,
     onRestoreSuccess: () -> Unit,
@@ -1023,6 +1025,7 @@ private fun IosTransferCodeInputHost(
                 baseUrl = analysisBaseUrl,
                 authRepository = services.authRepository,
                 transferSecretStore = IosTransferSecretStore(),
+                settingsRepository = settingsRepository,
                 platform = resolvePolicyPlatform("ios", Platform.isDebugBinary),
                 appCheckTokenProvider = AppCheckTokenBridge::getToken,
             ),

@@ -5,6 +5,8 @@ import dev.miyado.shogisupplement.api.transfer.TransferRequest
 import dev.miyado.shogisupplement.api.transfer.TransferSessionJson
 import dev.miyado.shogisupplement.auth.AuthRepository
 import dev.miyado.shogisupplement.crypto.TransferCode
+import dev.miyado.shogisupplement.db.SettingsRepository
+import dev.miyado.shogisupplement.util.currentEpochSeconds
 import dev.miyado.shogisupplement.crypto.TransferSecretKeys
 import dev.miyado.shogisupplement.crypto.TransferSecrets
 import dev.miyado.shogisupplement.crypto.TransferSecretStore
@@ -35,6 +37,7 @@ class RemoteTransferRestoreService(
     private val baseUrl: String,
     private val authRepository: AuthRepository,
     private val transferSecretStore: TransferSecretStore,
+    private val settingsRepository: SettingsRepository,
     private val platform: String,
     private val httpClient: HttpClient = HttpClient(),
     private val appCheckTokenProvider: (suspend () -> String?)? = null,
@@ -79,6 +82,13 @@ class RemoteTransferRestoreService(
         return imported.fold(
             onSuccess = {
                 transferSecretStore.save(secrets.toStored())
+                // 復元でアカウントを手にした端末は、作らないと決めた状態から戻す。
+                // 戻さないとサーバーに解析結果があっても端末内で解析し直すことになる。
+                settingsRepository.saveAccountDeclined(false)
+                settingsRepository.saveAutoUpload(true)
+                if (settingsRepository.getConsentAcceptedAt() == null) {
+                    settingsRepository.saveConsentAcceptedAt(currentEpochSeconds())
+                }
                 TransferRestoreResult.Success
             },
             onFailure = { e -> TransferRestoreResult.SessionImportFailed(e.message ?: "session import failed") },

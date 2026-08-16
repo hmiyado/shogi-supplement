@@ -431,6 +431,9 @@ class IosMainController(
         continueImportAfterAccountNotice(kifText, senteName, goteName, sourceFileName)
     }
 
+    /** 引き継ぎ復元の成功時に、作らない判断を戻すために渡す。 */
+    val settings: SettingsRepository get() = settingsRepository
+
     /** アカウントを作らないと決めた端末か。設定に作成の導線を出すかが分かれる。 */
     fun isAccountDeclined(): Boolean = settingsRepository.isAccountDeclined()
 
