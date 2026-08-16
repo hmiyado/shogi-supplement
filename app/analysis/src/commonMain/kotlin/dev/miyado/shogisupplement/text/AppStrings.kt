@@ -122,8 +122,14 @@ object AppStrings {
     // 匿名アカウント作成の事前確認。アカウント削除後など未ログインで棋譜を追加すると、
     // 解析時に匿名アカウントが新規作成されるため、追加の入口で伝えて確認を取る
     const val IMPORT_ACCOUNT_NOTICE_TITLE = "アカウントの作成"
-    const val IMPORT_ACCOUNT_NOTICE_BODY = "棋譜を追加すると匿名アカウントを作成します"
+    const val IMPORT_ACCOUNT_NOTICE_BODY =
+        "棋譜を追加すると匿名アカウントを作成します。作らなくても、端末内での解析は使えます。"
     const val IMPORT_ACCOUNT_NOTICE_CONTINUE = "続ける"
+    const val IMPORT_ACCOUNT_NOTICE_DECLINE = "作らずに解析"
+
+    /** アカウントを作らずに使っている端末にだけ出す、あとから作るための導線。 */
+    const val SETTINGS_CREATE_ACCOUNT = "アカウントを作成する"
+    const val SETTINGS_CREATE_ACCOUNT_SUB = "サーバーでの解析・引き継ぎが使えるようになります"
 
     const val SIDE_DIALOG_TITLE = "自分の側"
     fun sideSente(senteName: String?): String = if (senteName != null) "先手（$senteName）" else "先手"

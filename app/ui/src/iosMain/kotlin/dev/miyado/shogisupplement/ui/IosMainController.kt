@@ -422,11 +422,34 @@ class IosMainController(
     ) {
         // 未ログインのまま進むと解析時（confirmSideAndAnalyze）に匿名アカウントが
         // 新規作成される。黙って作らず、追加の入口で確認を取る
-        if (authRepository != null && analysisBaseUrl != null && authRepository.currentUser.value == null) {
+        if (authRepository != null && analysisBaseUrl != null &&
+            authRepository.currentUser.value == null && !settingsRepository.isAccountDeclined()
+        ) {
             _importState.value = ImportState.AccountCreationConfirm(kifText, senteName, goteName, sourceFileName)
             return
         }
         continueImportAfterAccountNotice(kifText, senteName, goteName, sourceFileName)
+    }
+
+    /** アカウントを作らないと決めた端末か。設定に作成の導線を出すかが分かれる。 */
+    fun isAccountDeclined(): Boolean = settingsRepository.isAccountDeclined()
+
+    /**
+     * 断ったあとに気が変わったときの受け皿。次の解析からサーバーを使う。
+     * アカウント自体は解析時に作られるため、ここでは判断だけを戻す。
+     */
+    fun undoAccountDecline() {
+        settingsRepository.saveAccountDeclined(false)
+    }
+
+    /**
+     * [ImportState.AccountCreationConfirm] の「作らずに解析する」。
+     * 以後は端末内だけで解析し、確認も出さない（設定から作れば元に戻る）。
+     */
+    fun declineAccountAndContinueImport() {
+        val s = _importState.value as? ImportState.AccountCreationConfirm ?: return
+        settingsRepository.saveAccountDeclined(true)
+        continueImportAfterAccountNotice(s.kifText, s.senteName, s.goteName, s.sourceFileName)
     }
 
     /** [ImportState.AccountCreationConfirm] の「続ける」。取込フローを続行する。 */
@@ -658,7 +681,7 @@ class IosMainController(
         // サーバー解析はJWTでユーザーを識別するため、未ログインならここで匿名サインインする。
         // signInAnonymously の自動呼び出しはここ（明示的なサーバー解析経路）に限定し、
         // 既存アカウントがある場合は currentUser が非null のため再発行されない。
-        if (auth != null && baseUrl != null && auth.currentUser.value == null) {
+        if (serverAnalysisAvailable() && auth != null && baseUrl != null && auth.currentUser.value == null) {
             val signInResult = auth.signInAnonymously()
             if (signInResult.isFailure) {
                 return AnalysisOrchestrator.Outcome.Failed(AppStrings.AUTH_ERROR_ANON_SIGN_IN_GENERIC)
@@ -727,10 +750,14 @@ class IosMainController(
             null
         }
 
+    /** アカウントを作らないと決めた端末はサーバーへ出さない（解析も送信も端末内で完結する）。 */
+    private fun serverAnalysisAvailable(): Boolean =
+        authRepository != null && analysisBaseUrl != null && !settingsRepository.isAccountDeclined()
+
     private fun buildAnalyzer(): GameAnalyzer {
         val auth = authRepository
         val baseUrl = analysisBaseUrl
-        return if (auth != null && baseUrl != null) {
+        return if (serverAnalysisAvailable() && auth != null && baseUrl != null) {
             // 429・障害・接続断では同条件のWASMで最初から再解析する。426では切り替えない。
             FailoverAnalyzer(
                 delegate = AuthRetryingAnalyzer(

@@ -56,6 +56,7 @@ CREATE TABLE user_settings (
     rating INTEGER NOT NULL DEFAULT 1750,
     consent_accepted_at INTEGER,
     auto_upload INTEGER NOT NULL DEFAULT 0,
+    account_declined INTEGER NOT NULL DEFAULT 0,
     rating_service TEXT NOT NULL DEFAULT 'lishogi',
     rating_raw INTEGER NOT NULL DEFAULT 1750,
     last_user_side TEXT,
@@ -149,6 +150,12 @@ UPDATE user_settings SET auto_upload = ? WHERE id = 1;
 
 getAutoUpload:
 SELECT auto_upload FROM user_settings WHERE id = 1;
+
+updateAccountDeclined:
+UPDATE user_settings SET account_declined = ? WHERE id = 1;
+
+getAccountDeclined:
+SELECT account_declined FROM user_settings WHERE id = 1;
 
 getThemeMode:
 SELECT theme_mode FROM user_settings WHERE id = 1;

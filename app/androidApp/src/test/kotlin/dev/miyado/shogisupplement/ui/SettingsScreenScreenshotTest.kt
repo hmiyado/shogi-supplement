@@ -12,10 +12,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-/**
- * 設定画面の VRT。
- * セクション見出し・行レイアウト・バージョン表示を検証する。
- */
+/** 設定画面の VRT。 */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(
@@ -57,6 +54,34 @@ class SettingsScreenScreenshotTest {
         }
     }
 
+    /** アカウントを作らずに使っている端末にだけ出る、あとから作る導線。 */
+    @Test
+    fun settings_create_account_row() {
+        captureRoboImage(
+            filePath = "src/test/snapshots/settings_create_account_row.png",
+            roborazziOptions = roborazziOptions,
+        ) {
+            ShogiTheme {
+                Surface {
+                    SettingsScreen(
+                        versionName = "0.1.0",
+                        themeMode = "system",
+                        onBack = {},
+                        onOpenRatingSettings = {},
+                        onOpenAccount = {},
+                        onCreateAccount = {},
+                        onThemeChange = {},
+                        onOpenHelp = {},
+                        onOpenFeedback = {},
+                        onOpenTerms = {},
+                        onOpenReleaseNotes = {},
+                        onOpenLicenses = {},
+                    )
+                }
+            }
+        }
+    }
+
     /** ダーク強制の設定画面 golden。 */
     @Test
     fun settings_dark() {
@@ -84,13 +109,7 @@ class SettingsScreenScreenshotTest {
         }
     }
 
-    /**
-     * デバッグセクション（DEBUGビルド相当・onOpenDebug 非null）に
-     * 「駒台を左右に表示（実験）」トグルが追加されたことを確認する golden。
-     * デバッグセクションは設定画面の最下部（スクロール末尾）にあるため、
-     * クラス既定の h800dp では画面外に隠れる。このテストだけ縦に長い
-     * qualifiers を使い、スクロールせずに全セクションが写るようにする。
-     */
+    /** デバッグセクションの駒台トグル。最下部にあるため縦に長い qualifiers で撮る。 */
     @Config(
         sdk = [34],
         qualifiers = "w400dp-h1400dp-xxhdpi",

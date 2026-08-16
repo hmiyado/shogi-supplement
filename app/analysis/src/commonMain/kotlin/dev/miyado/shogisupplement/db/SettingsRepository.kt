@@ -10,15 +10,8 @@ interface SettingsRepository {
     fun saveRatingFull(rating: Int, service: String, ratingRaw: Int)
 
     /**
-     * サービス申告情報（サービス名・raw値・ルール・アカウント名）をまとめて保存する（upsert）。
-     *
-     * 相応判定には使わない（記録専用 + 先後自動選択用）。
-     * rating（推定値）はここでは更新しない。
-     *
-     * @param service "lishogi" / "shogi_wars" / "kiou"（null = 未申告）
-     * @param ratingRaw サービス上のraw値（ウォーズ・棋桜は段級位を整数エンコード、null = 未申告）
-     * @param ratingRule ルール文字列（例: "10min" / "serious"、null = 未申告）
-     * @param serviceAccountName このサービスでのアカウント名（先後自動選択に使用）
+     * サービス申告情報のupsert。いずれもnullは未申告。
+     * 相応判定の入力ではないため、推定値のratingはここでは更新しない。
      */
     fun saveRatingSettings(
         service: String?,
@@ -84,6 +77,11 @@ interface SettingsRepository {
      */
     fun getConsentAcceptedAt(): Long?
 
+    /** アカウントを作らないと決めたか。決めた端末には作成の確認を出さない。 */
+    fun saveAccountDeclined(declined: Boolean)
+
+    fun isAccountDeclined(): Boolean
+
     /** 解析後自動アップロード設定を保存する。 */
     fun saveAutoUpload(enabled: Boolean)
 
@@ -123,11 +121,7 @@ interface SettingsRepository {
     /** 先後確認の省略設定を返す。未設定なら false（確認する）。 */
     fun getSkipSideConfirm(): Boolean
 
-    /**
-     * 強制アップデートポリシー（[dev.miyado.shogisupplement.policy.AppPolicyRow] のリスト）の
-     * 直近取得成功結果をJSON文字列で保存する（upsert）。
-     * ポリシー取得に失敗した起動時のフォールバック（fail-open前の最後の手段）に使う。
-     */
+    /** 強制アップデートポリシーの直近の取得成功結果。取得に失敗した起動のフォールバック。 */
     fun saveAppPolicyCache(json: String)
 
     /** キャッシュされたポリシーJSONを返す。未取得なら null。 */

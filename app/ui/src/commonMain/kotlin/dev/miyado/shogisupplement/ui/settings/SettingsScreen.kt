@@ -36,20 +36,7 @@ import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
 import dev.miyado.shogisupplement.ui.theme.shogiColors
 
-/**
- * 設定画面。
- * 棋力設定・アカウント・規約・ライセンス・バージョンの集約ハブ。
- * ホームのトップバー右上の⚙アイコンから遷移する。
- *
- * 構成:
- *   プロフィール      → 棋力・アカウント名（既存ダイアログを開く）
- *   データ            → アカウント（AccountScreen へ）
- *   このアプリについて → 規約 / OSSライセンス / バージョン表示
- *
- * [onOpenRatingSettings]・[onOpenAccount] は nullable。iOS は棋力設定ダイアログと
- * アカウント（認証・アップロード）を実装していないため、no-op で行を残すのではなく
- * 行自体を非表示にする（null = 非表示）。Android（SettingsHost.kt）は非 null のラムダを渡す。
- */
+/** Why not no-opのラムダ: 未実装の機能はプラットフォームで違う。nullで行ごと消す。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -61,16 +48,12 @@ fun SettingsScreen(
     onOpenRatingSettings: (() -> Unit)?,
     /** null = アカウント行・「データ」節ごと非表示（Supabase未設定ビルド等）。 */
     onOpenAccount: (() -> Unit)?,
-    /**
-     * null = 引き継ぎコード行を非表示（iOS専用機能。Supabase未設定ビルド・Androidは非表示）。
-     * onOpenAccount が非null（＝「データ」節が表示される）ときのみ意味を持つ。
-     */
+    /** null = 非表示。[onOpenAccount] が非nullのときだけ意味を持つ。 */
     onOpenTransferCode: (() -> Unit)? = null,
-    /**
-     * null = 「引き継ぎコードを入力」行を非表示。onOpenTransferCode と同じ規約
-     * （onOpenAccount が非nullのときのみ意味を持つ）。
-     */
+    /** null = 非表示。[onOpenTransferCode] と同じ規約。 */
     onOpenTransferCodeInput: (() -> Unit)? = null,
+    /** null = 非表示。アカウントを作らずに使っている端末にだけ、あとから作る入口を出す。 */
+    onCreateAccount: (() -> Unit)? = null,
     onThemeChange: (String) -> Unit = {},
     onEvalDisplayChange: (String) -> Unit = {},
     /** 先後確認の省略設定（アカウント名一致時にダイアログを出さない）。 */
@@ -83,10 +66,7 @@ fun SettingsScreen(
     onOpenLicenses: () -> Unit,
     /** DEBUG ビルドのみ非 null。null のときデバッグセクションは非表示。 */
     onOpenDebug: (() -> Unit)? = null,
-    /**
-     * レポート画面の駒台配置を左右（SIDES・実験）にするデバッグトグル。
-     * DEBUG ビルドのみ非 null（onOpenDebug と同じ規約）。採否は miyadoさんが実機で判断する。
-     */
+    /** 駒台配置を左右にする実験トグル。null = 非表示（[onOpenDebug] と同じ規約）。 */
 ) {
     var showThemeDialog by remember { mutableStateOf(false) }
     var showEvalDisplayDialog by remember { mutableStateOf(false) }
@@ -168,6 +148,13 @@ fun SettingsScreen(
             // onOpenAccount = null（Supabase未設定ビルド等）のときは節ごと非表示にする
             if (onOpenAccount != null) {
                 SettingsSectionHeader(AppStrings.SETTINGS_SECTION_DATA)
+                if (onCreateAccount != null) {
+                    SettingsRow(
+                        label = AppStrings.SETTINGS_CREATE_ACCOUNT,
+                        sub = AppStrings.SETTINGS_CREATE_ACCOUNT_SUB,
+                        onClick = onCreateAccount,
+                    )
+                }
                 SettingsRow(
                     label = AppStrings.SETTINGS_ROW_ACCOUNT,
                     sub = AppStrings.SETTINGS_ROW_ACCOUNT_SUB,

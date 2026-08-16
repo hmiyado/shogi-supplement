@@ -302,8 +302,8 @@ private fun DemoApp(
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { controller.dismissImport() }) {
-                        Text(AppStrings.CANCEL)
+                    TextButton(onClick = { controller.declineAccountAndContinueImport() }) {
+                        Text(AppStrings.IMPORT_ACCOUNT_NOTICE_DECLINE)
                     }
                 },
             )
@@ -864,6 +864,8 @@ private fun IosSettingsScreenHost(
         )
     }
 
+    var accountDeclined by remember { mutableStateOf(controller.isAccountDeclined()) }
+
     SettingsScreen(
         versionName = versionName,
         themeMode = themeMode,
@@ -874,6 +876,14 @@ private fun IosSettingsScreenHost(
         onOpenTransferCode = onOpenTransferCode,
         onOpenTransferCodeInput = if (services != null && analysisBaseUrl != null) {
             { showTransferCodeInput = true }
+        } else {
+            null
+        },
+        onCreateAccount = if (accountDeclined) {
+            {
+                controller.undoAccountDecline()
+                accountDeclined = false
+            }
         } else {
             null
         },

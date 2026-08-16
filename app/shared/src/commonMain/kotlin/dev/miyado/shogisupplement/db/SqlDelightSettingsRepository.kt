@@ -19,17 +19,7 @@ class SqlDelightSettingsRepository(private val database: ShogiSupplementDatabase
         }
     }
 
-    /**
-     * サービス申告情報（サービス名・raw値・ルール・アカウント名）をまとめて保存する（upsert）。
-     *
-     * 相応判定には使わない（記録専用 + 先後自動選択用）。
-     * rating（推定値）はここでは更新しない。
-     *
-     * @param service "lishogi" / "shogi_wars" / "kiou"（null = 未申告）
-     * @param ratingRaw サービス上のraw値（ウォーズ・棋桜は段級位を整数エンコード、null = 未申告）
-     * @param ratingRule ルール文字列（例: "10min" / "serious"、null = 未申告）
-     * @param serviceAccountName このサービスでのアカウント名（先後自動選択に使用）
-     */
+    /** いずれもnullは未申告。推定値のratingはここでは更新しない。 */
     override fun saveRatingSettings(
         service: String?,
         ratingRaw: Int?,
@@ -182,6 +172,16 @@ class SqlDelightSettingsRepository(private val database: ShogiSupplementDatabase
     /**
      * 解析後自動アップロード設定を保存する。
      */
+    override fun saveAccountDeclined(declined: Boolean) {
+        database.transaction {
+            database.shogiSupplementQueries.insertOrIgnoreDefaultSettings()
+            database.shogiSupplementQueries.updateAccountDeclined(if (declined) 1L else 0L)
+        }
+    }
+
+    override fun isAccountDeclined(): Boolean =
+        (database.shogiSupplementQueries.getAccountDeclined().executeAsOneOrNull() ?: 0L) != 0L
+
     override fun saveAutoUpload(enabled: Boolean) {
         database.transaction {
             database.shogiSupplementQueries.insertOrIgnoreDefaultSettings()
