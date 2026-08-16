@@ -34,7 +34,7 @@ class FakeAuthRepository(
         private set
 
     /** importSession に渡された引数（テスト検証用）。呼ばれていなければ null。 */
-    var lastImportedSession: Pair<String, String>? = null
+    var lastImportedSession: String? = null
         private set
 
     private val _currentUser = MutableStateFlow(initialUser)
@@ -69,8 +69,8 @@ class FakeAuthRepository(
         return deleteAccountResult
     }
 
-    override suspend fun importSession(accessToken: String, refreshToken: String): Result<Unit> {
-        lastImportedSession = accessToken to refreshToken
+    override suspend fun importSession(refreshToken: String): Result<Unit> {
+        lastImportedSession = refreshToken
         if (importSessionResult.isSuccess) {
             _currentUser.value = AuthUser(id = "fake-imported-uid")
         }

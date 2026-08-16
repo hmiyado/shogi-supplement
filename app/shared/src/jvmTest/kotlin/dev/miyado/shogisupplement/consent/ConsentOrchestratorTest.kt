@@ -53,7 +53,7 @@ class ConsentOrchestratorTest {
             return Result.success(Unit)
         }
 
-        override suspend fun importSession(accessToken: String, refreshToken: String): Result<Unit> {
+        override suspend fun importSession(refreshToken: String): Result<Unit> {
             _currentUser.value = AuthUser(id = "fake-imported-uid")
             return Result.success(Unit)
         }

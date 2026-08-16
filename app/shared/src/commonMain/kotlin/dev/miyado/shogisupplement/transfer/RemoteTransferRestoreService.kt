@@ -78,7 +78,7 @@ class RemoteTransferRestoreService(
         } catch (e: Exception) {
             return TransferRestoreResult.NetworkError(e.message ?: "malformed response")
         }
-        val imported = authRepository.importSession(session.accessToken, session.refreshToken)
+        val imported = authRepository.importSession(session.refreshToken)
         return imported.fold(
             onSuccess = {
                 transferSecretStore.save(secrets.toStored())

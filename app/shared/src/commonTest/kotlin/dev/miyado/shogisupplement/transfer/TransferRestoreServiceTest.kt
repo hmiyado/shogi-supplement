@@ -36,7 +36,7 @@ class TransferRestoreServiceTest {
     private class FakeAuthRepository(
         private val importSessionResult: Result<Unit> = Result.success(Unit),
     ) : AuthRepository {
-        var lastImported: Pair<String, String>? = null
+        var lastImported: String? = null
             private set
 
         override val currentUser: StateFlow<AuthUser?> = MutableStateFlow(null)
@@ -45,8 +45,8 @@ class TransferRestoreServiceTest {
         override suspend fun refreshSession(): Result<Unit> = Result.success(Unit)
         override suspend fun signOut(): Result<Unit> = Result.success(Unit)
         override suspend fun deleteAccount(): Result<Unit> = Result.success(Unit)
-        override suspend fun importSession(accessToken: String, refreshToken: String): Result<Unit> {
-            lastImported = accessToken to refreshToken
+        override suspend fun importSession(refreshToken: String): Result<Unit> {
+            lastImported = refreshToken
             return importSessionResult
         }
     }
@@ -143,7 +143,7 @@ class TransferRestoreServiceTest {
         val result = service(engine, authRepository, store).restore(validCode)
 
         assertEquals(TransferRestoreResult.Success, result)
-        assertEquals("at-1" to "rt-1", authRepository.lastImported)
+        assertEquals("rt-1", authRepository.lastImported)
         assertTrue(store.saved != null, "importSession成功後はSecretが保存されるはず")
     }
 

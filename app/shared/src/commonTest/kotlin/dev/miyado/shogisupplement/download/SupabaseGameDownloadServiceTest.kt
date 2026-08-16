@@ -48,7 +48,7 @@ class SupabaseGameDownloadServiceTest {
         override suspend fun refreshSession(): Result<Unit> = Result.success(Unit)
         override suspend fun signOut(): Result<Unit> = Result.success(Unit)
         override suspend fun deleteAccount(): Result<Unit> = Result.success(Unit)
-        override suspend fun importSession(accessToken: String, refreshToken: String): Result<Unit> =
+        override suspend fun importSession(refreshToken: String): Result<Unit> =
             Result.success(Unit)
     }
 

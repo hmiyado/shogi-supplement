@@ -30,7 +30,6 @@ class SupabaseAuthRepository(
             when (status) {
                 is SessionStatus.Authenticated -> {
                     val user = status.session.user
-                    // uid はサーバー連携用のみ（メールアドレスは保持しない）
                     user?.let { AuthUser(id = it.id) }
                 }
                 else -> null
@@ -43,7 +42,6 @@ class SupabaseAuthRepository(
         )
 
     override suspend fun signInAnonymously(): Result<Unit> = runCatching {
-        // Supabase Anonymous Auth: 初回はランダム uid の匿名アカウントを発行する
         supabase.auth.signInAnonymously()
     }
 
@@ -57,13 +55,14 @@ class SupabaseAuthRepository(
         supabase.auth.signOut()
     }
 
-    override suspend fun importSession(accessToken: String, refreshToken: String): Result<Unit> = runCatching {
-        supabase.auth.importAuthToken(accessToken, refreshToken, retrieveUser = true, autoRefresh = true)
+    override suspend fun importSession(refreshToken: String): Result<Unit> = runCatching {
+        // Why not importAuthToken: expiresIn=0 のセッションを組むため必ず期限切れ扱いになり、
+        // 認証の確定が join されない別コルーチンへ逃げる（成功が戻った時点ではまだ未認証）。
+        val session = supabase.auth.refreshSession(refreshToken)
+        supabase.auth.importSession(session, autoRefresh = true)
     }
 
     override suspend fun deleteAccount(): Result<Unit> = runCatching {
-        // Supabase 側の RPC（security definer）で auth.users から自分を削除。
-        // uploaded_games は on delete cascade で全行削除される。
         supabase.postgrest.rpc("delete_user")
         // サーバー上のユーザーは既に存在しないため、ローカルセッションのみ破棄する
         // （GLOBAL だとサーバーの logout エンドポイントを呼んで 4xx になり得る）。
