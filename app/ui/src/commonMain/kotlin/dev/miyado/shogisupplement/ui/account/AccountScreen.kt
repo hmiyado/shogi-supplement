@@ -44,19 +44,7 @@ import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
 
-// ─── ルートComposable ──────────────────────────────────────────────────────────
-
-/**
- * アカウント（棋譜提供）画面のルート Composable。
- *
- * AccountViewModel（androidx.lifecycle.ViewModel・Android専用）への直接依存を避けるため、
- * 状態hoisting＋コールバック方式にしている（ReportScreen・DrillQuestionContent等と同じ
- * パターン）。呼び出し元（MainActivity.kt の MainApp）が `accountVm.uiState.collectAsState()`
- * を直接 collect し、各操作を AccountViewModel のメソッド参照として渡す。
- *
- * @param state AccountViewModel から呼び出し元がホイストした UI 状態。
- * @param onOpenTerms 利用規約・プライバシーポリシー画面を開く
- */
+/** アカウント画面。作成・削除が主で、棋譜の保存は切り替えとして分ける。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AccountScreen(
@@ -120,13 +108,7 @@ fun AccountScreen(
     }
 }
 
-// ─── 未提供状態（データ提供していない） ────────────────────────────────────────
-
-/**
- * 未提供状態（匿名サインイン前）の画面。
- * 説明文＋「データ提供を有効にする」ボタンのみ。
- * メール・パスワード・同意チェックは存在しない。
- */
+/** 未作成の画面。メール・パスワードの入力欄は持たない。 */
 @Composable
 fun AccountNotProvidingContent(
     error: String? = null,
@@ -145,27 +127,27 @@ fun AccountNotProvidingContent(
             style = MaterialTheme.typography.headlineSmall,
         )
 
-        // 説明文
+        Text(
+            text = AppStrings.ACCOUNT_NOT_PROVIDING_DESCRIPTION,
+            style = MaterialTheme.typography.bodyMedium,
+        )
+
+        // 作る前に読む内容が画面ごとに食い違わないよう、オンボーディングと同じ定数を引く。
         Card(
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceVariant,
             ),
         ) {
-            Text(
-                text = AppStrings.ACCOUNT_NOT_PROVIDING_DESCRIPTION,
-                modifier = Modifier.padding(12.dp),
-                style = MaterialTheme.typography.bodyMedium,
-            )
+            Column(modifier = Modifier.padding(12.dp)) {
+                AppStrings.CONSENT_WITH_ACCOUNT_POINTS.forEach { point ->
+                    Row {
+                        Text(text = "・", style = MaterialTheme.typography.bodySmall)
+                        Text(text = point, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
         }
 
-        // 機種変更注意書き
-        Text(
-            text = AppStrings.ACCOUNT_DEVICE_TRANSFER_NOTE,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
-        // エラー表示
         if (error != null) {
             Card(
                 colors = CardDefaults.cardColors(
@@ -194,20 +176,7 @@ fun AccountNotProvidingContent(
     }
 }
 
-// ─── 提供中状態（データ提供中） ────────────────────────────────────────────────
-
-/**
- * 提供中状態（匿名サインイン済み）の画面。
- * アップロード済み件数＋自動アップロードトグル＋「提供をやめてデータを削除」ボタン。
- * uid・メールアドレスは一切表示しない。
- *
- * @param uploadedCount アップロード済みゲームの件数
- * @param autoUpload 自動アップロードの現在の設定（ON/OFF）
- * @param error 直前のエラーメッセージ（データ削除失敗など。null = エラーなし）
- * @param onAutoUploadChange トグルが変化したときのコールバック
- * @param onDeleteAccount 確認ダイアログで「削除する」を選んだときのコールバック
- * @param showDeleteDialogInitially 削除確認ダイアログを最初から表示する（VRT用）
- */
+/** 作成済みの画面。uid・メールアドレスは表示しない。 */
 @Composable
 fun AccountProvidingContent(
     uploadedCount: Int = 0,
@@ -246,7 +215,6 @@ fun AccountProvidingContent(
             style = MaterialTheme.typography.headlineSmall,
         )
 
-        // 提供状態カード
         Card {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(

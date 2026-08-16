@@ -128,7 +128,11 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
     // スキップして直接ホームへ進む。graceful degradation）。
     // 一度同意すれば以後のアプリ再起動でも再表示しない（フラグはDB永続化のため）。
     var showConsent by remember {
-        mutableStateOf(supabaseServices != null && settingsRepository.getConsentAcceptedAt() == null)
+        mutableStateOf(
+            supabaseServices != null &&
+                settingsRepository.getConsentAcceptedAt() == null &&
+                !settingsRepository.isAccountDeclined(),
+        )
     }
 
     val themeMode by controller.themeMode.collectAsState()
@@ -180,8 +184,13 @@ private fun IosConsentScreenHost(
 
     ConsentScreen(
         isSubmitting = isSubmitting,
-        onAccept = {
+        onAccept = { withAccount ->
             if (!isSubmitting) {
+                if (!withAccount) {
+                    services.consentOrchestrator.declineAccount()
+                    onAccepted()
+                    return@ConsentScreen
+                }
                 isSubmitting = true
                 scope.launch {
                     services.consentOrchestrator.acceptConsent()
@@ -423,7 +432,11 @@ private fun DemoApp(
             )
         }
         DemoRoute.Debug -> {
-            IosDebugScreenHost(onBack = { route = DemoRoute.Settings })
+            IosDebugScreenHost(
+                onBack = { route = DemoRoute.Settings },
+                gameRepository = gameRepository,
+                services = supabaseServices,
+            )
         }
         DemoRoute.Licenses -> {
             val libraries = remember { loadBundledLibraries() }
@@ -864,7 +877,7 @@ private fun IosSettingsScreenHost(
         )
     }
 
-    var accountDeclined by remember { mutableStateOf(controller.isAccountDeclined()) }
+    val accountDeclined = controller.isAccountDeclined()
 
     SettingsScreen(
         versionName = versionName,
@@ -879,14 +892,7 @@ private fun IosSettingsScreenHost(
         } else {
             null
         },
-        onCreateAccount = if (accountDeclined) {
-            {
-                controller.undoAccountDecline()
-                accountDeclined = false
-            }
-        } else {
-            null
-        },
+        onCreateAccount = if (accountDeclined) onOpenAccount else null,
         onThemeChange = { mode -> controller.saveThemeMode(mode) },
         onEvalDisplayChange = { mode -> controller.saveEvalDisplay(mode) },
         skipSideConfirm = skipSideConfirm,
@@ -902,7 +908,12 @@ private fun IosSettingsScreenHost(
 
 /** 保存・クリア後は永続値から再計算し、楽観的な状態を表示しない。 */
 @Composable
-private fun IosDebugScreenHost(onBack: () -> Unit) {
+private fun IosDebugScreenHost(
+    onBack: () -> Unit,
+    gameRepository: GameRepository,
+    services: SupabaseServices?,
+) {
+    val scope = rememberCoroutineScope()
     var effectiveInfo by remember { mutableStateOf(WasmSiteOverrideStore.effectiveInfo()) }
     val savedInitial = remember { WasmSiteOverrideStore.savedValue() ?: "" }
 
@@ -923,6 +934,15 @@ private fun IosDebugScreenHost(onBack: () -> Unit) {
         onClear = {
             WasmSiteOverrideStore.clear()
             effectiveInfo = WasmSiteOverrideStore.effectiveInfo()
+        },
+        // 解析エンジンのキャッシュは消さない: 初期状態の確認を繰り返すたびに
+        // 数十MBの再取得を強いるため。
+        onWipeLocalData = {
+            scope.launch {
+                services?.authRepository?.signOut()
+                services?.transferSecretStore?.clear()
+                gameRepository.deleteAllLocalData()
+            }
         },
     )
 }

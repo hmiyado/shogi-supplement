@@ -96,6 +96,11 @@ class AccountViewModel(
             val result = authRepository.signInAnonymously()
             result.fold(
                 onSuccess = {
+                    // この画面から作った場合も、オンボーディングで作った場合と同じ状態にする。
+                    withContext(ioDispatcher) {
+                        settingsRepository.saveAccountDeclined(false)
+                        settingsRepository.saveAutoUpload(true)
+                    }
                     // currentUser flow が LoggedIn に自動更新するが、
                     // Loading 中の上書きガードがあるため明示的に更新する
                     val autoUpload = withContext(ioDispatcher) { settingsRepository.getAutoUpload() }
@@ -126,10 +131,8 @@ class AccountViewModel(
     }
 
     /**
-     * 提供をやめてサーバー上のデータを削除する（確認ダイアログで承認済みの前提で呼ぶ）。
-     * 成功時: サーバー側データは cascade で消えているため、端末DBの uploaded_at を
-     * 全リセットして再アップロード可能な状態に戻し、未提供状態にする。
-     * 失敗時: 提供中状態を維持し、エラーメッセージを表示する。
+     * アカウントを削除する。サーバー側はcascadeで消えるため、端末の uploaded_at も
+     * 全リセットして再アップロードできる状態へ戻す。
      */
     fun deleteAccount() {
         val prev = _uiState.value as? AccountUiState.LoggedIn ?: return

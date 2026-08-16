@@ -284,22 +284,23 @@ object AppStrings {
     const val AUTH_ERROR_DELETE_GENERIC = "データの削除に失敗しました。時間をおいてお試しください"
 
 
-    const val ACCOUNT_SECTION_TITLE = "棋譜提供"
+    const val ACCOUNT_SECTION_TITLE = "アカウント"
     const val ACCOUNT_NOT_PROVIDING_DESCRIPTION =
-        "棋譜と解析結果を匿名でサーバーに提供できます。アプリの機能改善（棋力推定、悪手判定等アプリの機能に" +
-        "関連する統計分析や機械学習モデルの作成・改善を含む）に利用されることがあります。"
+        "匿名のアカウントを作成すると、サーバーでの解析が使えます。名前・メールアドレスの入力は必要ありません。"
     const val ACCOUNT_DEVICE_TRANSFER_NOTE =
-        "機種変更時、提供済みデータの紐付けは引き継がれません"
-    const val ACCOUNT_ENABLE_BUTTON = "データ提供を有効にする"
-    const val ACCOUNT_PROVIDING_STATUS = "提供中"
-    fun accountUploadedCount(count: Int): String = "アップロード済み ${count}局"
-    const val ACCOUNT_DISABLE_BUTTON = "提供をやめてデータを削除"
-    const val ACCOUNT_DELETE_DIALOG_TITLE = "提供をやめますか？"
+        "サーバーに保存した棋譜は、引き継ぎコードで別の端末へ移せます"
+    const val ACCOUNT_ENABLE_BUTTON = "アカウントを作成"
+    const val ACCOUNT_PROVIDING_STATUS = "作成済み"
+    fun accountUploadedCount(count: Int): String = "サーバーに保存した棋譜 ${count}局"
+    const val ACCOUNT_DISABLE_BUTTON = "アカウントを削除"
+    const val ACCOUNT_DELETE_DIALOG_TITLE = "アカウントを削除しますか？"
     const val ACCOUNT_DELETE_DIALOG_TEXT =
         "サーバー上の棋譜・解析結果がすべて削除されます。この操作は取り消せません"
+    const val ACCOUNT_UPLOAD_SECTION = "棋譜の保存"
     const val ACCOUNT_DELETE_CONFIRM = "削除する"
-    const val ACCOUNT_AUTO_UPLOAD_LABEL = "解析後に自動アップロード"
-    const val ACCOUNT_AUTO_UPLOAD_DESC = "解析完了後に棋譜を自動で送信します"
+    const val ACCOUNT_AUTO_UPLOAD_LABEL = "棋譜をサーバーに保存する"
+    const val ACCOUNT_AUTO_UPLOAD_DESC =
+        "解析した棋譜を保存します。研究・改善に匿名で利用され、引き継ぎのもとになります"
 
     /** 手動アップロードボタン（提供中画面）。count = 未アップロード件数。 */
     fun accountManualUploadButton(count: Int): String = "未アップロードの棋譜 ${count}局をアップロード"
@@ -482,6 +483,13 @@ object AppStrings {
     /** iOS専用デバッグ画面（WASMバイナリの配信元URL切替）のタイトル。 */
     const val DEBUG_SCREEN_TITLE = "デバッグ: 配信元URL"
 
+    const val DEBUG_WIPE_LOCAL_DATA = "端末内データをすべて削除"
+    const val DEBUG_WIPE_DIALOG_TITLE = "端末内データをすべて削除しますか？"
+    const val DEBUG_WIPE_DIALOG_TEXT =
+        "棋譜・解析結果・設定・引き継ぎコードを消し、初回起動と同じ状態にします。" +
+        "サーバー上のデータとダウンロード済みの解析エンジンは消えません。"
+    const val DEBUG_WIPE_DONE = "削除しました。アプリを再起動してください"
+
     /** 配信元URL入力欄のラベル。 */
     const val DEBUG_WASM_SITE_FIELD_LABEL = "配信元URL"
 
@@ -632,13 +640,22 @@ object AppStrings {
 
     const val CONSENT_TITLE = "はじめに"
     const val CONSENT_INTRO =
-        "将棋サプリは棋譜をサーバーで解析し、棋力帯相応の悪手をドリルとして出題します。" +
-        "解析にはサーバーを使うため、匿名のアカウントを作成します。名前・メールアドレスの入力は必要ありません。"
-    const val CONSENT_BETA_NOTICE = "ベータ版では1日30局まで早く解析できます。30局を超えると解析が遅くなります"
-    const val CONSENT_RESEARCH_UPLOAD_TEXT =
-        "解析した棋譜と結果を匿名で研究利用（アプリ改善・棋力推定の較正）のためにサーバーへ送信することに同意します"
-    const val CONSENT_REQUIRED_NOTE = "同意すると利用を開始できます。"
-    const val CONSENT_ACCEPT_BUTTON = "同意して始める"
+        "将棋サプリは棋譜を解析して棋力を推定し、棋力帯相応の悪手をドリルとして出題します。"
+
+    const val CONSENT_WITH_ACCOUNT_LABEL = "匿名のアカウントを作成して始める"
+    val CONSENT_WITH_ACCOUNT_POINTS = listOf(
+        "ベータ版では1日30局まで早く解析できます。30局を超えると解析が遅くなります",
+        "サーバーに棋譜を保存すると、機種変更のときに棋譜を引き継げます",
+        "名前・メールアドレスの入力は必要ありません",
+        "サーバーに保存した棋譜と結果は匿名で研究・改善（アプリ改善・棋力推定の較正）に利用されます",
+    )
+
+    const val CONSENT_WITHOUT_ACCOUNT_LABEL = "アカウントを作成せずに始める"
+    val CONSENT_WITHOUT_ACCOUNT_POINTS = listOf(
+        "解析は端末内で行います。棋譜はサーバーに送信されません",
+    )
+
+    const val CONSENT_ACCEPT_BUTTON = "規約に同意して始める"
 
     // ═══ 32. 引き継ぎコード表示・入力（設定画面）══════════════════════════════════
 

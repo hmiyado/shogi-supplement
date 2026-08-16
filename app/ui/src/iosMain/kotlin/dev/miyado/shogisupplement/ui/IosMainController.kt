@@ -741,10 +741,13 @@ class IosMainController(
     }
 
     /**
-     * engineless版には端末フォールバックがないため、URL未設定を専用エラーとして先に返す。
+     * Why not アカウントを作らない端末にも返す: その場合は端末内WASMで解析するため、
+     * サーバーURLの有無は結果に影響しない。
      */
     private fun analyzerConfigurationError(): AnalysisOrchestrator.Outcome.Failed? =
-        if (!IosEngineHost.ENGINE_LINKED && analysisBaseUrl == null) {
+        if (!IosEngineHost.ENGINE_LINKED && analysisBaseUrl == null &&
+            !settingsRepository.isAccountDeclined()
+        ) {
             AnalysisOrchestrator.Outcome.Failed(AppStrings.ANALYSIS_SERVER_NOT_CONFIGURED)
         } else {
             null
@@ -757,6 +760,11 @@ class IosMainController(
     private fun buildAnalyzer(): GameAnalyzer {
         val auth = authRepository
         val baseUrl = analysisBaseUrl
+        // アカウントを作らない端末はサーバーを使えないため、エンジン非同梱ビルドでも
+        // 動く端末内WASMを単独で使う（else側はネイティブエンジンを前提にしている）。
+        if (!serverAnalysisAvailable() && !IosEngineHost.ENGINE_LINKED) {
+            return WasmAnalysisRunner()
+        }
         return if (serverAnalysisAvailable() && auth != null && baseUrl != null) {
             // 429・障害・接続断では同条件のWASMで最初から再解析する。426では切り替えない。
             FailoverAnalyzer(
