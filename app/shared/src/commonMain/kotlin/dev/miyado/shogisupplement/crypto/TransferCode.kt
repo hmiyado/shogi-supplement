@@ -28,8 +28,11 @@ object TransferCode {
             (encodeBase32(data) + checksumSymbol(data)).chunked(GROUP_SIZE).joinToString("-")
         }
 
-    /** [secret] を表示用の引き継ぎコード文字列にエンコードする（5文字ごとにハイフン区切り）。 */
-    fun encode(secret: ByteArray): String {
+    /**
+     * Why not 公開する: 引き直した端末の保存値は2つぶんの長さになり、こちらへ渡すと
+     * 長さ検査で落ちる。外からは [TransferSecrets] を受ける方だけを使う。
+     */
+    internal fun encode(secret: ByteArray): String {
         require(secret.size == TRANSFER_SECRET_BYTES) {
             "secretは${TRANSFER_SECRET_BYTES}バイトである必要があります: ${secret.size}"
         }

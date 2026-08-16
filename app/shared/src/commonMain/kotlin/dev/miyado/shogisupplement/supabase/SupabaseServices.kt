@@ -78,8 +78,8 @@ class SupabaseServices(
      * （[TransferSecretManager.getOrCreateSecret] 参照）。
      */
     suspend fun getOrCreateTransferCode(): String {
-        val secret = TransferSecretManager.getOrCreateSecret(transferSecretStore)
-        return TransferCode.encode(secret)
+        val secrets = TransferSecretManager.getOrCreateSecrets(transferSecretStore)
+        return TransferCode.encode(secrets)
     }
 
     /** 強制アップデートポリシー（`app_policy`）のanon SELECT。 */
