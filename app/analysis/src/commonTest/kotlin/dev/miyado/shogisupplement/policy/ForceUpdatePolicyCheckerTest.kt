@@ -106,6 +106,8 @@ class ForceUpdatePolicyCheckerTest {
         override fun getLastUserSide(): String? = null
         override fun saveConsentAcceptedAt(epochSeconds: Long) {}
         override fun getConsentAcceptedAt(): Long? = null
+        override fun saveAccountDeclined(declined: Boolean) {}
+        override fun isAccountDeclined(): Boolean = false
         override fun saveAutoUpload(enabled: Boolean) {}
         override fun getAutoUpload(): Boolean = false
         override fun saveThemeMode(themeMode: String) {}
