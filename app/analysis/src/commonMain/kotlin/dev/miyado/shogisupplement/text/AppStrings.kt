@@ -795,7 +795,7 @@ object AppStrings {
 
     const val GAME_RESTORE_ERROR_NOT_AUTHENTICATED = "ログイン状態を確認できませんでした。設定からやり直してください。"
     const val GAME_RESTORE_ERROR_NO_SECRET = "復元用のデータが見つかりませんでした。もう一度お試しください。"
-    const val GAME_RESTORE_ERROR_NETWORK = "通信に失敗しました。しばらくしてから再度お試しください。"
+    const val GAME_RESTORE_ERROR_NETWORK = "棋譜を取得できませんでした。しばらくしてから再度お試しください。"
     const val GAME_RESTORE_RETRY_BUTTON = "再試行"
 
     /** ダウンロード復元した棋譜のfileName。開始日時ヘッダがあればそれを使い、無ければ汎用ラベル。 */
