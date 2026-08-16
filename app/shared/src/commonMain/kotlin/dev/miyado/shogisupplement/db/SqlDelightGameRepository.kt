@@ -96,16 +96,7 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
         }
     }
 
-    /**
-     * デモ/開発用フィクスチャ投入ヘルパー（iOSデモのドリルブートストラップ用）。
-     *
-     * [saveAnalysis] は指し手列（moves）から全局面のSFENを再計算して sfen_before を決めるが、
-     * KIF実データを持たない合成フィクスチャ（iOSデモの初回DB空対策）では、指し手列を持たずに
-     * 特定の局面SFENをそのまま保存したい。そのため sfenBefore を呼び出し元から直接受け取る
-     * 専用の1件投入ヘルパーとして分離してある（[saveAnalysis] 自体のロジック・シグネチャは変更しない）。
-     *
-     * @return 新しく作成された game_id
-     */
+    /** デモ/開発用フィクスチャ投入ヘルパー（iOSデモのドリルブートストラップ用）。 */
     override fun seedFixtureBlunder(
         fileName: String,
         contentHash: String,
@@ -252,15 +243,7 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
 
     // ─── position_eval（全局面評価値）────────────────────────────────────────────
 
-    /**
-     * 全局面の評価値を一括保存する（先手視点 cp に正規化済み）。
-     *
-     * - ply = evals リストのインデックス（0 = 初期局面、N = N 手後の局面）
-     * - scoreCp: 先手視点 cp（正 = 先手優勢）。詰み局面は null
-     * - mateIn: 詰みまでの手数（正 = 先手が詰ます、負 = 後手が詰ます）。非詰みは null
-     *
-     * 同一 (game_id, ply) は OR REPLACE で上書きされる。
-     */
+    /** 全局面の評価値を一括保存する（先手視点 cp に正規化済み）。 */
     override fun savePositionEvals(gameId: Long, rows: List<PositionEvalRow>) {
         database.transaction {
             rows.forEach { row ->
@@ -278,13 +261,7 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
         }
     }
 
-    /**
-     * 指定ゲームの全局面評価値を ply 昇順で返す。
-     *
-     * best_usi/second_usi はエンジン一致率算出に使うため含める。score_cp/mate_in 以外の
-     * 値を追加で読んでも、既存の呼び出し側（評価値の手送り表示）は参照しないフィールドが
-     * 増えるだけで影響しない。
-     */
+    /** 指定ゲームの全局面評価値を ply 昇順で返す。 */
     override fun getPositionEvals(gameId: Long): List<PositionEvalRow> {
         return database.shogiSupplementQueries
             .getPositionEvalsByGameId(gameId)
@@ -298,6 +275,17 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
                     secondUsi = it.second_usi,
                 )
             }
+    }
+    override fun deleteAllLocalData() {
+        database.transaction {
+            database.shogiSupplementQueries.deleteAllBlunderReports()
+            database.shogiSupplementQueries.deleteAllPositionEvals()
+            database.shogiSupplementQueries.deleteAllDrillAttempts()
+            database.shogiSupplementQueries.deleteAllGames()
+            database.shogiSupplementQueries.deleteAllServiceRanks()
+            database.shogiSupplementQueries.deleteAllServiceAccounts()
+            database.shogiSupplementQueries.deleteAllUserSettings()
+        }
     }
 }
 
@@ -355,14 +343,7 @@ internal fun Blunder_report.toBlunderRecord() = BlunderRecord(
     secondCp = second_cp,
 )
 
-/**
- * 保存済み note の表記を現行の表示形式に正規化する。
- * - 詰み手数バケット表記（1手/3手/5手/7手+）→ missed_mate_in の実手数
- * - 帯名のレート表記（例 1600-1899）→ 偏差値帯ラベル
- * DBマイグレーションで一括書き換えしない理由: note は自由文で、置換対象の特定を
- * 保存済み文字列だけに依存させると係数表やバケット定義の変更に追随できない。
- * 読み出し時置換なら missed_mate_in・帯名マップを常に正として表示できる。
- */
+/** 保存済み note の表記を現行の表示形式に正規化する。 */
 private fun normalizeLegacyNote(note: String, missedMateIn: Long?): String {
     var s = note
     if (missedMateIn != null) {
@@ -374,22 +355,7 @@ private fun normalizeLegacyNote(note: String, missedMateIn: Long?): String {
     return s
 }
 
-/**
- * 保存済み source_place の表記を [KifuSource] の正規化値（wireValue）に揃える。
- * このメソッドが唯一実装される前は生の「場所」ヘッダ値（ウォーズの固定文字列・lishogiの
- * 対局URL等）をそのまま保存していたため、既存行にはその生値が残っている。
- * normalizeLegacyNote と同じ「読み出し時に正規化する」パターンを踏襲する
- * （DBマイグレーションで一括書き換えしない理由も同様: 判定ロジック側の変更に
- * 表示側が自動的に追随できる）。
- *
- * 判定は [KifuDecomposer.classifySource] に一本化してあり、保存経路（新規行）と
- * ここ（既存行の読み出し）が別々の判定基準を持つことはない。
- *
- * Why not KIF原文まで遡って判定すること: source_place列だけでは棋桜のマーカー行
- * （KIF本文）が失われているため、判定できるのは「場所」ヘッダ由来のウォーズ／lishogiのみ。
- * それ以外（旧kiouの記録＝場所ヘッダ無しでnullのものを含む）は再解析なしに区別できないため、
- * nullはnullのまま、それ以外の非正規化値はotherとして扱う。
- */
+/** 保存済み source_place の表記を [KifuSource] の正規化値（wireValue）に揃える。 */
 private fun normalizeLegacySourcePlace(sourcePlace: String?): String? {
     if (sourcePlace == null) return null
     if (KifuSource.entries.any { it.wireValue == sourcePlace }) return sourcePlace
@@ -431,5 +397,5 @@ private fun convertLegacySfen(sfenBefore: String): String {
         board.push(ShogiMove.fromUsi(usiStr))
     }
     return board.toSfen()
-}
 
+}

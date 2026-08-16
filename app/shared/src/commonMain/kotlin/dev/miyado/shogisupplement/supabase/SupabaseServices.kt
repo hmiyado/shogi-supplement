@@ -34,7 +34,7 @@ class SupabaseServices(
     supabaseKey: String,
     gameRepository: GameRepository,
     settingsRepository: SettingsRepository,
-    private val transferSecretStore: TransferSecretStore,
+    val transferSecretStore: TransferSecretStore,
     platform: String,
 ) {
     private val client = createSupabaseClient(

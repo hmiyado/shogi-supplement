@@ -9,6 +9,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Button
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import dev.miyado.shogisupplement.ui.common.ShogiSecondaryButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -34,26 +37,8 @@ import dev.miyado.shogisupplement.ui.theme.shogiColors
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
 /**
- * DEBUGビルド限定のデバッグ画面（iOS。SettingsScreenの「デバッグ画面」行から遷移）。
- *
- * 現状の内容はWASMバイナリ（検討モードの端末内解析）の配信元URL切替のみ。実機
- * （`devicectl`起動）では環境変数 `KENTO_SITE_BASE_URL_OVERRIDE` を注入できないため、
- * この画面から入力・永続保存して起動方法を問わず切り替えられるようにする狙い
- * （実際の優先順位判定・保存はプラットフォーム側。iOSは
- * `IosDebugScreenHost`/`WasmSiteOverrideStore`、Swift側は `KentoAssetCache.swift`）。
- *
- * Androidの駒配置デバッグ（androidApp/.../DebugScreen.kt）とは別画面。Android側は
- * Context・NotificationManager等プラットフォームAPI依存が強く、この画面（:ui commonMain）へ
- * 統合するメリットが薄いため対象外とした。
- *
- * [siteBaseUrlInputInitial] は入力欄の初期値（保存済みならその値、無ければ空文字）。
- * [effectiveSiteBaseUrl]・[effectiveSiteBaseUrlSource] は現在実際に使われる値とその由来
- * （環境変数／保存値／本番。優先順位の実体はSwift側 `KentoAssetCache.siteBaseURL` にある。
- * ここは表示専用）。この関数自身は複製した内部状態を持たない
- * （保存・クリア後の反映は、更新後の値をこの関数へ渡し直すことで行う。楽観的にここで
- * 書き換えると、実際の優先順位判定（環境変数の有無等）とズレる可能性があるため）。
- * [onSave] は正規化・保存を行い、成功なら true を返す
- * （失敗＝不正なURL入力は保存せずエラー表示のみ）。
+ * Why not 保存後の値をここで組み立てる: 優先順位（環境変数＞保存値＞本番）は
+ * プラットフォーム側が持つ。更新後の値を渡し直してもらう。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -64,7 +49,11 @@ fun DebugScreen(
     effectiveSiteBaseUrlSource: String,
     onSave: (String) -> Boolean,
     onClear: () -> Unit,
+    /** null = 削除の導線を出さない（この画面を消さずに機能だけ隠すため）。 */
+    onWipeLocalData: (() -> Unit)? = null,
 ) {
+    var showWipeConfirm by remember { mutableStateOf(false) }
+    var wiped by remember { mutableStateOf(false) }
     var input by remember { mutableStateOf(siteBaseUrlInputInitial) }
     // 保存直後の一時フィードバック用。表示種別だけを持ち、テキストはStatusSlotが解決する
     // （エラー/成功どちらでもスロットの高さを変えないため。DESIGN.mdのNo-jitter原則）。
@@ -145,7 +134,38 @@ fun DebugScreen(
                     },
                 ) { Text(AppStrings.DEBUG_WASM_SITE_CLEAR) }
             }
+
+            if (onWipeLocalData != null) {
+                Spacer(Modifier.height(24.dp))
+                ShogiSecondaryButton(onClick = { showWipeConfirm = true }) {
+                    Text(AppStrings.DEBUG_WIPE_LOCAL_DATA)
+                }
+                if (wiped) {
+                    Text(
+                        text = AppStrings.DEBUG_WIPE_DONE,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
         }
+    }
+
+    if (showWipeConfirm && onWipeLocalData != null) {
+        AlertDialog(
+            onDismissRequest = { showWipeConfirm = false },
+            title = { Text(AppStrings.DEBUG_WIPE_DIALOG_TITLE) },
+            text = { Text(AppStrings.DEBUG_WIPE_DIALOG_TEXT) },
+            confirmButton = {
+                TextButton(onClick = {
+                    onWipeLocalData()
+                    showWipeConfirm = false
+                    wiped = true
+                }) { Text(AppStrings.ACCOUNT_DELETE_CONFIRM) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showWipeConfirm = false }) { Text(AppStrings.CANCEL) }
+            },
+        )
     }
 }
 

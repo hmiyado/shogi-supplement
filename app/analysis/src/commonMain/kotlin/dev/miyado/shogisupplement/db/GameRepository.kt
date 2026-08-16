@@ -3,27 +3,11 @@ package dev.miyado.shogisupplement.db
 import dev.miyado.shogisupplement.pipeline.BlunderReport
 import dev.miyado.shogisupplement.util.currentEpochSeconds
 
-/** 棋譜・悪手レポート・局面評価値の永続化リポジトリのインターフェース。 */
+/** 棋譜・悪手レポート・局面評価の永続化。 */
 interface GameRepository {
 
-    /**
-     * 解析結果をDBに保存し、新しい game_id を返す。
-     *
-     * @param fileName ファイル名（表示用）
-     * @param contentHash KIFコンテンツのSHA-256ハッシュ（重複検出用）
-     * @param moves USI手列
-     * @param headers KIFヘッダ（先手/後手名など）
-     * @param reports 悪手レポートリスト
-     * @param rating ユーザーレート
-     * @param coefVersion 係数バージョン
-     * @param analyzedAt 解析時刻（Unix epoch秒）
-     * @param kifText KIF原文（今後の解析分から保存。旧解析はnull）
-     * @param userSide ユーザーの側（"sente"/"gote"/null）
-     * @param ratingService レートのサービス名（"lishogi"/"shogi_wars"/"kiou"）
-     * @param ratingRaw サービス上のraw値（ウォーズは段級位を整数エンコード）
-     * @param sourcePlace 出典サービスの正規化値
-     * @return 新しく作成されたgame_id
-     */
+    /** 解析結果を保存し、新しい game_id を返す。 */
+
     fun saveAnalysis(
         fileName: String,
         contentHash: String,
@@ -113,4 +97,7 @@ interface GameRepository {
 
     /** 指定ゲームの全局面評価値を ply 昇順で返す。 */
     fun getPositionEvals(gameId: Long): List<PositionEvalRow>
+
+    /** 端末内のデータをすべて消す（デバッグ画面の初期状態からの動作確認用）。 */
+    fun deleteAllLocalData()
 }

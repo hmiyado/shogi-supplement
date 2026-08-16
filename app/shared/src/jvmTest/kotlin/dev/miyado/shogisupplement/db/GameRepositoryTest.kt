@@ -305,7 +305,7 @@ class GameRepositoryTest {
 
     // 正規化前は「場所」ヘッダの生値をそのまま source_place に保存していたため、
     // 既存行にはその生値（ウォーズの固定文字列・lishogiの対局URL・任意の文字列）が残っている。
-    // saveAnalysis の sourcePlace 引数は呼び出し側（AnalysisOrchestrator）が正規化する前提の
+    // saveAnalysis の sourcePlace 引数は正規化済みの値を受け取る前提の
     // ため、以下のテストでは生値を直接渡して「正規化前に保存された既存行」を再現する。
 
     @Test
@@ -493,3 +493,4 @@ class GameRepositoryTest {
         assertEquals("7g7f 3c3d 2g2f", updated.bestPv)
     }
 }
+

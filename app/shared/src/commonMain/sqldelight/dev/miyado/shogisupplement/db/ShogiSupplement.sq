@@ -290,3 +290,24 @@ SELECT * FROM position_eval WHERE game_id = ? ORDER BY ply;
 
 deletePositionEvalsByGameId:
 DELETE FROM position_eval WHERE game_id = ?;
+
+deleteAllGames:
+DELETE FROM game;
+
+deleteAllBlunderReports:
+DELETE FROM blunder_report;
+
+deleteAllPositionEvals:
+DELETE FROM position_eval;
+
+deleteAllDrillAttempts:
+DELETE FROM drill_attempt;
+
+deleteAllServiceRanks:
+DELETE FROM service_rank;
+
+deleteAllServiceAccounts:
+DELETE FROM service_account;
+
+deleteAllUserSettings:
+DELETE FROM user_settings;

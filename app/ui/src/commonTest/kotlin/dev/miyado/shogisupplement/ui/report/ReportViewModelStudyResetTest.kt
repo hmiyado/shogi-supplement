@@ -72,7 +72,9 @@ class ReportViewModelStudyResetTest {
         override fun updateBestPv(blunderId: Long, newPv: String) = Unit
         override fun savePositionEvals(gameId: Long, rows: List<PositionEvalRow>) = Unit
         override fun getPositionEvals(gameId: Long): List<PositionEvalRow> = emptyList()
+        override fun deleteAllLocalData() = Unit
     }
+
 
     @Test
     fun `loadReportを呼ぶと検討状態が畳まれてnullになる`() = runTest {

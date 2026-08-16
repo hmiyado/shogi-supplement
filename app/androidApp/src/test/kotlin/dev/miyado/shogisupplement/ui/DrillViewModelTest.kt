@@ -75,6 +75,7 @@ class DrillViewModelTest {
         override fun newGame() {}
     }
 
+
     /** 同一インメモリDBを共有する GameRepository/DrillRepository/SettingsRepository の組。 */
     private class TestRepos(
         val game: GameRepository,

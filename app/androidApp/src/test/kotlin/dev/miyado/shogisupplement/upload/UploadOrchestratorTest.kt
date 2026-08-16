@@ -27,7 +27,7 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class UploadOrchestratorTest {
 
-    /** UploadOrchestrator と、検証に使う同一DB上の GameRepository/SettingsRepository の組。 */
+    /** UploadOrchestrator と、同一DB上の GameRepository/SettingsRepository の組。 */
     private data class Built(
         val orchestrator: UploadOrchestrator,
         val upload: FakeUploadRepository,
@@ -226,3 +226,4 @@ class UploadOrchestratorTest {
         assertNull(db.getGameById(gameId)?.uploadedAt)
     }
 }
+

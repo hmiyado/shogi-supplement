@@ -324,3 +324,4 @@ class AccountViewModelTest {
         assertTrue(vm.uiState.value is AccountUiState.NotLoggedIn)
     }
 }
+
