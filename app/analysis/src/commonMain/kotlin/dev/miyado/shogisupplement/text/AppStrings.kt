@@ -667,6 +667,14 @@ object AppStrings {
         "画面の写真やメモアプリなど、安全な場所に控えてください。"
     const val TRANSFER_CODE_COPY_BUTTON = "コピー"
     const val TRANSFER_CODE_COPIED = "コピーしました"
+    const val TRANSFER_CODE_REGENERATE_BUTTON = "コードを作り直す"
+    const val TRANSFER_CODE_REGENERATE_DIALOG_TITLE = "コードを作り直しますか？"
+    const val TRANSFER_CODE_REGENERATE_DIALOG_TEXT =
+        "新しいコードを発行し、いまのコードは使えなくなります。" +
+        "サーバーに保存した棋譜はそのまま引き継げます。"
+    const val TRANSFER_CODE_REGENERATE_CONFIRM = "作り直す"
+    const val TRANSFER_CODE_REGENERATE_FAILED = "作り直しに失敗しました。時間をおいてお試しください"
+
     const val TRANSFER_CODE_REVEAL_ICON_DESC = "コードを表示"
     const val TRANSFER_CODE_HIDE_ICON_DESC = "コードを隠す"
 

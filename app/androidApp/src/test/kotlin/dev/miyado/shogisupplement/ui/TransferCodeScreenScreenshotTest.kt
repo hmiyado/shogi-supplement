@@ -8,6 +8,7 @@ import androidx.compose.ui.test.performClick
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
 import com.github.takahirom.roborazzi.RoborazziOptions
 import com.github.takahirom.roborazzi.captureRoboImage
+import com.github.takahirom.roborazzi.captureScreenRoboImage
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
 import dev.miyado.shogisupplement.ui.transfercode.TransferCodeScreen
 import org.junit.Rule
@@ -17,10 +18,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-/**
- * 引き継ぎコード表示画面の VRT。
- * 既定の伏字表示・表示トグル後の生値表示・ダークの3状態を golden にする。
- */
+/** 引き継ぎコード表示のVRT（伏字・生値・作り直し）。 */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(
@@ -52,6 +50,45 @@ class TransferCodeScreenScreenshotTest {
         composeRule.waitForIdle()
         composeRule.onRoot().captureRoboImage(
             filePath = "src/test/snapshots/transfer_code_masked_default.png",
+            roborazziOptions = roborazziOptions,
+        )
+    }
+
+    @Test
+    fun transfer_code_regenerate_available() {
+        composeRule.setContent {
+            ShogiTheme {
+                Surface {
+                    TransferCodeScreen(code = sampleCode, onBack = {}, onRegenerate = {})
+                }
+            }
+        }
+        composeRule.waitForIdle()
+        composeRule.onRoot().captureRoboImage(
+            filePath = "src/test/snapshots/transfer_code_regenerate_available.png",
+            roborazziOptions = roborazziOptions,
+        )
+    }
+
+    @OptIn(ExperimentalRoborazziApi::class)
+    @Test
+    fun transfer_code_regenerate_confirm() {
+        composeRule.setContent {
+            ShogiTheme {
+                Surface {
+                    TransferCodeScreen(
+                        code = sampleCode,
+                        onBack = {},
+                        onRegenerate = {},
+                        showRegenerateDialogInitially = true,
+                    )
+                }
+            }
+        }
+        composeRule.waitForIdle()
+        // ダイアログは別ウィンドウに描画されるため、画面全体で撮る。
+        captureScreenRoboImage(
+            filePath = "src/test/snapshots/transfer_code_regenerate_confirm.png",
             roborazziOptions = roborazziOptions,
         )
     }

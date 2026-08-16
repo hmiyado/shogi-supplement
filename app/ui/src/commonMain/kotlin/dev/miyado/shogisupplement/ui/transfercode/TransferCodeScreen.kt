@@ -11,6 +11,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import dev.miyado.shogisupplement.ui.common.ShogiSecondaryButton
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -41,12 +44,8 @@ private const val TRANSFER_CODE_MASK_CHAR = '*'
 private const val TRANSFER_CODE_GROUPS_PER_LINE = 3
 
 /**
- * 表示用にグループ単位の明示改行で整形する（マスク時は値だけ伏せ、区切り・行構造は不変）。
- *
- * Why not ソフトラップに任せる: 折返し位置が字幅に依存し、フォント解決の差
- * （マスク文字のフォールバック・プラットフォーム差）でマスク⇔生値の切替時に
- * 行構成がズレる（•(U+2022)・*とも実機で再現）。明示改行なら字幅と無関係に
- * 両状態の行構成が構造的に一致する（DESIGN.md No-jitter）。
+ * Why not ソフトラップ: 折返しが字幅に依存し、伏字と生値の切替で行構成がズレる。
+ * 明示改行なら字幅と無関係に両状態の行構成が一致する（DESIGN.md No-jitter）。
  */
 private fun formatTransferCodeForDisplay(rawCode: String, mask: Boolean): String =
     rawCode.split('-')
@@ -54,26 +53,20 @@ private fun formatTransferCodeForDisplay(rawCode: String, mask: Boolean): String
         .chunked(TRANSFER_CODE_GROUPS_PER_LINE)
         .joinToString("\n") { it.joinToString("-") }
 
-/**
- * 引き継ぎコード表示画面（設定→引き継ぎコード）。
- *
- * 設計書 付録「引き継ぎコードの詳細仕様」節が仕様の正。コード自体（[TransferCode.encode] の
- * 出力）は端末シークレットSの人間可読表現で、他人に渡ると棋譜・アカウントへアクセスできる
- * ため、注意文言を必ず併記する。入力（復元）フローはこのタスクの範囲外（別タスク）。
- *
- * @param code 表示するコード文字列（ハイフン区切り済み）。null = 読み込み中
- *   （S生成・派生はsuspendのため、呼び出し側がLaunchedEffectで非同期に用意する）。
- * @param onCopy コピー操作。コード文字列を渡すのでプラットフォーム側クリップボードへ書き込む
- *   （ReportScreen の onCopyKif と同じパターン）。
- */
+/** 引き継ぎコード表示画面（作り直しの導線を含む）。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransferCodeScreen(
     code: String?,
     onBack: () -> Unit,
     onCopy: (String) -> Unit = {},
+    /** null = 作り直しの導線を出さない（サーバー未設定ビルド）。 */
+    onRegenerate: (() -> Unit)? = null,
+    regenerateError: String? = null,
+    showRegenerateDialogInitially: Boolean = false,
 ) {
     var justCopied by remember { mutableStateOf(false) }
+    var showRegenerateConfirm by remember { mutableStateOf(showRegenerateDialogInitially) }
     // パスワード同様の秘密のため既定で伏せる。コピー操作はこのフラグを条件にしない
     // ——伏字のままでも安全な場所への控えができる必要があるため。
     var revealed by remember { mutableStateOf(false) }
@@ -158,9 +151,42 @@ fun TransferCodeScreen(
                             },
                         )
                     }
+
+                    if (onRegenerate != null) {
+                        ShogiSecondaryButton(
+                            onClick = { showRegenerateConfirm = true },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(AppStrings.TRANSFER_CODE_REGENERATE_BUTTON)
+                        }
+                    }
+                    if (regenerateError != null) {
+                        Text(
+                            text = regenerateError,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
                 }
             }
         }
+    }
+
+    if (showRegenerateConfirm && onRegenerate != null) {
+        AlertDialog(
+            onDismissRequest = { showRegenerateConfirm = false },
+            title = { Text(AppStrings.TRANSFER_CODE_REGENERATE_DIALOG_TITLE) },
+            text = { Text(AppStrings.TRANSFER_CODE_REGENERATE_DIALOG_TEXT) },
+            confirmButton = {
+                TextButton(onClick = {
+                    showRegenerateConfirm = false
+                    onRegenerate()
+                }) { Text(AppStrings.TRANSFER_CODE_REGENERATE_CONFIRM) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRegenerateConfirm = false }) { Text(AppStrings.CANCEL) }
+            },
+        )
     }
 }
 

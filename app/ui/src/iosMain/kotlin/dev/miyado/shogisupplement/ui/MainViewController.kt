@@ -981,6 +981,9 @@ private fun IosTransferCodeScreenHost(
     onBack: () -> Unit,
 ) {
     var code by remember { mutableStateOf<String?>(null) }
+    var regenerateError by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+
     LaunchedEffect(services) {
         code = services.getOrCreateTransferCode()
     }
@@ -988,6 +991,19 @@ private fun IosTransferCodeScreenHost(
         code = code,
         onBack = onBack,
         onCopy = { text -> UIPasteboard.generalPasteboard.string = text },
+        onRegenerate = {
+            scope.launch {
+                // 表示を先に消す: 差し替え中に古いコードを書き写させない。
+                code = null
+                regenerateError = null
+                val result = services.transferSecretRegistrar.rotate()
+                if (result.isFailure) {
+                    regenerateError = AppStrings.TRANSFER_CODE_REGENERATE_FAILED
+                }
+                code = services.getOrCreateTransferCode()
+            }
+        },
+        regenerateError = regenerateError,
     )
 }
 
