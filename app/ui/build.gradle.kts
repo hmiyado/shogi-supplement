@@ -87,7 +87,7 @@ kotlin {
 
 android {
     namespace = "dev.miyado.shogisupplement.ui"
-    compileSdk = 36
+    compileSdk = 37
     defaultConfig {
         minSdk = 29
     }

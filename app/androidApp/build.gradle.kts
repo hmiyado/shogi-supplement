@@ -26,12 +26,12 @@ aboutLibraries {
 
 android {
     namespace = "dev.miyado.shogisupplement"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "dev.miyado.shogisupplement"
         minSdk = 29
-        targetSdk = 36
+        targetSdk = 37
         // gradle.propertiesのshogisupplement.versionCodeが単一の値源（:sharedのBuildConfigと共用。
         // 詳細はgradle.propertiesのコメント参照）。
         versionCode = providers.gradleProperty("shogisupplement.versionCode").get().toInt()

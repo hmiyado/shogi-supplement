@@ -185,7 +185,7 @@ kotlin {
 
 android {
     namespace = "dev.miyado.shogisupplement.shared"
-    compileSdk = 36
+    compileSdk = 37
     defaultConfig {
         minSdk = 29
         // 強制アップデート判定用のビルド番号（policy/BuildNumber.android.kt参照）。
