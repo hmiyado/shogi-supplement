@@ -2,7 +2,7 @@
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
-    alias(libs.plugins.androidLibrary)
+    alias(libs.plugins.androidKmpLibrary)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.kotlinSerialization)
@@ -11,7 +11,15 @@ plugins {
 kotlin {
     jvmToolchain(libs.versions.jvm.toolchain.get().toInt())
 
-    androidTarget()
+    android {
+        namespace = "dev.miyado.shogisupplement.ui"
+        compileSdk = 37
+        minSdk = 29
+        withHostTest {}
+        androidResources {
+            enable = true
+        }
+    }
 
     // iOS: ComposeUIViewController のエントリを提供する umbrella framework。
     // :shared を export し、iosApp 側は SharedUi のみをリンクすればよい構成にする
@@ -30,7 +38,7 @@ kotlin {
 
     // CMP for Web（Kotlin/Wasm）本実装向け。:analysis/:kifu と同じ理由で
     // browser側のtestTaskは無効化する（ヘッドレスブラウザ未整備・:ui:allTestsの対象は
-    // testDebugUnitTest/iosSimulatorArm64Testのまま変えない）。
+    // testAndroidHostTest/iosSimulatorArm64Testのまま変えない）。
     wasmJs {
         browser {
             binaries.executable()
@@ -82,14 +90,6 @@ kotlin {
             implementation(libs.ktor.client.darwin)
             implementation(libs.kotlinx.serialization.json)
         }
-    }
-}
-
-android {
-    namespace = "dev.miyado.shogisupplement.ui"
-    compileSdk = 37
-    defaultConfig {
-        minSdk = 29
     }
 }
 

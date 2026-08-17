@@ -3,13 +3,18 @@
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.kotlinSerialization)
-    alias(libs.plugins.androidLibrary)
+    alias(libs.plugins.androidKmpLibrary)
 }
 
 kotlin {
     jvmToolchain(libs.versions.jvm.toolchain.get().toInt())
 
-    androidTarget()
+    android {
+        namespace = "dev.miyado.shogisupplement.analysis"
+        compileSdk = 37
+        minSdk = 29
+        withHostTest {}
+    }
     jvm()
     iosArm64()
     iosSimulatorArm64()
@@ -59,14 +64,6 @@ kotlin {
         jsMain.dependencies {
             implementation(libs.kotlinx.serialization.json)
         }
-    }
-}
-
-android {
-    namespace = "dev.miyado.shogisupplement.analysis"
-    compileSdk = 37
-    defaultConfig {
-        minSdk = 29
     }
 }
 

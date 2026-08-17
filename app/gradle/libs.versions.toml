@@ -6,7 +6,7 @@ jvm-toolchain = "17"
 # CMP 1.9系はKotlin 2.3必須。supabase-kt/ktor-client-darwinのiOS klib（ABI 2.3.0）を
 # 消費するにもKotlin 2.3系が必要（shared/build.gradle.kts参照）。
 kotlin = "2.4.10"
-agp = "8.13.2"
+agp = "9.3.1"
 serialization = "1.11.0"
 coroutines = "1.11.0"
 androidx-activity-compose = "1.13.0"
@@ -19,7 +19,7 @@ roborazzi = "1.71.0"
 robolectric = "4.16.1"
 supabase = "3.7.0"
 ktor = "3.5.2"
-aboutlibraries = "12.2.4"
+aboutlibraries = "15.0.4"
 sentry = "8.52.0"
 compose-multiplatform = "1.11.1"
 # JetBrains製 multiplatform lifecycle-viewmodel（iOS向け）。Android上ではandroidx.lifecycleへの
@@ -87,11 +87,10 @@ cryptography-provider-optimal = { module = "dev.whyoleg.cryptography:cryptograph
 
 [plugins]
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
-kotlinAndroid = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlinSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 androidApplication = { id = "com.android.application", version.ref = "agp" }
-androidLibrary = { id = "com.android.library", version.ref = "agp" }
+androidKmpLibrary = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
 sqldelightPlugin = { id = "app.cash.sqldelight", version.ref = "sqldelight" }
 roborazziPlugin = { id = "io.github.takahirom.roborazzi", version.ref = "roborazzi" }
 aboutlibrariesPlugin = { id = "com.mikepenz.aboutlibraries.plugin", version.ref = "aboutlibraries" }

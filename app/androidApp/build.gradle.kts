@@ -1,23 +1,21 @@
 import java.util.Properties
+import org.gradle.jvm.toolchain.JavaLanguageVersion
 
 plugins {
     alias(libs.plugins.androidApplication)
-    alias(libs.plugins.kotlinAndroid)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.roborazziPlugin)
     alias(libs.plugins.aboutlibrariesPlugin)
     alias(libs.plugins.kotlinSerialization)
 }
 
-// OSSライセンス一覧の生成設定（AboutLibraries）。
-// ビルド時の自動生成は無効化し、`./gradlew :androidApp:exportLibraryDefinitions` で
-// src/main/res/raw/aboutlibraries.json を手動生成してコミットする（再現性・オフラインビルド優先）。
-// 運用注意: このJSONは ui/src/commonMain/composeResources/files/aboutlibraries.json にも
-// 複製がある（iOS側は Res.readBytes で同ファイルを読む）。再エクスポート時は両方を更新すること。
+tasks.matching { it.name.startsWith("prepareLibraryDefinitions") }.configureEach {
+    enabled = false
+}
+
+// Why not Androidビルド時生成: Android/iOSで同じ確定済みJSONを使い、
+// 依存更新とアプリビルドを分離する。
 aboutLibraries {
-    android {
-        registerAndroidTasks = false
-    }
     export {
         outputFile = file("src/main/res/raw/aboutlibraries.json")
         prettyPrint = true
@@ -32,8 +30,8 @@ android {
         applicationId = "dev.miyado.shogisupplement"
         minSdk = 29
         targetSdk = 37
-        // gradle.propertiesのshogisupplement.versionCodeが単一の値源（:sharedのBuildConfigと共用。
-        // 詳細はgradle.propertiesのコメント参照）。
+        // Why not moduleごとに定義: :sharedの生成定数と同じgradle.properties値を使い、
+        // 強制アップデート判定との食い違いを防ぐ。
         versionCode = providers.gradleProperty("shogisupplement.versionCode").get().toInt()
         versionName = "1.4"
 
@@ -90,7 +88,7 @@ android {
         getByName("debug") {
             // DebugServerAnalysisReceiver が解析対象に使う棋譜。リポジトリのサンプルを
             // そのまま参照する（複製すると原本との差異に気づけないため）。debugのみ。
-            assets.srcDir(rootProject.file("data/kifu_samples"))
+            assets.directories.add(rootProject.file("data/kifu_samples").path)
         }
     }
 
@@ -118,6 +116,13 @@ android {
             isReturnDefaultValues = true
             all {
                 it.systemProperty("robolectric.graphicsMode", "NATIVE")
+                // Why not アプリ本体もJava 21へ上げる: AboutLibraries 15のテスト用成果物だけが
+                // Java 21を要求するため、アプリのJava 17互換性は維持する。
+                it.javaLauncher.set(
+                    javaToolchains.launcherFor {
+                        languageVersion.set(JavaLanguageVersion.of(21))
+                    },
+                )
                 // VRT一括実行でのテストJVMのOOM対策（Sentryテストノイズの根本の片割れ）。
                 // Why not ヒープ増量だけ: 描画分がクラスをまたいで積み上がるため、
                 // goldenが増えるたびに上限へ張り付く。一定クラスごとにJVMを作り直す。

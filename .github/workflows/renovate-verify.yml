@@ -63,7 +63,7 @@ jobs:
       - name: Run JVM tests and Wasm distribution
         working-directory: app
         run: >-
-          ./gradlew :ui:test :shared:jvmTest :server:worker:test :analysis:jvmTest
+          ./gradlew :ui:testAndroid :shared:jvmTest :server:worker:test :analysis:jvmTest
           :webApp:wasmJsBrowserDistribution --no-parallel --stacktrace
 
       - name: Upload Linux reports

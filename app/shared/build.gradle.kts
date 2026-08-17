@@ -1,7 +1,7 @@
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.kotlinSerialization)
-    alias(libs.plugins.androidLibrary)
+    alias(libs.plugins.androidKmpLibrary)
     alias(libs.plugins.sqldelightPlugin)
 }
 
@@ -19,10 +19,26 @@ sqldelight {
     }
 }
 
+val generatedAndroidBuildNumberDir =
+    layout.buildDirectory.dir("generated/sources/buildNumber/androidMain/kotlin")
+val generateAndroidBuildNumber by tasks.registering(Copy::class) {
+    val versionCode = providers.gradleProperty("shogisupplement.versionCode")
+    inputs.property("versionCode", versionCode)
+    from("src/androidMain/templates")
+    into(generatedAndroidBuildNumberDir)
+    rename { it.removeSuffix(".template") }
+    filter { line -> line.replace("@APP_VERSION_CODE@", versionCode.get()) }
+}
+
 kotlin {
     jvmToolchain(libs.versions.jvm.toolchain.get().toInt())
 
-    androidTarget()
+    android {
+        namespace = "dev.miyado.shogisupplement.shared"
+        compileSdk = 37
+        minSdk = 29
+        withHostTest {}
+    }
     jvm()
 
     // iOS: framework出力＋エンジンin-process化のcinterop接続。
@@ -123,7 +139,10 @@ kotlin {
         val jvmAndAndroidMain by creating {
             dependsOn(commonMain.get())
         }
-        androidMain.get().dependsOn(jvmAndAndroidMain)
+        androidMain.get().apply {
+            dependsOn(jvmAndAndroidMain)
+            kotlin.srcDir(generateAndroidBuildNumber)
+        }
         jvmMain.get().dependsOn(jvmAndAndroidMain)
 
         commonMain.dependencies {
@@ -180,25 +199,6 @@ kotlin {
         iosMain.get().kotlin.srcDir(
             if (iosEngineless) "src/iosEnginelessMain/kotlin" else "src/iosEngineMain/kotlin",
         )
-    }
-}
-
-android {
-    namespace = "dev.miyado.shogisupplement.shared"
-    compileSdk = 37
-    defaultConfig {
-        minSdk = 29
-        // 強制アップデート判定用のビルド番号（policy/BuildNumber.android.kt参照）。
-        // androidApp/build.gradle.ktsのversionCodeと同じgradle.propertiesの値を読むことで、
-        // 「実際にストアへ出るビルドのversionCode」と「判定に使う値」が食い違わないようにする。
-        buildConfigField(
-            "int",
-            "APP_VERSION_CODE",
-            providers.gradleProperty("shogisupplement.versionCode").get(),
-        )
-    }
-    buildFeatures {
-        buildConfig = true
     }
 }
 
