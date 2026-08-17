@@ -114,7 +114,7 @@ interface SettingsRepository {
 
     /**
      * 先後確認の省略設定を保存する。
-     * true = アカウント名一致時に側選択ダイアログを出さず即解析を開始する。
+     * true = アカウント名一致時に側選択ダイアログを出さず棋譜を保存する。
      */
     fun saveSkipSideConfirm(skip: Boolean)
 

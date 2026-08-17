@@ -14,6 +14,45 @@ import kotlinx.serialization.json.Json
 /** 棋譜・悪手レポート・局面評価値のDB永続化リポジトリ（[GameRepository]のSQLDelight実装）。 */
 class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : GameRepository {
 
+    override fun savePendingGame(
+        fileName: String,
+        contentHash: String,
+        moves: List<String>,
+        headers: Map<String, String>,
+        importedAt: Long,
+        kifText: String,
+        userSide: String?,
+        ratingService: String?,
+        ratingRaw: Long?,
+        ratingRule: String?,
+        sourcePlace: String?,
+        gameWinner: String?,
+        endReason: String?,
+    ): Long = database.transactionWithResult {
+        database.shogiSupplementQueries.insertGame(
+            file_name = fileName,
+            content_hash = contentHash,
+            move_count = moves.size.toLong(),
+            sente_name = headers["先手"],
+            gote_name = headers["後手"],
+            analyzed_at = importedAt,
+            rating = 0,
+            rating_sample_moves = null,
+            coef_version = "",
+            kif_text = kifText,
+            moves_usi = Json.encodeToString(moves),
+            user_side = userSide,
+            rating_service = ratingService,
+            rating_raw = ratingRaw,
+            rating_rule = ratingRule,
+            source_place = sourcePlace,
+            game_winner = gameWinner,
+            end_reason = endReason,
+            analysis_status = GameAnalysisStatus.PENDING.wireValue,
+        )
+        database.shogiSupplementQueries.getLastInsertRowId().executeAsOne()
+    }
+
     override fun saveAnalysis(
         fileName: String,
         contentHash: String,
@@ -39,27 +78,55 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
         val movesUsiJson = Json.encodeToString(moves)
 
         return database.transactionWithResult {
-            database.shogiSupplementQueries.insertGame(
-                file_name = fileName,
-                content_hash = contentHash,
-                move_count = moves.size.toLong(),
-                sente_name = headers["先手"],
-                gote_name = headers["後手"],
-                analyzed_at = analyzedAt,
-                rating = rating.toLong(),
-                rating_sample_moves = ratingSampleMoves?.toLong(),
-                coef_version = coefVersion,
-                kif_text = kifText,
-                moves_usi = movesUsiJson,
-                user_side = userSide,
-                rating_service = ratingService,
-                rating_raw = ratingRaw,
-                rating_rule = ratingRule,
-                source_place = sourcePlace,
-                game_winner = gameWinner,
-                end_reason = endReason,
-            )
-            val gameId = database.shogiSupplementQueries.getLastInsertRowId().executeAsOne()
+            val pendingId = database.shogiSupplementQueries.getGameByHash(contentHash)
+                .executeAsOneOrNull()
+                ?.takeIf { it.analysis_status == GameAnalysisStatus.PENDING.wireValue }
+                ?.id
+            if (pendingId == null) {
+                database.shogiSupplementQueries.insertGame(
+                    file_name = fileName,
+                    content_hash = contentHash,
+                    move_count = moves.size.toLong(),
+                    sente_name = headers["先手"],
+                    gote_name = headers["後手"],
+                    analyzed_at = analyzedAt,
+                    rating = rating.toLong(),
+                    rating_sample_moves = ratingSampleMoves?.toLong(),
+                    coef_version = coefVersion,
+                    kif_text = kifText,
+                    moves_usi = movesUsiJson,
+                    user_side = userSide,
+                    rating_service = ratingService,
+                    rating_raw = ratingRaw,
+                    rating_rule = ratingRule,
+                    source_place = sourcePlace,
+                    game_winner = gameWinner,
+                    end_reason = endReason,
+                    analysis_status = GameAnalysisStatus.COMPLETED.wireValue,
+                )
+            } else {
+                database.shogiSupplementQueries.completePendingGame(
+                    file_name = fileName,
+                    move_count = moves.size.toLong(),
+                    sente_name = headers["先手"],
+                    gote_name = headers["後手"],
+                    analyzed_at = analyzedAt,
+                    rating = rating.toLong(),
+                    rating_sample_moves = ratingSampleMoves?.toLong(),
+                    coef_version = coefVersion,
+                    kif_text = kifText,
+                    moves_usi = movesUsiJson,
+                    user_side = userSide,
+                    rating_service = ratingService,
+                    rating_raw = ratingRaw,
+                    rating_rule = ratingRule,
+                    source_place = sourcePlace,
+                    game_winner = gameWinner,
+                    end_reason = endReason,
+                    id = pendingId,
+                )
+            }
+            val gameId = pendingId ?: database.shogiSupplementQueries.getLastInsertRowId().executeAsOne()
 
             reports.forEach { report ->
                 // report.ply は 1 始まり。直前局面は sfenAtPly[report.ply - 1]
@@ -129,6 +196,7 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
                 source_place = null,
                 game_winner = null,
                 end_reason = null,
+                analysis_status = GameAnalysisStatus.COMPLETED.wireValue,
             )
             val gameId = database.shogiSupplementQueries.getLastInsertRowId().executeAsOne()
 
@@ -202,7 +270,9 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
 
     /** user_side が設定されているゲームレコードを解析日時降順で返す。 */
     override fun getGamesWithUserSide(): List<GameRecord> {
-        return getAllGames().filter { it.userSide != null }
+        return getAllGames().filter {
+            it.userSide != null && it.analysisStatus == GameAnalysisStatus.COMPLETED
+        }
     }
 
     /** アップロード成功時刻を記録する（Unix epoch 秒）。 */
@@ -315,6 +385,7 @@ internal fun Game.toGameRecord() = GameRecord(
     sourcePlace = normalizeLegacySourcePlace(source_place),
     gameWinner = game_winner,
     endReason = end_reason,
+    analysisStatus = GameAnalysisStatus.fromWireValue(analysis_status),
 )
 
 internal fun Blunder_report.toBlunderRecord() = BlunderRecord(

@@ -118,6 +118,53 @@ class GameRepositoryTest {
     }
 
     @Test
+    fun `未解析棋譜を保存すると解析結果の集計対象から外れる`() {
+        val repo = newRepository()
+        val gameId = repo.savePendingGame(
+            fileName = "pending.kif",
+            contentHash = "pending-hash",
+            moves = listOf("7g7f"),
+            headers = emptyMap(),
+            kifText = "手合割：平手",
+            userSide = "sente",
+        )
+
+        assertEquals(GameAnalysisStatus.PENDING, repo.getGameById(gameId)!!.analysisStatus)
+        assertEquals(listOf(gameId), repo.getPendingGames().map { it.id })
+        assertTrue(repo.getGamesWithUserSide().isEmpty())
+        assertTrue(repo.getNotUploadedGames().isEmpty())
+    }
+
+    @Test
+    fun `未解析棋譜の解析結果は同じゲームIDへ保存される`() {
+        val repo = newRepository()
+        val gameId = repo.savePendingGame(
+            fileName = "pending.kif",
+            contentHash = "pending-hash",
+            moves = listOf("7g7f"),
+            headers = emptyMap(),
+            kifText = "手合割：平手",
+            userSide = "sente",
+        )
+
+        val completedId = repo.saveAnalysis(
+            fileName = "pending.kif",
+            contentHash = "pending-hash",
+            moves = listOf("7g7f"),
+            headers = emptyMap(),
+            reports = emptyList(),
+            rating = 1800,
+            coefVersion = "hao_v1",
+            userSide = "sente",
+        )
+
+        assertEquals(gameId, completedId)
+        assertEquals(GameAnalysisStatus.COMPLETED, repo.getGameById(gameId)!!.analysisStatus)
+        assertEquals(1800L, repo.getGameById(gameId)!!.rating)
+        assertEquals(1, repo.getAllGames().size)
+    }
+
+    @Test
     fun `詰み見逃しのmissedMateInが保存復元できる`() {
         val repo = newRepository()
         val mateReport = sampleReport().copy(
@@ -493,4 +540,3 @@ class GameRepositoryTest {
         assertEquals("7g7f 3c3d 2g2f", updated.bestPv)
     }
 }
-

@@ -46,6 +46,7 @@ import dev.miyado.shogisupplement.crypto.IosTransferSecretStore
 import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.db.DatabaseFactory
 import dev.miyado.shogisupplement.db.GameRecord
+import dev.miyado.shogisupplement.db.GameAnalysisStatus
 import dev.miyado.shogisupplement.db.GameRepository
 import dev.miyado.shogisupplement.db.SettingsRepository
 import dev.miyado.shogisupplement.pipeline.InProgressAnalysisRegistry
@@ -67,6 +68,7 @@ import dev.miyado.shogisupplement.ui.generated.resources.Res
 import dev.miyado.shogisupplement.ui.home.HomeScreen
 import dev.miyado.shogisupplement.ui.license.LicenseInfoScreen
 import dev.miyado.shogisupplement.ui.report.AnalyzingReportScreen
+import dev.miyado.shogisupplement.ui.report.PendingAnalysisScreen
 import dev.miyado.shogisupplement.ui.report.ReportScreen
 import dev.miyado.shogisupplement.ui.restore.GameRestoreScreen
 import dev.miyado.shogisupplement.ui.restore.GameRestoreViewModel
@@ -295,7 +297,7 @@ private fun DemoApp(
                 showSkipOption = state.suggestedByAccount,
                 onConfirm = { side, skipNext ->
                     if (state.suggestedByAccount) controller.saveSkipSideConfirm(skipNext)
-                    controller.confirmSideAndAnalyze(side)
+                    controller.confirmSideAndImport(side)
                 },
                 onDismiss = { controller.dismissImport() },
             )
@@ -644,7 +646,7 @@ private fun UserSideSimpleDialog(
                 onClick = { userSide?.let { onConfirm(it, skipNext) } },
                 enabled = userSide != null,
             ) {
-                Text(AppStrings.START_ANALYSIS)
+                Text(AppStrings.HOME_OPEN_KIF)
             }
         },
         dismissButton = {
@@ -699,6 +701,15 @@ private fun IosReportScreenHost(
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
         }
+        return
+    }
+
+    if (g.analysisStatus == GameAnalysisStatus.PENDING) {
+        PendingAnalysisScreen(
+            game = g,
+            onBack = onBack,
+            onAnalyze = { controller.analyzeStoredGame(g) },
+        )
         return
     }
 
@@ -1051,7 +1062,6 @@ private fun IosTransferCodeInputHost(
     )
 }
 
-/** 復元棋譜も通常取込と同じエンジン選定を共有する。 */
 @Composable
 private fun IosGameRestoreScreenHost(
     services: SupabaseServices,
@@ -1069,6 +1079,10 @@ private fun IosGameRestoreScreenHost(
         state = state,
         onStart = vm::startDownload,
         onRetry = vm::retry,
+        onAnalyze = {
+            controller.analyzePendingGames()
+            onFinish()
+        },
         onFinish = onFinish,
     )
 }

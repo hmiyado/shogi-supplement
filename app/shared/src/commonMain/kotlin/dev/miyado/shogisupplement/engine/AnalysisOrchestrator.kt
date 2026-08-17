@@ -67,7 +67,8 @@ class AnalysisOrchestrator(
             val effectiveContentHash = contentHash ?: sha256Hex(kifContent)
 
             val existingId = repository.getByHash(effectiveContentHash)
-            if (existingId != null) {
+            val existing = existingId?.let(repository::getGameById)
+            if (existingId != null && existing?.analysisStatus == dev.miyado.shogisupplement.db.GameAnalysisStatus.COMPLETED) {
                 return Outcome.Completed(existingId, alreadyExisted = true)
             }
 

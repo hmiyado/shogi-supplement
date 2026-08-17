@@ -8,18 +8,7 @@ import dev.miyado.shogisupplement.pipeline.BlunderReport
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-/**
- * SQLDelight正式マイグレーション（1.sqm）の単体テスト。
- *
- * 実DB（TestFlight初回配布分等。version=1）を手動DDLで再現し、
- * Schema.migrate(driver, 1, 2) 適用後にGameRepositoryの公開APIでINSERT/SELECTの
- * 往復が成功することを確認する（スキーマ構造の一致は別途機械検証されるため、
- * ここでは「実際にmigrateを呼んだときアプリの実利用経路が壊れないか」を確認する）。
- *
- * v1のblunder_reportは既にsecond_usi/second_cpを持つ一方、position_evalのみが
- * 移行対象という非対称な状態がある。これを正確に再現しないと、テストが実機と
- * 異なる前提で「たまたま成功する」だけの検証になってしまう。
- */
+/** version 1の実スキーマから最新までの移行と公開APIの往復を検証する。 */
 class SchemaMigrationTest {
 
     private fun createV1Schema(driver: JdbcSqliteDriver) {
@@ -48,6 +37,35 @@ class SchemaMigrationTest {
                 game_winner TEXT,
                 end_reason TEXT
             )
+            """.trimIndent(),
+            0,
+        )
+        driver.execute(
+            null,
+            """
+            CREATE TABLE user_settings (
+                id INTEGER NOT NULL PRIMARY KEY,
+                rating INTEGER NOT NULL DEFAULT 1750,
+                consent_accepted_at INTEGER,
+                auto_upload INTEGER NOT NULL DEFAULT 0,
+                rating_service TEXT NOT NULL DEFAULT 'lishogi',
+                rating_raw INTEGER NOT NULL DEFAULT 1750,
+                last_user_side TEXT,
+                service_account_name TEXT,
+                rating_rule TEXT,
+                theme_mode TEXT NOT NULL DEFAULT 'system',
+                eval_display TEXT NOT NULL DEFAULT 'cp',
+                skip_side_confirm INTEGER NOT NULL DEFAULT 0
+            )
+            """.trimIndent(),
+            0,
+        )
+        driver.execute(
+            null,
+            """
+            INSERT INTO game (
+                file_name, content_hash, move_count, analyzed_at, rating, coef_version
+            ) VALUES ('existing.kif', 'existing-hash', 2, 1, 1750, 'hao_v1')
             """.trimIndent(),
             0,
         )
@@ -133,9 +151,14 @@ class SchemaMigrationTest {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         createV1Schema(driver)
 
-        ShogiSupplementDatabase.Schema.migrate(driver, oldVersion = 1, newVersion = 2)
+        ShogiSupplementDatabase.Schema.migrate(
+            driver,
+            oldVersion = 1,
+            newVersion = ShogiSupplementDatabase.Schema.version,
+        )
 
         val repo = SqlDelightGameRepository(ShogiSupplementDatabase(driver))
+        assertEquals(GameAnalysisStatus.COMPLETED, repo.getGameById(1)!!.analysisStatus)
         val gameId = repo.saveAnalysis(
             fileName = "legacy.kif",
             contentHash = "legacy-hash",

@@ -26,6 +26,7 @@ import dev.miyado.shogisupplement.engine.WasmStudyBridge
 import dev.miyado.shogisupplement.engine.WasmStudyEngine
 import dev.miyado.shogisupplement.kifu.ClipboardKifValidator
 import dev.miyado.shogisupplement.kifu.KifParser
+import dev.miyado.shogisupplement.kifu.GameImporter
 import dev.miyado.shogisupplement.kifu.UserSideSuggester
 import dev.miyado.shogisupplement.pipeline.InProgressAnalysisRegistry
 import dev.miyado.shogisupplement.pipeline.ProgressiveReportState
@@ -411,7 +412,7 @@ class IosMainController(
 
     /**
      * 1. アカウント名が全サービス未設定 → 先に棋力設定（[ImportState.RatingSetup]）
-     * 2. アカウント名一致＋省略設定ON → 確認なしで即解析
+     * 2. アカウント名一致＋省略設定ON → 確認なしで即保存
      * 3. それ以外 → 先後選択ダイアログ（推定側を初期選択に）
      */
     private fun proceedAfterKifValidated(
@@ -420,7 +421,7 @@ class IosMainController(
         goteName: String?,
         sourceFileName: String?,
     ) {
-        // 未ログインのまま進むと解析時（confirmSideAndAnalyze）に匿名アカウントが
+        // 未ログインのまま進むと解析時（launchAnalysis）に匿名アカウントが
         // 新規作成される。黙って作らず、追加の入口で確認を取る
         if (authRepository != null && analysisBaseUrl != null &&
             authRepository.currentUser.value == null && !settingsRepository.isAccountDeclined()
@@ -498,7 +499,7 @@ class IosMainController(
         // suggestion.side は別モジュールの公開プロパティのためsmart castできない（K/N制約）。
         val confirmedSide = suggestion.side
         if (skip && confirmedSide != null) {
-            confirmSideAndAnalyze(confirmedSide)
+            confirmSideAndImport(confirmedSide)
         }
     }
 
@@ -599,20 +600,31 @@ class IosMainController(
         }
     }
 
-    /** 先後を確定し、解析を開始する。 */
-    fun confirmSideAndAnalyze(userSide: String) {
+    /** 先後を確定し、未解析の棋譜として保存する。 */
+    fun confirmSideAndImport(userSide: String) {
         val current = _importState.value
         if (current !is ImportState.SideConfirm) return
         settingsRepository.saveLastUserSide(userSide)
 
         val fileName = current.sourceFileName ?: AppStrings.clipboardFileName(currentDateTimeLabel())
-        val pending = PendingAnalysis(
-            kifText = current.kifText,
-            userSide = userSide,
-            fileName = fileName,
-            createdAtEpochSeconds = currentEpochSeconds(),
-        )
-        // バックグラウンド遷移でストリームが死んでも再開できるよう、解析開始前に保存する。
+        scope.launch {
+            when (val outcome = GameImporter(gameRepository).importGame(
+                kifContent = current.kifText,
+                fileName = fileName,
+                userSide = userSide,
+            )) {
+                is GameImporter.Outcome.Imported -> {
+                    _importState.value = ImportState.Idle
+                    reloadHome()
+                    _completedAnalysis.value = CompletedAnalysis(outcome.gameId, justCompleted = false)
+                }
+                is GameImporter.Outcome.Failed -> _importState.value = ImportState.Error(outcome.message)
+            }
+        }
+    }
+
+    fun analyzeStoredGame(game: dev.miyado.shogisupplement.db.GameRecord) {
+        val pending = game.toPendingAnalysis() ?: return
         PendingAnalysisStore.save(pending)
         launchAnalysis(pending)
     }
@@ -625,7 +637,7 @@ class IosMainController(
         // idは保存時のcontent_hashと同一。
         // レジストリはIosMainController（プロセス生存期間のシングルトン）だけが書く
         // ——importStateはdismissImportで破棄されるがレジストリ側は生き続ける。
-        val id = sha256Hex(pending.kifText)
+        val id = pending.contentHash ?: sha256Hex(pending.kifText)
         InProgressAnalysisRegistry.shared.start(id, pending.fileName, moves, pending.userSide)
         _importState.value = ImportState.Analyzing(
             fileName = pending.fileName,
@@ -703,6 +715,8 @@ class IosMainController(
             ratingService = pending.ratingService,
             ratingRaw = pending.ratingRaw,
             ratingRule = pending.ratingRule,
+            contentHash = pending.contentHash,
+            sourcePlaceOverride = pending.sourcePlaceOverride,
             // NDJSONのprogress行は無進捗判定だけを更新し、局面状態とは分離する。
             onProgress = { _, _ -> lastProgressAtEpochSeconds = currentEpochSeconds() },
             onPositionResult = { ply, pvs ->
@@ -717,17 +731,11 @@ class IosMainController(
 
     /**
      * 棋譜ダウンロード復元（[dev.miyado.shogisupplement.ui.restore.GameRestoreViewModel]）の
-     * 1局ぶんの取込コールバック。復元は既に非匿名セッションを前提とするため、
-     * [runAnalysis] と違い匿名サインインは行わない。
+     * 1局ぶんの取込コールバック。ここではDB保存だけを行い、解析は全局の復元後に
+     * [analyzePendingGames] から順番に開始する。
      */
     suspend fun importDownloadedGame(game: ReconstructedGame): GameImportOutcome {
-        if (analyzerConfigurationError() != null) return GameImportOutcome(success = false)
-        val orchestrator = AnalysisOrchestrator(
-            repository = gameRepository,
-            coefTable = coefTable,
-            analyzer = buildAnalyzer(),
-        )
-        val outcome = orchestrator.analyzeAndSave(
+        val outcome = GameImporter(gameRepository).importGame(
             kifContent = game.kifText,
             fileName = game.fileName,
             userSide = game.userSide,
@@ -738,9 +746,44 @@ class IosMainController(
             sourcePlaceOverride = game.sourcePlaceOverride,
         )
         return when (outcome) {
-            is AnalysisOrchestrator.Outcome.Completed -> GameImportOutcome(success = true, gameId = outcome.gameId)
-            is AnalysisOrchestrator.Outcome.Failed -> GameImportOutcome(success = false)
+            is GameImporter.Outcome.Imported -> GameImportOutcome(success = true, gameId = outcome.gameId)
+            is GameImporter.Outcome.Failed -> GameImportOutcome(success = false)
         }
+    }
+
+    fun analyzePendingGames() {
+        if (currentAnalysisJob?.isActive == true) return
+        currentAnalysisJob = scope.launch {
+            for (game in gameRepository.getPendingGames()) {
+                val pending = game.toPendingAnalysis() ?: continue
+                val id = game.contentHash
+                InProgressAnalysisRegistry.shared.start(id, game.fileName, game.movesUsi, game.userSide)
+                val outcome = try {
+                    runAnalysis(pending, id)
+                } finally {
+                    InProgressAnalysisRegistry.shared.finish(id)
+                }
+                if (outcome is AnalysisOrchestrator.Outcome.Completed) {
+                    uploadOrchestrator?.maybeAutoUpload(outcome.gameId)
+                }
+            }
+            reloadHome()
+        }
+    }
+
+    private fun dev.miyado.shogisupplement.db.GameRecord.toPendingAnalysis(): PendingAnalysis? {
+        val text = kifText ?: return null
+        return PendingAnalysis(
+            kifText = text,
+            userSide = userSide,
+            fileName = fileName,
+            ratingService = ratingService,
+            ratingRaw = ratingRaw,
+            ratingRule = ratingRule,
+            contentHash = contentHash,
+            sourcePlaceOverride = sourcePlace,
+            createdAtEpochSeconds = currentEpochSeconds(),
+        )
     }
 
     /**

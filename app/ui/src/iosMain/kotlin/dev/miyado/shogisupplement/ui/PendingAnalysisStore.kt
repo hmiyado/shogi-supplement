@@ -32,11 +32,13 @@ import platform.posix.rewind
 @Serializable
 data class PendingAnalysis(
     val kifText: String,
-    val userSide: String,
+    val userSide: String?,
     val fileName: String,
     val ratingService: String? = null,
     val ratingRaw: Long? = null,
     val ratingRule: String? = null,
+    val contentHash: String? = null,
+    val sourcePlaceOverride: String? = null,
     val createdAtEpochSeconds: Long,
 )
 

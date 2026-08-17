@@ -10,6 +10,7 @@ import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
 import com.github.takahirom.roborazzi.RoborazziOptions
 import com.github.takahirom.roborazzi.captureRoboImage
 import dev.miyado.shogisupplement.db.GameRecord
+import dev.miyado.shogisupplement.db.GameAnalysisStatus
 import dev.miyado.shogisupplement.ui.gamelist.GameListScreen
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
 import org.junit.Rule
@@ -37,12 +38,7 @@ class GameListScreenScreenshotTest {
         compareOptions = RoborazziOptions.CompareOptions(changeThreshold = 0.01f),
     )
 
-    /**
-     * ModalBottomSheetは独自のPopupウィンドウ（別root）で描画されるため、シートが
-     * 開いている間は`onRoot()`（root=1件前提）が「2件見つかった」で失敗する。
-     * 最後に追加されたroot（＝シートが開いていればシート、閉じていればメイン画面）を
-     * 常に取得することで、シート開閉どちらの状態でも同じキャプチャ処理を使えるようにする。
-     */
+    /** Popupを含む場合も最後に追加された表示rootを取得する。 */
     private fun topRoot(): SemanticsNodeInteraction {
         val allRoots = composeRule.onAllNodes(isRoot())
         val count = allRoots.fetchSemanticsNodes().size
@@ -136,6 +132,29 @@ class GameListScreenScreenshotTest {
                 Surface {
                     GameListScreen(
                         games = emptyList(),
+                        onBack = {},
+                        onGameClick = {},
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun gameList_pendingAnalysis() {
+        val pending = gamesWithFullData().first().copy(
+            rating = 0,
+            coefVersion = "",
+            analysisStatus = GameAnalysisStatus.PENDING,
+        )
+        captureRoboImage(
+            filePath = "src/test/snapshots/game_list_pending_analysis.png",
+            roborazziOptions = roborazziOptions,
+        ) {
+            ShogiTheme {
+                Surface {
+                    GameListScreen(
+                        games = listOf(pending),
                         onBack = {},
                         onGameClick = {},
                     )

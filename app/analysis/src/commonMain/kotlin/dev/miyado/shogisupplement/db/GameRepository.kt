@@ -6,6 +6,22 @@ import dev.miyado.shogisupplement.util.currentEpochSeconds
 /** 棋譜・悪手レポート・局面評価の永続化。 */
 interface GameRepository {
 
+    fun savePendingGame(
+        fileName: String,
+        contentHash: String,
+        moves: List<String>,
+        headers: Map<String, String>,
+        importedAt: Long = currentEpochSeconds(),
+        kifText: String,
+        userSide: String?,
+        ratingService: String? = null,
+        ratingRaw: Long? = null,
+        ratingRule: String? = null,
+        sourcePlace: String? = null,
+        gameWinner: String? = null,
+        endReason: String? = null,
+    ): Long = error("Pending games are not supported by this repository")
+
     /** 解析結果を保存し、新しい game_id を返す。 */
 
     fun saveAnalysis(
@@ -65,6 +81,9 @@ interface GameRepository {
 
     /** user_side が設定されているゲームレコードを解析日時降順で返す。 */
     fun getGamesWithUserSide(): List<GameRecord>
+
+    fun getPendingGames(): List<GameRecord> =
+        getAllGames().filter { it.analysisStatus == GameAnalysisStatus.PENDING }
 
     /** アップロード成功時刻を記録する（Unix epoch 秒）。 */
     fun updateUploadedAt(gameId: Long, epochSeconds: Long)

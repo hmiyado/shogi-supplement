@@ -36,23 +36,12 @@ import dev.miyado.shogisupplement.ui.common.ErrorScreen
 import dev.miyado.shogisupplement.ui.gamelist.GameListScreen
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
 
-/**
- * アプリのエントリポイント。setContent とナビゲーション分岐（MainApp の when(state)）のみを持つ。
- *
- * 機能ごとに以下のファイルへ分割している:
- * - KifImportFlow.kt: KIF取込フロー（ファイルピッカー/クリップボード/棋力設定/先後選択ダイアログ）
- * - HomeHost.kt / AnalyzingReportHost.kt / ReportHost.kt / AccountHost.kt / SettingsHost.kt:
- *   各画面への MainViewModel 配線（when(state) 分岐の中身をホスト単位で切り出したもの）
- * - ForceUpdateHost.kt: 強制アップデートのゲート（MainUiStateの外側でMainAppごと出し分ける）
- * - GameListScreen / ErrorScreen / RatingSettingsDialog は VM・Android非依存の
- *   純Composableのため :ui commonMain に置く（ヘルプはWebヘルプ=LegalLinks.HELP_WEB_URL）
- */
+/** アプリのエントリポイント。 */
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // デバッグ: ロック画面越し表示（スクリーンショット確認用）
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
             setShowWhenLocked(true)
             setTurnScreenOn(true)
@@ -63,9 +52,6 @@ class MainActivity : ComponentActivity() {
                     WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON,
             )
         }
-
-        // 通知権限は起動時ではなく初回の解析開始時に文脈つきで求める（MainApp内。
-        // 拒否されても解析は動く——進捗・完了通知が見えなくなるだけ）
 
         setContent {
             val vm: MainViewModel = viewModel()
@@ -96,9 +82,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        // 通知タップからのコールドスタート: game_id があればレポートを表示
         intent?.getLongExtra(EXTRA_GAME_ID, -1L)?.takeIf { it >= 0L }?.let { gameId ->
-            // setContent の後に呼ぶことで ViewModel が初期化済みになっている
             val vm: MainViewModel by viewModels()
             vm.handleNotificationIntent(gameId)
         }
@@ -113,7 +97,6 @@ class MainActivity : ComponentActivity() {
         (application as ShogiApp).checkForceUpdate()
     }
 
-    /** 通知タップによる再起動（singleTop で Activity が再利用される場合）。 */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
@@ -128,18 +111,10 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-/**
- * 画面遷移のルート Composable。KIF取込フロー（常時コンポジションに含める）を描画したうえで、
- * MainUiState に応じた画面を出し分ける。
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainApp(vm: MainViewModel, state: MainUiState) {
-    // 棋譜追加ソース選択シート（ファイル vs クリップボード）。HomeScreen/ErrorScreen の
-    // onOpenKif と KifImportFlow の双方から開閉するため、この階層にホイストしている。
     var showKifSourceSheet by remember { mutableStateOf(false) }
-    // 棋力設定ダイアログ（強さカードの「変更」タップ or KIFフロー初回）。SettingsHost の
-    // 「変更」タップと KifImportFlow の双方から開くため、同じ理由でホイストしている。
     var showRatingSettingsDialog by remember { mutableStateOf(false) }
 
     KifImportFlow(
@@ -165,6 +140,10 @@ fun MainApp(vm: MainViewModel, state: MainUiState) {
         is MainUiState.ShowReport -> {
             ReportHost(vm, state)
         }
+        is MainUiState.PendingAnalysis -> {
+            BackHandler { vm.loadHome() }
+            PendingAnalysisHost(vm, state)
+        }
         is MainUiState.Drill -> {
             BackHandler { vm.loadHome() }
             DrillScreen(onBack = { vm.loadHome() })
@@ -173,7 +152,6 @@ fun MainApp(vm: MainViewModel, state: MainUiState) {
             AccountHost(vm)
         }
         is MainUiState.Licenses -> {
-            // Settings に統一（Account → Licenses → 戻る でも親の Settings へ）
             BackHandler { vm.openSettings() }
             val context = LocalContext.current
             LicensesScreen(

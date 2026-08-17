@@ -1,5 +1,16 @@
 package dev.miyado.shogisupplement.db
 
+enum class GameAnalysisStatus(val wireValue: String) {
+    PENDING("pending"),
+    COMPLETED("completed"),
+    ;
+
+    companion object {
+        fun fromWireValue(value: String): GameAnalysisStatus =
+            entries.firstOrNull { it.wireValue == value } ?: COMPLETED
+    }
+}
+
 /** ゲームレコードのドメインモデル（UI用）。 */
 data class GameRecord(
     val id: Long,
@@ -30,6 +41,7 @@ data class GameRecord(
     val gameWinner: String? = null,
     /** 終局語（"投了"/"切れ負け"等）。 */
     val endReason: String? = null,
+    val analysisStatus: GameAnalysisStatus = GameAnalysisStatus.COMPLETED,
 )
 
 /** 悪手レポートのドメインモデル（UI用）。 */
@@ -63,11 +75,7 @@ data class BlunderRecord(
      * 損失 cp = cpBefore + cpAfter（cpAfter は相手視点なので加算して手番側の損失量になる）。
      */
     val cpAfter: Long? = null,
-    /**
-     * 悪手前局面（sfenBefore）の pv2（次善手）の指し手 USI。
-     * ドリルの一次判定（端末内・保存済みデータのみでの正誤判定）に使う。
-     * 旧解析（MultiPV=2導入前）のレコードは null（→ 一次判定をスキップし二次判定へエンジンへ流す）。
-     */
+    /** 悪手前局面の次善手USI。記録がない場合はnull。 */
     val secondUsi: String? = null,
     /**
      * 悪手前局面の pv2 の評価値（手番側視点 cp。cpBefore と同じ toCp 準拠）。

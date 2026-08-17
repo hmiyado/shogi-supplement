@@ -1,0 +1,1 @@
+ALTER TABLE game ADD COLUMN analysis_status TEXT NOT NULL DEFAULT 'completed';

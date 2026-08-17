@@ -18,7 +18,8 @@ CREATE TABLE game (
     rating_rule TEXT,
     source_place TEXT,
     game_winner TEXT,
-    end_reason TEXT
+    end_reason TEXT,
+    analysis_status TEXT NOT NULL DEFAULT 'completed'
 );
 
 CREATE TABLE blunder_report (
@@ -69,8 +70,16 @@ CREATE TABLE user_settings (
 );
 
 insertGame:
-INSERT INTO game (file_name, content_hash, move_count, sente_name, gote_name, analyzed_at, rating, rating_sample_moves, coef_version, kif_text, moves_usi, user_side, rating_service, rating_raw, rating_rule, source_place, game_winner, end_reason)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO game (file_name, content_hash, move_count, sente_name, gote_name, analyzed_at, rating, rating_sample_moves, coef_version, kif_text, moves_usi, user_side, rating_service, rating_raw, rating_rule, source_place, game_winner, end_reason, analysis_status)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+completePendingGame:
+UPDATE game SET
+    file_name = ?, move_count = ?, sente_name = ?, gote_name = ?, analyzed_at = ?,
+    rating = ?, rating_sample_moves = ?, coef_version = ?, kif_text = ?, moves_usi = ?,
+    user_side = ?, rating_service = ?, rating_raw = ?, rating_rule = ?, source_place = ?,
+    game_winner = ?, end_reason = ?, analysis_status = 'completed'
+WHERE id = ? AND analysis_status = 'pending';
 
 getLastInsertRowId:
 SELECT last_insert_rowid();
@@ -85,7 +94,7 @@ getGameById:
 SELECT * FROM game WHERE id = ?;
 
 getGamesNotUploaded:
-SELECT * FROM game WHERE uploaded_at IS NULL ORDER BY analyzed_at DESC;
+SELECT * FROM game WHERE uploaded_at IS NULL AND analysis_status = 'completed' ORDER BY analyzed_at DESC;
 
 updateUploadedAt:
 UPDATE game SET uploaded_at = ? WHERE id = ?;

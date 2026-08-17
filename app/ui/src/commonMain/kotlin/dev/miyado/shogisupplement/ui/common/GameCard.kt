@@ -20,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import dev.miyado.shogisupplement.db.GameAnalysisStatus
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.pipeline.InProgressAnalysis
 import dev.miyado.shogisupplement.text.AppStrings
@@ -68,22 +69,26 @@ fun GameCard(
                     style = MaterialTheme.typography.titleSmall,
                     modifier = Modifier.weight(1f),
                 )
-                if (resultLabel != null) {
+                val badgeLabel = if (game.analysisStatus == GameAnalysisStatus.PENDING) {
+                    AppStrings.PENDING_ANALYSIS_BADGE
+                } else {
+                    resultLabel
+                }
+                if (badgeLabel != null) {
                     Spacer(Modifier.width(8.dp))
-                    val isWin = resultLabel == AppStrings.GAME_RESULT_WIN
+                    val isLoss = badgeLabel == AppStrings.GAME_RESULT_LOSS
                     Box(
                         modifier = Modifier
                             .background(
-                                if (isWin) shogiColors.primarySoft else shogiColors.lossSoft,
+                                if (isLoss) shogiColors.lossSoft else shogiColors.primarySoft,
                                 RoundedCornerShape(4.dp),
                             )
                             .padding(horizontal = 6.dp, vertical = 2.dp),
                     ) {
                         Text(
-                            text = resultLabel,
+                            text = badgeLabel,
                             style = MaterialTheme.typography.labelSmall,
-                            color = if (isWin) MaterialTheme.colorScheme.primary
-                                    else shogiColors.loss,
+                            color = if (isLoss) shogiColors.loss else MaterialTheme.colorScheme.primary,
                         )
                     }
                 }
@@ -120,14 +125,7 @@ fun GameCard(
     }
 }
 
-/**
- * ホーム一覧の解析中カード。[GameCard] と同じ Card/Column/padding 構造にして、
- * 解析完了後に [GameCard] へ差し替わったときの見た目の落差を抑える。
- *
- * 対局者名・勝敗・日時はDB保存後にしか確定しないため出さず、確定済みのfileNameと
- * 進捗だけを表示する。進捗は[AppStrings.analyzingProgress]——解析中レポート画面の
- * 進捗バナーと同じ「手数（confirmedThrough-1基準）／総手数」表示に揃える。
- */
+/** DB保存前の未確定情報を出さず、ファイル名と進捗だけを表示する。 */
 @Composable
 fun AnalyzingGameCard(
     session: InProgressAnalysis,

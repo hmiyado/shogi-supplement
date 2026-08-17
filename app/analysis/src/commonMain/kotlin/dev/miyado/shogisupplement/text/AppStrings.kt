@@ -123,7 +123,7 @@ object AppStrings {
     // 解析時に匿名アカウントが新規作成されるため、追加の入口で伝えて確認を取る
     const val IMPORT_ACCOUNT_NOTICE_TITLE = "アカウントの作成"
     const val IMPORT_ACCOUNT_NOTICE_BODY =
-        "棋譜を追加すると匿名アカウントを作成します。作らなくても、端末内での解析は使えます。"
+        "棋譜を解析すると匿名アカウントを作成します。作らなくても、端末内での解析は使えます。"
     const val IMPORT_ACCOUNT_NOTICE_CONTINUE = "続ける"
     const val IMPORT_ACCOUNT_NOTICE_DECLINE = "作らずに解析"
 
@@ -136,6 +136,10 @@ object AppStrings {
     fun sideGote(goteName: String?): String = if (goteName != null) "後手（$goteName）" else "後手"
     const val START_ANALYSIS = "解析開始"
 
+    const val PENDING_ANALYSIS_BADGE = "未解析"
+    const val PENDING_ANALYSIS_TITLE = "解析していない棋譜です"
+    const val PENDING_ANALYSIS_BODY = "解析すると、悪手と推定棋力を確認できます。"
+    const val ANALYZE_GAME = "解析する"
 
     /** ホーム一覧の解析中カードに出すバッジ文言。 */
     const val ANALYZING_BADGE = "解析中"
@@ -391,11 +395,7 @@ object AppStrings {
     const val KIF_FILE_EMPTY = "選択したファイルにテキストがありません"
     const val KIF_FILE_INVALID = "選択したファイルに棋譜（KIF）が見つかりませんでした"
 
-    /**
-     * engineless（サーバー解析専用）フレーバーで ANALYSIS_BASE_URL 未設定のまま
-     * 取込が開始されたときのエラー（[IosMainController.confirmSideAndAnalyze] 参照）。
-     * 端末エンジンへのフォールバック手段が無いビルドのため、通常は出荷前の設定漏れでのみ発生する。
-     */
+    /** 端末エンジンを持たないビルドでサーバー解析が未設定のときのエラー。 */
     const val ANALYSIS_SERVER_NOT_CONFIGURED = "サーバー解析の設定が読み込めませんでした。時間をおいて再度お試しください"
 
     // ═══ 18. 形勢の表示単位（eval_display）═══════════════════════════════════════
@@ -775,6 +775,7 @@ object AppStrings {
 
     const val GAME_RESTORE_EMPTY_NOTE = "サーバーに保存された棋譜はありません。"
     const val GAME_RESTORE_BUTTON = "棋譜を復元する"
+    const val GAME_RESTORE_ANALYZE_BUTTON = "復元した棋譜を解析する"
 
     /**
      * ダウンロード進捗（進捗スロット表示・全体をMono表記）。

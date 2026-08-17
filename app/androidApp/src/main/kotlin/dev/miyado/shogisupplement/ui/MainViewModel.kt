@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.provider.OpenableColumns
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import dev.miyado.shogisupplement.ShogiApp
@@ -11,6 +12,8 @@ import dev.miyado.shogisupplement.board.PieceType
 import dev.miyado.shogisupplement.board.ShogiSquare
 import dev.miyado.shogisupplement.db.AppDatabase
 import dev.miyado.shogisupplement.db.DrillRepository
+import dev.miyado.shogisupplement.db.GameAnalysisStatus
+import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.GameRepository
 import dev.miyado.shogisupplement.db.RatingSettings
 import dev.miyado.shogisupplement.db.SettingsRepository
@@ -18,6 +21,7 @@ import dev.miyado.shogisupplement.engine.Engine
 import dev.miyado.shogisupplement.engine.PvInfo
 import dev.miyado.shogisupplement.engine.UsiEngineProcess
 import dev.miyado.shogisupplement.kifu.KifParser
+import dev.miyado.shogisupplement.kifu.GameImporter
 import dev.miyado.shogisupplement.kifu.SideSuggestion
 import dev.miyado.shogisupplement.kifu.UserSideSuggester
 import dev.miyado.shogisupplement.pipeline.InProgressAnalysisRegistry
@@ -39,23 +43,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/**
- * アプリ全体のナビゲーション状態（[MainUiState]）を保持するトップレベル ViewModel。
- *
- * 画面別の表示ロジック・計算は :ui commonMain の協力オブジェクトに委譲しており
- * （[HomeViewModel] = ホーム画面のロード、[ReportViewModel] = レポート表示状態・
- * 読み筋延長・検討モード）、本クラスは以下のみを担う:
- * - MainUiState（ナビゲーション状態）の保持・遷移
- * - Android専用の配線（AnalysisService起動・AnalysisServiceBus購読・通知deep-link・
- *   認証状態監視・エンジンプロセス生成）
- * - DB設定値（棋力申告・テーマ・評価表示単位・先後確認省略）の読み書きパススルー
- *
- * 単一の MainUiState が全画面のナビゲーションを一元管理するアーキテクチャ（Loading/
- * Home/Analyzing/ShowReport/... の sealed class を1箇所で when 分岐する設計）を保つため、
- * MainViewModel は廃止せず「薄いルーター」として残している。HomeViewModel/ReportViewModel は
- * Compose の viewModel() から独立取得するのではなく、この MainViewModel が保持するプレーンな
- * 協力オブジェクトにしている（二重ライフサイクル管理を避けるため。詳細は各クラスの KDoc参照）。
- */
+/** [MainUiState]とAndroid固有の解析配線を管理するトップレベルViewModel。 */
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val gameRepository = AppDatabase.gameRepository(application)
@@ -244,13 +232,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /**
-     * KIF 解析を開始する。
-     *
-     * 相応判定のレートは申告値ではなく StrengthEstimator（実測悪手率）が算出する。
-     * service / ratingRaw / ratingRule は記録専用（較正データ）。
-     */
-    fun startAnalysis(
+    /** KIFを未解析の棋譜として保存する。解析は保存後の画面から明示的に開始する。 */
+    fun importKif(
         uri: Uri,
         service: String? = null,
         ratingRaw: Int? = null,
@@ -258,40 +241,44 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         ratingRule: String? = null,
     ) {
         if (userSide != null) settingsRepository.saveLastUserSide(userSide)
-
-        val ctx = getApplication<Application>()
         viewModelScope.launch {
-            // 手順はKIFパース直後（エンジン解析の開始前）から確定しているため、
-            // サービス起動を待たずにここで読み直してAnalyzingReportの初期状態を作る。
-            val moves = readKifMoves(uri)
-            _state.value = MainUiState.AnalyzingReport(
-                titleHint = uri.lastPathSegment ?: "",
-                moves = moves,
-                userSide = userSide,
-                progressive = ProgressiveReportState.initial(moves),
-            )
-
-            val intent = Intent(ctx, AnalysisService::class.java).apply {
-                putExtra(AnalysisService.EXTRA_KIF_URI, uri.toString())
-                if (service != null) putExtra(AnalysisService.EXTRA_RATING_SERVICE, service)
-                if (ratingRaw != null) putExtra(AnalysisService.EXTRA_RATING_RAW, ratingRaw)
-                if (userSide != null) putExtra(AnalysisService.EXTRA_USER_SIDE, userSide)
-                if (ratingRule != null) putExtra(AnalysisService.EXTRA_RATING_RULE, ratingRule)
+            val outcome = withContext(Dispatchers.IO) {
+                GameImporter(gameRepository).importGame(
+                    kifContent = readKifContentFromUri(uri),
+                    fileName = resolveKifFileName(uri),
+                    userSide = userSide,
+                    ratingService = service,
+                    ratingRaw = ratingRaw?.toLong(),
+                    ratingRule = ratingRule,
+                )
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                ctx.startForegroundService(intent)
-            } else {
-                ctx.startService(intent)
+            when (outcome) {
+                is GameImporter.Outcome.Imported -> showReport(outcome.gameId)
+                is GameImporter.Outcome.Failed -> _state.value = MainUiState.Error(outcome.message)
             }
         }
     }
 
-    /**
-     * 特定のゲームIDのレポートを表示する（DB再取得）。
-     * @param justCompleted 直前の解析が今回のセッションで完了した直後かどうか。
-     *   trueのときだけレポート画面が完了通知バナーを一度だけ出す
-     *   （通知タップ・棋譜一覧からの表示では出さない）。
-     */
+    fun analyzeStoredGame(game: GameRecord) {
+        if (game.kifText == null) return
+        _state.value = MainUiState.AnalyzingReport(
+            titleHint = game.fileName,
+            moves = game.movesUsi,
+            userSide = game.userSide,
+            progressive = ProgressiveReportState.initial(game.movesUsi),
+        )
+        val ctx = getApplication<Application>()
+        val intent = Intent(ctx, AnalysisService::class.java).apply {
+            putExtra(AnalysisService.EXTRA_GAME_ID, game.id)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            ctx.startForegroundService(intent)
+        } else {
+            ctx.startService(intent)
+        }
+    }
+
+    /** @param justCompleted trueなら完了通知バナーを一度だけ表示する。 */
     fun showReport(gameId: Long, justCompleted: Boolean = false) {
         viewModelScope.launch {
             val result = reportViewModel.loadReport(gameId)
@@ -299,8 +286,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             if (result.game != null) {
                 // 別モジュール（:ui）宣言のプロパティのためスマートキャスト不可
                 // （DrillViewModel.kt の同種コメント参照）。直前の != null 判定で保証済み。
+                val game = result.game!!
+                if (game.analysisStatus == GameAnalysisStatus.PENDING) {
+                    _state.value = MainUiState.PendingAnalysis(game)
+                    return@launch
+                }
                 _state.value = MainUiState.ShowReport(
-                    game = result.game!!,
+                    game = game,
                     reports = result.reports,
                     flip = result.flip,
                     strengthDisplayText = result.strengthText,
@@ -314,14 +306,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _state.value = MainUiState.Error(AppStrings.gameNotFound(gameId))
             }
         }
-    }
-
-    /** KIFの手順（USI）だけを読む。[startAnalysis] のAnalyzingReport初期化専用。 */
-    private suspend fun readKifMoves(uri: Uri): List<String> = withContext(Dispatchers.IO) {
-        runCatching {
-            val content = readKifContentFromUri(uri)
-            KifParser().parse(content).moves
-        }.getOrElse { emptyList() }
     }
 
     /** 未アップロードの全ゲームをアップロードする。 */
@@ -357,19 +341,31 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 .openInputStream(uri)!!.use { it.readBytes().decodeToString() }
         }
 
-    /**
-     * KIFの対局者名と設定済みアカウント名を比較して自分の側を推定する。
-     *
-     * 全サービスのアカウント名のいずれかと先手・後手名が一致すればその側を返す。
-     * 一致しなければ最後に選んだ側（last_user_side）にフォールバック。
-     */
+    /** content URIでは末尾パスが表示名とは限らないため、Providerの表示名を優先する。 */
+    private fun resolveKifFileName(uri: Uri): String {
+        if (uri.scheme == "file") return uri.lastPathSegment ?: "unknown.kif"
+        val displayName = runCatching {
+            getApplication<Application>().contentResolver.query(
+                uri,
+                arrayOf(OpenableColumns.DISPLAY_NAME),
+                null,
+                null,
+                null,
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    cursor.getString(cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME))
+                } else {
+                    null
+                }
+            }
+        }.getOrNull()
+        return displayName ?: uri.lastPathSegment ?: "unknown.kif"
+    }
+
+    /** アカウント名に一致しなければ最後に選んだ側を返す。 */
     suspend fun suggestUserSide(senteName: String?, goteName: String?): String? =
         suggestUserSideWithMatch(senteName, goteName).side
 
-    /**
-     * 先後推定とアカウント名一致の有無を返す。
-     * 一致フラグは確認省略（skip_side_confirm）の判定に使う。
-     */
     suspend fun suggestUserSideWithMatch(senteName: String?, goteName: String?): SideSuggestion =
         withContext(Dispatchers.IO) {
             UserSideSuggester.suggest(
@@ -415,16 +411,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     /** 全サービスのアカウント名を取得する（棋力設定ダイアログ用）。 */
     fun getAllServiceAccounts(): Map<String, String> = settingsRepository.getAllServiceAccounts()
 
-    /**
-     * サービス申告情報をまとめて保存する（棋力設定ダイアログの確定時に呼ぶ）。
-     *
-     * 相応判定には使わない（記録・較正データ収集のみ）。
-     * アカウント名はサービスごとに service_account テーブルへ保存する。
-     * @param service "lishogi" / "shogi_wars" / "kiou"（null = 未申告）
-     * @param ratingRaw サービス上のraw値（null = 未申告）
-     * @param ratingRule ルール文字列（null = 選択なし）
-     * @param serviceAccounts サービス → アカウント名のマップ（先後自動選択に使用）
-     */
+    /** 申告情報は強さ判定には含めず、記録と較正にのみ保存する。 */
     fun saveRatingSettings(
         service: String?,
         ratingRaw: Int?,
@@ -473,12 +460,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /**
-     * ホームの解析中カードをタップしたときの再接続。
-     * レジストリの現在スナップショットからAnalyzingReport画面へ入る（0からやり直さない）。
-     * 既に完了・失敗して解析が消えていた場合（タップと完了のレース）は何もしない
-     * （直後にホームの一覧側が通常のカードへ更新される）。
-     */
+    /** 完了との競合でセッションが消えていれば、画面遷移しない。 */
     fun resumeAnalyzing(id: String) {
         val session = InProgressAnalysisRegistry.shared.snapshot(id) ?: return
         _state.value = MainUiState.AnalyzingReport(

@@ -36,8 +36,9 @@ fun UserSideDialog(
     onDismiss: () -> Unit,
     /** アカウント名一致時のみ true（「次回から省略」チェックボックスを表示）。アプリ専用。 */
     showSkipOption: Boolean = false,
+    confirmText: String = AppStrings.START_ANALYSIS,
 ) {
-    // 初期値が null（未選択）の場合は解析開始を無効化する
+    // 初期値が null（未選択）の場合は確定操作を無効化する
     var selection by remember { mutableStateOf(savedUserSide) }
     var skipNext by remember { mutableStateOf(false) }
 
@@ -87,7 +88,7 @@ fun UserSideDialog(
                 onClick = { onConfirm(selection, skipNext) },
                 enabled = selection != null,
             ) {
-                Text(AppStrings.START_ANALYSIS)
+                Text(confirmText)
             }
         },
         dismissButton = {

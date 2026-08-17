@@ -36,20 +36,11 @@ object DrillDemoFactory {
 
     private const val SEED_CONTENT_HASH = "ios-demo-drill-seed-v1"
 
-    // ドリルの二次判定（単発局面）向けタイムアウト。IosMainController の解析用HttpClientは
-    // 1局まるごとの解析（数十秒〜）を想定した値（10分/5分）だが、ここは1局面だけなので
-    // 短い値で十分（かつ短いほうがUXとしても待たせすぎない）。
+    // 単一局面の判定なので、全局解析より短いタイムアウトにする。
     private const val POSITION_REQUEST_TIMEOUT_MS = 30_000L
     private const val POSITION_SOCKET_TIMEOUT_MS = 30_000L
 
-    /**
-     * DrillViewModel を生成する。DBが空なら先にフィクスチャをseedする。
-     *
-     * @param authRepository   null（既定）= Supabase未設定ビルド。二次判定は常に端末エンジン版。
-     * @param analysisBaseUrl  null（既定）= サーバー解析未設定。[authRepository] と両方が
-     *   非null のときだけローカルWASM優先・不可時はサーバー版の二次判定（[buildSecondaryJudge]）を
-     *   使う（IosMainController.confirmSideAndAnalyze と同じ graceful degradation の方針）。
-     */
+    /** サーバー設定が揃わない場合は端末エンジンだけで判定する。 */
     fun create(
         authRepository: AuthRepository? = null,
         analysisBaseUrl: String? = null,
@@ -68,21 +59,12 @@ object DrillDemoFactory {
             drillRepository = drillRepository,
             settingsRepository = settingsRepository,
             judgeWithEngine = buildSecondaryJudge(authRepository, analysisBaseUrl),
-            // 読み筋のオンデマンド延長（結果画面の「最善」タブ）のエンジンも二次判定と同じ
-            // 出し分け（エンジン入り=常駐エンジン／engineless=ローカルWASM優先・不可時サーバー）。
-            // PvExtensionRunner は延長解析後に無条件で quit() を呼ぶため、どの実装も
-            // quit() を no-op にして常駐エンジン・常駐ホスト・HTTPクライアントを壊さない。
+            // 延長後のquitで共有エンジンを壊さない実装だけを返す。
             engineFactory = buildStudyEngineFactory(authRepository, analysisBaseUrl),
         )
     }
 
-    /**
-     * 読み筋延長向けのエンジンファクトリ。エンジン入り版は常駐エンジン、engineless版は
-     * サーバー設定があるときだけローカルWASM優先・不可時はサーバー（[FailoverEngine]。
-     * IosMainController.studyEngineFactory と同じ出し分け）。どちらも無ければ従来どおり
-     * [IosEngineHost.studyEngineFactory] の例外を投げるダミー（engineless版で
-     * ANALYSIS_BASE_URL未設定＝出荷前の設定漏れのときだけ到達する経路）。
-     */
+    /** 端末エンジンもサーバー設定もなければ生成時に失敗する。 */
     private fun buildStudyEngineFactory(
         authRepository: AuthRepository?,
         analysisBaseUrl: String?,
@@ -138,19 +120,10 @@ object DrillDemoFactory {
                 appCheckTokenProvider = AppCheckTokenBridge::getToken,
             )
             val remoteJudge = RemoteDrillSecondaryJudge { sfen -> runner.analyzePosition(sfen) }
-            // ローカルWASMは出題局面・ユーザー手後局面の2回とも無料で解析できるため
-            // EngineDrillSecondaryJudge（端末エンジン版と同型・2回解析）を使う。WasmStudyEngine
-            // はfail-fastなので、WASMバイナリ未準備等で1回目のanalyzeSfenが即座に例外を投げ、
-            // ここでサーバー版（1回だけ解析してクォータを節約するRemoteDrillSecondaryJudge）へ
-            // 切り替わる（DrillSecondaryJudge単位のフェイルオーバー。Engine単位で合成すると
-            // secondaryも2回解析する構成になりRemoteDrillSecondaryJudgeの節約が失われるため
-            // 意図的に分けている）。
+            // 判定単位で切り替え、サーバー側の解析回数を1回に抑える。
             val wasmJudge = EngineDrillSecondaryJudge { sfen -> WasmStudyEngine().analyzeSfen(sfen) }
             return { blunder, userMoveUsi ->
-                // IosMainController.confirmSideAndAnalyze と同じ理由: サーバー解析はJWT必須
-                // なので、匿名サインインすらしていない初回でも通るよう先に保証する
-                // （WASM側はJWT不要だが、フォールバック時に二重で確認する手間を避けるため
-                // ここでまとめて保証する）。
+                // フォールバック後もJWTを保証するため、判定前に認証する。
                 if (authRepository.currentUser.value == null) {
                     authRepository.signInAnonymously()
                 }
@@ -245,10 +218,3 @@ object DrillDemoFactory {
         }
     }
 }
-
-// UsiEngineInProcess の常駐ホルダーは :shared/iosMain の IosEngineHost にある
-// （AnalysisOrchestrator の取込フローとドリル判定の両方が同一エンジンインスタンスを
-// 共有する必要があるため）。iosApp/ContentView.swift の「Engine」タブ（EngineSmokeRunner）も
-// 同一プロセス内で UsiEngineInProcess.companion.create を呼ぶため、実機/シミュレータ検証時に
-// 両方を同一プロセスで併用すると2回目の create() が例外になる
-// （iOS実動作確認は「CMP」タブのみで行い、「Engine」タブは開かないこと）。

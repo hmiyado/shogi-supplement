@@ -1,10 +1,7 @@
 package dev.miyado.shogisupplement
 
-import android.Manifest
 import android.content.ClipData
 import android.content.ClipboardManager
-import android.content.pm.PackageManager
-import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -27,7 +24,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.core.content.ContextCompat
 import dev.miyado.shogisupplement.kifu.ClipboardKifValidator
 import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.MainViewModel
@@ -41,17 +37,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-// showKifSourceSheet のみ MainActivity.kt（MainApp）側の remember 状態をホイストして
-// 受け取る（HomeScreen/ErrorScreen の onOpenKif がこのシートを開くトリガーのため、
-// MainApp 側の when(state) 分岐からも書き込む必要がある）。それ以外のダイアログ/
-// フロー内部状態（pickedUri・kifSenteName 等）はこの Composable の subtree に閉じているため
-// ローカル remember で持つ。
-
-/**
- * KIF 棋譜取込フロー（ファイルピッカー/クリップボード → 棋力設定 → 先後選択 → 解析開始）。
- * MainActivity.kt の MainApp から常時コンポジションに含める（表示/非表示は内部の
- * remember 状態と showKifSourceSheet パラメータで制御する）。
- */
+/** ファイルまたはクリップボードのKIFを保存する取込フロー。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun KifImportFlow(
@@ -61,30 +47,6 @@ fun KifImportFlow(
     showRatingSettingsDialog: Boolean,
     onShowRatingSettingsDialogChange: (Boolean) -> Unit,
 ) {
-    // 通知権限（Android 13+）: 起動時ではなく初回の解析開始時に文脈つきで求める。
-    // 拒否されても解析は動く（進捗・完了通知が見えなくなるだけ）ので、結果に関わらず開始する
-    val notifPermissionContext = LocalContext.current
-    var pendingAnalysisStart by remember { mutableStateOf<(() -> Unit)?>(null) }
-    val notifPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission(),
-    ) {
-        pendingAnalysisStart?.invoke()
-        pendingAnalysisStart = null
-    }
-    fun startAnalysisWithNotifPermission(start: () -> Unit) {
-        val needsRequest = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(
-                notifPermissionContext,
-                Manifest.permission.POST_NOTIFICATIONS,
-            ) != PackageManager.PERMISSION_GRANTED
-        if (needsRequest) {
-            pendingAnalysisStart = start
-            notifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        } else {
-            start()
-        }
-    }
-
     // ファイルピッカー
     var pickedUri by remember { mutableStateOf<android.net.Uri?>(null) }
     // KIFパース済みの対局者名と推定サイド（ダイアログ表示用）
@@ -109,20 +71,18 @@ fun KifImportFlow(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    /** 側が確定しているとき、ダイアログなしで解析を開始する。 */
-    fun startAnalysisDirect(userSide: String?) {
+    /** 側が確定しているとき、ダイアログなしで棋譜を保存する。 */
+    fun importDirectly(userSide: String?) {
         val uri = pickedUri ?: return
         pickedUri = null
         val savedSettings = vm.getSavedRatingSettings()
-        startAnalysisWithNotifPermission {
-            vm.startAnalysis(
-                uri,
-                savedSettings.service,
-                savedSettings.ratingRaw,
-                userSide,
-                savedSettings.ratingRule,
-            )
-        }
+        vm.importKif(
+            uri,
+            savedSettings.service,
+            savedSettings.ratingRaw,
+            userSide,
+            savedSettings.ratingRule,
+        )
     }
 
     /** KIF URI のパース→ダイアログフロー共通ヘルパー。 */
@@ -143,8 +103,8 @@ fun KifImportFlow(
                 suggestedSide = suggestion.side
                 suggestedByAccount = suggestion.matchedByAccount
                 if (vm.shouldSkipSideConfirm(suggestion)) {
-                    // アカウント名一致 + 省略設定ON → 確認なしで即解析
-                    startAnalysisDirect(suggestion.side)
+                    // アカウント名一致 + 省略設定ON → 確認なしで即保存
+                    importDirectly(suggestion.side)
                 } else {
                     showUserSideDialog = true
                 }
@@ -208,7 +168,7 @@ fun KifImportFlow(
                         suggestedSide = suggestion.side
                         suggestedByAccount = suggestion.matchedByAccount
                         if (vm.shouldSkipSideConfirm(suggestion)) {
-                            startAnalysisDirect(suggestion.side)
+                            importDirectly(suggestion.side)
                         } else {
                             showUserSideDialog = true
                         }
@@ -286,20 +246,19 @@ fun KifImportFlow(
             savedUserSide = suggestedSide,
             // アカウント名一致時のみ「次回から省略」チェックボックスを表示
             showSkipOption = suggestedByAccount,
+            confirmText = AppStrings.HOME_OPEN_KIF,
             onConfirm = { userSide, skipNext ->
                 showUserSideDialog = false
                 if (suggestedByAccount) vm.saveSkipSideConfirm(skipNext)
                 val uri = pickedUri!!
                 pickedUri = null
-                startAnalysisWithNotifPermission {
-                    vm.startAnalysis(
-                        uri,
-                        savedSettings.service,
-                        savedSettings.ratingRaw,
-                        userSide,
-                        savedSettings.ratingRule,
-                    )
-                }
+                vm.importKif(
+                    uri,
+                    savedSettings.service,
+                    savedSettings.ratingRaw,
+                    userSide,
+                    savedSettings.ratingRule,
+                )
             },
             onDismiss = {
                 showUserSideDialog = false

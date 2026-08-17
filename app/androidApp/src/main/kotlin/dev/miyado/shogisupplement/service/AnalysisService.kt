@@ -29,23 +29,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
-/**
- * KIF解析を行うフォアグラウンドサービス。
- * 解析完了後は AnalysisServiceBus で ViewModel に通知する。
- * 自動アップロードON＋ログイン中なら解析後に uploaded_games へ送信する。
- *
- * 解析のコア処理（KIFパース→エンジン解析→悪手判定→強さ推定→DB保存）は
- * shared/commonMain の [AnalysisOrchestrator] に委譲している。本クラスが持つのは
- * Android専用の処理（フォアグラウンド通知・Intent処理・URI読み込み・ファイル名解決・
- * 自動アップロード呼び出し）のみ。エンジンは局ごとに新規プロセスを起動し、局の解析が
- * 終わったら終了する（[UsiEngineProcess.create]/[UsiEngineProcess.quit]）挙動は
- * AnalysisOrchestrator の engineFactory/disposeEngine 経由で行う。
- *
- * [InProgressAnalysisRegistry] への書き込みも本クラスが唯一の担い手（start/updatePosition/
- * finishを全てここで呼ぶ）。フォアグラウンドサービス＝解析の生存期間そのものなので、
- * MainViewModel（Activity破棄で消える）を経由させずここで直接管理する
- * （ホームに戻ってもAndroid ViewModelは即座には破棄されないが、それに依存しない設計にする）。
- */
+/** Androidの通知と解析プロセスの生存期間を管理するフォアグラウンドサービス。 */
 class AnalysisService : Service() {
 
     private val TAG = "AnalysisService"
@@ -66,7 +50,9 @@ class AnalysisService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val uriString = intent?.getStringExtra(EXTRA_KIF_URI) ?: run {
+        val uriString = intent?.getStringExtra(EXTRA_KIF_URI)
+        val gameId = intent?.getLongExtra(EXTRA_GAME_ID, -1L)?.takeIf { it >= 0L }
+        if (uriString == null && gameId == null) {
             Log.w(TAG, "No KIF URI provided")
             stopSelf()
             return START_NOT_STICKY
@@ -79,38 +65,43 @@ class AnalysisService : Service() {
         startForeground(NOTIF_ID, buildProgressNotification(0, 0))
 
         scope.launch(Dispatchers.IO) {
-            runAnalysis(uriString, userSide, ratingService, ratingRaw?.toLong(), ratingRule)
+            runAnalysis(uriString, gameId, userSide, ratingService, ratingRaw?.toLong(), ratingRule)
         }
 
         return START_NOT_STICKY
     }
 
     private suspend fun runAnalysis(
-        uriString: String,
+        uriString: String?,
+        gameId: Long?,
         userSide: String? = null,
         ratingService: String? = null,
         ratingRaw: Long? = null,
         ratingRule: String? = null,
     ) {
-        // InProgressAnalysisRegistry.finish をfinallyで確実に呼ぶための外側var
-        // （tryブロック内でidが決まる前に例外が出たケースはnullのままfinishをスキップする）。
+        // ID確定前の失敗ではレジストリへの登録もないため、nullならfinishしない。
         var sessionId: String? = null
         try {
-            val uri = Uri.parse(uriString)
-            val kifContent = readKifContent(uri)
-            val fileName = getFileName(uri) ?: "unknown.kif"
+            val repository = AppDatabase.gameRepository(this)
+            val storedGame = gameId?.let(repository::getGameById)
+            val uri = uriString?.let(Uri::parse)
+            val kifContent = storedGame?.kifText ?: uri?.let(::readKifContent)
+                ?: error("KIF content is missing")
+            val fileName = storedGame?.fileName ?: uri?.let(::getFileName) ?: "unknown.kif"
+            val effectiveUserSide = storedGame?.userSide ?: userSide
+            val effectiveRatingService = storedGame?.ratingService ?: ratingService
+            val effectiveRatingRaw = storedGame?.ratingRaw ?: ratingRaw
+            val effectiveRatingRule = storedGame?.ratingRule ?: ratingRule
 
             Log.i(TAG, "Starting analysis: $fileName")
 
             // 手順・content_hashはKIFパース直後（エンジン解析の開始前）から確定するため、
             // orchestrator呼び出しより先にレジストリへ登録できる。
             // AnalysisOrchestrator側でも同じ入力から同じハッシュを計算するため値は一致する。
-            val id = sha256Hex(kifContent)
+            val id = storedGame?.contentHash ?: sha256Hex(kifContent)
             sessionId = id
             val moves = runCatching { KifParser().parse(kifContent).moves }.getOrElse { emptyList() }
-            InProgressAnalysisRegistry.shared.start(id, fileName, moves, userSide)
-
-            val repository = AppDatabase.gameRepository(this)
+            InProgressAnalysisRegistry.shared.start(id, fileName, moves, effectiveUserSide)
 
             // 係数読み込み
             val coefJson = assets.open(CoefficientTable.COEFFICIENTS_FILE_NAME).readBytes().decodeToString()
@@ -133,10 +124,12 @@ class AnalysisService : Service() {
             val outcome = orchestrator.analyzeAndSave(
                 kifContent = kifContent,
                 fileName = fileName,
-                userSide = userSide,
-                ratingService = ratingService,
-                ratingRaw = ratingRaw,
-                ratingRule = ratingRule,
+                userSide = effectiveUserSide,
+                ratingService = effectiveRatingService,
+                ratingRaw = effectiveRatingRaw,
+                ratingRule = effectiveRatingRule,
+                contentHash = storedGame?.contentHash,
+                sourcePlaceOverride = storedGame?.sourcePlace,
                 onProgress = { done, total ->
                     if (done % 5 == 0 || done == total) {
                         updateProgressNotification(done, total)
@@ -158,10 +151,7 @@ class AnalysisService : Service() {
                     showCompletionNotification(outcome.gameId)
 
                     if (!outcome.alreadyExisted) {
-                        // 自動アップロード（失敗してもアプリ動作に影響させない）
-                        // NOTE: scope.launch{} を使わず直接 suspend 呼び出しにする。
-                        // 子コルーチンにすると finally の stopSelf() → onDestroy() → job.cancel() で
-                        // キャンセルされてアップロードが完了しない競合が起きる。
+                        // 子コルーチンはstopSelf後にキャンセルされるため、直接完了を待つ。
                         try {
                             val app = applicationContext as ShogiApp
                             Log.i("AutoUpload", "Starting auto upload for gameId=${outcome.gameId}")
@@ -269,6 +259,7 @@ class AnalysisService : Service() {
 
     companion object {
         const val EXTRA_KIF_URI = "kif_uri"
+        const val EXTRA_GAME_ID = "game_id"
         const val EXTRA_RATING = "rating"
         const val EXTRA_USER_SIDE = "user_side"
         const val EXTRA_RATING_SERVICE = "rating_service"

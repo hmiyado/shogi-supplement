@@ -36,11 +36,23 @@ class GameRestoreScreenInteractionTest {
     @get:Rule
     val composeRule = createComposeRule()
 
-    private fun setState(state: GameRestoreUiState, onStart: () -> Unit = {}, onRetry: () -> Unit = {}, onFinish: () -> Unit = {}) {
+    private fun setState(
+        state: GameRestoreUiState,
+        onStart: () -> Unit = {},
+        onRetry: () -> Unit = {},
+        onAnalyze: () -> Unit = {},
+        onFinish: () -> Unit = {},
+    ) {
         composeRule.setContent {
             ShogiTheme {
                 Surface {
-                    GameRestoreScreen(state = state, onStart = onStart, onRetry = onRetry, onFinish = onFinish)
+                    GameRestoreScreen(
+                        state = state,
+                        onStart = onStart,
+                        onRetry = onRetry,
+                        onAnalyze = onAnalyze,
+                        onFinish = onFinish,
+                    )
                 }
             }
         }
@@ -86,6 +98,24 @@ class GameRestoreScreenInteractionTest {
         setState(GameRestoreUiState.Completed(total = 3, succeeded = 3, failed = 0), onFinish = { finished = true })
         composeRule.onNodeWithTag("game_restore_home_button").performClick()
         assertTrue(finished)
+    }
+
+    @Test
+    fun 復元成功後は解析するボタンでonAnalyzeが呼ばれる() {
+        var analyzed = false
+        setState(
+            GameRestoreUiState.Completed(total = 3, succeeded = 3, failed = 0),
+            onAnalyze = { analyzed = true },
+        )
+        composeRule.onNodeWithTag("game_restore_primary_button").assertIsEnabled()
+        composeRule.onNodeWithTag("game_restore_primary_button").performClick()
+        assertTrue(analyzed)
+    }
+
+    @Test
+    fun 復元成功0件なら解析するボタンは無効() {
+        setState(GameRestoreUiState.Completed(total = 2, succeeded = 0, failed = 2))
+        composeRule.onNodeWithTag("game_restore_primary_button").assertIsNotEnabled()
     }
 
     @Test

@@ -39,6 +39,7 @@ fun GameRestoreScreen(
     state: GameRestoreUiState,
     onStart: () -> Unit = {},
     onRetry: () -> Unit = {},
+    onAnalyze: () -> Unit = {},
     onFinish: () -> Unit = {},
 ) {
     Surface(modifier = Modifier.fillMaxSize()) {
@@ -79,13 +80,21 @@ fun GameRestoreScreen(
                         when (state) {
                             is GameRestoreUiState.Ready -> onStart()
                             is GameRestoreUiState.Error -> onRetry()
+                            is GameRestoreUiState.Completed -> onAnalyze()
                             else -> Unit
                         }
                     },
                     enabled = primaryButtonEnabled(state),
+                    shape = MaterialTheme.shapes.medium,
                     modifier = Modifier.weight(1f).testTag("game_restore_primary_button"),
                 ) {
-                    Text(if (state is GameRestoreUiState.Error) AppStrings.GAME_RESTORE_RETRY_BUTTON else AppStrings.GAME_RESTORE_BUTTON)
+                    Text(
+                        when (state) {
+                            is GameRestoreUiState.Error -> AppStrings.GAME_RESTORE_RETRY_BUTTON
+                            is GameRestoreUiState.Completed -> AppStrings.GAME_RESTORE_ANALYZE_BUTTON
+                            else -> AppStrings.GAME_RESTORE_BUTTON
+                        },
+                    )
                 }
             }
         }
@@ -95,6 +104,7 @@ fun GameRestoreScreen(
 private fun primaryButtonEnabled(state: GameRestoreUiState): Boolean = when (state) {
     is GameRestoreUiState.Ready -> state.count > 0
     is GameRestoreUiState.Error -> true
+    is GameRestoreUiState.Completed -> state.succeeded > 0
     else -> false
 }
 
