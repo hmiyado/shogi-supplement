@@ -12,7 +12,6 @@ import dev.miyado.shogisupplement.board.PieceType
 import dev.miyado.shogisupplement.board.ShogiSquare
 import dev.miyado.shogisupplement.db.AppDatabase
 import dev.miyado.shogisupplement.db.DrillRepository
-import dev.miyado.shogisupplement.db.GameAnalysisStatus
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.GameRepository
 import dev.miyado.shogisupplement.db.RatingSettings
@@ -287,10 +286,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 // 別モジュール（:ui）宣言のプロパティのためスマートキャスト不可
                 // （DrillViewModel.kt の同種コメント参照）。直前の != null 判定で保証済み。
                 val game = result.game!!
-                if (game.analysisStatus == GameAnalysisStatus.PENDING) {
-                    _state.value = MainUiState.PendingAnalysis(game)
-                    return@launch
-                }
                 _state.value = MainUiState.ShowReport(
                     game = game,
                     reports = result.reports,

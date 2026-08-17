@@ -140,10 +140,6 @@ fun MainApp(vm: MainViewModel, state: MainUiState) {
         is MainUiState.ShowReport -> {
             ReportHost(vm, state)
         }
-        is MainUiState.PendingAnalysis -> {
-            BackHandler { vm.loadHome() }
-            PendingAnalysisHost(vm, state)
-        }
         is MainUiState.Drill -> {
             BackHandler { vm.loadHome() }
             DrillScreen(onBack = { vm.loadHome() })

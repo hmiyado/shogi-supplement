@@ -68,7 +68,6 @@ import dev.miyado.shogisupplement.ui.generated.resources.Res
 import dev.miyado.shogisupplement.ui.home.HomeScreen
 import dev.miyado.shogisupplement.ui.license.LicenseInfoScreen
 import dev.miyado.shogisupplement.ui.report.AnalyzingReportScreen
-import dev.miyado.shogisupplement.ui.report.PendingAnalysisScreen
 import dev.miyado.shogisupplement.ui.report.ReportScreen
 import dev.miyado.shogisupplement.ui.restore.GameRestoreScreen
 import dev.miyado.shogisupplement.ui.restore.GameRestoreViewModel
@@ -704,15 +703,6 @@ private fun IosReportScreenHost(
         return
     }
 
-    if (g.analysisStatus == GameAnalysisStatus.PENDING) {
-        PendingAnalysisScreen(
-            game = g,
-            onBack = onBack,
-            onAnalyze = { controller.analyzeStoredGame(g) },
-        )
-        return
-    }
-
     val evalDisplay by controller.evalDisplay.collectAsState()
     val pvExtState by controller.pvExtState.collectAsState()
     val studyState by controller.studyState.collectAsState()
@@ -726,6 +716,8 @@ private fun IosReportScreenHost(
         positionEvals = positionEvals,
         matchRateDisplayText = matchRateText,
         blunderRateDisplayText = blunderRateText,
+        analysisPending = g.analysisStatus == GameAnalysisStatus.PENDING,
+        onAnalyze = { controller.analyzeStoredGame(g) },
         justCompleted = justCompleted,
         onBack = onBack,
         pvExtState = pvExtState,

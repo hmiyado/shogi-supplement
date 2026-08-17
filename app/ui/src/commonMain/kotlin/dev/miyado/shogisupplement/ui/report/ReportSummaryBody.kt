@@ -21,13 +21,13 @@ internal fun ReportSummaryBody(
     matchRateDisplayText: String?,
     blunderRateDisplayText: String?,
     onViewList: () -> Unit,
+    analysisPending: Boolean = false,
+    onAnalyze: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier) {
-        // 評価値グラフ（手数×評価値の推移。悪手位置に朱マーカー・現在手にライン）。
-        // positionEvals が無い（旧解析・保存前）局は非表示——件数ガードはグラフ側
-        // （points.isEmpty()）に任せる。
-        if (evalGraphPoints.isNotEmpty()) {
+        // 未解析では空のグラフを無効表示し、解析済みの空データは表示しない。
+        if (evalGraphPoints.isNotEmpty() || analysisPending) {
             EvalGraphCard(
                 points = evalGraphPoints,
                 maxPly = maxPly,
@@ -36,16 +36,24 @@ internal fun ReportSummaryBody(
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                 onPlyTapped = onPlyTapped,
                 onPlyDragged = onPlyDragged,
+                enabled = !analysisPending,
             )
         }
-        BlunderSummaryCard(
-            reports = reports,
-            noBlundersMessage = noBlundersMessage,
-            strengthDisplayText = strengthDisplayText,
-            matchRateDisplayText = matchRateDisplayText,
-            blunderRateDisplayText = blunderRateDisplayText,
-            onViewList = onViewList,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-        )
+        if (analysisPending) {
+            PendingAnalysisCard(
+                onAnalyze = onAnalyze,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            )
+        } else {
+            BlunderSummaryCard(
+                reports = reports,
+                noBlundersMessage = noBlundersMessage,
+                strengthDisplayText = strengthDisplayText,
+                matchRateDisplayText = matchRateDisplayText,
+                blunderRateDisplayText = blunderRateDisplayText,
+                onViewList = onViewList,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            )
+        }
     }
 }

@@ -13,10 +13,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.blunder.BlunderJudge
 import dev.miyado.shogisupplement.blunder.Score
@@ -26,30 +29,13 @@ import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.theme.shogiColors
 import kotlin.math.roundToInt
 
-/**
- * 評価値グラフ用に正規化した1点。自分視点・クランプ済みの値のみ持つ
- * （表示側は符号や勝率換算を一切行わない。正 = 自分優勢で統一）。
- */
+/** 自分視点・クランプ済みの評価値。 */
 data class EvalGraphPoint(val ply: Int, val clampedCp: Int)
 
-/** グラフの縦軸クランプ幅（cp）。悪手判定閾値の4倍程度を確保し、
- * 通常の優劣の推移が視認できる範囲に収める。詰みはこの値に張り付ける。 */
+/** 詰み評価もこの上下限へ丸める。 */
 const val EVAL_GRAPH_CLAMP_CP = 2000
 
-/**
- * [PositionEvalRow] を評価値グラフ用の点列に変換する（ply昇順ソート・クランプ適用・自分視点への正規化）。
- * mateIn は符号のみ使い、クランプ上限/下限に張り付ける（実際の詰み手数は表示に使わない。
- * グラフは形勢の推移の概観が目的で、詰み手数の精緻な表現は他の表示（ナビ行等）が担うため）。
- *
- * mateIn == 0 は「手番側が既に詰まされている」ことを示す符号なし値（[PositionEvalDisplay]
- * と同じ規約）。他のmate値と違い符号だけでは勝敗を判定できないため、この値のときだけ
- * ply の偶奇から手番を特定して勝敗を決める（さもないと詰ませて勝った側のグラフが
- * 逆側にクランプされる）。
- *
- * @param userIsGote ユーザーが後手なら true（符号反転）。position_eval は先手視点保存のため、
- *   この画面の他の表示と同じ規約で自分視点に揃える
- *   （上=自分有利で統一。実機確認で先手視点固定は違和感があるとの指摘）。
- */
+/** mateIn=0だけは符号がないため、手番から勝敗を復元する。 */
 fun buildEvalGraphPoints(positionEvals: List<PositionEvalRow>, userIsGote: Boolean = false): List<EvalGraphPoint> =
     positionEvals
         .sortedBy { it.ply }
@@ -69,14 +55,7 @@ fun buildEvalGraphPoints(positionEvals: List<PositionEvalRow>, userIsGote: Boole
             EvalGraphPoint(ply = row.ply, clampedCp = cp)
         }
 
-/**
- * 反映済み区間の[PositionEval]列を評価値グラフ用の点列に変換する。
- * [PositionEval.score] は手番側視点のまま（[buildEvalGraphPoints] が読む
- * [PositionEvalRow] とは異なり先手視点への正規化が済んでいない）ため、ここで
- * ply の偶奇（0手目=先手番）から手番を特定し、先手視点→自分視点の順に変換する。
- *
- * @param userIsGote ユーザーが後手なら true（符号反転）。[buildEvalGraphPoints] と同じ規約
- */
+/** 手番側視点の進捗評価を先手視点、自分視点の順に変換する。 */
 fun buildProgressiveEvalGraphPoints(evals: List<PositionEval>, userIsGote: Boolean = false): List<EvalGraphPoint> =
     evals.mapIndexedNotNull { ply, eval ->
         val score = eval.score ?: return@mapIndexedNotNull null
@@ -90,44 +69,14 @@ fun buildProgressiveEvalGraphPoints(evals: List<PositionEval>, userIsGote: Boole
         EvalGraphPoint(ply = ply, clampedCp = userCp)
     }
 
-/**
- * グラフ上のx座標（Canvas内のローカル座標・px）を ply に変換する。
- * タップ・ドラッグ双方のポインタ処理で共有する。
- * Composeに依存しない純粋関数のためユニットテスト可能。
- *
- * @param x タップ/ドラッグ位置のx座標（px）
- * @param widthPx Canvasの幅（px）。0以下なら常に0を返す
- * @param effectiveMaxPly 横軸の最大ply（呼び出し側のグラフ描画で使っている値と同じものを渡すこと）
- */
+/** 幅が0以下なら0を返す。 */
 fun plyFromX(x: Float, widthPx: Int, effectiveMaxPly: Int): Int {
     if (widthPx <= 0) return 0
     val ratio = (x / widthPx).coerceIn(0f, 1f)
     return (ratio * effectiveMaxPly).roundToInt().coerceIn(0, effectiveMaxPly)
 }
 
-/**
- * 評価値グラフカード（手数×評価値の折れ線。悪手位置にマーカー表示）。
- *
- * 色は意味の三色体系を厳守する: loss（朱）は「悪手・損失専用」のため、
- * 形勢が悪い側の領域を朱で塗るような表現はしない（悪手マーカーの点にのみ使う）。
- * 線・ゼロ基準線はいずれも中立色（ink系/line）に統一する。
- *
- * @param points [buildEvalGraphPoints] 済みの点列（空なら何も描画しない＝呼び出し側で件数ガードする）
- * @param maxPly 横軸の最大値（対局の総手数）。points の最大ply未満にはしない
- * @param blunderPlies 悪手マーカーを打つ ply の集合（position_eval に対応データがない ply は無視）
- * @param currentPly ビューア（ナビ行）が現在表示している ply。null なら現在手ラインを描かない
- *   （検討モード等、本譜の ply と対応が取れない状態を表す）
- * @param onPlyTapped タップした位置に最も近い ply。呼び出し側でナビゲーション（該当手へジャンプ）・
- *   悪手マーカーなら一覧への切替に使う
- * @param onPlyDragged 横方向ドラッグ中（指を離すまでの全サンプル）に呼ばれる、現在の指位置に
- *   対応する ply（スクラバー操作）。呼び出し側はタップと違い一覧への切替を発火させないこと
- *   （このカード自身はタップ/ドラッグの種別を渡すだけで、悪手一覧への切替可否の判断は
- *   呼び出し側の責務）。
- * @param analyzingThroughPly 解析中のwatermark（反映済み区間の直後のply）。nullなら
- *   解析中表示をしない（完成レポート表示）。非nullのとき、[maxPly] までの未反映区間に
- *   ハッチングを敷き、反映先端に卵黄ドットを打つ
- * @param interactive false のときタップ・ドラッグを無効化する（解析中は盤同様に操作不可にする）
- */
+/** loss色は悪手マーカーだけに使い、形勢領域は着色しない。 */
 @Composable
 fun EvalGraphCard(
     points: List<EvalGraphPoint>,
@@ -139,11 +88,10 @@ fun EvalGraphCard(
     onPlyDragged: (Int) -> Unit = {},
     analyzingThroughPly: Int? = null,
     interactive: Boolean = true,
+    enabled: Boolean = true,
 ) {
-    // 解析中（analyzingThroughPly != null）は反映済み点が0件の瞬間（解析開始直後）でも
-    // ハッチング全面表示のカード自体は出す必要があるため、空件数ガードは完成レポート
-    // 表示（analyzingThroughPly == null）のときだけ効かせる。
-    if (points.isEmpty() && analyzingThroughPly == null) return
+    // 解析中と無効状態は、点がなくてもカードの領域を保つ。
+    if (points.isEmpty() && analyzingThroughPly == null && enabled) return
     val shogiColors = MaterialTheme.shogiColors
     val lineColor = MaterialTheme.colorScheme.onSurface
     val zeroLineColor = shogiColors.line
@@ -155,7 +103,11 @@ fun EvalGraphCard(
     val effectiveMaxPly = maxOf(maxPly, points.maxOfOrNull { it.ply } ?: 0, 1)
 
     Card(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .alpha(if (enabled) 1f else 0.38f)
+            .testTag("eval_graph_card")
+            .semantics { if (!enabled) disabled() },
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
     ) {
@@ -171,15 +123,9 @@ fun EvalGraphCard(
                     .height(96.dp)
                     .padding(top = 8.dp)
                     .testTag("eval_graph_canvas")
-                    // タップとドラッグを2つの pointerInput に分けて検出する（Compose の定石。
-                    // detectDragGestures はタッチスロップを越えて初めて onDragStart を発火し
-                    // その後の change を consume するため、スロップ未満で指を離す＝タップは
-                    // こちらに一切反応せず、隣の detectTapGestures 側にそのまま拾われる。
-                    // Why not 1つの pointerInput にまとめる: detectDragGestures と
-                    // detectTapGestures は排他のジェスチャー検出器で片方しか awaitPointerEventScope
-                    // を占有できないため、タップ専用/ドラッグ専用で分離するのが標準的な組み方）。
+                    // 排他的なジェスチャー検出器なのでタップとドラッグを分ける。
                     .then(
-                        if (interactive) {
+                        if (interactive && enabled) {
                             Modifier
                                 .pointerInput(effectiveMaxPly) {
                                     detectTapGestures { offset: Offset ->
@@ -187,12 +133,7 @@ fun EvalGraphCard(
                                     }
                                 }
                                 .pointerInput(effectiveMaxPly) {
-                                    // 連続更新の間引き: 生のポインタサンプル毎ではなく、算出した ply が
-                                    // 前回から実際に変わったときだけ onPlyDragged を呼ぶ（ply の解像度は
-                                    // 通常ワイド全体で高々数百程度なので、指の微小な揺れでの無駄な
-                                    // 再コンポーズ・SFEN再計算を避けられる。数百手規模の対局でも
-                                    // 1回あたりの計算量は軽いため、これに加えた時間ベースの間引き
-                                    // （フレーム制限等）までは導入していない）。
+                                    // plyが変わらないポインタ更新では再描画しない。
                                     var lastReportedPly: Int? = null
                                     detectDragGestures(
                                         onDragStart = { offset ->
@@ -257,10 +198,7 @@ fun EvalGraphCard(
                     )
                 }
 
-                // 悪手マーカー（朱）。実機確認で視認しづらいとの指摘のため、線より
-                // ひとまわり大きい半径にし、周囲に面色のハロー（縁取り）を敷いて
-                // 線・ゼロ基準線との重なりでも輪郭が埋もれないようにする
-                // （ハロー自体は surface 色＝無彩色なので朱=損失専用ルールに抵触しない）。
+                // ゼロ基準線と重なっても見えるよう、面色の縁取りを置く。
                 val byPly = points.associateBy { it.ply }
                 for (ply in blunderPlies) {
                     val p = byPly[ply] ?: continue

@@ -57,7 +57,6 @@ sealed class MainUiState {
          */
         val justCompleted: Boolean = false,
     ) : MainUiState()
-    data class PendingAnalysis(val game: GameRecord) : MainUiState()
     data class Error(val message: String, val pastGames: List<GameRecord> = emptyList()) : MainUiState()
     /** ドリル画面に遷移する。 */
     object Drill : MainUiState()
