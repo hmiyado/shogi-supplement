@@ -9,13 +9,9 @@ actual fun ReportBackHandler(enabled: Boolean, onBack: () -> Unit) {
 }
 
 /**
- * epochSeconds（UTC）を "yyyy/MM/dd HH:mm" に変換する。
- *
- * java.text.SimpleDateFormat は Kotlin/Native では使えないため、Foundation の
- * NSDateFormatter に頼らず純粋な Kotlin 整数演算（Howard Hinnant の
- * civil_from_days アルゴリズム）で変換する。iOS はデモ画面（対局情報ダイアログ）
- * 用途のみなので、タイムゾーンは簡易的に UTC 固定とする（実運用の厳密なローカル
- * タイムゾーン対応が必要になれば NSDateFormatter 等に置き換えること）。
+ * epochSeconds（UTC）を "yyyy/MM/dd HH:mm" に変換する。SimpleDateFormat は Kotlin/Native では
+ * 使えないため、NSDateFormatter に頼らず Howard Hinnant の civilFromDays アルゴリズムで変換する
+ * （デモ画面用途のみのためタイムゾーンは UTC 固定の簡易実装）。
  */
 actual fun formatDateTime(epochSeconds: Long): String {
     val totalMinutes = epochSeconds.floorDiv(60)
@@ -37,6 +33,13 @@ actual fun formatDateTime(epochSeconds: Long): String {
         append(':')
         append(minute.toString().padStart(2, '0'))
     }
+}
+
+/** 月日のみの短縮表示（"M/d"）。[formatDateTime] と同じ civilFromDays を再利用する。 */
+actual fun formatShortDate(epochSeconds: Long): String {
+    val totalDays = epochSeconds.floorDiv(86400)
+    val (_, month, day) = civilFromDays(totalDays)
+    return "$month/$day"
 }
 
 /** 1970-01-01 からの通算日数 → (year, month[1-12], day[1-31])（グレゴリオ暦・UTC）。 */

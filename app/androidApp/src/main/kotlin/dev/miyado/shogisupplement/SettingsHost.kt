@@ -11,9 +11,9 @@ import dev.miyado.shogisupplement.ui.LegalLinks
 import dev.miyado.shogisupplement.ui.MainViewModel
 import dev.miyado.shogisupplement.ui.settings.SettingsScreen
 
-/** 設定画面（棋力・アカウント・規約・ライセンスの集約ハブ）への VM 配線。 */
+/** 設定画面（アカウント・規約・ライセンスの集約ハブ）への VM 配線。 */
 @Composable
-fun SettingsHost(vm: MainViewModel, onOpenRatingSettings: () -> Unit) {
+fun SettingsHost(vm: MainViewModel) {
     BackHandler { vm.loadHome() }
     val currentThemeMode by vm.themeMode.collectAsState()
     val currentEvalDisplay by vm.evalDisplay.collectAsState()
@@ -24,7 +24,6 @@ fun SettingsHost(vm: MainViewModel, onOpenRatingSettings: () -> Unit) {
         themeMode = currentThemeMode,
         evalDisplay = currentEvalDisplay,
         onBack = { vm.loadHome() },
-        onOpenRatingSettings = onOpenRatingSettings,
         onOpenAccount = { vm.openAccount() },
         onThemeChange = { vm.saveThemeMode(it) },
         onEvalDisplayChange = { vm.saveEvalDisplay(it) },

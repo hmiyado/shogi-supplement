@@ -160,7 +160,10 @@ fun MainApp(vm: MainViewModel, state: MainUiState) {
             )
         }
         is MainUiState.Settings -> {
-            SettingsHost(vm, onOpenRatingSettings = { showRatingSettingsDialog = true })
+            SettingsHost(vm)
+        }
+        is MainUiState.StrengthDetail -> {
+            StrengthDetailHost(vm, state, onEditAccounts = { showRatingSettingsDialog = true })
         }
         is MainUiState.GameList -> {
             BackHandler { vm.loadHome() }

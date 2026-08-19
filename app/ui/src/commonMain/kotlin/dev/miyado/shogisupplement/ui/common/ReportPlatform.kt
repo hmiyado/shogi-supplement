@@ -3,19 +3,14 @@ package dev.miyado.shogisupplement.ui.common
 import androidx.compose.runtime.Composable
 
 /**
- * ReportScreen の検討モード終了用システムバック処理。
- *
- * androidx.activity.compose.BackHandler は Android 専用 API のため expect/actual 化している。
- * Android: BackHandler へ委譲。
- * iOS: no-op（iOS にシステムバックの概念がないため。検討モード終了はUIボタンで行う）。
+ * 検討モード終了用システムバック処理。androidx.activity.compose.BackHandler は Android専用APIのため
+ * expect/actual化している。iOSはno-op（システムバックの概念が無く、終了操作はUIボタンで行うため）。
  */
 @Composable
 expect fun ReportBackHandler(enabled: Boolean = true, onBack: () -> Unit)
 
-/**
- * 解析日時表示用フォーマッタ（"yyyy/MM/dd HH:mm"）。
- *
- * java.text.SimpleDateFormat は JVM専用で commonMain から使えないため expect/actual 化
- * している。ReportScreen の GameInfoDialog と GameCard の両方から共用する共通フォーマッタ。
- */
+/** 解析日時表示用フォーマッタ（"yyyy/MM/dd HH:mm"）。SimpleDateFormatがJVM専用のためexpect/actual化している。 */
 expect fun formatDateTime(epochSeconds: Long): String
+
+/** 月日のみの短縮表示（"M/d"）。[formatDateTime] と同じ理由でexpect/actual化している。 */
+expect fun formatShortDate(epochSeconds: Long): String

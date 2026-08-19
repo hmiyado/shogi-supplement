@@ -15,10 +15,7 @@ import dev.miyado.shogisupplement.ui.MainUiState
 import dev.miyado.shogisupplement.ui.MainViewModel
 import dev.miyado.shogisupplement.ui.home.HomeScreen
 
-/**
- * ホーム画面への MainViewModel 配線。titleIcon（Android専用リソース）をホイストして渡す
- * （HomeScreen 自体は :ui commonMain の VM 非依存 Composable）。
- */
+/** ホーム画面への MainViewModel 配線。titleIcon（Android専用リソース）をホイストして渡す。 */
 @Composable
 fun HomeHost(
     vm: MainViewModel,
@@ -44,8 +41,8 @@ fun HomeHost(
                 Intent(Intent.ACTION_VIEW, Uri.parse(LegalLinks.HELP_WEB_STRENGTH_URL)),
             )
         },
-        // タイトル左のアプリアイコン（R.drawable.ic_app_title_icon）は Android専用リソースのため、
-        // HomeScreen（:ui commonMain）からホイストしている。
+        onOpenStrengthDetail = { vm.openStrengthDetail() },
+        // Android専用リソース（R.drawable.ic_app_title_icon）のためホイストしている。
         titleIcon = {
             Image(
                 painter = painterResource(id = R.drawable.ic_app_title_icon),

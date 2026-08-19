@@ -73,6 +73,9 @@ import dev.miyado.shogisupplement.ui.restore.GameRestoreScreen
 import dev.miyado.shogisupplement.ui.restore.GameRestoreViewModel
 import dev.miyado.shogisupplement.ui.settings.RatingSettingsDialog
 import dev.miyado.shogisupplement.ui.settings.SettingsScreen
+import dev.miyado.shogisupplement.ui.strength.EstimatedStrengthDetailScreen
+import dev.miyado.shogisupplement.ui.strength.StrengthDetailData
+import dev.miyado.shogisupplement.ui.strength.StrengthDetailViewModel
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
 import dev.miyado.shogisupplement.ui.transfercode.TransferCodeInputDialog
 import dev.miyado.shogisupplement.ui.transfercode.TransferCodeInputUiState
@@ -217,6 +220,8 @@ private sealed class DemoRoute {
     object TransferCode : DemoRoute()
     object GameList : DemoRoute()
     object Debug : DemoRoute()
+    /** 推定棋力詳細画面（ホーム画面の推定棋力カードタップで遷移）。 */
+    data class StrengthDetail(val data: StrengthDetailData) : DemoRoute()
 
     /** 引き継ぎコード復元成功後の遷移先（サーバー上の自分の棋譜をダウンロード復元する画面）。 */
     object GameRestore : DemoRoute()
@@ -234,6 +239,8 @@ private fun DemoApp(
     var route by remember { mutableStateOf<DemoRoute>(DemoRoute.Home) }
     // 「棋譜を追加する」タップで最初に出す、ファイル/クリップボードの選択ダイアログ。
     var showKifSourceDialog by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val strengthDetailViewModel = remember { StrengthDetailViewModel(gameRepository, settingsRepository) }
 
     // リーク厳禁: 画面（ComposeUIViewController）が破棄されるタイミングで検討エンジンを解放する。
     DisposableEffect(controller) {
@@ -385,8 +392,39 @@ private fun DemoApp(
                     onOpenSettings = { route = DemoRoute.Settings },
                     onViewAllGames = { route = DemoRoute.GameList },
                     onOpenStrengthHelp = { openUrl(IOS_HELP_STRENGTH_URL) },
+                    onOpenStrengthDetail = {
+                        scope.launch {
+                            strengthDetailViewModel.loadStrengthDetail()?.let { route = DemoRoute.StrengthDetail(it) }
+                        }
+                    },
                 )
             }
+        }
+        is DemoRoute.StrengthDetail -> {
+            // 対局サービスの編集ダイアログはこの画面専用（Settings画面の棋力入力は廃止済み）。
+            var showEditDialog by remember { mutableStateOf(false) }
+            if (showEditDialog) {
+                RatingSettingsDialog(
+                    savedService = controller.getRatingSettings().service,
+                    savedRatingRaw = controller.getRatingSettings().ratingRaw,
+                    savedRatingRule = controller.getRatingSettings().ratingRule,
+                    savedServiceAccounts = controller.getAllServiceAccounts(),
+                    savedServiceRanks = controller.getAllServiceRanks(),
+                    onConfirm = { service, ratingRaw, ratingRule, serviceAccountsNew, ranks ->
+                        controller.saveRatingSettings(service, ratingRaw, ratingRule, serviceAccountsNew, ranks)
+                        showEditDialog = false
+                        scope.launch {
+                            strengthDetailViewModel.loadStrengthDetail()?.let { route = DemoRoute.StrengthDetail(it) }
+                        }
+                    },
+                    onDismiss = { showEditDialog = false },
+                )
+            }
+            EstimatedStrengthDetailScreen(
+                data = r.data,
+                onBack = { route = DemoRoute.Home },
+                onEditAccounts = { showEditDialog = true },
+            )
         }
         is DemoRoute.Report -> {
             IosReportScreenHost(
@@ -847,25 +885,9 @@ private fun IosSettingsScreenHost(
     val themeMode by controller.themeMode.collectAsState()
     val evalDisplay by controller.evalDisplay.collectAsState()
     val skipSideConfirm by controller.skipSideConfirm.collectAsState()
-    var showRatingSettings by remember { mutableStateOf(false) }
     var showTransferCodeInput by remember { mutableStateOf(false) }
     val versionName = remember {
         (NSBundle.mainBundle.infoDictionary?.get("CFBundleShortVersionString") as? String) ?: "-"
-    }
-
-    if (showRatingSettings) {
-        RatingSettingsDialog(
-            savedService = controller.getRatingSettings().service,
-            savedRatingRaw = controller.getRatingSettings().ratingRaw,
-            savedRatingRule = controller.getRatingSettings().ratingRule,
-            savedServiceAccounts = controller.getAllServiceAccounts(),
-            savedServiceRanks = controller.getAllServiceRanks(),
-            onConfirm = { service, ratingRaw, ratingRule, serviceAccountsNew, ranks ->
-                controller.saveRatingSettings(service, ratingRaw, ratingRule, serviceAccountsNew, ranks)
-                showRatingSettings = false
-            },
-            onDismiss = { showRatingSettings = false },
-        )
     }
 
     if (showTransferCodeInput && services != null && analysisBaseUrl != null) {
@@ -888,7 +910,6 @@ private fun IosSettingsScreenHost(
         themeMode = themeMode,
         evalDisplay = evalDisplay,
         onBack = onBack,
-        onOpenRatingSettings = { showRatingSettings = true },
         onOpenAccount = onOpenAccount,
         onOpenTransferCode = onOpenTransferCode,
         onOpenTransferCodeInput = if (services != null && analysisBaseUrl != null) {

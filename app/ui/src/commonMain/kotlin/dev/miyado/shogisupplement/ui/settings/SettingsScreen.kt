@@ -44,8 +44,6 @@ fun SettingsScreen(
     themeMode: String = "system",
     evalDisplay: String = "cp",
     onBack: () -> Unit,
-    /** null = 棋力設定行を非表示。 */
-    onOpenRatingSettings: (() -> Unit)?,
     /** null = アカウント行・「データ」節ごと非表示（Supabase未設定ビルド等）。 */
     onOpenAccount: (() -> Unit)?,
     /** null = 非表示。[onOpenAccount] が非nullのときだけ意味を持つ。 */
@@ -112,13 +110,6 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState()),
         ) {
             SettingsSectionHeader(AppStrings.SETTINGS_SECTION_PROFILE)
-            if (onOpenRatingSettings != null) {
-                SettingsRow(
-                    label = AppStrings.SETTINGS_ROW_RATING,
-                    sub = AppStrings.SETTINGS_ROW_RATING_SUB,
-                    onClick = onOpenRatingSettings,
-                )
-            }
             // 先後確認の省略トグル（OFFに戻す導線）
             Row(
                 modifier = Modifier
@@ -384,7 +375,6 @@ private fun PreviewSettingsScreen() {
                 themeMode = "system",
                 evalDisplay = "cp",
                 onBack = {},
-                onOpenRatingSettings = {},
                 onOpenAccount = {},
                 onThemeChange = {},
                 onEvalDisplayChange = {},
@@ -408,7 +398,6 @@ private fun PreviewSettingsScreenDark() {
                 themeMode = "dark",
                 evalDisplay = "wp",
                 onBack = {},
-                onOpenRatingSettings = {},
                 onOpenAccount = {},
                 onThemeChange = {},
                 onEvalDisplayChange = {},

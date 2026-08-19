@@ -350,14 +350,16 @@ object AppStrings {
         return list.firstOrNull { it.first == ruleId }?.second ?: ruleId
     }
 
+    /** サービスIDから表示名（serviceOptions から検索）。省スペースな [serviceShortName] と違い、正式名を返す。 */
+    fun serviceLabel(serviceId: String): String =
+        serviceOptions.firstOrNull { it.first == serviceId }?.second ?: serviceId
+
     /** 申告棋力行のフォーマット関数。 */
     fun strengthDeclaredLine(entries: String): String = "$STRENGTH_DECLARED_PREFIX$entries"
 
     // ═══ 13. 設定画面
     const val SETTINGS_TITLE = "設定"
     const val SETTINGS_SECTION_PROFILE = "プロフィール"
-    const val SETTINGS_ROW_RATING = "棋力・アカウント名"
-    const val SETTINGS_ROW_RATING_SUB = "サービス・ルール別の段級位（任意）"
     const val SETTINGS_SECTION_DATA = "データ"
     const val SETTINGS_ROW_ACCOUNT = "アカウント"
     const val SETTINGS_ROW_ACCOUNT_SUB = "ログイン・棋譜のアップロード・削除"
@@ -801,4 +803,41 @@ object AppStrings {
 
     /** ダウンロード復元した棋譜のfileName。開始日時ヘッダがあればそれを使い、無ければ汎用ラベル。 */
     fun restoredGameFileName(startedAt: String?): String = startedAt ?: "復元した棋譜"
+
+    // ═══ 38. 推定棋力詳細ページ（ホーム画面の推定棋力カードタップで遷移）═══════════════
+
+    const val STRENGTH_DETAIL_TITLE = "推定棋力"
+    const val STRENGTH_DETAIL_EYEBROW = "現在の推定棋力"
+
+    /** 推定範囲（偏差値の下限・上限）。例: low=54, high=62 → "推定範囲 54–62" */
+    fun strengthDetailRange(low: Int, high: Int): String = "推定範囲 $low–$high"
+
+    /** 対局サービス側の申告段級位のうち最も高いものの見出し（このページだけの要約値。内部の偏差値とは別物）。 */
+    const val STRENGTH_DETAIL_BEST_RANK_CAPTION = "対局サービスでの最高段級位"
+
+    /** 例: service="将棋ウォーズ", rank="初段" → "将棋ウォーズ 初段" */
+    fun strengthDetailBestRankValue(serviceLabel: String, rankLabel: String): String = "$serviceLabel $rankLabel"
+
+    const val STRENGTH_DETAIL_TREND_TITLE = "対局ごとの推移"
+
+    /** 例: count=8 → "直近8局" */
+    fun strengthDetailTrendLabel(count: Int): String = "直近${count}局"
+
+    const val STRENGTH_DETAIL_TREND_CAPTION = "帯は推定範囲です。対局数が増えると範囲が安定します。"
+
+    /**
+     * 選択中の対局の要約行（グラフの点タップで切り替わる）。
+     * [BLUNDER_RATE_LABEL]・[MATCH_RATE_LABEL]は「ラベル: 値」の1行表示用のため、
+     * 2指標を並べるこの用途にはコロン無しの短いラベルを別に持つ。
+     */
+    fun strengthDetailSelectedMeta(blunderRateValue: String, matchRateValue: String): String =
+        "悪手率 $blunderRateValue ・ 一致率 $matchRateValue"
+
+    const val STRENGTH_DETAIL_ACCOUNTS_TITLE = "対局サービス"
+    const val STRENGTH_DETAIL_ACCOUNTS_LEDE = "アカウントを登録すると、先後の自動判定や段級位の記録に使われます。"
+    const val STRENGTH_DETAIL_ACCOUNTS_EMPTY = "まだ何も入力されていません。"
+    const val STRENGTH_DETAIL_ACCOUNTS_EDIT = "編集"
+    const val STRENGTH_DETAIL_ACCOUNT_NAME_UNSET = "アカウント名未入力"
+    const val STRENGTH_DETAIL_RULE_UNSET = "未入力"
+    const val STRENGTH_DETAIL_LISHOGI_RATING_LABEL = "レーティング"
 }

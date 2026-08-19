@@ -45,14 +45,9 @@ import dev.miyado.shogisupplement.ui.theme.TextStyleData
 import dev.miyado.shogisupplement.ui.theme.TextStyleDataLarge
 import dev.miyado.shogisupplement.ui.theme.shogiColors
 
-// このファイルは HomeScreen 系（HomeScreen・StrengthCard）を持つ。
-// GameCard は ui.common（GameListScreen・ErrorScreen とも共用）。
-// GameListScreen・ErrorScreen・AnalyzingScreen・RatingSettingsDialog・UserSideDialog 等の
-// KIF 取り込みフロー関連ダイアログは MainActivity.kt にある。
-//
-// タイトル左のアプリアイコン（R.drawable.ic_app_title_icon・androidx.compose.ui.res.
-// painterResource）は commonMain が Android リソースを直接参照できないため、
-// titleIcon: @Composable () -> Unit スロットへホイストしている（実装は MainActivity.kt 側）。
+// HomeScreen・StrengthCard を持つ（GameCard は ui.common で共用）。
+// タイトル左のアプリアイコンは commonMain が Android リソースを直接参照できないため、
+// titleIcon: @Composable () -> Unit スロットへホイストしている。
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,6 +65,8 @@ fun HomeScreen(
     onOpenSettings: () -> Unit = {},
     onViewAllGames: (() -> Unit)? = null,
     onOpenStrengthHelp: () -> Unit = {},
+    /** 推定棋力カードのタップ（「?」アイコン部分を除く）。推定棋力詳細画面へ遷移する。 */
+    onOpenStrengthDetail: () -> Unit = {},
     /** タイトル左の小さなアプリアイコン（Android専用リソースのためホイスト。既定は非表示）。 */
     titleIcon: @Composable () -> Unit = {},
 ) {
@@ -123,18 +120,17 @@ fun HomeScreen(
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            // ── 1. 推定棋力カード ─────────────────────────────────────────
             if (strengthCard != null) {
                 item {
                     StrengthCard(
                         strengthCard = strengthCard,
                         shogiColors = shogiColors,
                         onHelpClick = onOpenStrengthHelp,
+                        onCardClick = onOpenStrengthDetail,
                     )
                 }
             }
 
-            // ── 2. 「今日の1問」カード（候補ゼロなら非表示のみ）──────────
             if (todaysDrillHint != null) {
                 item {
                     Card(
@@ -153,7 +149,7 @@ fun HomeScreen(
                                 color = shogiColors.ink2,
                             )
                             Spacer(Modifier.height(4.dp))
-                            // ファイル名は表示しない（2026-07-15 miyadoさん指示。出典は手数のみ）
+                            // ファイル名は出さない（対局が特定できるとネタバレになるため）
                             Text(
                                 text = AppStrings.homeTodaysDrillPly(todaysDrillHint.ply),
                                 style = TextStyleData,
@@ -170,7 +166,6 @@ fun HomeScreen(
                 }
             }
 
-            // ── 3. 直近の解析リスト（解析中セッション + 最大3局 + 「すべて見る」）──────
             if (pastGames.isEmpty() && analyzingSessions.isEmpty()) {
                 item {
                     Text(
@@ -219,17 +214,17 @@ fun HomeScreen(
 }
 
 
-// ─── 強さ指標カード ──────────────────────────────────────────────────────────
-
 @Composable
 fun StrengthCard(
     strengthCard: StrengthCardData,
     shogiColors: ShogiColors,
     // 「?」タップはダイアログではなくヘルプ画面の推定棋力節へ遷移する
     onHelpClick: () -> Unit = {},
+    // カード本体タップ（「?」の領域を除く）は推定棋力詳細画面へ遷移する
+    onCardClick: () -> Unit = {},
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onCardClick),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface,
         ),

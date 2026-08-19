@@ -47,23 +47,17 @@ private val WARS_SCALE = RankScale(maxKyu = 30)
 private val KIOU_SCALE = RankScale(maxKyu = 10)
 
 /**
- * 段級位ピッカーの初期表示インデックス（どちらも1級）。
- * 保存済み rank がある場合はこの既定値より呼び出し元での `?:` 優先が勝つ
- * （既存挙動維持）。
+ * 段級位ピッカーの初期表示インデックス（どちらも最低級=目盛りの先頭）。
+ * 1級寄りだと、未申告のまま誤操作で確定したときに「対局サービスでの最高段級位」
+ * （推定棋力詳細画面）の算出を実態より高く見せかねないため、最低級を既定にする。
  */
-private val WARS_RANK_DEFAULT_INDEX = WARS_SCALE.toIndex(ShogiRank.Kyu(1))
-private val KIOU_RANK_DEFAULT_INDEX = KIOU_SCALE.toIndex(ShogiRank.Kyu(1))
+private val WARS_RANK_DEFAULT_INDEX = 0
+private val KIOU_RANK_DEFAULT_INDEX = 0
 
 /**
- * 棋力設定ダイアログ。
- * UI順: サービス選択 → サービスごとのアカウント名 → ルール別段級位/レート（任意）
- *
- * サービス/ルール/段級位は申告のみ（記録・較正データ収集用）。
- * 相応判定には使わない。アカウント名のみ先後自動選択に使う。
- * アカウント名はサービスごとに保存する（service_account テーブル）。
- * savedServiceAccounts: サービス → アカウント名（service_account テーブルから）
- * savedServiceRanks: サービス → ルール（対局種別）→ rankRaw のネスト Map
- *   （同じサービスでもルールごとに段級位が異なるため）
+ * 棋力設定ダイアログ。UI順: サービス選択 → アカウント名 → ルール別段級位/レート（任意）。
+ * サービス/ルール/段級位は申告のみで相応判定には使わない。アカウント名は先後自動選択の
+ * 判定材料になる。savedServiceRanks はサービス→ルール→rankRaw（ルールごとに段級位が違うためネスト）。
  */
 @Composable
 fun RatingSettingsDialog(
@@ -210,10 +204,8 @@ fun RatingSettingsDialog(
 }
 
 /**
- * ルール別段級位ピッカー行。
- * currentIdx は呼び出し元で「保存済み値 ?: サービス別初期値」を解決してから渡す
- * （WARS_RANK_DEFAULT_INDEX / KIOU_RANK_DEFAULT_INDEX）。ユーザーが操作しない限り
- * onIdxChange は呼ばれないため、未保存のまま確定した場合は従来通り保存されない。
+ * ルール別段級位ピッカー行。currentIdx は解決済みの値（保存済み値 ?: サービス別初期値）として渡す。
+ * ユーザーが操作しない限り onIdxChange は呼ばれないため、未保存のまま確定した場合は保存されない。
  */
 @Composable
 private fun ServiceRuleRankRow(

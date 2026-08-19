@@ -32,6 +32,7 @@ import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.PvExtState
 import dev.miyado.shogisupplement.ui.home.HomeViewModel
 import dev.miyado.shogisupplement.ui.report.ReportViewModel
+import dev.miyado.shogisupplement.ui.strength.StrengthDetailViewModel
 import dev.miyado.shogisupplement.ui.report.StudyOrigin
 import dev.miyado.shogisupplement.ui.report.StudyState
 import dev.miyado.shogisupplement.upload.UploadResult
@@ -78,6 +79,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             drillRepository = drillRepository,
             settingsRepository = settingsRepository,
         )
+    }
+
+    /** 推定棋力詳細画面のロードを担う協力オブジェクト。 */
+    private val strengthDetailViewModel: StrengthDetailViewModel by lazy {
+        StrengthDetailViewModel(gameRepository = gameRepository, settingsRepository = settingsRepository)
     }
 
     /** レポート表示状態・読み筋延長・検討モードを担う協力オブジェクト。 */
@@ -189,6 +195,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     /** 設定画面に遷移する。 */
     fun openSettings() {
         _state.value = MainUiState.Settings
+    }
+
+    /**
+     * 推定棋力詳細画面に遷移する（ホーム画面の推定棋力カードタップ）。
+     * ロード結果が null（解析済み対局が無い）の場合は何もしない
+     * （カード自体がその場合は表示されないため、通常到達しない）。
+     */
+    fun openStrengthDetail() {
+        viewModelScope.launch {
+            val data = strengthDetailViewModel.loadStrengthDetail() ?: return@launch
+            _state.value = MainUiState.StrengthDetail(data)
+        }
     }
 
     /** デバッグ画面に遷移する（BuildConfig.DEBUG のみ呼ばれる）。 */

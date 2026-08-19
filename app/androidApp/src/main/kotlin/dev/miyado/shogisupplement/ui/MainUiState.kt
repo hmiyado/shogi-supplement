@@ -7,6 +7,7 @@ import dev.miyado.shogisupplement.pipeline.InProgressAnalysis
 import dev.miyado.shogisupplement.pipeline.ProgressiveReportState
 import dev.miyado.shogisupplement.ui.home.StrengthCardData
 import dev.miyado.shogisupplement.ui.home.TodaysDrillHint
+import dev.miyado.shogisupplement.ui.strength.StrengthDetailData
 
 /** メイン画面のUI状態。 */
 sealed class MainUiState {
@@ -66,6 +67,8 @@ sealed class MainUiState {
     object Licenses : MainUiState()
     /** 設定画面（棋力・アカウント・規約・ライセンスの集約ハブ）。 */
     object Settings : MainUiState()
+    /** 推定棋力詳細画面（ホーム画面の推定棋力カードタップで遷移）。 */
+    data class StrengthDetail(val data: StrengthDetailData) : MainUiState()
     /** デバッグ画面（BuildConfig.DEBUG のみ表示）。 */
     object Debug : MainUiState()
     /** 棋譜一覧画面。 */

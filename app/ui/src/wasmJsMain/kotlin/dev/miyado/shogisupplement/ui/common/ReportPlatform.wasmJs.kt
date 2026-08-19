@@ -9,12 +9,9 @@ actual fun ReportBackHandler(enabled: Boolean, onBack: () -> Unit) {
 }
 
 /**
- * epochSeconds（UTC）を "yyyy/MM/dd HH:mm" に変換する。
- *
- * wasmJsターゲットは js(IR) と違い kotlin.js.Date をデフォルトで参照できない
- * （kotlinx-browser等の追加依存が要る）ため、iOS実装と同じ純Kotlin整数演算
- * （Howard Hinnant の civil_from_days アルゴリズム）で変換する。タイムゾーンは
- * iOS実装と同じくUTC固定（レポート画面のデモ用途のみ）。
+ * epochSeconds（UTC）を "yyyy/MM/dd HH:mm" に変換する。wasmJsは kotlin.js.Date をデフォルトで
+ * 参照できないため、iOS実装と同じ Howard Hinnant の civilFromDays アルゴリズムで変換する
+ * （デモ画面用途のみのためタイムゾーンは UTC 固定の簡易実装）。
  */
 actual fun formatDateTime(epochSeconds: Long): String {
     val totalMinutes = epochSeconds.floorDiv(60)
@@ -36,6 +33,13 @@ actual fun formatDateTime(epochSeconds: Long): String {
         append(':')
         append(minute.toString().padStart(2, '0'))
     }
+}
+
+/** 月日のみの短縮表示（"M/d"）。[formatDateTime] と同じ civilFromDays を再利用する。 */
+actual fun formatShortDate(epochSeconds: Long): String {
+    val totalDays = epochSeconds.floorDiv(86400)
+    val (_, month, day) = civilFromDays(totalDays)
+    return "$month/$day"
 }
 
 /** 1970-01-01 からの通算日数 → (year, month[1-12], day[1-31])（グレゴリオ暦・UTC）。 */

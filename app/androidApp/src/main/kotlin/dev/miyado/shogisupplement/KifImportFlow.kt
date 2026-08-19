@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.material3.ExperimentalMaterial3Api
 import dev.miyado.shogisupplement.kifu.ClipboardKifValidator
 import dev.miyado.shogisupplement.text.AppStrings
+import dev.miyado.shogisupplement.ui.MainUiState
 import dev.miyado.shogisupplement.ui.MainViewModel
 import dev.miyado.shogisupplement.ui.common.UserSideDialog
 import dev.miyado.shogisupplement.ui.settings.RatingSettingsDialog
@@ -173,8 +174,11 @@ fun KifImportFlow(
                             showUserSideDialog = true
                         }
                     }
+                } else if (vm.state.value is MainUiState.StrengthDetail) {
+                    // 推定棋力詳細画面の「編集」から開いた場合は、保存直後にその場で再ロードして
+                    // 対局サービス一覧・最高段級位を最新化する（画面遷移はしない）。
+                    vm.openStrengthDetail()
                 }
-                // 設定画面からの変更は保存のみ（画面遷移しない。ホーム復帰時に loadHome で再計算される）
             },
             onDismiss = {
                 onShowRatingSettingsDialogChange(false)
