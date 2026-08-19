@@ -249,7 +249,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** KIFを未解析の棋譜として保存する。解析は保存後の画面から明示的に開始する。 */
+    /**
+     * KIFを取り込み、新規なら解析を即開始する（単発の取り込みは「即解析」体験を保つ）。
+     * 既存棋譜と同一ハッシュだった場合は再解析せずそのままレポートを開く。
+     */
     fun importKif(
         uri: Uri,
         service: String? = null,
@@ -270,7 +273,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 )
             }
             when (outcome) {
-                is GameImporter.Outcome.Imported -> showReport(outcome.gameId)
+                is GameImporter.Outcome.Imported -> {
+                    if (outcome.alreadyExisted) {
+                        showReport(outcome.gameId)
+                    } else {
+                        val game = withContext(Dispatchers.IO) { gameRepository.getGameById(outcome.gameId) }
+                        if (game != null) analyzeStoredGame(game) else showReport(outcome.gameId)
+                    }
+                }
                 is GameImporter.Outcome.Failed -> _state.value = MainUiState.Error(outcome.message)
             }
         }

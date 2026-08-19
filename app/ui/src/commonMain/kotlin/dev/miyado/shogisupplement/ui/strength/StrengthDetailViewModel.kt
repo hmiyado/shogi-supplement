@@ -130,8 +130,8 @@ class StrengthDetailViewModel(
             )
         }
 
-        // lishogiのレーティングは単一行のsettings（rating_service列）に紐づくため、
-        // service=="lishogi"のときだけ有効（RatingSettingsDialogと同じ制約。buildDeclaredRankLine参照）。
+        // レーティングは単一行のsettings（rating_service列）に紐づくため、
+        // 最後に選ばれたサービスがlishogiのときだけ有効になる。
         val lishogiAccount = serviceAccounts["lishogi"]
         val lishogiRating = if (ratingSettings.service == "lishogi" && hasSavedRating) ratingSettings.ratingRaw else null
         if (lishogiAccount != null || lishogiRating != null) {

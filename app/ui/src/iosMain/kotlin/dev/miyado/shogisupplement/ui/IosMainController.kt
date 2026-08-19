@@ -600,7 +600,7 @@ class IosMainController(
         }
     }
 
-    /** 先後を確定し、未解析の棋譜として保存する。 */
+    /** 先後を確定して棋譜を保存する。新規なら解析を即開始し、既存棋譜と同一ハッシュなら再解析しない。 */
     fun confirmSideAndImport(userSide: String) {
         val current = _importState.value
         if (current !is ImportState.SideConfirm) return
@@ -614,9 +614,14 @@ class IosMainController(
                 userSide = userSide,
             )) {
                 is GameImporter.Outcome.Imported -> {
-                    _importState.value = ImportState.Idle
-                    reloadHome()
-                    _completedAnalysis.value = CompletedAnalysis(outcome.gameId, justCompleted = false)
+                    val game = if (outcome.alreadyExisted) null else gameRepository.getGameById(outcome.gameId)
+                    if (game != null) {
+                        analyzeStoredGame(game)
+                    } else {
+                        _importState.value = ImportState.Idle
+                        reloadHome()
+                        _completedAnalysis.value = CompletedAnalysis(outcome.gameId, justCompleted = false)
+                    }
                 }
                 is GameImporter.Outcome.Failed -> _importState.value = ImportState.Error(outcome.message)
             }
