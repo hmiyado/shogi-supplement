@@ -49,7 +49,7 @@ jobs:
       # Why not v6以降: キャッシュ機能がMIT対象外の商用コンポーネント（gradle-actions-caching）へ
       # 分離され、使用にGradle社のTerms of Use への同意が必要になった。キャッシュを無効にすれば
       # 読み込まれないが、CIが遅くなる。MITで完結するv5系に留める。
-      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
       # `--configure-on-demand`が無いと、このmonorepo内のandroidApp（Android SDK必須）も
       # 構成対象になりCIランナーにAndroid SDKが要る。付けることで:server:worker（と:shared）
