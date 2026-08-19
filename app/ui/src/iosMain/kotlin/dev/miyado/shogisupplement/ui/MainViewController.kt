@@ -683,7 +683,7 @@ private fun UserSideSimpleDialog(
                 onClick = { userSide?.let { onConfirm(it, skipNext) } },
                 enabled = userSide != null,
             ) {
-                Text(AppStrings.HOME_OPEN_KIF)
+                Text(AppStrings.START_ANALYSIS)
             }
         },
         dismissButton = {

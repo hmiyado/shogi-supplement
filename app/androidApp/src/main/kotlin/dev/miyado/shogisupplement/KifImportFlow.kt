@@ -250,7 +250,6 @@ fun KifImportFlow(
             savedUserSide = suggestedSide,
             // アカウント名一致時のみ「次回から省略」チェックボックスを表示
             showSkipOption = suggestedByAccount,
-            confirmText = AppStrings.HOME_OPEN_KIF,
             onConfirm = { userSide, skipNext ->
                 showUserSideDialog = false
                 if (suggestedByAccount) vm.saveSkipSideConfirm(skipNext)

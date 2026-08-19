@@ -1,11 +1,16 @@
 # 解析済み棋譜からホームの推定棋力カードを開き、詳細画面への遷移と復帰を確認する。
 # 呼び出し元フローのenvで指定（iOS/Android両方から使うため固定しない）
+#
+# レポート画面の「この一局からの推定棋力（偏差値・参考値）」は解析進行中でも出る暫定表示
+# （AppStrings.GAME_STRENGTH_PREFIX）で、wait_for_analysis_report.yamlの完了待ちはこの
+# 暫定表示にもマッチする。ホーム集計カードは解析が完全に終わりDBへ反映されてから
+# 出るため、直前のwait_for_analysis_reportより長いタイムアウトで待つ必要がある。
 appId: ${APP_ID}
 ---
 - tapOn: "戻る"
 - extendedWaitUntil:
     visible: "推定棋力（偏差値）"
-    timeout: 15000
+    timeout: 120000
 - tapOn: "推定棋力（偏差値）"
 - extendedWaitUntil:
     visible: "推定棋力"

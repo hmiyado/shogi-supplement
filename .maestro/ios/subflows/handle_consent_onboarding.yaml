@@ -1,18 +1,17 @@
-# 同意オンボーディング（研究利用への同意、iOS専用）はSupabase設定ありのビルドの初回起動
-# でのみホームより先に全画面で出る。ビルド設定・既存の同意状態に依存して出ないことがある
+# 同意オンボーディング（iOS専用）はSupabase設定ありのビルドの初回起動でのみ
+# ホームより先に全画面で出る。ビルド設定・既存の同意状態に依存して出ないことがある
 # ため、必須ステップとして待たず「出たときだけ処理する」optional構成にしている。
+#
+# 既定選択は「匿名のアカウントを作成して始める」（AppStrings.CONSENT_WITH_ACCOUNT_LABEL）
+# のためラジオボタンの明示選択は不要。同意ボタンのタップだけで進む。
 appId: dev.miyado.shogisupplement.ios.debug
 ---
 - extendedWaitUntil:
     visible: "はじめに"
     timeout: 5000
     optional: true
-# チェックボックスのラベル全文は長いため部分一致（regex）で掴む
 - tapOn:
-    text: ".*研究利用.*"
-    optional: true
-- tapOn:
-    text: "同意して始める"
+    text: "規約に同意して始める"
     optional: true
 - extendedWaitUntil:
     notVisible: "はじめに"
