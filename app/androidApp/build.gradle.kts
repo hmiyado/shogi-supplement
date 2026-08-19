@@ -33,7 +33,7 @@ android {
         // Why not moduleごとに定義: :sharedの生成定数と同じgradle.properties値を使い、
         // 強制アップデート判定との食い違いを防ぐ。
         versionCode = providers.gradleProperty("shogisupplement.versionCode").get().toInt()
-        versionName = "1.4"
+        versionName = "1.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
