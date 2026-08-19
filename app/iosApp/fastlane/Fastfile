@@ -7,6 +7,7 @@
 
 IOS_PROJECT_DIR = File.expand_path("..", __dir__)
 APP_DIR = File.expand_path("../..", __dir__)
+REPO_ROOT = File.expand_path("../../..", __dir__)
 KEY_ID = "BM62Q97564"
 ISSUER_ID = "9f6a60f5-d95c-484a-9c8c-574f65a93b7b"
 TEAM_ID = "C8DX3743C6"
@@ -74,6 +75,8 @@ platform :ios do
         UI.user_error!("ASC_KEY_PATH（App Store Connect APIキー.p8のパス）を環境変数で指定してください")
       }
     )
+
+    sh(File.join(REPO_ROOT, ".maestro/run-ios.sh"))
 
     build_app(
       scheme: "iosApp-Engineless",

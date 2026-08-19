@@ -21,3 +21,4 @@ env:
 - runFlow: subflows/dismiss_paste_permission_alert.yaml
 - runFlow: ../common/select_gote_and_start_analysis.yaml
 - runFlow: ../common/wait_for_analysis_report.yaml
+- runFlow: ../common/open_estimated_strength_detail.yaml

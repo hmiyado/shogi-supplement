@@ -35,3 +35,4 @@ env:
     text: "Allow|許可"
     optional: true
 - runFlow: ../common/wait_for_analysis_report.yaml
+- runFlow: ../common/open_estimated_strength_detail.yaml

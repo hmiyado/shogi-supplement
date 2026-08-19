@@ -55,7 +55,13 @@ invalid byte sequenceで落ちる）。
 
 ### `bundle exec fastlane ios beta`
 
+実行前に、起動中のシミュレータへ最新のDebugビルドをインストールしておく。
+`beta` は `.maestro/run-ios.sh` をUDID省略時の `booted` シミュレータで実行するため、
+シミュレータが未起動、またはDebugビルドが未インストールなら、本番ビルド前に失敗する。
+`release` は内部で `beta` を実行するため、同じ前提が必要。
+
 `xcodegen generate` → ビルド番号を `gradle.properties` から取得 →
+`.maestro/run-ios.sh` →
 `build_app`（gym。scheme `iosApp-Engineless` / configuration `Release-Engineless` /
 手動署名・Apple Distribution・プロファイル名「shogisup ios appstore」。**ローカルに
 .ipaを書き出すだけ**で、この時点ではまだASCへは送らない） →
@@ -69,6 +75,11 @@ dSYMをSentryへ送信（`sentry-cli` が無いか `SENTRY_AUTH_TOKEN` 未設定
 `beta` の後に `deliver`（`fastlane/metadata/ja-JP/` と `fastlane/screenshots/ja-JP/` を
 アップロードし `submit_for_review: true`。`automatic_release: false` なので
 **審査通過後の公開はApp Store Connect側で手動操作**が必要）。
+
+## Android本番ビルド前の確認
+
+Androidにはfastlane相当の自動リリーススクリプトがないため、`bundleRelease` などの
+本番ビルド前に `.maestro/run-android.sh` を手動で実行する。
 
 ### upload_testflight.shとの違い（重要）
 

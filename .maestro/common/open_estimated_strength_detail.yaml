@@ -1,0 +1,13 @@
+# 解析済み棋譜からホームの推定棋力カードを開き、詳細画面への遷移と復帰を確認する。
+# 呼び出し元フローのenvで指定（iOS/Android両方から使うため固定しない）
+appId: ${APP_ID}
+---
+- tapOn: "戻る"
+- extendedWaitUntil:
+    visible: "推定棋力（偏差値）"
+    timeout: 15000
+- tapOn: "推定棋力（偏差値）"
+- extendedWaitUntil:
+    visible: "推定棋力"
+    timeout: 15000
+- tapOn: "戻る"
