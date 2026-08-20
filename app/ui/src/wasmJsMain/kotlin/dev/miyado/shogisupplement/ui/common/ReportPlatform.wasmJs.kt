@@ -1,3 +1,5 @@
+@file:OptIn(kotlin.js.ExperimentalWasmJsInterop::class)
+
 package dev.miyado.shogisupplement.ui.common
 
 import androidx.compose.runtime.Composable
@@ -34,6 +36,18 @@ actual fun formatDateTime(epochSeconds: Long): String {
         append(minute.toString().padStart(2, '0'))
     }
 }
+
+/** wasmJsではブラウザのDateを直接参照できないため、JsFunで取得する。 */
+actual fun currentLocalDateTime(): String = jsCurrentLocalDateTime()
+
+@JsFun("""
+    () => {
+        const d = new Date();
+        const p = n => String(n).padStart(2, '0');
+        return d.getFullYear() + '/' + p(d.getMonth() + 1) + '/' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+    }
+""")
+private external fun jsCurrentLocalDateTime(): String
 
 /** 月日のみの短縮表示（"M/d"）。[formatDateTime] と同じ civilFromDays を再利用する。 */
 actual fun formatShortDate(epochSeconds: Long): String {

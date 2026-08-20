@@ -410,6 +410,20 @@ class IosMainController(
         }
     }
 
+    fun beginManualImport(kifText: String, fileName: String = "manual.kif") {
+        val game = runCatching { KifParser().parse(kifText) }.getOrNull()
+        if (game == null) {
+            _importState.value = ImportState.Error(AppStrings.KIF_FILE_INVALID)
+            return
+        }
+        proceedAfterKifValidated(
+            kifText = kifText,
+            senteName = game.senteName,
+            goteName = game.goteName,
+            sourceFileName = fileName,
+        )
+    }
+
     /**
      * 1. アカウント名が全サービス未設定 → 先に棋力設定（[ImportState.RatingSetup]）
      * 2. アカウント名一致＋省略設定ON → 確認なしで即保存

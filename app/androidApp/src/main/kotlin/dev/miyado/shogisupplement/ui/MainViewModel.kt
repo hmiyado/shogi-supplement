@@ -46,6 +46,8 @@ import kotlinx.coroutines.withContext
 /** [MainUiState]とAndroid固有の解析配線を管理するトップレベルViewModel。 */
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
+    data class ManualKifRequest(val text: String, val fileName: String)
+
     private val gameRepository = AppDatabase.gameRepository(application)
     private val drillRepository = AppDatabase.drillRepository(application)
     private val settingsRepository = AppDatabase.settingsRepository(application)
@@ -53,6 +55,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _state = MutableStateFlow<MainUiState>(MainUiState.Loading)
     val state: StateFlow<MainUiState> = _state
+
+    private val _manualKifRequest = MutableStateFlow<ManualKifRequest?>(null)
+    val manualKifRequest: StateFlow<ManualKifRequest?> = _manualKifRequest
+
+    fun enqueueManualKif(text: String, fileName: String = "manual.kif") {
+        _manualKifRequest.value = ManualKifRequest(text, fileName)
+    }
+
+    fun consumeManualKifRequest() {
+        _manualKifRequest.value = null
+    }
 
     /** テーマモード（'system' / 'light' / 'dark'）。DBから読み込んで即時反映する。 */
     private val _themeMode = MutableStateFlow("system")
@@ -266,6 +279,40 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 GameImporter(gameRepository).importGame(
                     kifContent = readKifContentFromUri(uri),
                     fileName = resolveKifFileName(uri),
+                    userSide = userSide,
+                    ratingService = service,
+                    ratingRaw = ratingRaw?.toLong(),
+                    ratingRule = ratingRule,
+                )
+            }
+            when (outcome) {
+                is GameImporter.Outcome.Imported -> {
+                    if (outcome.alreadyExisted) {
+                        showReport(outcome.gameId)
+                    } else {
+                        val game = withContext(Dispatchers.IO) { gameRepository.getGameById(outcome.gameId) }
+                        if (game != null) analyzeStoredGame(game) else showReport(outcome.gameId)
+                    }
+                }
+                is GameImporter.Outcome.Failed -> _state.value = MainUiState.Error(outcome.message)
+            }
+        }
+    }
+
+    fun importKifText(
+        kifContent: String,
+        fileName: String,
+        service: String? = null,
+        ratingRaw: Int? = null,
+        userSide: String? = null,
+        ratingRule: String? = null,
+    ) {
+        if (userSide != null) settingsRepository.saveLastUserSide(userSide)
+        viewModelScope.launch {
+            val outcome = withContext(Dispatchers.IO) {
+                GameImporter(gameRepository).importGame(
+                    kifContent = kifContent,
+                    fileName = fileName,
                     userSide = userSide,
                     ratingService = service,
                     ratingRaw = ratingRaw?.toLong(),

@@ -15,6 +15,8 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,11 +47,14 @@ fun KifImportFlow(
     vm: MainViewModel,
     showKifSourceSheet: Boolean,
     onShowKifSourceSheetChange: (Boolean) -> Unit,
+    onStartManualKifu: () -> Unit,
     showRatingSettingsDialog: Boolean,
     onShowRatingSettingsDialogChange: (Boolean) -> Unit,
 ) {
     // ファイルピッカー
     var pickedUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var pendingManualKif by remember { mutableStateOf<String?>(null) }
+    var pendingManualFileName by remember { mutableStateOf<String?>(null) }
     // KIFパース済みの対局者名と推定サイド（ダイアログ表示用）
     var kifSenteName by remember { mutableStateOf<String?>(null) }
     var kifGoteName by remember { mutableStateOf<String?>(null) }
@@ -71,19 +76,50 @@ fun KifImportFlow(
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val manualRequest by vm.manualKifRequest.collectAsState()
 
     /** 側が確定しているとき、ダイアログなしで棋譜を保存する。 */
     fun importDirectly(userSide: String?) {
-        val uri = pickedUri ?: return
-        pickedUri = null
         val savedSettings = vm.getSavedRatingSettings()
-        vm.importKif(
-            uri,
-            savedSettings.service,
-            savedSettings.ratingRaw,
-            userSide,
-            savedSettings.ratingRule,
-        )
+        val text = pendingManualKif
+        if (text != null) {
+            val fileName = pendingManualFileName ?: "manual.kif"
+            pendingManualKif = null
+            pendingManualFileName = null
+            vm.importKifText(text, fileName, savedSettings.service, savedSettings.ratingRaw, userSide, savedSettings.ratingRule)
+        } else {
+            val uri = pickedUri ?: return
+            pickedUri = null
+            vm.importKif(uri, savedSettings.service, savedSettings.ratingRaw, userSide, savedSettings.ratingRule)
+        }
+    }
+
+    fun startKifTextFlow(text: String, fileName: String) {
+        pendingManualKif = text
+        pendingManualFileName = fileName
+        scope.launch {
+            val parsed = runCatching { dev.miyado.shogisupplement.kifu.KifParser().parse(text) }
+                .getOrNull()
+            kifSenteName = parsed?.senteName
+            kifGoteName = parsed?.goteName
+            val hasAccount = vm.hasAnyServiceAccount()
+            if (!hasAccount) {
+                ratingSettingsFromKifFlow = true
+                onShowRatingSettingsDialogChange(true)
+            } else {
+                val suggestion = vm.suggestUserSideWithMatch(kifSenteName, kifGoteName)
+                suggestedSide = suggestion.side
+                suggestedByAccount = suggestion.matchedByAccount
+                if (vm.shouldSkipSideConfirm(suggestion)) importDirectly(suggestion.side) else showUserSideDialog = true
+            }
+        }
+    }
+
+    LaunchedEffect(manualRequest) {
+        manualRequest?.let {
+            vm.consumeManualKifRequest()
+            startKifTextFlow(it.text, it.fileName)
+        }
     }
 
     /** KIF URI のパース→ダイアログフロー共通ヘルパー。 */
@@ -185,6 +221,8 @@ fun KifImportFlow(
                 if (ratingSettingsFromKifFlow) {
                     ratingSettingsFromKifFlow = false
                     pickedUri = null // KIFフローをキャンセル
+                    pendingManualKif = null
+                    pendingManualFileName = null
                 }
             },
         )
@@ -223,6 +261,18 @@ fun KifImportFlow(
                         }
                         .padding(horizontal = 16.dp, vertical = 14.dp),
                 )
+                HorizontalDivider(color = MaterialTheme.shogiColors.line)
+                Text(
+                    AppStrings.KIF_SOURCE_MANUAL,
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            onShowKifSourceSheetChange(false)
+                            onStartManualKifu()
+                        }
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                )
             }
         }
     }
@@ -242,7 +292,7 @@ fun KifImportFlow(
     }
 
     // 自分の側選択ダイアログ（KIFフロー後半）
-    if (showUserSideDialog && pickedUri != null) {
+    if (showUserSideDialog && (pickedUri != null || pendingManualKif != null)) {
         val savedSettings = vm.getSavedRatingSettings()
         UserSideDialog(
             senteName = kifSenteName,
@@ -253,19 +303,23 @@ fun KifImportFlow(
             onConfirm = { userSide, skipNext ->
                 showUserSideDialog = false
                 if (suggestedByAccount) vm.saveSkipSideConfirm(skipNext)
-                val uri = pickedUri!!
-                pickedUri = null
-                vm.importKif(
-                    uri,
-                    savedSettings.service,
-                    savedSettings.ratingRaw,
-                    userSide,
-                    savedSettings.ratingRule,
-                )
+                val text = pendingManualKif
+                if (text != null) {
+                    val fileName = pendingManualFileName ?: "manual.kif"
+                    pendingManualKif = null
+                    pendingManualFileName = null
+                    vm.importKifText(text, fileName, savedSettings.service, savedSettings.ratingRaw, userSide, savedSettings.ratingRule)
+                } else {
+                    val uri = pickedUri!!
+                    pickedUri = null
+                    vm.importKif(uri, savedSettings.service, savedSettings.ratingRaw, userSide, savedSettings.ratingRule)
+                }
             },
             onDismiss = {
                 showUserSideDialog = false
                 pickedUri = null
+                pendingManualKif = null
+                pendingManualFileName = null
             },
         )
     }

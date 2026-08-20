@@ -67,6 +67,8 @@ import dev.miyado.shogisupplement.ui.gamelist.GameListScreen
 import dev.miyado.shogisupplement.ui.generated.resources.Res
 import dev.miyado.shogisupplement.ui.home.HomeScreen
 import dev.miyado.shogisupplement.ui.license.LicenseInfoScreen
+import dev.miyado.shogisupplement.ui.manual.ManualKifuScreen
+import dev.miyado.shogisupplement.ui.report.StudyOrigin
 import dev.miyado.shogisupplement.ui.report.AnalyzingReportScreen
 import dev.miyado.shogisupplement.ui.report.ReportScreen
 import dev.miyado.shogisupplement.ui.restore.GameRestoreScreen
@@ -219,6 +221,7 @@ private sealed class DemoRoute {
     object Account : DemoRoute()
     object TransferCode : DemoRoute()
     object GameList : DemoRoute()
+    object ManualKifu : DemoRoute()
     object Debug : DemoRoute()
     /** 推定棋力詳細画面（ホーム画面の推定棋力カードタップで遷移）。 */
     data class StrengthDetail(val data: StrengthDetailData) : DemoRoute()
@@ -263,6 +266,7 @@ private fun DemoApp(
 
     val homeData by controller.homeData.collectAsState()
     val importState by controller.importState.collectAsState()
+    val manualStudyState by controller.studyState.collectAsState()
     // ホームの解析中カード用。importStateとは別軸（dismissでImportStateが消えても
     // レジストリ側は生き続ける）ため、ここは直接購読する。
     val analyzingSessions by InProgressAnalysisRegistry.shared.sessions.collectAsState()
@@ -355,6 +359,10 @@ private fun DemoApp(
                 showKifSourceDialog = false
                 controller.handleClipboardImport()
             },
+            onPickManual = {
+                showKifSourceDialog = false
+                route = DemoRoute.ManualKifu
+            },
             onDismiss = { showKifSourceDialog = false },
         )
     }
@@ -399,6 +407,33 @@ private fun DemoApp(
                     },
                 )
             }
+        }
+        DemoRoute.ManualKifu -> {
+            ManualKifuScreen(
+                onClose = { controller.endStudy(); route = DemoRoute.Home },
+                onSave = { draft ->
+                    controller.endStudy()
+                    route = DemoRoute.Home
+                    controller.beginManualImport(draft.toKifText())
+                },
+                studyState = manualStudyState,
+                onStartStudy = { sfen, flip ->
+                    controller.startStudy(
+                        baseSfen = sfen,
+                        flip = flip,
+                        originIsBestPv = false,
+                        originPlyIndex = 0,
+                        originSelectedIdx = null,
+                        originAbsolutePly = 0,
+                        origin = StudyOrigin("手動入力", null),
+                    )
+                },
+                onStudySquareTapped = controller::onStudySquareTapped,
+                onStudyHandPieceTapped = controller::onStudyHandPieceTapped,
+                onStudyPromoteDecision = controller::onStudyPromoteDecision,
+                onStudyStepBack = controller::studyStepBack,
+                onStudyExit = controller::endStudy,
+            )
         }
         is DemoRoute.StrengthDetail -> {
             // 対局サービスの編集ダイアログはこの画面専用（Settings画面の棋力入力は廃止済み）。
@@ -596,6 +631,7 @@ private fun IosGameListScreenHost(
 private fun KifSourceDialog(
     onPickFile: () -> Unit,
     onPickClipboard: () -> Unit,
+    onPickManual: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     AlertDialog(
@@ -605,6 +641,7 @@ private fun KifSourceDialog(
             Column {
                 KifSourceOptionRow(AppStrings.KIF_SOURCE_FILE, onPickFile)
                 KifSourceOptionRow(AppStrings.KIF_SOURCE_CLIPBOARD, onPickClipboard)
+                KifSourceOptionRow(AppStrings.KIF_SOURCE_MANUAL, onPickManual)
             }
         },
         confirmButton = {},

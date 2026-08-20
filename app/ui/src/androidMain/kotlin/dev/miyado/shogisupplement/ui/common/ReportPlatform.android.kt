@@ -13,5 +13,8 @@ actual fun ReportBackHandler(enabled: Boolean, onBack: () -> Unit) {
 actual fun formatDateTime(epochSeconds: Long): String =
     SimpleDateFormat("yyyy/MM/dd HH:mm", Locale.getDefault()).format(Date(epochSeconds * 1000L))
 
+actual fun currentLocalDateTime(): String =
+    SimpleDateFormat("yyyy/MM/dd HH:mm", Locale.getDefault()).format(Date())
+
 actual fun formatShortDate(epochSeconds: Long): String =
     SimpleDateFormat("M/d", Locale.getDefault()).format(Date(epochSeconds * 1000L))

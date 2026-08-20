@@ -388,6 +388,7 @@ object AppStrings {
     const val KIF_SOURCE_TITLE = "棋譜の追加"
     const val KIF_SOURCE_FILE = "ファイルから選ぶ"
     const val KIF_SOURCE_CLIPBOARD = "クリップボードから貼り付け"
+    const val KIF_SOURCE_MANUAL = "盤で入力する"
     const val KIF_CLIPBOARD_EMPTY = "クリップボードにテキストがありません"
     const val KIF_CLIPBOARD_INVALID = "クリップボードに棋譜（KIF）が見つかりませんでした"
     /** クリップボード棋譜の表示用ファイル名。dateStr = "2026-07-14 09:30" 形式。 */
@@ -396,6 +397,29 @@ object AppStrings {
     /** ファイルからの取込（iOS DocumentPicker）のエラーメッセージ。 */
     const val KIF_FILE_EMPTY = "選択したファイルにテキストがありません"
     const val KIF_FILE_INVALID = "選択したファイルに棋譜（KIF）が見つかりませんでした"
+
+    // ═══ 16. 手動棋譜入力 ════════════════════════════════════════════════════
+    const val MANUAL_KIFU_TITLE = "盤で棋譜を入力"
+    const val MANUAL_KIFU_DETAILS = "詳細"
+    const val MANUAL_KIFU_INFO_TITLE = "対局の詳細"
+    const val MANUAL_KIFU_INFO_DESCRIPTION = "棋譜と一緒に保存する情報を入力できます。必要な項目だけ入力してください。"
+    const val MANUAL_KIFU_SENTE = "先手（任意）"
+    const val MANUAL_KIFU_GOTE = "後手（任意）"
+    const val MANUAL_KIFU_STARTED_AT = "対局日時"
+    const val MANUAL_KIFU_PLACE = "対局場所（任意）"
+    const val MANUAL_KIFU_STUDY = "検討"
+    const val MANUAL_KIFU_STUDY_END = "検討を終了"
+    const val MANUAL_KIFU_FLIP = "盤を反転"
+    const val MANUAL_KIFU_RESIGN = "投了"
+    const val MANUAL_KIFU_PROMOTION_TITLE = "成り"
+    const val MANUAL_KIFU_PROMOTION_BODY = "この手は成りますか？"
+    const val MANUAL_KIFU_PROMOTE = "成る"
+    const val MANUAL_KIFU_NOT_PROMOTE = "不成"
+    const val MANUAL_KIFU_DISCARD_TITLE = "入力を破棄しますか？"
+    const val MANUAL_KIFU_DISCARD_BODY = "入力した棋譜は保存されません。"
+    const val MANUAL_KIFU_DISCARD = "破棄する"
+    const val DONE = "完了"
+    const val CLOSE = "閉じる"
 
     /** 端末エンジンを持たないビルドでサーバー解析が未設定のときのエラー。 */
     const val ANALYSIS_SERVER_NOT_CONFIGURED = "サーバー解析の設定が読み込めませんでした。時間をおいて再度お試しください"

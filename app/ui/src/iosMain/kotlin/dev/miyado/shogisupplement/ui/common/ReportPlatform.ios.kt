@@ -35,6 +35,13 @@ actual fun formatDateTime(epochSeconds: Long): String {
     }
 }
 
+/** 現在日時はNSDateFormatterの端末タイムゾーンで取得する。既存の解析日時表示（UTC固定）とは用途が異なる。 */
+actual fun currentLocalDateTime(): String {
+    val formatter = platform.Foundation.NSDateFormatter()
+    formatter.dateFormat = "yyyy/MM/dd HH:mm"
+    return formatter.stringFromDate(platform.Foundation.NSDate())
+}
+
 /** 月日のみの短縮表示（"M/d"）。[formatDateTime] と同じ civilFromDays を再利用する。 */
 actual fun formatShortDate(epochSeconds: Long): String {
     val totalDays = epochSeconds.floorDiv(86400)
