@@ -102,16 +102,10 @@ fun KifImportFlow(
                 .getOrNull()
             kifSenteName = parsed?.senteName
             kifGoteName = parsed?.goteName
-            val hasAccount = vm.hasAnyServiceAccount()
-            if (!hasAccount) {
-                ratingSettingsFromKifFlow = true
-                onShowRatingSettingsDialogChange(true)
-            } else {
-                val suggestion = vm.suggestUserSideWithMatch(kifSenteName, kifGoteName)
-                suggestedSide = suggestion.side
-                suggestedByAccount = suggestion.matchedByAccount
-                if (vm.shouldSkipSideConfirm(suggestion)) importDirectly(suggestion.side) else showUserSideDialog = true
-            }
+            val suggestion = vm.suggestUserSideWithMatch(kifSenteName, kifGoteName)
+            suggestedSide = suggestion.side
+            suggestedByAccount = suggestion.matchedByAccount
+            if (vm.shouldSkipSideConfirm(suggestion)) importDirectly(suggestion.side) else showUserSideDialog = true
         }
     }
 

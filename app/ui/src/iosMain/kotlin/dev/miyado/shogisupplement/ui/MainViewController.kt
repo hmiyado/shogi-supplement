@@ -266,7 +266,6 @@ private fun DemoApp(
 
     val homeData by controller.homeData.collectAsState()
     val importState by controller.importState.collectAsState()
-    val manualStudyState by controller.studyState.collectAsState()
     // ホームの解析中カード用。importStateとは別軸（dismissでImportStateが消えても
     // レジストリ側は生き続ける）ため、ここは直接購読する。
     val analyzingSessions by InProgressAnalysisRegistry.shared.sessions.collectAsState()
@@ -410,29 +409,11 @@ private fun DemoApp(
         }
         DemoRoute.ManualKifu -> {
             ManualKifuScreen(
-                onClose = { controller.endStudy(); route = DemoRoute.Home },
+                onClose = { route = DemoRoute.Home },
                 onSave = { draft ->
-                    controller.endStudy()
                     route = DemoRoute.Home
                     controller.beginManualImport(draft.toKifText())
                 },
-                studyState = manualStudyState,
-                onStartStudy = { sfen, flip ->
-                    controller.startStudy(
-                        baseSfen = sfen,
-                        flip = flip,
-                        originIsBestPv = false,
-                        originPlyIndex = 0,
-                        originSelectedIdx = null,
-                        originAbsolutePly = 0,
-                        origin = StudyOrigin("手動入力", null),
-                    )
-                },
-                onStudySquareTapped = controller::onStudySquareTapped,
-                onStudyHandPieceTapped = controller::onStudyHandPieceTapped,
-                onStudyPromoteDecision = controller::onStudyPromoteDecision,
-                onStudyStepBack = controller::studyStepBack,
-                onStudyExit = controller::endStudy,
             )
         }
         is DemoRoute.StrengthDetail -> {

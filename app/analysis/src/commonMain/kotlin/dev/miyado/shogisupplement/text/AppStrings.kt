@@ -407,8 +407,6 @@ object AppStrings {
     const val MANUAL_KIFU_GOTE = "後手（任意）"
     const val MANUAL_KIFU_STARTED_AT = "対局日時"
     const val MANUAL_KIFU_PLACE = "対局場所（任意）"
-    const val MANUAL_KIFU_STUDY = "検討"
-    const val MANUAL_KIFU_STUDY_END = "検討を終了"
     const val MANUAL_KIFU_FLIP = "盤を反転"
     const val MANUAL_KIFU_RESIGN = "投了"
     const val MANUAL_KIFU_PROMOTION_TITLE = "成り"

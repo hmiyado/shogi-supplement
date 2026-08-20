@@ -97,6 +97,7 @@ class IosMainController(
             val senteName: String?,
             val goteName: String?,
             val sourceFileName: String?,
+            val skipRatingSetup: Boolean = false,
         ) : ImportState()
 
         /**
@@ -421,6 +422,7 @@ class IosMainController(
             senteName = game.senteName,
             goteName = game.goteName,
             sourceFileName = fileName,
+            skipRatingSetup = true,
         )
     }
 
@@ -434,16 +436,23 @@ class IosMainController(
         senteName: String?,
         goteName: String?,
         sourceFileName: String?,
+        skipRatingSetup: Boolean = false,
     ) {
         // 未ログインのまま進むと解析時（launchAnalysis）に匿名アカウントが
         // 新規作成される。黙って作らず、追加の入口で確認を取る
         if (authRepository != null && analysisBaseUrl != null &&
             authRepository.currentUser.value == null && !settingsRepository.isAccountDeclined()
         ) {
-            _importState.value = ImportState.AccountCreationConfirm(kifText, senteName, goteName, sourceFileName)
+            _importState.value = ImportState.AccountCreationConfirm(
+                kifText,
+                senteName,
+                goteName,
+                sourceFileName,
+                skipRatingSetup,
+            )
             return
         }
-        continueImportAfterAccountNotice(kifText, senteName, goteName, sourceFileName)
+        continueImportAfterAccountNotice(kifText, senteName, goteName, sourceFileName, skipRatingSetup)
     }
 
     /** 引き継ぎ復元の成功時に、作らない判断を戻すために渡す。 */
@@ -467,13 +476,13 @@ class IosMainController(
     fun declineAccountAndContinueImport() {
         val s = _importState.value as? ImportState.AccountCreationConfirm ?: return
         settingsRepository.saveAccountDeclined(true)
-        continueImportAfterAccountNotice(s.kifText, s.senteName, s.goteName, s.sourceFileName)
+        continueImportAfterAccountNotice(s.kifText, s.senteName, s.goteName, s.sourceFileName, s.skipRatingSetup)
     }
 
     /** [ImportState.AccountCreationConfirm] の「続ける」。取込フローを続行する。 */
     fun confirmAccountCreation() {
         val s = _importState.value as? ImportState.AccountCreationConfirm ?: return
-        continueImportAfterAccountNotice(s.kifText, s.senteName, s.goteName, s.sourceFileName)
+        continueImportAfterAccountNotice(s.kifText, s.senteName, s.goteName, s.sourceFileName, s.skipRatingSetup)
     }
 
     private fun continueImportAfterAccountNotice(
@@ -481,8 +490,9 @@ class IosMainController(
         senteName: String?,
         goteName: String?,
         sourceFileName: String?,
+        skipRatingSetup: Boolean = false,
     ) {
-        if (!settingsRepository.hasAnyServiceAccount()) {
+        if (!skipRatingSetup && !settingsRepository.hasAnyServiceAccount()) {
             _importState.value = ImportState.RatingSetup(kifText, senteName, goteName, sourceFileName)
             return
         }

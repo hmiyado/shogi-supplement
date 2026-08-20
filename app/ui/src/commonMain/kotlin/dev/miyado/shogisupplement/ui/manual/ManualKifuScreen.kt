@@ -56,7 +56,6 @@ import dev.miyado.shogisupplement.ui.common.ShogiBoardView
 import dev.miyado.shogisupplement.ui.common.ShogiSecondaryButton
 import dev.miyado.shogisupplement.ui.common.ReportBackHandler
 import dev.miyado.shogisupplement.ui.common.currentLocalDateTime
-import dev.miyado.shogisupplement.ui.report.StudyState
 import dev.miyado.shogisupplement.ui.theme.shogiColors
 
 /** 手動棋譜入力で保存する情報。保存時に既存のKIF取込フローへ渡す。 */
@@ -68,6 +67,11 @@ data class ManualKifuDraft(
     val place: String,
     val resigned: Boolean,
 ) {
+    fun resignedAt(currentPly: Int): ManualKifuDraft = copy(
+        moves = manualLineAfterResign(moves, currentPly),
+        resigned = true,
+    )
+
     /** KIF 1.0の平手本譜へ変換する。 */
     fun toKifText(): String = KifuReconstructor.reconstruct(
         public = PublicKifuFields(
@@ -105,13 +109,6 @@ fun manualLineAfterResign(moves: List<String>, currentPly: Int): List<String> =
 fun ManualKifuScreen(
     onClose: () -> Unit,
     onSave: (ManualKifuDraft) -> Unit,
-    onStartStudy: (sfen: String, flip: Boolean) -> Unit = { _, _ -> },
-    studyState: StudyState? = null,
-    onStudySquareTapped: (ShogiSquare) -> Unit = {},
-    onStudyHandPieceTapped: (PieceType) -> Unit = {},
-    onStudyPromoteDecision: (Boolean) -> Unit = {},
-    onStudyStepBack: () -> Unit = {},
-    onStudyExit: () -> Unit = {},
 ) {
     var moves by remember { mutableStateOf<List<String>>(emptyList()) }
     var currentPly by remember { mutableStateOf(0) }
@@ -122,14 +119,12 @@ fun ManualKifuScreen(
     var showMoveList by remember { mutableStateOf(false) }
     var showDetails by remember { mutableStateOf(false) }
     var showDiscard by remember { mutableStateOf(false) }
-    var resigned by remember { mutableStateOf(false) }
-
     var senteName by remember { mutableStateOf("") }
     var goteName by remember { mutableStateOf("") }
     var startedAt by remember { mutableStateOf(currentLocalDateTime()) }
     var place by remember { mutableStateOf("") }
 
-    val hasInput = moves.isNotEmpty() || resigned || senteName.isNotBlank() ||
+    val hasInput = moves.isNotEmpty() || senteName.isNotBlank() ||
         goteName.isNotBlank() || place.isNotBlank()
     val board = remember(moves, currentPly) {
         ShogiBoard().also { b -> moves.take(currentPly).forEach { b.push(ShogiMove.fromUsi(it)) } }
@@ -152,7 +147,6 @@ fun ManualKifuScreen(
         // 現在局面より先の本譜は、ここで新しい手順に置き換える。
         moves = manualLineAfterMove(moves, currentPly, move.toUsiString())
         currentPly = moves.size
-        resigned = false
         clearSelection()
     }
 
@@ -183,25 +177,10 @@ fun ManualKifuScreen(
 
     ReportBackHandler(enabled = true, onBack = {
         when {
-            studyState != null -> onStudyExit()
             showDetails -> showDetails = false
             else -> closeOrConfirm()
         }
     })
-
-    if (studyState != null) {
-        ManualStudyScreen(
-            studyState = studyState,
-            flip = flip,
-            onClose = onStudyExit,
-            onFlip = { flip = !flip },
-            onSquareTapped = onStudySquareTapped,
-            onHandPieceTapped = onStudyHandPieceTapped,
-            onPromoteDecision = onStudyPromoteDecision,
-            onStepBack = onStudyStepBack,
-        )
-        return
-    }
 
     Scaffold(
         topBar = {
@@ -215,8 +194,8 @@ fun ManualKifuScreen(
                 actions = {
                     TextButton(onClick = { showDetails = true }) { Text(AppStrings.MANUAL_KIFU_DETAILS) }
                     TextButton(onClick = {
-                        onSave(ManualKifuDraft(moves, senteName, goteName, startedAt, place, resigned))
-                    }, enabled = moves.isNotEmpty() || resigned) { Text(AppStrings.SAVE) }
+                        onSave(ManualKifuDraft(moves, senteName, goteName, startedAt, place, resigned = false))
+                    }, enabled = moves.isNotEmpty()) { Text(AppStrings.SAVE) }
                 },
             )
         },
@@ -253,17 +232,14 @@ fun ManualKifuScreen(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                ShogiSecondaryButton(onClick = { onStartStudy(board.toSfen(), flip) }, modifier = Modifier.weight(1f)) {
-                    Text(AppStrings.MANUAL_KIFU_STUDY)
-                }
                 ShogiSecondaryButton(onClick = { flip = !flip }, modifier = Modifier.weight(1f)) {
                     Text(AppStrings.MANUAL_KIFU_FLIP)
                 }
                 OutlinedButton(
                     onClick = {
-                        moves = manualLineAfterResign(moves, currentPly)
-                        resigned = true
-                        clearSelection()
+                        val draft = ManualKifuDraft(moves, senteName, goteName, startedAt, place, resigned = false)
+                            .resignedAt(currentPly)
+                        onSave(draft)
                     },
                     enabled = currentPly > 0,
                     modifier = Modifier.weight(1f),
@@ -441,70 +417,5 @@ private fun ManualGameInfoScreen(
             OutlinedTextField(startedAt, onStartedAtChange, label = { Text(AppStrings.MANUAL_KIFU_STARTED_AT) }, singleLine = true, modifier = Modifier.fillMaxWidth())
             OutlinedTextField(place, onPlaceChange, label = { Text(AppStrings.MANUAL_KIFU_PLACE) }, singleLine = true, modifier = Modifier.fillMaxWidth())
         }
-    }
-}
-
-@Composable
-@OptIn(ExperimentalMaterial3Api::class)
-private fun ManualStudyScreen(
-    studyState: StudyState,
-    flip: Boolean,
-    onClose: () -> Unit,
-    onFlip: () -> Unit,
-    onSquareTapped: (ShogiSquare) -> Unit,
-    onHandPieceTapped: (PieceType) -> Unit,
-    onPromoteDecision: (Boolean) -> Unit,
-    onStepBack: () -> Unit,
-) {
-    val board = remember(studyState.baseSfen, studyState.moves) {
-        ShogiBoard.fromSfen(studyState.baseSfen).also { b ->
-            studyState.moves.forEach { b.push(ShogiMove.fromUsi(it)) }
-        }
-    }
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(AppStrings.MANUAL_KIFU_STUDY) },
-                navigationIcon = { IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = AppStrings.BACK) } },
-                actions = { TextButton(onClick = onClose) { Text(AppStrings.MANUAL_KIFU_STUDY_END) } },
-            )
-        },
-    ) { padding ->
-        Column(Modifier.fillMaxSize().padding(padding), horizontalAlignment = Alignment.CenterHorizontally) {
-            ShogiBoardView(
-                sfen = board.toSfen(),
-                flip = flip,
-                selectedFrom = studyState.selectedFrom,
-                selectedDropType = studyState.selectedDropType,
-                legalDestinations = studyState.legalDestinations,
-                onSquareTapped = onSquareTapped,
-                onHandPieceTapped = onHandPieceTapped,
-                modifier = Modifier.weight(1f).fillMaxWidth(),
-            )
-            Row(Modifier.fillMaxWidth().height(40.dp), verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = onStepBack, enabled = studyState.moves.isNotEmpty(), contentPadding = PaddingValues(0.dp)) {
-                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "1手戻る")
-                }
-                Text(
-                    text = if (studyState.moves.isEmpty()) AppStrings.VIEWER_START_POSITION else "${studyState.moves.size}手目",
-                    modifier = Modifier.weight(1f),
-                    textAlign = TextAlign.Center,
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                TextButton(onClick = {}, enabled = false, contentPadding = PaddingValues(0.dp)) {
-                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "1手進む")
-                }
-            }
-            ShogiSecondaryButton(onClick = onFlip, modifier = Modifier.padding(8.dp)) { Text(AppStrings.MANUAL_KIFU_FLIP) }
-        }
-    }
-    if (studyState.showPromoteDialog) {
-        AlertDialog(
-            onDismissRequest = { onPromoteDecision(false) },
-            title = { Text(AppStrings.MANUAL_KIFU_PROMOTION_TITLE) },
-            text = { Text(AppStrings.MANUAL_KIFU_PROMOTION_BODY) },
-            confirmButton = { TextButton(onClick = { onPromoteDecision(true) }) { Text(AppStrings.MANUAL_KIFU_PROMOTE) } },
-            dismissButton = { TextButton(onClick = { onPromoteDecision(false) }) { Text(AppStrings.MANUAL_KIFU_NOT_PROMOTE) } },
-        )
     }
 }

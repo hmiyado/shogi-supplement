@@ -35,7 +35,6 @@ import dev.miyado.shogisupplement.ui.MainViewModel
 import dev.miyado.shogisupplement.ui.common.ErrorScreen
 import dev.miyado.shogisupplement.ui.gamelist.GameListScreen
 import dev.miyado.shogisupplement.ui.manual.ManualKifuScreen
-import dev.miyado.shogisupplement.ui.report.StudyOrigin
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
 
 /** アプリのエントリポイント。 */
@@ -119,7 +118,6 @@ fun MainApp(vm: MainViewModel, state: MainUiState) {
     var showKifSourceSheet by remember { mutableStateOf(false) }
     var showRatingSettingsDialog by remember { mutableStateOf(false) }
     var showManualKifu by remember { mutableStateOf(false) }
-    val studyState by vm.studyState.collectAsState()
 
     KifImportFlow(
         vm = vm,
@@ -132,29 +130,11 @@ fun MainApp(vm: MainViewModel, state: MainUiState) {
 
     if (showManualKifu) {
         ManualKifuScreen(
-            onClose = { vm.endStudy(); showManualKifu = false },
+            onClose = { showManualKifu = false },
             onSave = { draft ->
-                vm.endStudy()
                 showManualKifu = false
                 vm.enqueueManualKif(draft.toKifText())
             },
-            studyState = studyState,
-            onStartStudy = { sfen, flip ->
-                vm.startStudy(
-                    baseSfen = sfen,
-                    flip = flip,
-                    originIsBestPv = false,
-                    originPlyIndex = 0,
-                    originSelectedIdx = null,
-                    originAbsolutePly = 0,
-                    origin = StudyOrigin("手動入力", null),
-                )
-            },
-            onStudySquareTapped = vm::onStudySquareTapped,
-            onStudyHandPieceTapped = vm::onStudyHandPieceTapped,
-            onStudyPromoteDecision = vm::onStudyPromoteDecision,
-            onStudyStepBack = vm::studyStepBack,
-            onStudyExit = vm::endStudy,
         )
         return
     }
