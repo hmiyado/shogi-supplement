@@ -14,7 +14,7 @@ import XCTest
 ///   2. 02_report_graph    — レポート（デフォルト表示＝評価値グラフ＋サマリー）
 ///   3. 03_blunder_list    — 「悪手一覧を見る」→ 悪手一覧（本譜/最善の変化タブが見える状態）
 ///   4. 04_study           — 盤面タップ→検討モード開始（分岐ツリーの検討パネル）
-///   5. 05_drill_question  — ドリル出題画面（盤面＋降参ボタン）
+///   5. 05_drill_question  — 次の一手問題の出題画面（盤面＋降参ボタン）
 ///   6. 06_drill_result    — 降参して答えを見た結果画面
 ///   7. 07_report_dark     — レポート（02と同内容）のダークモード。
 ///      XCUIDevice.appearance = .dark を実測したところ Compose Multiplatform 側の
@@ -214,21 +214,21 @@ final class StoreScreenshotTests: XCTestCase {
         Thread.sleep(forTimeInterval: 1.0)
         attachScreenshot(named: "01_home")
 
-        // ── 6. 「今日の1問」→ ドリル出題画面（05_drill_question） ──────────────
-        let todaysDrill = element(labeledContainsAny: ["今日の1問", "ドリル"], timeout: 10)
-        XCTAssertTrue(todaysDrill.exists, "「今日の1問」（またはドリル導線）が見つかりません")
+        // ── 6. 「今日の1問」→ 次の一手問題の出題画面（05_drill_question） ──────
+        let todaysDrill = element(labeledContainsAny: ["今日の1問", "次の一手"], timeout: 10)
+        XCTAssertTrue(todaysDrill.exists, "「今日の1問」（または次の一手導線）が見つかりません")
         todaysDrill.tap()
 
         let drillGiveUp = element(labeled: "答えを見る", timeout: 15)
-        XCTAssertTrue(drillGiveUp.exists, "ドリル出題画面に到達しませんでした")
+        XCTAssertTrue(drillGiveUp.exists, "次の一手問題の出題画面に到達しませんでした")
         Thread.sleep(forTimeInterval: 0.8)
         attachScreenshot(named: "05_drill_question")
 
-        // ── 7. 降参 → ドリル結果画面（06_drill_result） ─────────────────────
+        // ── 7. 降参 → 次の一手問題の結果画面（06_drill_result） ─────────────
         drillGiveUp.tap()
 
         let drillResult = element(labeledContainsAny: ["正解。", "不正解"], timeout: 15)
-        XCTAssertTrue(drillResult.exists, "ドリル結果画面に到達しませんでした")
+        XCTAssertTrue(drillResult.exists, "次の一手問題の結果画面に到達しませんでした")
         Thread.sleep(forTimeInterval: 0.8)
         attachScreenshot(named: "06_drill_result")
 
@@ -238,7 +238,7 @@ final class StoreScreenshotTests: XCTestCase {
         // 明示選択する（themeModeを直接 "dark" にする・OS外観非依存で確実）。
 
         let goHomeButton = element(labeled: "ホームへ", timeout: 5)
-        XCTAssertTrue(goHomeButton.exists, "ドリル結果画面の「ホームへ」ボタンが見つかりません")
+        XCTAssertTrue(goHomeButton.exists, "次の一手問題の結果画面の「ホームへ」ボタンが見つかりません")
         goHomeButton.tap()
 
         let homeAfterDrill = element(labeled: "棋譜を追加する", timeout: 10)

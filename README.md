@@ -1,6 +1,6 @@
 # 将棋サプリ（shogi-supplement）
 
-自分の実戦棋譜を端末内で解析し、**自分の棋力帯相応の悪手だけ**を「自分専用のドリル」として
+自分の実戦棋譜を端末内で解析し、**自分の棋力帯相応の悪手だけ**を「自分専用の次の一手問題」として
 周回する将棋学習アプリ（Android / iOS、Kotlin Multiplatform）。lishogiの大量対局・局面の
 解析データに基づく棋力帯×悪手カテゴリ係数表で、「その棋力帯の人が実際にどれくらい犯すミスか」を
 根拠に出題を選ぶ。
@@ -14,7 +14,7 @@
 ## 構成
 
 - `app/shared/` — KMP共通ロジック（KIFパーサ・盤面・悪手抽出/分類・相応判定・強さ推定・
-  連盟式棋譜表記・ドリル判定・DB・エンジンブリッジ）
+  連盟式棋譜表記・次の一手問題の判定・DB・エンジンブリッジ）
 - `app/ui/` — Compose Multiplatform のUI（画面）＋KMP ViewModel。Android/iOS共通
 - `app/androidApp/` — Android専用の配線: エンジン別プロセス実行・Foreground Service・
   Supabase連携・各画面のViewModel配線（Host）
@@ -34,7 +34,7 @@ JAVA_HOME=/path/to/jdk-21 ./gradlew :androidApp:assembleDebug
 ```
 
 - Supabase接続（任意機能）: `app/local.properties` に `SUPABASE_URL` / `SUPABASE_KEY` を設定
-  （`local.properties.sample` 参照。未設定でも解析・ドリルは動作する）
+  （`local.properties.sample` 参照。未設定でも解析・次の一手問題は動作する）
 - リリース署名: `app/keystore.properties`（リポジトリには含まれない）
 
 ### iOS

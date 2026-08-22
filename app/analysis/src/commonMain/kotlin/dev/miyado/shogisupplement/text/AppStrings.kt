@@ -74,7 +74,7 @@ object AppStrings {
     const val HOME_OPEN_KIF = "棋譜を追加する"
     const val HOME_TODAYS_DRILL_TITLE = "今日の1問"
     fun homeTodaysDrillPly(ply: Long): String = "${ply}手目の局面"
-    const val HOME_TODAYS_DRILL_TAP = "タップしてドリルを開始"
+    const val HOME_TODAYS_DRILL_TAP = "タップして次の一手問題を解く"
     const val HOME_PAST_ANALYSES = "過去の解析"
     const val HOME_NO_GAMES = "まだ解析した棋譜がありません。\n「棋譜を追加する」から.kifファイルを選ぶか、コピーした棋譜を貼り付けてください。"
 
@@ -188,8 +188,8 @@ object AppStrings {
     const val BLUNDER_CARD_BEST = "最善"
 
 
-    const val DRILL_TITLE = "ドリル／次の一手"
-    const val DRILL_EMPTY_TITLE = "ドリルの対象がありません"
+    const val DRILL_TITLE = "次の一手"
+    const val DRILL_EMPTY_TITLE = "次の一手問題がありません"
     const val DRILL_EMPTY_BODY = "棋譜を解析すると悪手が出題対象になります。"
     const val DRILL_BACK_HOME = "ホームに戻る"
     const val DRILL_JUDGING = "判定中..."
@@ -664,7 +664,7 @@ object AppStrings {
 
     const val CONSENT_TITLE = "はじめに"
     const val CONSENT_INTRO =
-        "将棋サプリは棋譜を解析して棋力を推定し、棋力帯相応の悪手をドリルとして出題します。"
+        "将棋サプリは棋譜を解析して棋力を推定し、棋力帯相応の悪手を次の一手問題として出題します。"
 
     const val CONSENT_WITH_ACCOUNT_LABEL = "匿名のアカウントを作成して始める"
     val CONSENT_WITH_ACCOUNT_POINTS = listOf(
