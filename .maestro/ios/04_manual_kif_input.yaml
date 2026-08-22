@@ -1,0 +1,41 @@
+# 手動棋譜入力フロー全体（起動→盤で入力する→盤タップで数手指す→投了→
+# 先後選択→解析開始→レポート表示）をMaestroで駆動できるかを確認するフロー。
+#
+# 対局者名を入力しないため、UserSideDialogの選択肢テキストは「先手」「後手」
+# （AppStrings.sideSente/sideGote、アカウント名の付記なし）。
+# select_gote_and_start_analysis.yamlは「後手（miyado）」前提のため再利用できず、
+# このフローでは個別に書く。
+#
+# 盤面タップは ShogiBoardView の testTag（board_sq_<file>_<rank>、USIの筋・段と同じ数字）
+# を id セレクタで狙う。Compose Multiplatform iOSではtestTagがaccessibilityIdentifierへ
+# 自動マッピングされる。指し手はすべて成りの選択肢が出ない一歩前進を選び、
+# 成り確認ダイアログを回避する（7g7f/3c3d/6g6f）。
+appId: dev.miyado.shogisupplement.ios.debug
+env:
+  APP_ID: dev.miyado.shogisupplement.ios.debug
+---
+- launchApp:
+    clearState: false
+- runFlow: subflows/handle_consent_onboarding.yaml
+- tapOn: "棋譜を追加する"
+- tapOn: "盤で入力する"
+- tapOn:
+    id: "board_sq_7_7"
+- tapOn:
+    id: "board_sq_7_6"
+- tapOn:
+    id: "board_sq_3_3"
+- tapOn:
+    id: "board_sq_3_4"
+- tapOn:
+    id: "board_sq_6_7"
+- tapOn:
+    id: "board_sq_6_6"
+- tapOn: "投了"
+# 先後選択ダイアログ。KIFテキスト化・パース（非同期）待ちのため長めに待つ。
+- extendedWaitUntil:
+    visible: "自分の側"
+    timeout: 15000
+- tapOn: "後手"
+- tapOn: "解析開始"
+- runFlow: ../common/wait_for_analysis_report.yaml

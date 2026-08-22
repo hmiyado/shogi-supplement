@@ -1,0 +1,37 @@
+# 棋譜削除フロー全体（起動→クリップボードから取込→解析→レポート画面トップバーの
+# 削除アイコン→確認ダイアログ→削除→ホームへ戻る）をMaestroで駆動できるかを
+# 確認するフロー。
+#
+# clearState: true で開始する。削除対象を今回取り込む1局だけに確定させ、
+# 一覧に他の棋譜が残っていて削除アイコンが複数マッチする事態を避けるため。
+# 前提: OSクリップボードに有効なKIFテキストが入っていること。投入込みの実行入口は
+# .maestro/run-ios.sh。
+#
+# サーバー削除チェックボックス（既定OFF・アップロード済みのときだけ表示）は
+# 操作しない。今回のテストは端末削除の導線確認が目的で、Supabaseへの
+# アップロードは前提条件に含めていないため通常は表示されない。
+appId: dev.miyado.shogisupplement.ios.debug
+env:
+  APP_ID: dev.miyado.shogisupplement.ios.debug
+---
+- launchApp:
+    clearState: true
+- runFlow: subflows/handle_consent_onboarding.yaml
+- tapOn: "棋譜を追加する"
+- tapOn: "クリップボードから貼り付け"
+- runFlow: subflows/dismiss_paste_permission_alert.yaml
+- runFlow: ../common/select_gote_and_start_analysis.yaml
+# wait_for_analysis_report.yamlの完了待ちは「解析中でも出る暫定表示」にもマッチする
+# （同ファイルのコメント参照）。解析中は AnalyzingReportScreen（削除アイコン無し・
+# 悪手一覧ボタンは常にenabled=falseで固定表示、AnalyzingReportScreen.kt参照）が
+# 表示され続け、解析完了で ReportScreen（削除アイコン付き）へ画面ごと切り替わる。
+# そのため中間シグナルを待たず、削除アイコンの出現を直接待つ。
+- runFlow: ../common/wait_for_analysis_report.yaml
+- extendedWaitUntil:
+    visible: "棋譜を削除"
+    timeout: 120000
+- tapOn: "棋譜を削除"
+- assertVisible: "この棋譜を削除しますか？"
+- tapOn: "削除する"
+- assertNotVisible: "この棋譜を削除しますか？"
+- assertVisible: "棋譜を追加する"

@@ -35,3 +35,7 @@ maestro test "${MAESTRO_ARGS[@]}" .maestro/ios/02_clipboard_paste_alert.yaml
 
 put_clipboard "$(cat "${KIF_FILE}")"
 maestro test "${MAESTRO_ARGS[@]}" .maestro/ios/03_kif_import_via_clipboard.yaml
+maestro test "${MAESTRO_ARGS[@]}" .maestro/ios/04_manual_kif_input.yaml
+# 05はclearStateでリセットするため、削除対象を用意するクリップボードの中身が
+# 引き続き必要（03と同じ前提）。
+maestro test "${MAESTRO_ARGS[@]}" .maestro/ios/05_game_delete.yaml
