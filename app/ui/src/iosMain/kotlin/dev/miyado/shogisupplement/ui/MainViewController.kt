@@ -375,7 +375,12 @@ private fun DemoApp(
             moves = analyzingState.moves,
             userSide = analyzingState.userSide,
             progressive = analyzingState.progressive,
-            onBack = { controller.dismissImport() },
+            // 手動棋譜入力から解析中に入った場合、routeがDemoRoute.ManualKifuのまま
+            // 更新されていないため、ここで明示的にHomeへ戻す（route=Homeからの入場では無害）。
+            onBack = {
+                controller.dismissImport()
+                route = DemoRoute.Home
+            },
         )
         return
     }
