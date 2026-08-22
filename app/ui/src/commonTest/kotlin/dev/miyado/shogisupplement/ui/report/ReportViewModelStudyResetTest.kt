@@ -72,6 +72,7 @@ class ReportViewModelStudyResetTest {
         override fun updateBestPv(blunderId: Long, newPv: String) = Unit
         override fun savePositionEvals(gameId: Long, rows: List<PositionEvalRow>) = Unit
         override fun getPositionEvals(gameId: Long): List<PositionEvalRow> = emptyList()
+        override fun deleteGame(gameId: Long) = Unit
         override fun deleteAllLocalData() = Unit
     }
 

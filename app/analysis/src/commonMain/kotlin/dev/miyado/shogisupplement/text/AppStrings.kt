@@ -302,6 +302,11 @@ object AppStrings {
         "サーバー上の棋譜・解析結果がすべて削除されます。この操作は取り消せません"
     const val ACCOUNT_UPLOAD_SECTION = "棋譜の保存"
     const val ACCOUNT_DELETE_CONFIRM = "削除する"
+    const val GAME_DELETE_ICON_DESC = "棋譜を削除"
+    const val GAME_DELETE_DIALOG_TITLE = "この棋譜を削除しますか？"
+    const val GAME_DELETE_DIALOG_TEXT =
+        "解析結果もまとめて削除されます。この操作は取り消せません"
+    const val GAME_DELETE_CONFIRM = "削除する"
     const val ACCOUNT_AUTO_UPLOAD_LABEL = "棋譜をサーバーに保存する"
     const val ACCOUNT_AUTO_UPLOAD_DESC =
         "解析した棋譜を保存します。研究・改善に匿名で利用され、引き継ぎのもとになります"

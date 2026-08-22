@@ -356,6 +356,8 @@ class IosMainController(
     /** 特定のゲームIDのレポート表示状態をDBから読み込む（ReportViewModel へ委譲）。 */
     suspend fun loadReport(gameId: Long): ReportViewModel.ReportResult = reportViewModel.loadReport(gameId)
 
+    suspend fun deleteGame(gameId: Long) = reportViewModel.deleteGame(gameId)
+
     /** テーマモードを保存し StateFlow を即時更新する。 */
     fun saveThemeMode(mode: String) {
         scope.launch {

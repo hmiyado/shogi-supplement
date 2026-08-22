@@ -31,6 +31,7 @@ import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.PositionEvalRow
 import dev.miyado.shogisupplement.text.AppStrings
+import dev.miyado.shogisupplement.ui.common.DeleteGameConfirmDialog
 import dev.miyado.shogisupplement.ui.common.PvExtState
 import dev.miyado.shogisupplement.ui.common.ReportBackHandler
 import dev.miyado.shogisupplement.ui.common.SfenPosition
@@ -80,6 +81,7 @@ fun ReportScreen(
     onStudyBranchOptionSelected: (depth: Int, moveUsi: String) -> Unit = { _, _ -> },
     onStudyAnalyze: () -> Unit = {},
     onCopyKif: (String) -> Unit = {},
+    onDeleteGame: () -> Unit = {},
     initialSelectedIndex: Int? = null,
     initialViewerModeBestPv: Boolean = false,
     initialPlyIndex: Int = 0,
@@ -169,6 +171,7 @@ fun ReportScreen(
     val goteName = game.goteName ?: AppStrings.PLAYER_UNKNOWN
     val playersLine = "▲$senteName$senteSuffix　△$goteName$goteSuffix"
     var showGameInfoDialog by remember { mutableStateOf(initialShowGameInfoDialog) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     val navInfo = rememberReportNavInfo(
         viewerMode = viewerMode,
@@ -228,6 +231,7 @@ fun ReportScreen(
                             }
                         }
                     },
+                    onDeleteClick = { showDeleteDialog = true },
                 )
 
                 val studyCurrentSfen = remember(studyState) {
@@ -432,6 +436,14 @@ fun ReportScreen(
             onDismiss = { showGameInfoDialog = false },
             game = game,
             playersLine = playersLine,
+        )
+        DeleteGameConfirmDialog(
+            show = showDeleteDialog,
+            onConfirm = {
+                showDeleteDialog = false
+                onDeleteGame()
+            },
+            onDismiss = { showDeleteDialog = false },
         )
     } // BoxWithConstraints
 } // ReportScreen

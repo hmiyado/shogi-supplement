@@ -239,6 +239,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /** 棋譜1局を削除する。棋譜一覧から呼ばれたときは一覧を再読込し、それ以外（レポート画面）はホームへ戻る。 */
+    fun deleteGame(gameId: Long) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { gameRepository.deleteGame(gameId) }
+            if (_state.value is MainUiState.GameList) openGameList() else loadHome()
+        }
+    }
+
     /** 棋譜一覧画面から未アップロード局を一括アップロードする。 */
     fun uploadFromGameList() {
         val s = _state.value as? MainUiState.GameList ?: return

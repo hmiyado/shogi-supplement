@@ -94,6 +94,7 @@ class SupabaseGameDownloadServiceTest {
         override fun updateBestPv(blunderId: Long, newPv: String) = error("not used")
         override fun savePositionEvals(gameId: Long, rows: List<PositionEvalRow>) = error("not used")
         override fun getPositionEvals(gameId: Long): List<PositionEvalRow> = error("not used")
+        override fun deleteGame(gameId: Long) = Unit
         override fun deleteAllLocalData() = Unit
     }
 

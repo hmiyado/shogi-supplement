@@ -31,18 +31,13 @@ import dev.miyado.shogisupplement.db.GameListFilter
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.filterGames
 import dev.miyado.shogisupplement.text.AppStrings
+import dev.miyado.shogisupplement.ui.common.DeleteGameConfirmDialog
 import dev.miyado.shogisupplement.ui.common.GameCard
 
 /**
- * 棋譜一覧画面。VM/Android 非依存の純Composable。GameRecord/GameCard/AppStrings のみに依存し、
- * MainViewModel・Android API への依存はない。GameCard は ui.common（HomeScreen とも共用）。
- *
- * 絞り込み条件はボトムシートで編集する。一覧側は常に絞り込みボタンと件数表示だけの
- * 固定レイアウトで、条件チップの出し入れによる一覧側のレイアウト変化は起きない
- * （DESIGN.md No-jitter原則）。
- *
- * 絞り込み状態はこの画面のローカル state で保持し、画面再訪時には保持しない。
- * 画面を離れて戻ると必ず未フィルタから始まる。
+ * 棋譜一覧画面。絞り込み条件はボトムシートで編集し、条件チップの出し入れでも一覧側の
+ * レイアウトは変えない（DESIGN.md No-jitter原則）。
+ * 絞り込み状態はローカル state のみで保持し、画面を離れて戻ると必ず未フィルタから始まる。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,12 +49,14 @@ fun GameListScreen(
     onBack: () -> Unit,
     onGameClick: (GameRecord) -> Unit,
     onUpload: () -> Unit = {},
+    onDeleteGame: (GameRecord) -> Unit = {},
 ) {
     // filter: 一覧に反映済みの条件。draftFilter: シート内で編集中の条件（「検索」タップまで
     // filterには反映しない。スワイプ/スクリムでシートを閉じた場合は draftFilter を破棄する）。
     var filter by remember { mutableStateOf(GameListFilter()) }
     var draftFilter by remember { mutableStateOf(GameListFilter()) }
     var showFilterSheet by remember { mutableStateOf(false) }
+    var pendingDeleteGame by remember { mutableStateOf<GameRecord?>(null) }
     val filteredGames = games.filterGames(filter)
 
     Scaffold(
@@ -127,13 +124,13 @@ fun GameListScreen(
                 }
             }
             // key = game.id: 絞り込みで件数が変わってもComposeがカードの同一性を
-            // インデックスではなくgame_idで追跡できるようにする（キー無し=位置ベースの
-            // 暗黙キーだと、絞り込み適用時に別ゲームのコンポジション状態を誤って
-            // 引き継ぎうる。件数表示の切り替えと合わせてガタつきの一因だったため付与する）。
+            // game_idで追跡する（キー無しだと位置ベースの暗黙キーで、絞り込み適用時に
+            // 別ゲームのコンポジション状態を誤って引き継ぎうるため）。
             items(filteredGames, key = { it.id }) { game ->
                 GameCard(
                     game = game,
                     onClick = { onGameClick(game) },
+                    onDelete = { pendingDeleteGame = game },
                 )
             }
         }
@@ -156,4 +153,13 @@ fun GameListScreen(
             onDismiss = { showFilterSheet = false },
         )
     }
+
+    DeleteGameConfirmDialog(
+        show = pendingDeleteGame != null,
+        onConfirm = {
+            pendingDeleteGame?.let(onDeleteGame)
+            pendingDeleteGame = null
+        },
+        onDismiss = { pendingDeleteGame = null },
+    )
 }

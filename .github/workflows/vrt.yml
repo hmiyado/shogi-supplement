@@ -50,7 +50,7 @@ jobs:
           - name: board-and-drill
             tests: --tests "*ShogiBoardViewScreenshotTest" --tests "*DrillScreenScreenshotTest" --tests "*GameListScreenScreenshotTest" --tests "*HomeScreenScreenshotTest" --tests "*PendingAnalysisScreenScreenshotTest"
           - name: rest
-            tests: --tests "*ForceUpdateScreenScreenshotTest" --tests "*AccountScreenScreenshotTest" --tests "*AccountDeleteDialogScreenshotTest" --tests "*TransferCodeScreenScreenshotTest" --tests "*SettingsScreenScreenshotTest" --tests "*LicensesScreenScreenshotTest" --tests "*AnalyzingReportScreenScreenshotTest" --tests "*GameRestoreScreenScreenshotTest" --tests "*ReportGameInfoDialogScreenshotTest" --tests "*ConsentScreenScreenshotTest" --tests "*EstimatedStrengthDetailScreenScreenshotTest"
+            tests: --tests "*ForceUpdateScreenScreenshotTest" --tests "*AccountScreenScreenshotTest" --tests "*AccountDeleteDialogScreenshotTest" --tests "*GameDeleteDialogScreenshotTest" --tests "*TransferCodeScreenScreenshotTest" --tests "*SettingsScreenScreenshotTest" --tests "*LicensesScreenScreenshotTest" --tests "*AnalyzingReportScreenScreenshotTest" --tests "*GameRestoreScreenScreenshotTest" --tests "*ReportGameInfoDialogScreenshotTest" --tests "*ConsentScreenScreenshotTest" --tests "*EstimatedStrengthDetailScreenScreenshotTest"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 

@@ -10,10 +10,15 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,6 +40,7 @@ import dev.miyado.shogisupplement.ui.theme.shogiColors
 fun GameCard(
     game: GameRecord,
     onClick: () -> Unit,
+    onDelete: (() -> Unit)? = null,
 ) {
     // sourcePlace をタイトルとして優先表示（正規化コードのまま出さず表示ラベルへ変換する。
     // ReportScreenのトップバーと同じ変換で、ホームとレポートの表記を一致させる）
@@ -89,6 +95,17 @@ fun GameCard(
                             text = badgeLabel,
                             style = MaterialTheme.typography.labelSmall,
                             color = if (isLoss) shogiColors.loss else MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
+                if (onDelete != null) {
+                    Spacer(Modifier.width(4.dp))
+                    IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
+                        Icon(
+                            imageVector = Icons.Outlined.Delete,
+                            contentDescription = AppStrings.GAME_DELETE_ICON_DESC,
+                            tint = shogiColors.loss,
+                            modifier = Modifier.size(18.dp),
                         )
                     }
                 }

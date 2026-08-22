@@ -346,6 +346,16 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
                 )
             }
     }
+
+    override fun deleteGame(gameId: Long) {
+        database.transaction {
+            database.shogiSupplementQueries.deleteDrillAttemptsByGameId(gameId)
+            database.shogiSupplementQueries.deleteBlunderReportsByGameId(gameId)
+            database.shogiSupplementQueries.deletePositionEvalsByGameId(gameId)
+            database.shogiSupplementQueries.deleteGameById(gameId)
+        }
+    }
+
     override fun deleteAllLocalData() {
         database.transaction {
             database.shogiSupplementQueries.deleteAllBlunderReports()

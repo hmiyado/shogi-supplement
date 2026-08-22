@@ -539,4 +539,68 @@ class GameRepositoryTest {
         val updated = repo.getReports(gameId).first()
         assertEquals("7g7f 3c3d 2g2f", updated.bestPv)
     }
+
+    @Test
+    fun `deleteGameは関連する解析結果とドリル履歴も削除する`() {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        ShogiSupplementDatabase.Schema.create(driver)
+        val database = ShogiSupplementDatabase(driver)
+        val repo = SqlDelightGameRepository(database)
+        val drillRepo = SqlDelightDrillRepository(database)
+        val gameId = repo.saveAnalysis(
+            fileName = "delete.kif",
+            contentHash = "hash-delete",
+            moves = listOf("7g7f", "3c3d"),
+            headers = emptyMap(),
+            reports = listOf(sampleReport().copy(ply = 2)),
+            rating = 1750,
+            coefVersion = "hao_v1",
+        )
+        repo.savePositionEvals(gameId, listOf(PositionEvalRow(ply = 0, scoreCp = 100, mateIn = null)))
+        val report = repo.getReports(gameId).single()
+        drillRepo.saveDrillAttempt(
+            blunderReportId = report.id,
+            userMoveUsi = "2f6f",
+            isCorrect = true,
+            lossWp = 0.0,
+            attemptedAt = 1_780_000_000L,
+        )
+
+        repo.deleteGame(gameId)
+
+        assertNull(repo.getGameById(gameId))
+        assertTrue(repo.getReports(gameId).isEmpty())
+        assertTrue(repo.getPositionEvals(gameId).isEmpty())
+        assertTrue(drillRepo.getDrillAttempts(report.id).isEmpty())
+    }
+
+    @Test
+    fun `deleteGameは指定したゲームだけを削除する`() {
+        val repo = newRepository()
+        val firstId = repo.saveAnalysis(
+            fileName = "first.kif",
+            contentHash = "hash-first",
+            moves = listOf("7g7f", "3c3d"),
+            headers = emptyMap(),
+            reports = listOf(sampleReport().copy(ply = 2)),
+            rating = 1750,
+            coefVersion = "hao_v1",
+        )
+        val secondId = repo.saveAnalysis(
+            fileName = "second.kif",
+            contentHash = "hash-second",
+            moves = listOf("7g7f", "3c3d"),
+            headers = emptyMap(),
+            reports = listOf(sampleReport().copy(ply = 2)),
+            rating = 1750,
+            coefVersion = "hao_v1",
+        )
+
+        repo.deleteGame(firstId)
+
+        assertNull(repo.getGameById(firstId))
+        assertTrue(repo.getReports(firstId).isEmpty())
+        assertNotNull(repo.getGameById(secondId))
+        assertEquals(1, repo.getReports(secondId).size)
+    }
 }

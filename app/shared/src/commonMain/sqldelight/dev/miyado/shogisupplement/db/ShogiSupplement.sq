@@ -300,6 +300,16 @@ SELECT * FROM position_eval WHERE game_id = ? ORDER BY ply;
 deletePositionEvalsByGameId:
 DELETE FROM position_eval WHERE game_id = ?;
 
+deleteDrillAttemptsByGameId:
+DELETE FROM drill_attempt
+WHERE blunder_report_id IN (SELECT id FROM blunder_report WHERE game_id = ?);
+
+deleteBlunderReportsByGameId:
+DELETE FROM blunder_report WHERE game_id = ?;
+
+deleteGameById:
+DELETE FROM game WHERE id = ?;
+
 deleteAllGames:
 DELETE FROM game;
 

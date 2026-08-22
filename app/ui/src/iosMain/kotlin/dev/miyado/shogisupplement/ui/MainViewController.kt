@@ -583,6 +583,11 @@ private fun IosGameListScreenHost(
         uploadResult = uploadResult,
         onBack = onBack,
         onGameClick = onGameClick,
+        onDeleteGame = { game ->
+            repository.deleteGame(game.id)
+            games = repository.getAllGames()
+            pendingUploadCount = if (isLoggedIn) repository.getNotUploadedGames().size else 0
+        },
         onUpload = {
             val orchestrator = services?.uploadOrchestrator
             if (orchestrator != null && !isUploading) {
@@ -731,6 +736,7 @@ private fun IosReportScreenHost(
     onBack: () -> Unit,
     justCompleted: Boolean = false,
 ) {
+    val scope = rememberCoroutineScope()
     var game by remember(gameId) { mutableStateOf<GameRecord?>(null) }
     var reports by remember(gameId) { mutableStateOf<List<BlunderRecord>>(emptyList()) }
     var flip by remember(gameId) { mutableStateOf(false) }
@@ -775,6 +781,7 @@ private fun IosReportScreenHost(
         blunderRateDisplayText = blunderRateText,
         analysisPending = g.analysisStatus == GameAnalysisStatus.PENDING,
         onAnalyze = { controller.analyzeStoredGame(g) },
+        onDeleteGame = { scope.launch { controller.deleteGame(gameId); onBack() } },
         justCompleted = justCompleted,
         onBack = onBack,
         pvExtState = pvExtState,

@@ -117,6 +117,9 @@ interface GameRepository {
     /** 指定ゲームの全局面評価値を ply 昇順で返す。 */
     fun getPositionEvals(gameId: Long): List<PositionEvalRow>
 
+    /** 指定ゲームを悪手レポート・局面評価・ドリル履歴も含めてカスケード削除する。 */
+    fun deleteGame(gameId: Long)
+
     /** 端末内のデータをすべて消す（デバッグ画面の初期状態からの動作確認用）。 */
     fun deleteAllLocalData()
 }
