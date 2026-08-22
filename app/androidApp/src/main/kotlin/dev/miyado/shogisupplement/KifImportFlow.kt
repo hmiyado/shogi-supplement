@@ -50,6 +50,8 @@ fun KifImportFlow(
     onStartManualKifu: () -> Unit,
     showRatingSettingsDialog: Boolean,
     onShowRatingSettingsDialogChange: (Boolean) -> Unit,
+    /** 手動棋譜の保存（または省略確定）が完了したときに呼ぶ。 */
+    onManualKifuHandled: () -> Unit,
 ) {
     // ファイルピッカー
     var pickedUri by remember { mutableStateOf<android.net.Uri?>(null) }
@@ -87,6 +89,7 @@ fun KifImportFlow(
             pendingManualKif = null
             pendingManualFileName = null
             vm.importKifText(text, fileName, savedSettings.service, savedSettings.ratingRaw, userSide, savedSettings.ratingRule)
+            onManualKifuHandled()
         } else {
             val uri = pickedUri ?: return
             pickedUri = null
@@ -303,6 +306,7 @@ fun KifImportFlow(
                     pendingManualKif = null
                     pendingManualFileName = null
                     vm.importKifText(text, fileName, savedSettings.service, savedSettings.ratingRaw, userSide, savedSettings.ratingRule)
+                    onManualKifuHandled()
                 } else {
                     val uri = pickedUri!!
                     pickedUri = null
@@ -310,6 +314,8 @@ fun KifImportFlow(
                 }
             },
             onDismiss = {
+                // ここでは draft を破棄するだけにとどめる
+                // （onManualKifuHandled を呼ぶと画面ごと閉じ、入力し直すしかなくなるため）。
                 showUserSideDialog = false
                 pickedUri = null
                 pendingManualKif = null

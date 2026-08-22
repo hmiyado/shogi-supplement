@@ -408,10 +408,11 @@ private fun DemoApp(
             }
         }
         DemoRoute.ManualKifu -> {
+            // route切替をsave直後ではなく保存確定後（Analyzing/Reportへの遷移）に遅らせる
+            // （直後に切り替えると、「自分の側」キャンセル時に入力を復元する手段がなくなるため）。
             ManualKifuScreen(
                 onClose = { route = DemoRoute.Home },
                 onSave = { draft ->
-                    route = DemoRoute.Home
                     controller.beginManualImport(draft.toKifText())
                 },
             )

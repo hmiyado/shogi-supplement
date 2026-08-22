@@ -126,13 +126,14 @@ fun MainApp(vm: MainViewModel, state: MainUiState) {
         onStartManualKifu = { showManualKifu = true },
         showRatingSettingsDialog = showRatingSettingsDialog,
         onShowRatingSettingsDialogChange = { showRatingSettingsDialog = it },
+        // 保存確定前に画面を閉じると、直後の「自分の側」キャンセル時に入力を復元する手段がなくなる。
+        onManualKifuHandled = { showManualKifu = false },
     )
 
     if (showManualKifu) {
         ManualKifuScreen(
             onClose = { showManualKifu = false },
             onSave = { draft ->
-                showManualKifu = false
                 vm.enqueueManualKif(draft.toKifText())
             },
         )
