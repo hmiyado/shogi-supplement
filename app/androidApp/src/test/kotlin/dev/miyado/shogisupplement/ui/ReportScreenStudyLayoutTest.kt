@@ -20,13 +20,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-/**
- * 検討モードの出入りで罫線（HorizontalDivider・testTag="report_divider"）のY座標が
- * 動かないことを検証する（DESIGN.md No-jitter原則。単一ナビ行構成が守るべき不変条件）。
- *
- * VRT（スクリーンショット比較）ではなく、Semanticsツリーの実測座標を直接比較する
- * ことで、目視によるピクセル差の見落としを避ける。
- */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(
@@ -57,8 +50,6 @@ class ReportScreenStudyLayoutTest {
 
     @Test
     fun studyModeDoesNotShiftDividerY() {
-        // setContent は1回しか呼べない（AndroidComposeTestRule の制約）ため、
-        // studyState を可変状態にして同じコンポジション内でトグルする。
         var studyState by mutableStateOf<StudyState?>(null)
         composeRule.setContent {
             ShogiTheme {

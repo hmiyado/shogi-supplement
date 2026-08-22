@@ -9,10 +9,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
-/**
- * [FeatureExtractorV2] の合成 [PositionEval] 系列を使った境界ケーステスト。
- * 実データでの突合は [dev.miyado.shogisupplement.pipeline.GoldenTest] で行う。
- */
 class FeatureExtractorV2Test {
 
     private fun cpEval(cp: Int, pv: List<String> = emptyList()) = PositionEval(score = Score.Cp(cp), pv = pv)
@@ -37,7 +33,6 @@ class FeatureExtractorV2Test {
         assertNotNull(features.openingMeanLoss)
         assertNotNull(features.maxLeadDrop)
 
-        // opening_mean_loss は実装が使うのと同じ winProb を直接使って独立に検算する
         val lossT0 = BlunderJudge.winProb(50) - BlunderJudge.winProb(40)
         val lossT2 = BlunderJudge.winProb(30) - BlunderJudge.winProb(-20)
         assertEquals((lossT0 + lossT2) / 2, features.openingMeanLoss!!, 1e-9)
@@ -59,7 +54,6 @@ class FeatureExtractorV2Test {
         assertNull(features.ownLogRate)
         assertNull(features.maxLeadDrop)
         assertNull(features.mateMissRate1000)
-        // pv1一致率は次局面の評価値の有無に依存しないので計算できる
         assertEquals(1.0, features.pv1MatchRate)
     }
 
@@ -82,12 +76,9 @@ class FeatureExtractorV2Test {
 
     @Test
     fun `序盤と中盤の境界はply40で切り替わる_0indexed`() {
-        // ply39(0-indexed)までが序盤、ply40以降が中盤。gote側(奇数ply)のみを対象に、
-        // ply39とply41の2手だけを損失計算対象にする（間は評価値なしで除外）。
         val n = 42
         val moves = List(n) { "m$it" }
         val evals = MutableList(n + 1) { noEval() }
-        // ply39(gote, 序盤側境界) と ply41(gote, 中盤側) の前後だけ評価値を入れる
         evals[39] = cpEval(0, pv = listOf("m39"))
         evals[40] = cpEval(100) // ply39のnxt
         evals[41] = cpEval(0, pv = listOf("m41"))
@@ -130,7 +121,6 @@ class FeatureExtractorV2Test {
 
     @Test
     fun `悪手1件はown_log_rateに反映される`() {
-        // スイング悪手: 指す前勝率0.05-0.95 かつ loss_cp>=500 かつ 指した後マイナス(cpAfter>0)
         val moves = listOf("7g7f")
         val evals = listOf(
             cpEval(100),

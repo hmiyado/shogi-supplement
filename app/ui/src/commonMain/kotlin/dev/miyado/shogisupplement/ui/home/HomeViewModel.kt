@@ -13,17 +13,7 @@ import dev.miyado.shogisupplement.ui.common.defaultIoDispatcher
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 
-/**
- * ホーム画面（games一覧・推定棋力カード・今日の1問）のロードを担う協力オブジェクト。
- *
- * ReportViewModel と同じ理由で androidx ViewModel は継承せず、MainViewModel が保持する
- * プレーンな協力オブジェクトにしている（ナビゲーション状態=MainUiState.Home の構築自体は
- * 呼び出し元の MainViewModel.loadHome が担い、本クラスは表示データの計算のみを行う）。
- *
- * iOS 側の IosHomeLoader（ui/src/iosMain/.../IosHomeLoader.kt）と同型の計算だが、
- * ルール別申告棋力行（[buildDeclaredRankLine]）等 Android版の詳細を含む点が異なる。
- * iOS側は簡易版のロード関数でよいという意図的な差分。
- */
+/** ホームのゲーム一覧、推定棋力カード、今日の問題に必要な表示データを計算する。 */
 class HomeViewModel(
     private val gameRepository: GameRepository,
     private val drillRepository: DrillRepository,
@@ -49,12 +39,7 @@ class HomeViewModel(
         HomeResult(g, sc, hint)
     }
 
-    /**
-     * user_side 設定済みゲームから強さ指標カードを計算する。
-     *
-     * Why not 悪手を積み上げて回帰式に再度通す: 推定器v2は1局単位の予測のため、
-     * 局ごとの予測を平均して偏差値換算する方が正しい集約になる。
-     */
+    /** user_side設定済みゲームから強さ指標カードを計算する。Why not悪手を再集計しない: 推定器v2は局単位の予測を平均するため。 */
     private fun computeStrengthCard(games: List<GameRecord>): StrengthCardData? {
         val settings = settingsRepository.getRatingSettings()
         if (games.isEmpty()) return null

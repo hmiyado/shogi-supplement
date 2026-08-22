@@ -5,10 +5,7 @@ import dev.miyado.shogisupplement.engine.PvInfo
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
-// `POST /v1/analyses`（server/worker）のワイヤ形式。依存方向はサーバー→:sharedなので、
-// サーバー・クライアント双方から参照できるようこの共通DTOを:sharedに置く
-// （逆にサーバー固有の型を:sharedから参照することはできない）。
-// サーバー側の実装は app/server/worker の Routes.kt（`post("/v1/analyses")`）。
+// POST /v1/analysesの共通DTO。サーバーとクライアントが同じワイヤ形式を参照する。
 
 /**
  * `POST /v1/analyses` のリクエストボディ。

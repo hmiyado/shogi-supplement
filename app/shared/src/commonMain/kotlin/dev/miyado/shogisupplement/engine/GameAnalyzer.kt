@@ -10,18 +10,7 @@ package dev.miyado.shogisupplement.engine
  */
 interface GameAnalyzer {
 
-    /**
-     * @param moves 棋譜の USI 手列
-     * @param onPositionResult 局面ごとの中間結果コールバック。実装は最終的に総局面数ぶん
-     *   1回ずつ呼ぶ（到着順・粒度は問わない——[AnalysisRunner] も[RemoteAnalysisRunner]も
-     *   局面が解け次第・並列ワーカーの完了順不同のまま呼ぶ。応答に局面単位の中間結果が
-     *   一切含まれない場合でも契約を満たせるよう、[RemoteAnalysisRunner]はストリーム
-     *   終端の一括結果で未到着分だけ補って呼ぶフォールバックを持つ）。
-     *   [onProgress] より前に置くのは、[onProgress] だけを渡す既存呼び出し側の
-     *   トレーリングラムダ構文（末尾引数扱い）を崩さないため
-     * @param onProgress (done, total) の進捗コールバック
-     * @return 局面インデックス順（0手目=初期局面〜N手目）の結果リスト。各要素はその局面の MultiPV 結果
-     */
+    /** @param moves 棋譜のUSI手列。 @param onPositionResult 局面ごとの結果。 @param onProgress 進捗。 @return 局面順のMultiPV結果。 */
     suspend fun analyzeGame(
         moves: List<String>,
         onPositionResult: ((ply: Int, pvs: List<PvInfo>) -> Unit)? = null,

@@ -4,23 +4,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 
-/**
- * 「ファイルから」KIF取込のSwift⇄Kotlin橋渡し。
- *
- * UIDocumentPickerViewController の提示・デリゲート処理は Swift 側
- * （iosApp/iosApp/KifFilePickerCoordinator.swift）が担う。Compose側（[IosMainController]・
- * [MainViewController]）は本オブジェクトを介して「ピッカーを開いてほしい」を伝え、
- * 選択結果（テキスト or 失敗）を受け取る。
- *
- * Kotlin/Native ⇄ Swift の境界は「プレーンな関数呼び出し」と「クロージャ型プロパティへの代入」
- * のみで構成している（Kotlin Flow を直接 Swift へ橋渡しする層は無い。SKIE 等の追加変換は
- * 未導入のため、Flow の collect は Compose 側=Kotlinのみで完結させる）。
- *
- * 起動時の配線: [KifFilePickerCoordinator] の init で [presentPickerHandler] に
- * 「ピッカーを提示するSwiftクロージャ」を代入する。Compose 側は [MainViewController.kt] の
- * `DemoApp` が [result] を `LaunchedEffect` で collect し、[IosMainController.handleFileImport]
- * へ渡す。
- */
+/** SwiftのUIDocumentPickerとKotlinのKIF取込を、関数とクロージャで橋渡しする。選択結果をFlowで公開する。 */
 object IosFileImportBridge {
 
     /** ファイルピッカーの結果。[text] が null はデコード失敗（UTF-8/Shift_JISとも不可等）。 */

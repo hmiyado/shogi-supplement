@@ -36,15 +36,8 @@ data class BlunderVerdict(
 )
 
 /**
- * 悪手定義 v1.1（scripts/report_kifu.py is_blunder_v1() の移植）。
- *
- * 判定式:
- * - 実践手がエンジン最善手と一致するなら無条件で悪手でない
- * - 詰み見逃し: 指す前に自分の詰みあり（mate>0）∧ 指した後に相手視点で mate<=0 でない
- * - 頓死: 指した後に相手の詰みあり ∧ 指す前は被詰みでない ∧ 指す前 cp > -500（勝負が残る）
- * - スイング: loss_cp >= 500 ∧ 指す前勝率 5〜95% ∧ 指した後自分視点マイナス
- *
- * 勝率変換: 1/(1+exp(-cp/600))、mate n → ±(30000-|n|)
+ * 悪手定義v1.1。最善手一致を除外し、詰み見逃し、頓死、スイングを順に判定する。
+ * 勝率はcpからシグモイドで換算し、mateは±(30000-|n|)へ変換する。
  */
 object BlunderJudge {
 
@@ -64,16 +57,10 @@ object BlunderJudge {
             else (if (score.plies > 0) 1 else -1) * (MATE_CP - abs(score.plies))
     }
 
-    /**
-     * @param before 指す前の局面のスコア（指し手側=手番側視点）
-     * @param after  指した後の局面のスコア（相手側=次の手番側視点）
-     * @param moveUsi 実際に指した手のUSI（渡さない場合は最善手一致判定をスキップ）
-     * @param bestUsi 指す前の局面でのエンジン最善手のUSI
-     */
+    /** 悪手を判定する。 @param before 指す前の手番側スコア。 @param after 指した後の相手側スコア。 @param moveUsi 実際のUSI手。 @param bestUsi 最善手のUSI。 */
     fun judge(before: Score, after: Score, moveUsi: String? = null, bestUsi: String? = null): BlunderVerdict {
         val cpBefore = toCp(before)
         val cpAfter = toCp(after)
-        // 相手視点cpAfterを自分視点に反転して損失を計算
         val lossCp = cpBefore + cpAfter
         val wpBefore = winProb(cpBefore)
         val wpAfter = winProb(-cpAfter)
@@ -87,18 +74,15 @@ object BlunderJudge {
         val mateBefore = (before as? Score.Mate)?.plies
         val mateAfter = (after as? Score.Mate)?.plies
 
-        // 詰み見逃し: 自分に詰みがあった ∧ 指した後も相手視点でmate<=0（=自分の詰み継続）でない
         if (mateBefore != null && mateBefore > 0 && !(mateAfter != null && mateAfter <= 0)) {
             return BlunderVerdict(true, BlunderType.MATE_MISS, lossCp, wpBefore, wpAfter)
         }
-        // 頓死: 指した後に相手の詰み ∧ 指す前は被詰みでない ∧ 既に大差の負けではない
         if (mateAfter != null && mateAfter > 0 &&
             !(mateBefore != null && mateBefore < 0) &&
             cpBefore > SUDDEN_DEATH_FLOOR_CP
         ) {
             return BlunderVerdict(true, BlunderType.SUDDEN_DEATH, lossCp, wpBefore, wpAfter)
         }
-        // スイング
         val isSwing = lossCp >= LOSS_THRESHOLD_CP &&
             wpBefore in 0.05..0.95 &&
             cpAfter > 0 // 指した後、自分視点でマイナス

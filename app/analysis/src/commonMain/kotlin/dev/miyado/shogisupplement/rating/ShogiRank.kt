@@ -20,26 +20,13 @@ sealed class ShogiRank {
         init { require(dan in 1..9) { "段位は 1〜9 の範囲です: $dan" } }
     }
 
-    /**
-     * DB の rating_raw に保存する整数エンコード。
-     *
-     * 仕様: 段 = +dan（初段=+1 〜 九段=+9）、級 = -kyu（1級=-1 〜 30級=-30）。
-     * 0 は未使用（未申告は NULL で表す）。
-     * encode/decode はこの関数と [fromRaw] に集約し、呼び出し側に生の計算式を書かない。
-     */
+    /** rating_rawへ保存する整数へ変換する。段は正、級は負、0は未申告を表す。変換式はここへ集約する。 */
     fun toRaw(): Int = when (this) {
         is Kyu -> -kyu
         is Dan -> dan
     }
 
-    /**
-     * 慣用表記の文字列に変換する。
-     *
-     * - [Kyu] → "N級"（例: Kyu(1) → "1級", Kyu(10) → "10級"）
-     * - [Dan] → 漢字段（例: Dan(1) → "初段", Dan(2) → "二段", ... Dan(9) → "九段"）
-     *
-     * この関数を段級位の UI 表示の唯一の変換箇所として使う。
-     */
+    /** 段級位を慣用表記へ変換する。UI表示の変換規則をここへ集約する。 */
     fun toDisplayString(): String = when (this) {
         is Kyu -> "${kyu}級"
         is Dan -> "${DAN_KANJI[dan - 1]}段"

@@ -4,39 +4,18 @@ import dev.miyado.shogisupplement.util.Logger
 import platform.Foundation.NSBundle
 
 /**
- * UsiEngineInProcess はプロセス内で一度しか起動できない制約（クラスKDoc参照）のため、
- * iOSアプリ全体で1インスタンスに固定するホルダー。
- *
- * AnalysisOrchestrator の取込フローとドリル判定は、いずれもこの単一インスタンスを
- * 共有する必要がある。2つの独立したホルダーが存在すると、2つ目の getOrCreate() が
- * `UsiEngineInProcess.create()` の二重起動ガードに引っかかって例外になるため、
- * 単一インスタンスであることが重要。
- *
- * これが :ui iosMain（IosMainController/DrillDemoFactory）から見た「エンジン提供の唯一の窓口」
- * になっている。engineless フレーバー（-PiosEngineless=true）ではこのファイル自体が
- * コンパイル対象から外れ、同名・同一公開APIの別実装
- * （shared/src/iosEnginelessMain/.../IosEngineHost.kt。常にnull/例外を返すダミー）に
- * 差し替わる（shared/build.gradle.ktsのiosMain srcDir切り替え参照）。呼び出し側の
- * :ui iosMain はソース変更なしで両フレーバーともコンパイルが通る。
- *
- * @property ENGINE_LINKED 呼び出し側が「エンジンが実際にリンクされているか」を
- *   事前に判定するためのフラグ。engineless版では false 固定（IosMainController が
- *   ANALYSIS_BASE_URL 未設定時にエンジンへフォールバックせずエラー表示するのに使う）。
+ * iOSのプロセス内エンジンを単一インスタンスで保持する。
+ * エンジンは一度しか起動できないため、解析機能は同じインスタンスを共有する。
+ * engineless版は同じ公開APIでnullまたは例外を返す実装に置き換わる。
+ * @property ENGINE_LINKED エンジンがリンク済みかを示すフラグ。
  */
 object IosEngineHost {
-    /** true = UsiEngineInProcess をリンクした既定ビルド。engineless版では false 固定。 */
     val ENGINE_LINKED: Boolean = true
 
     private var engine: Engine? = null
     private var attempted = false
 
-    /**
-     * エンジンを取得する。初回呼び出し時のみ実際に起動する（以降はキャッシュを返す）。
-     *
-     * 戻り値を具象型 UsiEngineInProcess ではなく commonMain の [Engine] インターフェースに
-     * しているのは、engineless版の同名メソッドが UsiEngineInProcess型を持たないため
-     * （呼び出し側 :ui iosMain は元々 [Engine] のメソッドしか使っていない）。
-     */
+    /** エンジンを取得する。初回だけ起動し、以後はキャッシュを返す。戻り値は共通のEngine型とする。 */
     fun getOrCreate(): Engine? {
         if (!attempted) {
             attempted = true
@@ -52,16 +31,7 @@ object IosEngineHost {
         return engine
     }
 
-    /**
-     * [AnalysisOrchestrator] 向けの局ごとのエンジンファクトリ。
-     *
-     * 常駐インスタンスを返しつつ、[Engine.newGame]（USI "usinewgame"）で局の区切りをつける。
-     * `AnalysisRunner` の内部プールは「プールが空のときだけ engineFactory を呼ぶ」ため、
-     * 1局につき最初の1回だけ呼ばれる（workers=1と組み合わせて使うこと。既存局面の解析中に
-     * 複数ワーカーが同時に呼ぶと newGame が複数回送られる可能性があるため）。
-     * エンジン取得に失敗した場合は例外を投げる（呼び出し側の AnalysisOrchestrator が
-     * 解析失敗として扱う）。
-     */
+    /** 局ごとのエンジンファクトリ。常駐インスタンスを返し、newGameで局を区切る。workers=1を前提とする。 */
     fun newGameEngineFactory(): () -> Engine = {
         val e = getOrCreate() ?: error("iOS engine unavailable")
         e.newGame()
@@ -72,18 +42,9 @@ object IosEngineHost {
     val keepAliveDispose: (Engine) -> Unit = { /* no-op: 次局のために生かしたままにする */ }
 
     /**
-     * ReportViewModel/StudyController（検討モード・読み筋延長）向けのエンジンファクトリ。
-     *
-     * これらは commonMain 側の実装で、解析後に `engine.quit()` を無条件で呼ぶ設計になっている
-     * （Android版 UsiEngineProcess は使い捨てプロセスのため無害）。しかし
-     * [UsiEngineInProcess.quit] はプロセス内で一度しか起動できないエンジンスレッドを
-     * 実質的に破壊する（クラスKDoc参照。quit後の再startは不可）ため、そのまま
-     * [newGameEngineFactory] を渡すと検討モード終了・読み筋延長のたびに常駐エンジンが
-     * 死に、以後のドリル判定・取込解析が全滅する。
-     *
-     * ここでは [quit] を no-op にする委譲ラッパー（[NonQuittingEngine]）を返すことで、
-     * ReportViewModel/StudyController から見ると通常どおり quit() できたように振る舞いつつ、
-     * 実体（[getOrCreate] の常駐インスタンス）は生かしたままにする。
+     * 検討・読み筋延長用のエンジンファクトリ。
+     * quitをno-opにした委譲ラッパーを返し、常駐エンジンを破棄しない。
+     * 通常のEngineとして扱えるため、共通実装の終了処理と両立する。
      */
     fun studyEngineFactory(): () -> Engine = {
         val e = getOrCreate() ?: error("iOS engine unavailable")

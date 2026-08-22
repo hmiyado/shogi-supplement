@@ -15,21 +15,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-/**
- * ShogiBoardView の VRT（スクリーンショットテスト）。
- *
- * Roborazzi + Robolectric で JVM 上でレンダリングし、
- * src/test/snapshots/ にゴールデン画像を保存する。
- *
- * ## ゴールデン更新
- *   ./gradlew :androidApp:recordRoborazziDebug
- *
- * ## 照合（CI）
- *   ./gradlew :androidApp:verifyRoborazziDebug
- *
- * ## 通常テスト（照合なし）
- *   ./gradlew :androidApp:testDebugUnitTest
- */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(
@@ -45,7 +30,6 @@ class ShogiBoardViewScreenshotTest {
         compareOptions = RoborazziOptions.CompareOptions(changeThreshold = 0.01f),
     )
 
-    // ─── 局面図 単体テスト ─────────────────────────────────────────────────
 
     @Test
     fun shogiBoard_initialPosition() {
@@ -63,7 +47,6 @@ class ShogiBoardViewScreenshotTest {
 
     @Test
     fun shogiBoard_midgamePosition_ply40() {
-        // miyado_game1.kif 41手目直前の局面（仕様書指定 SFEN）
         captureRoboImage(
             filePath = "src/test/snapshots/shogiboard_midgame_ply40.png",
             roborazziOptions = roborazziOptions,
@@ -78,7 +61,6 @@ class ShogiBoardViewScreenshotTest {
 
     @Test
     fun shogiBoard_flipped() {
-        // 後手視点（flip=true）: 盤が180度反転し後手が下になる
         captureRoboImage(
             filePath = "src/test/snapshots/shogiboard_flipped.png",
             roborazziOptions = roborazziOptions,
@@ -92,7 +74,6 @@ class ShogiBoardViewScreenshotTest {
         }
     }
 
-    // ─── 悪手カード（ミニ盤なし）テスト ─────────────────────────────────────
 
     @Test
     fun blunderCard_noBoard() {
@@ -125,11 +106,9 @@ class ShogiBoardViewScreenshotTest {
         }
     }
 
-    // ─── 持駒最大局面（「×N」が見切れないこと）────────────────────────────
 
     @Test
     fun shogiBoard_blackHandMax() {
-        // 先手持駒最大（2R2B4G4S4N4L18P）: FlowRow 折返しで全持駒が見切れず表示される
         captureRoboImage(
             filePath = "src/test/snapshots/shogiboard_black_hand_max.png",
             roborazziOptions = roborazziOptions,
@@ -142,7 +121,6 @@ class ShogiBoardViewScreenshotTest {
 
     @Test
     fun shogiBoard_whiteHandMax() {
-        // 後手持駒最大（2r2b4g4s4n4l18p）: 上段の持駒行も折返しで見切れない
         captureRoboImage(
             filePath = "src/test/snapshots/shogiboard_white_hand_max.png",
             roborazziOptions = roborazziOptions,
@@ -153,13 +131,9 @@ class ShogiBoardViewScreenshotTest {
         }
     }
 
-    // ─── レガシー SFEN フォールバックのスナップショット ──────────────────
 
     @Test
     fun shogiBoard_legacySfenFallback() {
-        // 旧形式（startpos moves...）が渡された場合も crash しないことを確認
-        // DB 読み込み時に convertLegacySfen で変換済みなので、
-        // ここでは parseが空盤またはフォールバックを返すだけで安全なことを確認
         captureRoboImage(
             filePath = "src/test/snapshots/shogiboard_legacy_fallback.png",
             roborazziOptions = roborazziOptions,

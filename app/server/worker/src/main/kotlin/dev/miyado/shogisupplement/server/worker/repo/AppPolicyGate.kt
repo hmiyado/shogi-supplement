@@ -20,8 +20,7 @@ interface AppPolicyGate {
     suspend fun isBlocked(platform: String, build: Int): Boolean
 
     companion object {
-        // Why not 必須パラメータのみにする: 既定実装を用意しないと既存の呼び出し側を
-        // すべて更新しないとコンパイルが通らなくなるため、常に非ブロックの実装を既定値にする。
+        // Why not必須パラメータにしない: 既定値を非ブロックにすると段階導入できるため。
         val AlwaysAllow: AppPolicyGate = object : AppPolicyGate {
             override suspend fun isBlocked(platform: String, build: Int) = false
         }

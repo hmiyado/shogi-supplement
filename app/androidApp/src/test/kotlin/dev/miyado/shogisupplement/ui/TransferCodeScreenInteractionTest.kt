@@ -17,12 +17,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-/**
- * 引き継ぎコード表示画面のマスク/表示切替の単体テスト。
- *
- * パスワード同様の扱いとして、既定は伏字・コピーは常時可能・
- * 生の値は表示トグルの明示操作でのみ見せる、の3点をここで検証する。
- */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(
@@ -53,17 +47,13 @@ class TransferCodeScreenInteractionTest {
         }
         composeRule.waitForIdle()
 
-        // 既定は伏字。生の値がそのままテキストノードに出ていないこと。
         composeRule.onNodeWithTag("transfer_code_value").assertTextEquals(maskedDisplay)
         val maskedTop = copyButtonTop()
 
-        // 表示トグルで生の値が見えること。
         composeRule.onNodeWithTag("transfer_code_reveal_toggle").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("transfer_code_value").assertTextEquals(rawDisplay)
 
-        // トグル操作の前後でコピー行のY座標が動かないこと（DESIGN.md No-jitter原則。
-        // 表示はグループ単位の明示改行のため、字幅・フォント解決に関わらず行構成が一致する）。
         assertEquals(
             "表示トグルでレイアウトの高さが動かないこと（No-jitter原則）",
             maskedTop,
@@ -71,7 +61,6 @@ class TransferCodeScreenInteractionTest {
             0.5f,
         )
 
-        // もう一度タップすると伏字に戻ること。
         composeRule.onNodeWithTag("transfer_code_reveal_toggle").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("transfer_code_value").assertTextEquals(maskedDisplay)
@@ -93,13 +82,11 @@ class TransferCodeScreenInteractionTest {
         }
         composeRule.waitForIdle()
 
-        // マスク中（既定）でもコピーは生のコードを渡す。
         composeRule.onNodeWithTag("transfer_code_copy_button").performClick()
         assertEquals(rawCode, copied)
 
         copied = null
 
-        // 表示中でもコピーは同じ生のコードを渡す。
         composeRule.onNodeWithTag("transfer_code_reveal_toggle").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag("transfer_code_copy_button").performClick()
@@ -116,7 +103,6 @@ class TransferCodeScreenInteractionTest {
             }
         }
         composeRule.waitForIdle()
-        // 読み込み中はコード表示行自体が無い（CircularProgressIndicatorのみ）。
         val nodes = composeRule.onAllNodesWithTag("transfer_code_value")
             .fetchSemanticsNodes(atLeastOneRootRequired = false)
         assertTrue(nodes.isEmpty())

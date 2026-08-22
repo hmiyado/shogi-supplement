@@ -23,10 +23,7 @@ import dev.miyado.shogisupplement.ui.common.ShogiSecondaryButton
 import dev.miyado.shogisupplement.ui.theme.IbmPlexMonoFamily
 import dev.miyado.shogisupplement.ui.theme.shogiColors
 
-/**
- * 悪手ゼロの対局でも悪手率・一致率は算出できるため、noBlundersMessage の下に
- * 続けて表示する（一覧への導線ボタンだけ出さない）。
- */@Composable
+/** 悪手がなくても悪手率と一致率を表示する。 */@Composable
 internal fun BlunderSummaryCard(
     reports: List<BlunderRecord>,
     noBlundersMessage: String,
@@ -48,7 +45,6 @@ internal fun BlunderSummaryCard(
                 Spacer(Modifier.height(8.dp))
             }
 
-            // 悪手率・一致率（同格のフォントサイズ・2行。ラベルは通常書体、値のみMono）。
             if (blunderRateDisplayText != null) {
                 StatLine(AppStrings.BLUNDER_RATE_LABEL, blunderRateDisplayText)
             }
@@ -85,10 +81,7 @@ internal fun BlunderSummaryCard(
     }
 }
 
-/**
- * 「ラベル: 値」の1行（同格のフォントサイズ。値のみMono）。
- * 悪手率・エンジン一致率の2行で共有するスタイル。
- */
+/** ラベルとMonoの値を一行で表示する。 */
 @Composable
 internal fun StatLine(label: String, value: String) {
     val text = buildAnnotatedString {

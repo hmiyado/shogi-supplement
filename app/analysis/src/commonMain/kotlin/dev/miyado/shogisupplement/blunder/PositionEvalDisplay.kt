@@ -22,15 +22,7 @@ object PositionEvalDisplay {
         val sign: Int,
     )
 
-    /**
-     * 局面評価値の表示ラベルを返す。scoreCp と mateIn が両方 null なら null（非表示）。
-     *
-     * @param scoreCp 先手視点 cp（正 = 先手優勢）。詰み局面は null
-     * @param mateIn 詰みまでの手数（先手視点: 正 = 先手が詰ます）。非詰みは null
-     * @param userIsGote ユーザーが後手なら true（符号反転する）
-     * @param evalDisplay 'cp' = 評価値表示 / 'wp' = 勝率表示
-     * @param ply 局面の手数（0 = 初期局面）。mate_in=0 の正確な勝敗判定に必要。null の場合は負けとして扱う
-     */
+    /** 評価値の表示ラベルを返す。 @param scoreCp 先手視点cp。 @param mateIn 詰みまでの手数。 @param userIsGote 後手視点か。 @param evalDisplay 表示単位。 @param ply 局面の手数。 */
     fun format(
         scoreCp: Int?,
         mateIn: Int?,

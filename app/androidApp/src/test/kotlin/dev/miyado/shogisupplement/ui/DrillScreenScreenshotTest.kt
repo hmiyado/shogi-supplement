@@ -16,11 +16,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-/**
- * ドリル画面の VRT（スクリーンショットテスト）。
- *
- * ゴールデン更新・照合の手順は app/docs/vrt.md 参照。
- */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(
@@ -63,7 +58,6 @@ class DrillScreenScreenshotTest {
 
     @Test
     fun drillQuestion_flipped() {
-        // 後手視点（flip=true）: 出題盤が180度反転する
         captureRoboImage(
             filePath = "src/test/snapshots/drill_question_flipped.png",
             roborazziOptions = roborazziOptions,
@@ -140,8 +134,6 @@ class DrillScreenScreenshotTest {
 
     @Test
     fun drillResult_withEval() {
-        // 結果画面のナビラベルに統合した形勢サフィックス（cpBefore あり）。
-        // 開始局面ラベル「開始局面」に「（−350）」が連結され1行に収まることを確認する。
         captureRoboImage(
             filePath = "src/test/snapshots/drill_result_with_eval.png",
             roborazziOptions = roborazziOptions,
@@ -167,10 +159,6 @@ class DrillScreenScreenshotTest {
 
     @Test
     fun drillResult_withEval_ply1() {
-        // 1手送った状態（initialPlyIndex=1）。ナビラベルが「1手目 ▲３四角（−350）」
-        // のように手表記＋形勢サフィックスで1行に収まること、かつ ply=0（drillResult_withEval）
-        // と比べてナビ行より下（正誤バナー以下）のY座標が不変であること（No-jitter）を
-        // ピクセル比較で確認する対（手送り前後比較用の golden）。
         captureRoboImage(
             filePath = "src/test/snapshots/drill_result_with_eval_ply1.png",
             roborazziOptions = roborazziOptions,
@@ -197,10 +185,6 @@ class DrillScreenScreenshotTest {
 
     @Test
     fun drillResult_extend_indicator() {
-        // 「最善」タブ（インデックス1）でライン末尾（bestPv=2手の末尾）に到達した状態。
-        // ▶ボタンが「▶+」（primary色）に切り替わり、延長トリガーであることを示す
-        // （ReportScreen の「最善の変化」タブと同じ規約）。ナビ行の高さ・ボタンサイズは
-        // 他の drill_result 系 golden と不変であること（No-jitter）を目視確認する対。
         captureRoboImage(
             filePath = "src/test/snapshots/drill_result_extend_indicator.png",
             roborazziOptions = roborazziOptions,

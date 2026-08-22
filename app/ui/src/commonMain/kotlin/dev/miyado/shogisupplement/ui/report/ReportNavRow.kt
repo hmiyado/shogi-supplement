@@ -74,10 +74,7 @@ internal fun ReportNavRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (studyState != null) {
-            // ── 検討中: ◀=1手戻し／中央=「検討N手目」（手番ヒント時は差替）／
-            //    ▶=無効（プレースホルダー）／終了 ──
-            // ▶（進む）を出さないのは、検討中の「進む」先＝分岐の選択はチップ列
-            // （検討パネル）側の役割にしたため（ナビ行はシークのみ）。
+            // 検討中の進む先はチップ列で選び、ナビ行は戻る操作と終了だけを提供する。
             TextButton(
                 onClick = onStudyStepBack,
                 enabled = studyState.moves.isNotEmpty(),
@@ -376,8 +373,7 @@ internal fun rememberReportNavInfo(
         }
     }
 
-    // 検討開始局面の絶対手数（MAINLINE=現ply、BEST_PV=blunder.ply+現ply-1）。
-    // buildCurrentMoveLabel の gamePly と同じ式。検討開始（onStartStudy）に使う。
+    // 検討開始局面の絶対手数を計算する。
     val studyOriginAbsolutePly = when (viewerMode) {
         ViewerMode.MAINLINE -> clampedPly
         ViewerMode.BEST_PV -> (selectedBlunder?.ply?.toInt() ?: 0) + clampedPly - 1
@@ -404,13 +400,7 @@ internal fun rememberReportNavInfo(
     )
 }
 
-/**
- * 現在手の表示ラベルと悪手フラグを返す。
- *
- * ラベルフォーマット: 「N手目 ▲同　銀成」（最大約12文字）。
- * 悪手の括弧書き「（悪手・勝率−N%）」は表示しない（同情報が下の悪手カードにあるため）。
- * 悪手かどうかは isBlunder フラグで返し、呼び出し側で文字色（朱）を切り替える。
- */
+/** 現在手の表示ラベルと悪手フラグを返す。ラベル本文と色の選択を分離する。 */
 private data class CurrentMoveLabelState(val text: String, val isBlunder: Boolean)
 
 private fun buildCurrentMoveLabel(

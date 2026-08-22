@@ -124,7 +124,7 @@ class SupabaseAnalysisJobRepository(
         if (created != null) {
             return CreateRunningResult.Created(created.toRecord())
         }
-        // ignore-duplicates で無視された = 既存行がある。読みに行って呼び出し側へ合流させる
+        // ignore-duplicatesで既存行がある場合は、その行を取得して結果へ戻す。
         val existing = find(userId, movesHash)
             ?: error("createRunning: conflict reported but no existing row found (user=$userId)")
         return CreateRunningResult.AlreadyExists(existing)

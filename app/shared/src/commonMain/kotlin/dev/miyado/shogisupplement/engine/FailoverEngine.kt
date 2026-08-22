@@ -3,18 +3,7 @@ package dev.miyado.shogisupplement.engine
 import dev.miyado.shogisupplement.util.Logger
 import kotlinx.coroutines.CancellationException
 
-/**
- * [primary] が失敗したとき [secondary] で同じ呼び出しをやり直す [Engine] デコレータ。
- * [FailoverAnalyzer] の合成方針（[GameAnalyzer] 向け）を [Engine] の同期インターフェース向けに
- * 焼き直したもの。
- *
- * [GameAnalyzer] 版と異なり例外型を問わない（[Engine] 実装は個々に異なる例外を投げるため
- * ——[WasmAnalysisException] 等——型で絞り込む代わりに「[primary] が何であれ失敗したら
- * [secondary] を試す」というシンプルな契約にする）。[secondary] 自体が失敗した場合は
- * [secondary] の例外をそのまま伝播させる（[FailoverAnalyzer] と違い、[primary] の例外に
- * 戻さない: 呼び出し側は同期呼び出しの結果だけを見るため、最終的に起きた例外を見せたほうが
- * 診断しやすい）。
- */
+/** primaryが失敗したらsecondaryを試すEngineデコレータ。例外型を問わず切り替え、secondaryの例外を返す。 */
 class FailoverEngine(
     private val primary: Engine,
     private val secondary: Engine,

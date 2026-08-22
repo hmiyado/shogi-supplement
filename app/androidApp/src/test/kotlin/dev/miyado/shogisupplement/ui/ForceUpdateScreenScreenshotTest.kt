@@ -12,10 +12,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-/**
- * 強制アップデート画面の VRT。
- * store_url空・message有無の分岐を検証する。
- */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(
@@ -50,7 +46,6 @@ class ForceUpdateScreenScreenshotTest {
         }
     }
 
-    /** store_url未設定: ボタンを出さず案内文のみになることを確認する golden。 */
     @Test
     fun force_update_no_store_url() {
         captureRoboImage(
@@ -70,7 +65,6 @@ class ForceUpdateScreenScreenshotTest {
         }
     }
 
-    /** message設定時: 本文の下に追記表示されることを確認する golden。 */
     @Test
     fun force_update_with_message() {
         captureRoboImage(

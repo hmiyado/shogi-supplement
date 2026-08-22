@@ -8,7 +8,7 @@ import java.time.Duration
 // デフォルト引数（forceRefresh）を持つため `fun interface`（SAM変換）にはできない
 // （Kotlinの制約: SAM抽象メソッドはデフォルト値を持てない）。
 interface JwkSetProvider {
-    /** @param forceRefresh 未知のkid（鍵ローテーションの可能性）のとき呼び出し側がtrueを指定する。 */
+    /** @param forceRefresh 未知のkidを検出したときtrueにして鍵を再取得する。 */
     fun jwkSet(forceRefresh: Boolean = false): JWKSet
 }
 

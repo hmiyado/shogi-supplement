@@ -1,24 +1,9 @@
 package dev.miyado.shogisupplement.kifu
 
-/**
- * クリップボードから貼り付けられたテキストが有効な KIF かどうかを判定するユーティリティ。
- *
- * 判定基準:
- *   1. 空白のみ → false
- *   2. KifParser でパースして例外が発生 → false（平手以外など）
- *   3. 指し手が 0 件かつ認識できるヘッダ（先手・後手・手合割）がない → false
- *   4. それ以外 → true
- *
- * クリップボード取得自体は UI 層で行うため、ここは純粋関数のみ。
- */
+/** クリップボードのテキストが有効なKIFとして解析できるかを判定する。 */
 object ClipboardKifValidator {
 
-    /**
-     * テキストが有効な KIF 棋譜として扱えるかどうかを返す。
-     *
-     * @param text クリップボードから取得したテキスト
-     * @return true = KIF として扱える / false = 棋譜ではない
-     */
+    /** テキストが有効なKIFかを返す。 @param text 判定対象のテキスト。 @return KIFとして有効か。 */
     fun isValidKif(text: String): Boolean {
         if (text.isBlank()) return false
         return try {

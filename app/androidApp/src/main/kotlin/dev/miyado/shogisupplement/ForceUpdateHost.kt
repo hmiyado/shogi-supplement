@@ -10,16 +10,7 @@ import androidx.compose.ui.platform.LocalContext
 import dev.miyado.shogisupplement.policy.currentBuildNumber
 import dev.miyado.shogisupplement.ui.forceupdate.ForceUpdateScreen
 
-/**
- * 強制アップデートのゲート。[ShogiApp.forceUpdateDecision]（[MainActivity.onResume] が
- * 起動直後の初回resume・フォアグラウンド復帰のたびに更新する）を購読し、ブロック対象なら
- * [content] を一切コンポジションに含めず [ForceUpdateScreen] のみを全画面表示する
- * （戻るキーも [BackHandler] で吸収し抜けられなくする）。
- *
- * 取得失敗・キャッシュ無しの場合は checker 自体が fail-open（非ブロック）を返すため、
- * ここでは StateFlow の値をそのまま使うだけでよい。未チェック（null）の間は content を出す
- * （取得中に誤ってブロック画面を出さない）。
- */
+/** 強制アップデートのゲート。ブロック時はcontentを描画せず、ForceUpdateScreenだけを表示する。未判定中はcontentを表示する。 */
 @Composable
 fun ForceUpdateHost(content: @Composable () -> Unit) {
     val context = LocalContext.current

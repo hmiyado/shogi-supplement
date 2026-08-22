@@ -14,11 +14,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-/**
- * データ削除の確認ダイアログを含む提供中画面の VRT。
- * AlertDialog は別ウィンドウに描画されるため、compose 単体キャプチャではなく
- * captureScreenRoboImage（画面全体撮影）を使う。
- */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(
@@ -36,7 +31,6 @@ class AccountDeleteDialogScreenshotTest {
         compareOptions = RoborazziOptions.CompareOptions(changeThreshold = 0.01f),
     )
 
-    /** 提供中画面＋削除確認ダイアログ表示状態。 */
     @OptIn(ExperimentalRoborazziApi::class)
     @Test
     fun account_deleteConfirmDialog() {

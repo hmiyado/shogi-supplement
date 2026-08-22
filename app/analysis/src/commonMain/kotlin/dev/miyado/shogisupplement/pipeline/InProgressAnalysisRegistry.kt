@@ -6,13 +6,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
-/**
- * 解析中の1セッション（ホーム一覧の解析中カード・解析中レポート画面の再接続で使う）。
- *
- * @param id セッションの識別子。棋譜内容のsha256Hex（[AnalysisOrchestrator]がDB保存に使う
- *   content_hashと同じ値）。同一棋譜の再解析（フォアグラウンド復帰の再送等）でも
- *   同じidを指すため、レジストリ上は上書きで自然に一本化される。
- */
+/** 解析中セッション。 @param id 棋譜内容から得た識別子。同じIDの再登録は上書きする。 */
 data class InProgressAnalysis(
     val id: String,
     val fileName: String,
@@ -21,18 +15,9 @@ data class InProgressAnalysis(
 )
 
 /**
- * 解析中セッションのレジストリ（プロセス内・メモリのみ・DBには一切書かない）。
- *
- * 実行主体（Android=AnalysisService、iOS=IosMainController）だけが [start]/[updatePosition]/
- * [finish] を呼ぶ唯一の書き手。画面側（ホーム一覧・解析中レポート画面）は [sessions]/[snapshot]
- * を読むだけの購読者にする——ナビゲーション状態（画面のバック操作で破棄されるVM/State）の
- * ライフサイクルから解析の実行・進捗を切り離すのがこのクラスの役目。
- *
- * Why not DB: gameテーブルは analyzed_at・rating 等「解析完了後にしか決まらない値」が
- * 前提の完了済みレコード用スキーマで、解析中プレースホルダを入れるにはほぼ全列を
- * nullable化しクラッシュ時の孤児行掃除も要る。実行主体の生存期間＝解析の生存期間
- * （Androidはフォアグラウンドサービス、iOSはプロセス生存期間のCoroutineScope）と
- * 一致するため、メモリ保持で要件を満たせる。
+ * 解析中セッションをプロセス内メモリで保持するレジストリ。
+ * Why not DB: 完了前の値を保存するためにスキーマをnullable化し、孤児行を掃除する必要があるため。
+ * 実行主体の生存期間と解析期間が一致するため、メモリ保持で足りる。
  */
 class InProgressAnalysisRegistry {
     private val _sessions = MutableStateFlow<Map<String, InProgressAnalysis>>(emptyMap())

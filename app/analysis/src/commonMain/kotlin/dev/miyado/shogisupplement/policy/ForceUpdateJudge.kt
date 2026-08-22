@@ -6,25 +6,14 @@ package dev.miyado.shogisupplement.policy
  */
 object ForceUpdateJudge {
 
-    /**
-     * @param blocked true = build < minBuild（全画面ブロック対象）
-     * @param storeUrl ストアを開くボタンの遷移先。空文字/未設定なら null
-     *   （呼び出し側はnullのときボタン自体を出さない）
-     * @param message プラットフォーム行とcommon行のmessageを合成した表示文言。
-     *   両方とも空/未設定ならnull
-     */
+    /** 判定結果。 @param blocked buildが最小値未満か。 @param storeUrl ストアURL。 @param message 合成済み告知文。 */
     data class Decision(
         val blocked: Boolean,
         val storeUrl: String?,
         val message: String?,
     )
 
-    /**
-     * @param platform "android" / "ios"（"common"は対象プラットフォーム行ではなく、
-     *   messageを合成する側の入力としてのみ使う）
-     * @param currentBuild 自分の側のビルド番号（Android=versionCode、iOS=CFBundleVersion）
-     * @param rows `app_policy` の全行（取得成功分、またはキャッシュ）
-     */
+    /** 強制更新を判定する。 @param platform androidまたはios。commonは共通告知の入力として扱う。 @param currentBuild 現在のビルド番号。 @param rows app_policyの行。 */
     fun evaluate(platform: String, currentBuild: Int, rows: List<AppPolicyRow>): Decision {
         val platformRow = rows.firstOrNull { it.platform == platform }
         val commonRow = rows.firstOrNull { it.platform == "common" }
@@ -40,11 +29,7 @@ object ForceUpdateJudge {
         )
     }
 
-    /**
-     * プラットフォーム行のmessageを先、common行のmessageを後に改行で連結する。
-     * Why not どちらかだけ採用: 管理画面はプラットフォーム個別の告知（例: 既知の不具合）と
-     * 全体共通の告知（例: メンテナンス予定）を同時に運用しうるため、両方を欠落なく出す。
-     */
+    /** プラットフォーム行とcommon行のmessageを改行で連結する。Why not 一方だけにしない: 個別告知と共通告知は同時に成立するため。 */
     private fun combineMessage(platformMessage: String?, commonMessage: String?): String? {
         val parts = listOfNotNull(
             platformMessage?.trim()?.takeIf { it.isNotEmpty() },

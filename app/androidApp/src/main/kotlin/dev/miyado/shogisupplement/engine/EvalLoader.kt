@@ -17,7 +17,7 @@ object EvalLoader {
     private const val ASSET_PATH = "eval/nn.bin"
     private const val EXPECTED_SHA256 = "1141d275bceec911156801f27303dc9ff5beb24f4f59144cc069306c59e80782"
 
-    /** filesDir/eval/ への展開先ディレクトリを返す（呼び出し側でエンジンのEvalDirに設定） */
+    /** filesDir/eval/への展開先ディレクトリを返す。 */
     fun ensureReady(context: Context): File {
         val destDir = File(context.filesDir, "eval")
         destDir.mkdirs()

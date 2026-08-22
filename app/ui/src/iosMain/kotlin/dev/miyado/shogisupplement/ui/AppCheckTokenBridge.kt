@@ -4,29 +4,13 @@ import kotlin.coroutines.resume
 import kotlinx.coroutines.suspendCancellableCoroutine
 
 /**
- * Firebase App CheckトークンのSwift⇄Kotlin橋渡し（匿名アカウント量産への防御）。
- *
- * App Check SDK自体（FirebaseApp.configure()・プロバイダファクトリ設定・
- * `AppCheck.appCheck().token(forcingRefresh:completion:)`の呼び出し）はSwift側
- * （iosApp/iosApp/IosFirebaseAppCheck.swift）が担う。Kotlin/Native ⇄ Swift の境界は
- * [IosFileImportBridge] と同じく「プレーンな関数呼び出し」と「クロージャ型プロパティへの
- * 代入」のみで構成する（同ファイルKDoc参照。SKIE等は未導入）。
- *
- * 起動時の配線: [IosFirebaseAppCheck.configureIfAvailable]（plistがバンドルに
- * あるときのみ）が [tokenHandler] へcompletion形式のクロージャを代入する。
- * `local/GoogleService-Info.plist` 未同梱ビルドでは代入自体が起きないため
- * [tokenHandler] は null のままで、[getToken] は常に null を返す
- * （呼び出し側の [dev.miyado.shogisupplement.engine.RemoteAnalysisRunner] は
- * ヘッダを付けずに送るだけ＝サーバー側の段階導入と同じくgraceful degradation）。
+ * Firebase App CheckのSwift/Kotlin橋渡し。
+ * SDK設定はSwift側が担い、plistがない場合はトークンなしで動作する。
+ * Kotlin側はクロージャを受け取り、取得失敗時もnullを返す。
  */
 object AppCheckTokenBridge {
 
-    /**
-     * Swift側（IosFirebaseAppCheck.configureIfAvailable）が起動時に代入する、
-     * 「App Checkトークンを取得する」実処理へのクロージャ。completionはメインスレッド以外
-     * （SDK内部のキューやディスク書き込みが絡む）から呼ばれる可能性があるため、
-     * [getToken] 側はスレッドを仮定せず [suspendCancellableCoroutine] で受け取る。
-     */
+    /** Swiftから渡されるトークン取得クロージャ。completionのスレッドは仮定しない。 */
     var tokenHandler: ((completion: (String?) -> Unit) -> Unit)? = null
 
     /**

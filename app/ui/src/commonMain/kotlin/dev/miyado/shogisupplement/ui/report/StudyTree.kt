@@ -12,17 +12,7 @@ data class StudyNode(
     val children: List<StudyNode> = emptyList(),
 )
 
-/**
- * 検討手順の木。ルート自体は指し手を持たない（分岐元局面）ため、最初の分岐候補は
- * [rootChildren] に並ぶ。
- *
- * 表示は常に「現在たどっているライン」の線形リストだが、内部データはこの木として
- * 保持し、指し直しで兄弟ノードを追加する。既存の兄弟は上書きしない。
- *
- * 全メソッドは moves（現在ラインの手USI列）を受け取り、都度 [pathForMoves] で木上の
- * 位置に変換する。呼び出し側が path を保持しないのは、兄弟間で moveUsi が重複しない
- * 不変条件により moves から位置が一意に定まるため。
- */
+/** 検討手順を木で保持する。movesから一意な経路を求め、指し直しの兄弟分岐を保持する。 */
 data class StudyTree(val rootChildren: List<StudyNode> = emptyList()) {
 
     /** 木に無い手があれば手前で打ち切る。 */

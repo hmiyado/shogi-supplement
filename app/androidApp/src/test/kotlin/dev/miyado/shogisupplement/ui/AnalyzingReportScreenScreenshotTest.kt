@@ -15,18 +15,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-/**
- * 解析中レポート画面（[AnalyzingReportScreen]）の VRT（スクリーンショットテスト）。
- * 解析中の2状態（30%・80%）を撮る
- * （完了直後・定常は ReportViewerScreenshotTest 側。完成レポート表示を再利用するため）。
- *
- * - analyzing_report_30pct: 進捗バナー・盤スクリム・グラフの反映区間実線＋未反映区間
- *   ハッチング・サマリーの「—」固定表示・悪手一覧ボタン無効を確認
- * - analyzing_report_80pct: 反映区間が広がり、悪手一覧の朱ドット＋卵黄の反映先端ドットを
- *   グラフ上で確認（ply=3で意図的にスイング悪手を発生させている）
- *
- * ゴールデン更新: ./gradlew :androidApp:recordRoborazziDebug
- */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(
@@ -49,11 +37,6 @@ class AnalyzingReportScreenScreenshotTest {
     private fun pv(cp: Int): List<PvInfo> =
         listOf(PvInfo(multipv = 1, score = Score.Cp(cp), pv = emptyList(), nodes = 0L))
 
-    /**
-     * moves.size+1局面ぶんの評価値からconfirmedThrough件だけ順に反映したアキュムレータを作る。
-     * cps[2]=100 → cps[3]=400 の並びはBlunderJudgeTestの「スイング」ケースと同じ数値
-     * （損失500cp・悪手判定）を流用し、80%状態のply=3に朱ドットが立つようにしている。
-     */
     private fun progressiveState(confirmedThrough: Int): ProgressiveReportState {
         val cps = listOf(40, -20, 100, 400, -50, 120, -80, 60, -30, 10, 20)
         var state = ProgressiveReportState.initial(sampleMoves)

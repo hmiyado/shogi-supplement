@@ -1,31 +1,12 @@
 package dev.miyado.shogisupplement.engine
 
 /**
- * iOS WASM解析のSwift⇄Kotlin橋渡し。
- *
- * WKWebViewの生成・読み込み・JS実行・WKScriptMessageHandlerでの受信は Swift 側
- * （iosApp/iosApp/WasmAnalysisHost.swift）が担う。Kotlin/Native ⇄ Swift の境界は
- * [dev.miyado.shogisupplement.ui.AppCheckTokenBridge]・
- * [dev.miyado.shogisupplement.ui.IosFileImportBridge] と同じく「プレーンな関数呼び出し」と
- * 「クロージャ型プロパティへの代入」のみで構成する。
- *
- * 起動時の配線: `WasmAnalysisHost.shared` の init（iosAppApp.swift から起動時に一度参照される）が
- * [startHandler]/[cancelHandler] へ実処理のクロージャを代入する。
- *
- * runIdによる正当性確認: 1回の [WasmAnalysisRunner.analyzeGame] 呼び出しが1つのrunIdを持つ。
- * Swift側は新しい実行を始めるたびに前のWKWebViewを破棄するが、破棄中のWorkerが後から
- * メッセージを送ってくる余地が完全にゼロとは言い切れないため、[onPosition]/[onDone]/[onError] は
- * 渡された runId が現在アクティブな実行と一致する場合のみ処理する（一致しなければ無視）。
+ * iOS WASM解析のSwift/Kotlin橋渡し。WebViewの処理はSwift側が担い、Kotlinとは関数とクロージャで接続する。
+ * runIdが現在の実行と一致する結果だけを受け付け、破棄中Workerの遅延通知を無視する。
  */
 object WasmAnalysisBridge {
 
-    /**
-     * Swift側（WasmAnalysisHost の init）が起動時に代入する、「WKWebViewで解析を開始する」
-     * 実処理へのクロージャ。
-     * @param runId 呼び出し元（[WasmAnalysisRunner]）が発行する一意な実行ID
-     * @param movesJson 棋譜のUSI手列をJSON配列文字列化したもの
-     * @param assetBaseUrl エンジンWASMバイナリ（VERSION・wasm本体・評価関数）のベースURL（絶対URL）
-     */
+    /** WKWebView解析を開始するクロージャ。 @param runId 実行ID。 @param movesJson USI手列のJSON。 @param assetBaseUrl WASM資産のベースURL。 */
     var startHandler: ((runId: String, movesJson: String, assetBaseUrl: String) -> Unit)? = null
 
     /** Swift側が起動時に代入する、「進行中の解析を中断する」実処理へのクロージャ。 */

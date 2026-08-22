@@ -5,20 +5,7 @@ import dev.whyoleg.cryptography.CryptographyProvider
 import dev.whyoleg.cryptography.DelicateCryptographyApi
 import dev.whyoleg.cryptography.algorithms.AES
 
-/**
- * uploaded_games v2 の `private_enc` 列の暗号化/復号（設計書 付録・enc_version=1）。
- *
- * ```
- * private_enc = nonce(12B) ‖ AES-256-GCM(K_enc, JSON{sente_name, gote_name, extra_headers, comments}, AAD=content_hash)
- * ```
- *
- * 実際の格納バイト列は先頭に1バイトの形式バージョンを付与する
- * （設計書「nonce・タグの格納形式は自己記述的に（将来の形式変更に耐えるようversionバイト等）」に
- * 対応する判断）: `version(1B) ‖ nonce(12B) ‖ ciphertext ‖ tag(16B)`。
- * cryptography-kotlinのAES.GCM暗号は `encrypt()` でnonce生成～ciphertext/tag結合まで
- * `[nonce|ciphertext|tag]` の形式に揃えてくれる（プラットフォーム間で形式が一致することが
- * ライブラリの保証事項）ため、そのままversionバイトを前置するだけでよい。
- */
+/** uploaded_games.private_encをAES-256-GCMで暗号化・復号する。形式はversion、nonce、ciphertext、tagの順とする。 */
 object PrivateEncCodec {
 
     /** 格納形式のバージョン（先頭1バイト）。形式を変える際はここを上げて分岐する。 */

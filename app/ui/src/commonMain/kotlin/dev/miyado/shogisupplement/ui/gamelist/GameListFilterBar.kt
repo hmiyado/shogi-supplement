@@ -44,16 +44,7 @@ import dev.miyado.shogisupplement.util.currentEpochSeconds
 
 private const val SECONDS_PER_DAY = 24L * 60 * 60
 
-/**
- * 棋譜一覧の絞り込みヘッダー（絞り込みボタン＋件数表示）。
- *
- * 軸チップ列を常設すると一覧の場所を取りすぎるためボトムシートへ移した。
- * このヘッダーは軸の数に関わらず常に同じ2要素（ボタン・件数テキスト）だけを
- * 描画するため、フィルタ適用状態が変わってもこの行の高さは変化しない
- * （DESIGN.md No-jitter原則: 条件付きの行の出現・削除は禁止）。
- * バッジはコンテンツのレイアウトサイズに影響しないオーバーレイのため、
- * 0件↔1件以上の切り替えでもボタン自体の大きさは変わらない。
- */
+/** 棋譜一覧の絞り込みヘッダー。条件の詳細を常設せず、行高を固定してno-jitterを保つ。 */
 @Composable
 fun GameListFilterHeader(
     activeCount: Int,
@@ -125,14 +116,7 @@ private fun GameListFilterButton(
     }
 }
 
-/**
- * 絞り込み条件ボトムシート。
- *
- * [filter]はシート専用のドラフト状態（呼び出し側がシートを開く直前に現在の適用済み
- * フィルタで初期化する想定）。「検索」タップで初めて[onApply]により一覧へ反映され、
- * スワイプ/スクリムタップでの閉じ（[onDismiss]）は変更を破棄する
- * （一般的なボトムシートの条件設定パターン: 確定操作を挟むまで一覧に影響しない）。
- */
+/** 絞り込み条件のボトムシート。filterはドラフトで、onApply時だけ一覧へ反映する。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GameListFilterSheet(
@@ -185,16 +169,7 @@ fun GameListFilterSheet(
     }
 }
 
-/**
- * 軸ごとの絞り込みチップ列（ボトムシート内でのみ使用）。
- *
- * 表示する軸・チップは[allGames]（絞り込み前の全件）から実在する値のみを組み立てる
- * （データが無い軸・値のチップは作らない。miyadoさん指示）。
- *
- * 期間チップの基準時刻（「いま」）はバーの初回コンポジション時に1回だけ固定する
- * （[remember]）。再コンポジションのたびに再計算すると、選択済みチップの
- * dateFrom値と比較がずれて選択状態が解除されて見えてしまうため。
- */
+/** 実在する値だけを軸別チップにする。期間の基準時刻は初回コンポジションで固定する。 */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun GameListFilterBar(
@@ -315,12 +290,7 @@ private fun FilterChipItem(
     val shape = RoundedCornerShape(999.dp)
 
     Row(
-        // testTag は視覚に影響しないため golden 画像には無関係（VRTからの一意なチップ特定用）。
-        //
-        // clip はクリック領域のリップル（indication）を丸チップの外形にクリップするために
-        // background/border より前（外側）に置く必要がある。Compose のモディファイアは
-        // 左のものが右を包む構造のため、clipを内側（clickableの後ろ）に置くとクリック時の
-        // リップル描画がクリップされず角丸の外にはみ出す（実機で確認された不具合の原因）。
+        // clipを外側に置き、クリック時のリップルを丸チップの形状へ収める。
         modifier = Modifier
             .testTag(testTag)
             .clip(shape)

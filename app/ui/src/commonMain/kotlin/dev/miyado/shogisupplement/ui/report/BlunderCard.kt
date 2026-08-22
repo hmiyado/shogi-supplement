@@ -39,13 +39,7 @@ import dev.miyado.shogisupplement.ui.theme.TextStyleDataMove
 import dev.miyado.shogisupplement.ui.theme.shogiColors
 import kotlin.math.abs
 
-/**
- * 非負の Double を小数点以下0桁で四捨五入して文字列化する（BlunderCard の勝率%表示用）。
- *
- * "%.0f".format(x)（java.lang.String.format）は Kotlin/Native commonMain では使えないため、
- * multiplatform-safe な実装にしている。呼び出し元（勝率パーセント）は常に非負のため
- * 符号は扱わない。
- */
+/** Kotlin/Nativeでも使える、非負Doubleの小数点以下0桁表示を返す。 */
 private fun formatFixed0(value: Double): String = kotlin.math.round(value).toLong().toString()
 
 /** 悪手カード（ミニ盤なし・テキスト情報のみ）。 */

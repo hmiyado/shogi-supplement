@@ -11,16 +11,7 @@ interface DrillRepository {
      */
     fun getDrillCandidates(): List<BlunderRecord>
 
-    /**
-     * ドリル解答を保存する。
-     *
-     * @param blunderReportId 出題元の blunder_report.id
-     * @param userMoveUsi     ユーザーが指した手（降参なら "[降参]"）
-     * @param isCorrect       正解なら true
-     * @param lossWp          最善手との勝率差（エンジン判定不能なら null）
-     * @param attemptedAt     解答時刻（Unix epoch 秒）
-     * @return 作成された drill_attempt.id
-     */
+    /** ドリル解答を保存する。 @param blunderReportId 出題元レコード。 @param userMoveUsi ユーザーの手。 @param isCorrect 正解か。 @param lossWp 勝率差。 @param attemptedAt 解答時刻。 @return 作成されたID。 */
     fun saveDrillAttempt(
         blunderReportId: Long,
         userMoveUsi: String,
@@ -29,11 +20,7 @@ interface DrillRepository {
         attemptedAt: Long = currentEpochSeconds(),
     ): Long
 
-    /**
-     * 全 blunder_report の解答回数マップを返す。
-     * キーは blunder_report_id、値は drill_attempt 件数。
-     * 解答履歴がない問題はマップに含まれない（呼び出し側で 0 とみなす）。
-     */
+    /** 全blunder_reportの解答回数を、IDから件数へのマップで返す。履歴がないIDは含めない。 */
     fun getDrillAttemptCounts(): Map<Long, Int>
 
     /** 指定 blunder_report の解答履歴を返す（新しい順）。 */

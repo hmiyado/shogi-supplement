@@ -12,15 +12,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-/**
- * OSSライセンス一覧画面の VRT（スクリーンショットテスト）。
- *
- * 1. 画面全体: 固定ヘッダ（本アプリGPLv3・やねうら王・Háo・フォントライセンス）＋
- *    AboutLibraries一覧の冒頭。一覧データは res/raw/aboutlibraries.json（コミット済み）から
- *    同期読み込みされるため決定的に描画できる。依存を更新して JSON を再生成した場合は
- *    golden も更新すること。
- * 2. ヘッダ単体: 固定ヘッダ部分（[LicenseInfoHeader]、:ui commonMain・Android/iOS共通実装）。
- */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(
@@ -36,7 +27,6 @@ class LicensesScreenScreenshotTest {
         compareOptions = RoborazziOptions.CompareOptions(changeThreshold = 0.01f),
     )
 
-    /** ライセンス画面全体（TopAppBar + 固定ヘッダ + 一覧冒頭）。 */
     @Test
     fun licenses_screen() {
         captureRoboImage(
@@ -51,7 +41,6 @@ class LicensesScreenScreenshotTest {
         }
     }
 
-    /** 固定ヘッダ単体（GPLv3表記・エンジンクレジット・フォントライセンス）。 */
     @Test
     fun licenses_header() {
         captureRoboImage(

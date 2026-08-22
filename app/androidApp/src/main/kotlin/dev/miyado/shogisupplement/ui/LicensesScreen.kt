@@ -7,14 +7,7 @@ import com.mikepenz.aboutlibraries.Libs
 import com.mikepenz.aboutlibraries.util.withContext
 import dev.miyado.shogisupplement.ui.license.LicenseInfoScreen
 
-/**
- * OSSライセンス画面（Android）。
- *
- * 実体は :ui commonMain の [LicenseInfoScreen]（Android/iOS共通）。
- * Android固有の責務は一覧データの読み込み（res/raw/aboutlibraries.json を
- * `./gradlew :androidApp:exportLibraryDefinitions` で生成・コミット済み）と
- * リポジトリURLを開く Intent の発行のみ。
- */
+/** Android固有のライセンス一覧読み込みとリポジトリURL起動を、共通画面へ渡す。 */
 @Composable
 fun LicensesScreen(onBack: () -> Unit, onOpenSourceRepo: () -> Unit) {
     val context = LocalContext.current

@@ -6,7 +6,7 @@ import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 
 interface IpRateLimiter {
-    /** true = 許可。false = 上限超過（呼び出し側は429を返す）。 */
+    /** trueなら許可、falseなら上限超過を表す。 */
     fun tryAcquire(ip: String): Boolean
 }
 

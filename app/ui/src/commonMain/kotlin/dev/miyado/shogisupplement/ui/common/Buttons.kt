@@ -10,14 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
-/**
- * DESIGN.md準拠のsecondaryボタン（角丸8dp・紺青[primary]アウトライン・紺青文字）。
- *
- * M3 の [OutlinedButton] はデフォルトで角丸が full（スタジアム型）・枠線が outline
- * トークン（本アプリでは罫線のline色）になり、DESIGN.mdの「secondary=紺青アウトライン
- * ／角丸8dp（fullはチップのみ）」から外れる。本コンポーネントはshapeとborderのみ
- * 上書きし、文字色はOutlinedButtonの既定（colorScheme.primary）をそのまま使う。
- */
+/** DESIGN.mdのsecondaryボタン。M3既定との差分は角丸8dpとprimary枠線だけを上書きする。 */
 @Composable
 fun ShogiSecondaryButton(
     onClick: () -> Unit,

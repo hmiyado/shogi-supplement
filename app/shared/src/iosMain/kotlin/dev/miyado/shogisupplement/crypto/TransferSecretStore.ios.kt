@@ -47,21 +47,9 @@ private const val KEYCHAIN_SERVICE = "dev.miyado.shogisupplement.transfer_secret
 private const val KEYCHAIN_ACCOUNT = "S"
 
 /**
- * Sの永続化＝iOS Keychain（kSecClassGenericPassword）。純粋なCoreFoundation API
- * （CFDictionary/CFString/CFData）だけで組み立てる。
- *
- * Why not NSMutableDictionary/NSData経由: kSec*定数はCFStringRef（COpaquePointer）で
- * あり、Foundation（NSMutableDictionary等）を経由するとObjC⇄CFのブリッジング
- * （CFBridgingRetain/Release・NSCopyingProtocol周り）で型が合わず遠回りになる。
- * Security APIの引数型（CFDictionaryRef等）とそのままそろうCore Foundation API
- * だけで完結させたほうが単純で壊れにくい。
- *
- * `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` を使う理由:
- * - `ThisDeviceOnly`: iCloud Keychain同期の対象外にする（設計書付録「後付け可能なUX改善」で
- *   同期は将来のオプトインとして扱っており、既定でオンにはしない）
- * - `AfterFirstUnlock`（`WhenUnlocked`ではなく）: 自動アップロード（解析完了後の
- *   バックグラウンド寄りの処理）からKeychainを読む可能性があり、端末ロック中でも
- *   （初回アンロック後なら）読めておく必要がある
+ * マスターシークレットSをiOS Keychainへ保存する。
+ * Why not Foundationの辞書型を経由しない: Security APIのCF型へ直接渡す方が型変換を減らせるため。
+ * ThisDeviceOnlyとAfterFirstUnlockで同期を避け、初回解除後のバックグラウンド読込を許可する。
  */
 @OptIn(ExperimentalForeignApi::class)
 class IosTransferSecretStore : TransferSecretStore {

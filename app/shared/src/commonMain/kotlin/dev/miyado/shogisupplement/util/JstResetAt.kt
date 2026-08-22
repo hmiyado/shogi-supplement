@@ -1,16 +1,8 @@
 package dev.miyado.shogisupplement.util
 
 /**
- * ISO-8601 UTC文字列（例: "2026-07-28T00:00:00Z"）をJST（UTC+9時間固定。夏時間なし）に変換し、
- * 「7月28日 9:00」の形式で返す。
- *
- * [dev.miyado.shogisupplement.engine.RemoteAnalysisException.QuotaExceeded.resetAt] の表示整形用。
- * パース不能な入力（サーバー未到達時の空文字列など）はそのまま返す
- * （呼び出し側 [dev.miyado.shogisupplement.engine.RemoteAnalysisErrorMapper] のフォールバック）。
- *
- * Why not kotlinx-datetime: commonMainに新規依存を足さない方針のため、文字列パース＋9時間加算の
- * 手計算（年月日時分の四則演算のみ）で足りる範囲を自前で実装する。うるう年判定も西暦の
- * 4/100/400年ルールで自前計算する（2月末日の繰り上げに必要）。
+ * ISO-8601 UTCをJSTの「M月d日 H:mm」へ変換し、解析不能な入力は原文で返す。
+ * Why not kotlinx-datetime: commonMainの依存を増やさず、必要な範囲だけ手計算するため。
  */
 fun formatResetAtJst(resetAtIso: String): String {
     val parsed = parseIso8601Utc(resetAtIso) ?: return resetAtIso

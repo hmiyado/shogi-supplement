@@ -41,19 +41,7 @@ import dev.miyado.shogisupplement.ui.theme.IbmPlexMonoFamily
 import dev.miyado.shogisupplement.ui.theme.ShipporiMinchoFamily
 import dev.miyado.shogisupplement.ui.theme.shogiColors
 
-/**
- * 解析中レポート画面。解析開始と同時にこの画面へ遷移し、完了したら [ReportScreen]
- * （GameRecord/BlunderRecordがDBに揃った状態）へ差し替わる。
- *
- * [ReportScreen] と違い、悪手選択・検討モード・棋譜リストシート・KIFコピー等は持たない
- * （盤・グラフともタップ/ドラッグ無効。反映済み最新手を表示するだけの読み取り専用画面）。
- *
- * @param titleHint トップバーの暫定タイトル
- * @param moves 棋譜のUSI手列（KIFパース直後に確定済み）
- * @param userSide ユーザーの側。null可（先後未確定のインポート経路はflip=falseのまま）
- * @param progressive アキュムレータの現在の状態
- * @param onBack トップバーの戻る
- */
+/** 解析中の読み取り専用レポート画面。 @param titleHint 暫定タイトル。 @param moves 棋譜のUSI手列。 @param userSide ユーザーの先後。 @param progressive 現在の累積状態。 @param onBack 戻る処理。 */
 @Composable
 fun AnalyzingReportScreen(
     titleHint: String,

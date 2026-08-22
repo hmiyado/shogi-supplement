@@ -19,43 +19,17 @@ private const val READ_POLL_TIMEOUT_MS = 1000
 private const val READ_BUF_CAPACITY = 8192
 
 /**
- * iOS用Engine実装。
- *
- * YaneuraOu本体をcinterop経由（app/iosApp/engine/wrapper/engine_wrapper.h、実体は
- * libshogiengine.a = wrapper.cpp + libyaneuraou.a をbuild_ios.shがマージしたもの）で
- * プロセス内スレッドとして起動する。Android版 UsiEngineProcess（別プロセスexec）と異なり、
- * エンジンはアプリと同一プロセスのスレッドとして動作し続ける点に注意。
- *
- * 制約（重要）:
- * - `shogi_engine_start()` はプロセス内で一度しか呼べない（C側にも二重起動ガードがあるが、
- *   Kotlin側の [Companion.create] でも2回目の呼び出しを弾く）。
- * - [quit] は "quit" コマンドを送信するのみ。C wrapper側の設計として、エンジンスレッドは
- *   `std::thread(...).detach()` されており、Kotlin/Swift側からそのスレッドを終了させる
- *   手段が無い。そのため [quit] 後に [Companion.create] を再度呼んでもエンジンは
- *   再起動できない（アプリプロセスの再起動が必要）。ラップ側で再起動に対応する余地は
- *   将来的にあるが、現状はこの制約を前提にホルダー側（[IosEngineHost]）で
- *   単一インスタンスを使い回す設計にしている。
- * - engine_wrapper.h の制約により、`shogi_engine_start()` 呼び出し後はプロセスのfd0/fd1が
- *   エンジン用パイプに専有される。アプリ側の標準出力/標準入力はそれ以降使用禁止
- *   （このファイル・呼び出し側のログはprintln等ではなくOSLog/NSLog等を使うこと）。
- * - [analyze]/[analyzeSfen]/[quit] の呼び出しは呼び出し側で直列に行うこと
- *   （engine_wrapper.h側のsend/read_lineは複数箇所からの同時呼び出しを想定していない）。
- *
- * 解析条件の不変条件はAndroid版 UsiEngineProcess.create と同一
- * （Threads=1 / USI_Hash=128 / MultiPV=2 / FV_SCALE=20）。
+ * iOS用のプロセス内Engine実装。
+ * 起動は一度だけで、quit後の再起動はできないため、常駐インスタンスを共有する。
+ * エンジン起動後はfd0/fd1を専有するため、標準入出力を使わない。
+ * analyze、analyzeSfen、quitは同時実行せず、解析条件はAndroid版と一致させる。
  */
 class UsiEngineInProcess private constructor() : Engine {
 
     companion object {
         private var started = false
 
-        /**
-         * エンジンスレッドを起動し、USIハンドシェイクを完了させて返す。
-         * プロセス内で一度しか呼べない（2回目はIllegalStateExceptionを投げる。[quit] を
-         * 呼んだ後でも再度このメソッドで再起動することはできない。クラスKDoc参照）。
-         *
-         * @param evalDir EvalDirへ渡す絶対パス（バンドル同梱eval配下のディレクトリ）
-         */
+        /** エンジンを起動してUSIハンドシェイクを完了する。 @param evalDir EvalDirへ渡す絶対パス。 */
         fun create(evalDir: String): UsiEngineInProcess {
             check(!started) {
                 "UsiEngineInProcess.create() はプロセス内で一度しか呼べません" +
@@ -109,32 +83,17 @@ class UsiEngineInProcess private constructor() : Engine {
         return collectPvResult()
     }
 
-    /**
-     * "quit" コマンドを送信するのみ。エンジンスレッドをdestroyする手段は無い
-     * （プロセス内スレッドのため。クラスKDocの制約参照）。呼び出し後、このインスタンスの
-     * 再利用・再startは不可。
-     */
+    /** quitを送信する。プロセス内スレッドは破棄できないため、呼び出し後は再利用しない。 */
     override fun quit() {
         send("quit")
     }
 
-    /**
-     * 局の区切りを表現する。iOS はプロセス内で一度しか起動できず局ごとに [quit] できないため、
-     * 常駐する同一インスタンスに対してこのメソッドで区切りをつける
-     * （[dev.miyado.shogisupplement.engine.IosEngineHost] の局ごとのエンジンファクトリから呼ばれる）。
-     *
-     * "usinewgame" だけでは置換表・履歴が残り、直前に解析した局面が次の探索に効いてしまう
-     * （固定ノード数では「どこまで読めたか」が変わるので結果が変わる）。やねうら王が
-     * 探索状態を実際にクリアするのは isready なので、その順で送る（Android/サーバー版
-     * [UsiEngineSubprocess.newGame] と同一ロジック）。
-     */
+    /** 常駐エンジンの局を区切る。usinewgameだけでは状態が残るため、isready後に送る。 */
     override fun newGame() {
         send("isready")
         waitFor("readyok")
         send("usinewgame")
     }
-
-    // ---- 内部ヘルパー（parseInfoLine/collectPvResultはAndroid版 UsiEngineProcess と同一ロジック） ----
 
     /** go nodes の結果を bestmove まで収集して返す（analyze/analyzeSfen 共通）。 */
     private fun collectPvResult(): List<PvInfo> {
@@ -188,13 +147,7 @@ class UsiEngineInProcess private constructor() : Engine {
     /** 直前に送信した USI コマンド名（"go"/"position" など。内容は含まない）。デバッグ用。 */
     private var lastCommandName: String = ""
 
-    /**
-     * USI info 行をパース。
-     * `info depth ... multipv N score cp/mate V pv ...` を PvInfo に変換する。
-     *
-     * multipv が無い行（lowerbound / upperbound 行など）は null を返す。
-     * Android版 UsiEngineProcess.parseInfoLine と同一ロジック。
-     */
+    /** USI info行をPvInfoへ変換する。multipvがない行はnullを返す。 */
     private fun parseInfoLine(line: String): PvInfo? {
         val toks = line.split(" ")
         var i = 1 // "info" をスキップ

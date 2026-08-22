@@ -52,13 +52,8 @@ import dev.miyado.shogisupplement.ui.common.ShogiBoardView
 import dev.miyado.shogisupplement.ui.common.formatFixed1
 import kotlin.math.abs
 
-// このファイルは DrillQuestionContent / DrillResultContent とその Preview 群のみを持つ。
-// トップの DrillScreen(onBack, vm: DrillViewModel = viewModel()) Composable は androidApp 側
-// にある。DrillViewModel は androidx.lifecycle.AndroidViewModel であり、
-// androidx.lifecycle.viewmodel.compose.viewModel() も Android 専用APIで、MainActivity.kt の
-// 呼び出しがデフォルト引数の vm に依存する構造上、この関数を :ui に置くことはできない。
-// Loading / NoCandidates / Judging の各分岐UIもトップ Composable内で完結する小さなブロック
-// のため、androidApp 側にある。
+// トップのDrillScreenはAndroid専用ViewModelとviewModel()に依存するためandroidAppに置く。
+// ここには共通の問題表示、結果表示、Previewだけを定義する。
 
 // ─── 出題画面 ────────────────────────────────────────────────────────────────
 
@@ -210,19 +205,7 @@ fun DrillResultContent(
     // （ReportScreen の pendingExtendAdvance と同じUX）。
     var pendingExtendAdvance by remember { mutableStateOf(false) }
 
-    // ── ナビ行ラベル（「N手目 ▲notation」＋形勢サフィックスを1行に統合）────
-    // レポートの「最善の変化」タブと同一規約の形勢データ（そのドリル問題の元
-    // BlunderRecord.cpBefore / missedMateIn。手送り・タブ切替では値が変わらない固定
-    // 表示のため remember キーに ply/line は含めない）を、既存ナビラベルの末尾に
-    // 半角スペース＋全角括弧（AppStrings.evalSuffix）で連結する。
-    // cpBefore→ユーザー視点の符号変換・詰み規約（|cp|>=29_000）は MainActivity.kt の
-    // BEST_PV 形勢行実装と同一。「ユーザー視点」の判定は本来
-    // game.userSide == "gote" だが、ドリルの flip は DrillViewModel.loadNextQuestion() で
-    // `repository.getGameById(blunder.gameId)?.userSide == "gote"` として計算されており
-    // 定義が同一なので、そのまま userIsGote として再利用する。
-    // No-jitter原則（DESIGN.mdのLayout節を参照）: 別行は追加しない。既存ナビ行
-    // （高さ40dp・maxLines=1・overflow=Clip）に内容を連結するだけなので、
-    // cpBefore/missedMateIn の有無や手送りで行の高さは変わらない。
+    // 元局面の評価を既存ナビラベルへ連結する。別行を増やさず、手送りでも高さを保つ。
     val bestPvEvalLabel = remember(blunder, evalDisplay, flip) {
         val moverIsGote = blunder.side == "gote"
         val userIsGote = flip

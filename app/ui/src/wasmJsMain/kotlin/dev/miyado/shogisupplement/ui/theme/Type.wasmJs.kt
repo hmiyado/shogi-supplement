@@ -5,14 +5,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.platform.Font
 import dev.miyado.shogisupplement.ui.generated.resources.Res
 
-// Android/iOS実装が使う同期ロード（バイト読み込みをrunBlockingで待つ）はwasmJsに
-// actualが無く使えない（フォント読み込み自体が本来ネットワーク経由の非同期I/Oのため）。
-// [preloadShogiWebFonts] をComposeViewport起動前（:webAppのmain()）で待ち切ることで、
-// 初回コンポーズの時点では常にロード済みの状態にする。これによりTheme.kt・
-// ShipporiMinchoFamily等のトップレベルval・呼び出し側11箇所超のcommonMainコードは
-// android/iOSと同じ「同期に見えるAPI」のまま変更せずに済む（Composable化して
-// 呼び出し側全体を書き換えるより変更範囲が小さい）。[preloadShogiWebFonts] を
-// 呼ばずに実行した場合（テスト等）はシステムフォントへフォールバックする。
+// wasmJsは非同期fetchで事前ロードし、未ロード時はシステムフォントへフォールバックする。
 
 private var shipporiMinchoBoldBytes: ByteArray? = null
 private var ibmPlexSansJpRegularBytes: ByteArray? = null
@@ -20,11 +13,7 @@ private var ibmPlexSansJpBoldBytes: ByteArray? = null
 private var ibmPlexMonoRegularBytes: ByteArray? = null
 private var ibmPlexMonoSemiBoldBytes: ByteArray? = null
 
-/**
- * DESIGN.mdの実書体（Shippori Mincho/IBM Plex Sans JP/Mono）をfetchで取得し、
- * 以降の [buildShipporiMinchoFamily] 等の呼び出しに反映させる。ComposeViewportで
- * 最初のコンポーズを始める前に一度だけ呼ぶこと（呼び出し側は :webApp の main()）。
- */
+/** ComposeViewport開始前にDESIGN.mdの実書体をfetchして登録する。 */
 suspend fun preloadShogiWebFonts() {
     shipporiMinchoBoldBytes = Res.readBytes("files/font/shippori_mincho_bold.ttf")
     ibmPlexSansJpRegularBytes = Res.readBytes("files/font/ibm_plex_sans_jp_regular.ttf")

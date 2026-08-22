@@ -133,7 +133,7 @@ class KifParser : KifuParser {
         }
     }
 
-    /** KIF指し手テキスト → USI。移動先を返して「同」解決に使う。 */
+    /** KIF指し手テキストをUSIへ変換し、移動先を返して「同」を解決する。 */
     private fun convertMove(moveText: String, prevDest: Square?, line: String): Pair<String, Square> {
         var i = 0
         val dest: Square

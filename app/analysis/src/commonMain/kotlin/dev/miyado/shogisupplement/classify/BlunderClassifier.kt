@@ -24,17 +24,7 @@ data class ClassificationResult(
     val missedMateIn: Int?,
 )
 
-/**
- * 悪手の6カテゴリ分類（scripts/classify_blunders.py classify_move() の Kotlin 移植）。
- *
- * 分類優先順位:
- * 1. 詰み見逃し: ply t で自分に詰みがあり、指した後消えた
- * 2. 頓死: t で自玉に詰みがなく、指した後詰まされる
- * 3. 駒損（即取り）: 差分駒損 ≤ -5 かつ相手の最善応手の初手が駒取り
- * 4. 駒損（タクティクス）: 差分駒損 ≤ -5 かつ初手は駒取りでない（両取り・素抜き等）
- * 5. 玉の危険（寄せ）: 相手の最善応手列で2回以上王手される
- * 6. 位置的・その他: 上記いずれでもない
- */
+/** 悪手を6カテゴリへ分類する。詰み、駒損、玉の危険、その他の順に判定する。 */
 object BlunderClassifier {
 
     /** 銀級以上の差分駒損で「駒損」扱い（classify_blunders.py MATERIAL_THRESHOLD と同値）。 */
@@ -43,17 +33,7 @@ object BlunderClassifier {
     /** 読み筋追跡の上限ply（classify_blunders.py PV_HORIZON と同値）。 */
     const val PV_HORIZON = 10
 
-    /**
-     * 悪手を分類する。
-     *
-     * 副作用: board に move を push して返す（呼び出し側はその後の局面から続けられる）。
-     * これは classify_blunders.py classify_move() と同一の挙動。
-     *
-     * @param board push 前の盤面（mover のターン）
-     * @param move  悪手（USI 文字列をパース済み）
-     * @param cur   ply t（push 前）のエンジン評価（score + pv1 = 最善手の読み筋）
-     * @param nxt   ply t+1（push 後）のエンジン評価（score + pv1 = 相手の最善応手）
-     */
+    /** 悪手を分類する。boardはmove適用後に返却する。 @param board 適用前の盤面。 @param move 悪手。 @param cur 適用前の評価。 @param nxt 適用後の評価。 */
     fun classify(
         board: ShogiBoard,
         move: ShogiMove,
@@ -115,13 +95,7 @@ object BlunderClassifier {
         )
     }
 
-    /**
-     * 読み筋を辿り、(perspective 視点の駒割変化, perspective への王手回数) を返す。
-     * classify_blunders.py pv_stats() の Kotlin 移植。
-     *
-     * 途中で例外が起きたら打ち切り（Python の except Exception: pass と同等）。
-     * push した分だけ必ず pop して盤面を元に戻す。
-     */
+    /** 読み筋を辿り、駒割変化と王手回数を返す。例外時は打ち切り、盤面を元に戻す。 */
     internal fun pvStats(
         board: ShogiBoard,
         pv: List<String>,

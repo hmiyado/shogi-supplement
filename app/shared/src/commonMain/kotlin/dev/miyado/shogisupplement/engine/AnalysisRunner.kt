@@ -13,21 +13,9 @@ import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 
 /**
- * 局面リストを最大 [workers] プロセス/インスタンス並列で解析するオーケストレーター。
- *
- * Android専用の構築（android.content.pm.ApplicationInfo・java.io.File を使う本番用コンストラクタ）は
- * androidApp の `createAndroidAnalysisRunner()`（engine/AndroidAnalysisRunnerFactory.kt）が担う。
- * 排他制御には `kotlinx.coroutines.sync.Mutex`（全プラットフォーム共通）を使う
- * （`kotlin.synchronized` は Kotlin/Native の commonMain では使えないため）。
- *
- * 各ワーカーは [engineFactory] が返す [Engine] を取得・プールし、Semaphore でアクセスを排他する。
- * 局の解析が終わったらプール中のエンジン全てに対して [disposeEngine] を呼ぶ:
- * - Android（デフォルト）: `{ it.quit() }`（毎局プロセスを終了する既存挙動を保存）
- * - iOS: 常駐インスタンスを維持するため no-op（quitしない。局の区切りは
- *   [Engine.newGame] を使う。呼び出し側=iOS用エンジンファクトリ側の責務）
- *
- * エンジンが異常終了した場合（[EngineAbnormalExitException] またはその他の例外）は
- * [crashReporter] にイベントを送信し、例外を再スローする。
+ * 局面リストをworkers並列で解析するオーケストレーター。
+ * Mutexでエンジンを排他し、局の終了時にdisposeEngineを実行する。異常終了は記録して再送出する。
+ * iOSの常駐エンジンはdisposeをno-opにし、Engine.newGameで局を区切る。
  */
 class AnalysisRunner(
     private val workers: Int = 4,

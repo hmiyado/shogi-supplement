@@ -205,12 +205,7 @@ private fun charToPieceType(c: Char): PieceType? = when (c) {
 val CoordinateLabelTrack = 18.dp
 val CoordinateLabelGap = 2.dp
 
-/**
- * 盤サイズ（cellSize）の共通計算ロジック。report・drill 両方の座標ラベル圧縮仕様を統一する。
- *
- * 総高さ: 筋ラベル帯(CoordinateLabelTrack) + ギャップ(CoordinateLabelGap) +
- *         盤9マス + 上下持駒行(各1 cell 相当) の合計。
- */
+/** reportとdrillで共有する盤サイズを、座標ラベル帯・盤・持ち駒行から計算する。 */
 fun computeBoardCellSize(maxWidth: Dp, maxHeight: Dp): Dp {
     val labelBudget = CoordinateLabelTrack + CoordinateLabelGap
     val fromWidth = ((maxWidth - labelBudget) / 9).coerceAtMost(44.dp)
@@ -224,24 +219,7 @@ fun computeBoardCellSize(maxWidth: Dp, maxHeight: Dp): Dp {
 
 // ─── Composable ──────────────────────────────────────────────────────────────
 
-/**
- * SFEN 文字列を受け取って将棋盤を描画する Composable。
- *
- * MainActivity.kt の ReportBoardView・DrillScreen.kt の InteractiveBoardView の両方が使う
- * 「選択マス・合法手ドット・持駒タップ」UXをこの1実装で提供する。
- *
- * - 9x9 盤・文字駒（漢字）・成駒赤字
- * - 後手駒は 180° 回転表示
- * - 両者の持ち駒表示（盤の上下）
- * - 画面幅に追従（BoxWithConstraints 使用）
- * - flip=true で盤を 180° 反転（後手が下になる）
- * - lastMoveDest が指定された場合、その到達マスを卵黄ハイライトする
- * - selectedFrom / selectedDropType / legalDestinations: 検討・ドリルの選択状態UX
- * - onSquareTapped: マス単位のタップ通知（呼び出し側で「駒タップ」「空マスタップ→ナビ」等を判定する）
- * - onHandPieceTapped: 持ち駒タップ通知（手番側の駒のみ有効。呼び出し側で判定込み）
- *
- * @param sfen 局面の SFEN 文字列
- */
+/** SFEN局面を描画する将棋盤。選択、合法手、持ち駒タップ、反転表示を共通化する。 @param sfen 局面のSFEN文字列。 */
 @Composable
 fun ShogiBoardView(
     sfen: String,
@@ -668,12 +646,7 @@ fun HandRowLabel(isBlack: Boolean) {
     )
 }
 
-/**
- * ☗/☖（U+2617/U+2616）はIBM Plex Sans JPにグリフが無く、CJKシステムフォールバックの
- * 無いブラウザ（wasmJs）ではtofu表示になる。同フォントに収録されている▲/△に
- * wasmJsのみ差し替える（Android/iOSは実機のシステムフォールバックで表示できているため
- * 変更しない）。
- */
+/** wasmJsでは☗/☖が欠落するため、フォントにある▲/△へ置換する。 */
 internal expect fun handRowLabelText(isBlack: Boolean): String
 
 // ─── Preview ─────────────────────────────────────────────────────────────────
@@ -716,4 +689,3 @@ private fun PreviewFlippedPosition() {
         }
     }
 }
-

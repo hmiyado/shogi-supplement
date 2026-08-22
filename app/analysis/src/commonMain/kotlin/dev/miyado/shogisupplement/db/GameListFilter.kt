@@ -19,11 +19,7 @@ data class GameListFilter(
     /** 解析日時の下限（epoch秒・含む）。 */
     val dateFrom: Long? = null,
 ) {
-    /**
-     * 指定されている軸の数。絞り込みボタンのバッジ表示に使う。
-     * バッジは数値だけを見せれば足り、どの軸かの内訳は絞り込み条件シート側で確認できるため、
-     * ここでは軸数のみを返す（各軸の値そのものは呼び出し側で個別に参照可能）。
-     */
+    /** 指定された絞り込み軸の数を返す。 */
     val activeCount: Int
         get() = listOfNotNull(source, userSide, result, dateFrom).size
 
@@ -31,12 +27,7 @@ data class GameListFilter(
         get() = activeCount > 0
 }
 
-/**
- * [filter] の条件でゲームレコードを絞り込む（AND結合）。
- *
- * 勝敗判定は userSide・gameWinner の両方が揃っているレコードのみを対象にする。
- * 片方が欠けている＝勝敗を判定できないレコードは、勝敗フィルタ適用時は非該当として除外する。
- */
+/** filterの条件をAND結合でゲームレコードへ適用する。勝敗情報が欠けたレコードは勝敗条件から除外する。 */
 fun List<GameRecord>.filterGames(filter: GameListFilter): List<GameRecord> {
     if (!filter.isActive) return this
     return filter { game ->

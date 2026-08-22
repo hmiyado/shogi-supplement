@@ -5,20 +5,6 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-/**
- * 実機/シミュレータのKeychain（Security framework）を実際に読み書きして検証する。
- * jvmTestの[TransferSecretManagerTest]と同じ観点をiOSの実actualに対して行う
- * （タスク指示「iosSimulatorArm64TestもKeychain/CryptoKitのactualがテスト可能な範囲で実行」）。
- *
- * Why not 常に往復成功をassertする: `:shared:iosSimulatorArm64Test` は署名なしの素の
- * ネイティブ実行体としてシミュレータ上で動く（Xcodeが管理するXCTestホストアプリではない）ため、
- * 環境によってはKeychainデーモンへのアクセス自体が `errSecNotAvailable` で拒否される
- * （実機・適切に署名されたXCTestホストでは成功する。実測でこのCI相当の環境では
- * save直後のloadが毎回nullになることを確認済み＝コードのバグではなく実行体の権限の問題）。
- * そのため「クラッシュせず一貫した結果を返す」ことを最低限の検証にし、Keychainが実際に
- * 使える環境でのみ往復の正しさまで確認する（skipではなく緩い検証にすることで、
- * 実機実行時には自動的に往復検証が効くようにする）。
- */
 class TransferSecretStoreIosTest {
 
     private fun store() = IosTransferSecretStore()
@@ -66,8 +52,6 @@ class TransferSecretStoreIosTest {
         val first = TransferSecretManager.getOrCreateSecret(s)
         assertEquals(TRANSFER_SECRET_BYTES, first.size)
         val second = TransferSecretManager.getOrCreateSecret(store())
-        // Keychainが使えない環境ではloadが常にnullを返すため、その場合は毎回新規生成になる
-        // （＝サイズだけ一致し値は一致しなくてよい）。使える環境では同じSが返るはず。
         if (s.load() != null) {
             assertEquals(first.toList(), second.toList())
         } else {
@@ -77,8 +61,6 @@ class TransferSecretStoreIosTest {
 
     private fun assertKeychainRoundTripOrUnavailable(expected: ByteArray, actual: ByteArray?) {
         if (actual == null) {
-            // このテスト実行体からはKeychainデーモンにアクセスできない環境（errSecNotAvailable）。
-            // 実機・正しく署名されたXCTestホストでは通常nullにならない。
             return
         }
         assertEquals(expected.toList(), actual.toList())

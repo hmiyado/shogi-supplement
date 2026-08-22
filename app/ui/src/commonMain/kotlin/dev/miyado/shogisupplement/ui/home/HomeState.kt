@@ -1,10 +1,6 @@
 package dev.miyado.shogisupplement.ui.home
 
-/**
- * ホーム画面の UI 状態のうち、プラットフォーム非依存のデータ型。
- *
- * lifecycle 依存のないプレーンな Kotlin 型。
- */
+/** ホーム画面のプラットフォーム非依存な状態型。 */
 
 /** 強さ指標カードの表示データ。 */
 data class StrengthCardData(

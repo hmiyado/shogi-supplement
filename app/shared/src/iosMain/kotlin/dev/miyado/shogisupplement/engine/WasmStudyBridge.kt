@@ -12,31 +12,10 @@ package dev.miyado.shogisupplement.engine
  */
 object WasmStudyBridge {
 
-    /**
-     * Swift側（WasmStudyHost）が起動時に代入する、単発局面解析の開始要求ハンドラ。
-     *
-     * @param requestId 呼び出し元（[WasmStudyEngine]）が発行する一意なリクエストID
-     * @param baseSfenArg USIの `position` コマンドへそのまま連結する文字列
-     *   （`"sfen <SFEN文字列>"` 形式。呼び出し元がネイティブエンジン実装と同じ組み立てを行う）
-     * @param movesJson [baseSfenArg] の局面からさらに進める USI 手列をJSON配列文字列化したもの
-     * @return 受理できたら true（後で[onResult]/[onError]のどちらかが呼ばれる）。
-     *   ホスト未初期化・WASMバイナリ未準備・別リクエストが処理中などで即座に受理できない場合は false
-     *   （呼び出し側はその場でサーバー解析へ切り替える。数十秒待たせないためのfail-fast）。
-     */
+    /** 単発局面解析を開始する。 @param requestId リクエストID。 @param baseSfenArg position引数。 @param movesJson 追加手列のJSON。 @return 受理できたか。 */
     var analyzeHandler: ((requestId: String, baseSfenArg: String, movesJson: String) -> Boolean)? = null
 
-    /**
-     * Swift側（WasmStudyHost）が起動時に代入する、ローカルWASM解析が使える見込みかの判定。
-     *
-     * [analyzeHandler] は常に登録済み（起動時に一度だけ代入される）なため「登録の有無」は
-     * 見込み判定に使えない。実体はWASMバイナリキャッシュの準備状態とWKWebViewページの読み込み状態の
-     * 両方（WASMバイナリready かつ ページready）——[analyzeHandler] の受理条件と同じところまで
-     * 見て true を返す。WASMバイナリreadyだがページ未readyの間は、false を返しつつページ読み込みを
-     * 裏で開始する（別途の明示的な起動経路を持たず、false を返している間は繰り返し
-     * 評価され続けるという前提のもとでこの評価自体を起点にする）。true でも
-     * 実際の呼び出しが fail-fast で false へ倒れる可能性はなお残る（他リクエストが
-     * ビジー中等。[WasmStudyEngine] のKDoc参照）。
-     */
+    /** WASMバイナリとWebViewページが準備済みかを返す。未準備ならfalseで、解析開始はfail-fastする。 */
     var localReadyProvider: (() -> Boolean)? = null
 
     private var activeRequestId: String? = null

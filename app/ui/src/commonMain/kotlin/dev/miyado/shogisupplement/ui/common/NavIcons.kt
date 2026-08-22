@@ -4,19 +4,9 @@ import androidx.compose.material.icons.materialIcon
 import androidx.compose.material.icons.materialPath
 import androidx.compose.ui.graphics.vector.ImageVector
 
-/**
- * 棋譜ナビゲーション用アイコン（最初へ／最後へ）。
- *
- * material-icons-core（compose.materialIconsExtended）には `|◀`（先頭へ戻す）・
- * `▶|`（末尾へ進める）に相当するアイコンが存在しないため、
- * Material Design Icons の `first_page` / `last_page`（Apache License 2.0）の
- * パスデータを移植し、`materialIcon`/`materialPath`（androidx.compose.material.icons、
- * material-icons-core 同梱の公開ビルダー）で ImageVector として定義する。
- * 出典: Material Design Icons（Apache-2.0）first_page / last_page。
- */
+/** 標準にない「最初へ」「最後へ」のナビゲーションアイコンをMaterialのパスで定義する。 */
 object NavIcons {
 
-    /** 最初へ（|◀ 相当。KifuLineViewer/ReportScreen のナビ先頭ボタン用）。 */
     val FirstPage: ImageVector by lazy {
         materialIcon(name = "NavIcons.FirstPage") {
             materialPath {
@@ -38,7 +28,6 @@ object NavIcons {
         }
     }
 
-    /** 最後へ（▶| 相当。KifuLineViewer/ReportScreen のナビ末尾ボタン用）。 */
     val LastPage: ImageVector by lazy {
         materialIcon(name = "NavIcons.LastPage") {
             materialPath {

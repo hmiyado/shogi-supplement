@@ -3,16 +3,8 @@ package dev.miyado.shogisupplement.engine
 import dev.miyado.shogisupplement.auth.AuthRepository
 
 /**
- * [delegate] が [RemoteAnalysisException.Unauthorized] を投げたとき、
- * [authRepository.refreshSession] で1回だけセッション再取得を試み、成功したら1回だけ
- * リトライする [GameAnalyzer] ラッパー。refreshSession も失敗、または再試行後も401なら
- * そのまま例外を伝播する（[AnalysisOrchestrator] が [RemoteAnalysisErrorMapper] で
- * 日本語メッセージへ変換する）。
- *
- * Why not signInAnonymously: 匿名認証を自動で再実行すると新規アカウントが発行され、
- * 既存ユーザーのデータ（提供済み棋譜・引き継ぎコードでの復元対象）との連続性が切れる。
- * refreshSession はトークンの再発行のみでアカウントを作り直さないため、ここでの
- * 自動復旧に使えるのは refreshSession だけ。
+ * Unauthorized時にrefreshSessionを一度だけ試して再実行するGameAnalyzerラッパー。
+ * Why not signInAnonymously: 新規アカウントで既存データとの連続性が切れるため。
  */
 class AuthRetryingAnalyzer(
     private val delegate: GameAnalyzer,

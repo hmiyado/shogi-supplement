@@ -50,22 +50,9 @@ import dev.miyado.shogisupplement.ui.theme.TextStyleDataMove
 import dev.miyado.shogisupplement.ui.theme.shogiColors
 
 /**
- * 検討モードのパネル（罫線から下の「グラフ＋サマリー」領域を検討中はこれに丸ごと入れ替える）。
- *
- * 外形は呼び出し側の `Modifier.fillMaxSize()` で非検討時の SUMMARY 領域と同じ高さになる
- * （高さを個別に計算して揃えているのではなく、同じ排他スロットを共有することで構造的に
- * 一致させている。DESIGN.md No-jitter原則）。
- *
- * 内部は上から: 見出し行（「検討中」＋分岐元行を1つの Row に統合。終了ボタンはナビ行側に
- * のみ置く——実機確認で「終了ボタンが2つある」との指摘があり撤去した）／評価スロット
- * （見出し直下・固定高さ56dp。排他入替はここだけ）／区切り線／手順チップ列（FlowRow で
- * カード端に折り返し、残りの縦スペースを weight(1f) で使い切り、それでも溢れた分だけ
- * chip-flow 領域内で verticalScroll する）。
- *
- * チップ列を横スクロールではなく折り返しにできるのは、折り返した分の高さ増加を
- * weight(1f) 領域の内部スクロールに閉じ込めているため——単純な FlowRow だけだと
- * 分岐の増減や手数でパネルの外形自体が伸縮してしまうが、「残りスペースぶんだけ確保して
- * 溢れたら内部スクロール」にすることで、パネルの外形（高さ）は分岐の手数に関わらず不変になる。
+ * 検討モードのパネル。評価スロットと手順チップ列を固定の外形に収める。
+ * チップ列はFlowRowで折り返し、余剰分だけ内部スクロールする。
+ * 終了操作はナビ行に集約し、評価スロットは状態に応じて排他表示する。
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -117,12 +104,8 @@ internal fun StudyPanel(
 
             Spacer(Modifier.height(8.dp))
 
-            // 評価スロット（見出し行の直下・固定高さ56dp。排他入替はここだけ。
-            // DESIGN.md No-jitter原則）。着手・チップ移動のたび StudyController が
-            // 自動発火するため、手動ボタンは Error（解析失敗）のみに出す（None は
-            // 分岐元そのもの・moves空で「そもそも何もしない」。Preparing はローカル
-            // エンジンが使える見込みが無いだけの自動回復待ちの読み込み中状態のため、
-            // Loading と同型（スピナー＋テキストのみ）にし手動ボタンは出さない）。
+            // 評価スロットは固定高さとし、手動再試行はError状態だけに限定する。
+            // Preparingは自動回復待ちのためLoadingと同じ表示にする。
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -186,10 +169,7 @@ internal fun StudyPanel(
 
             Spacer(Modifier.height(8.dp))
 
-            // 読み筋チップ列。displayLine 全体を描画する（moves より先＝まだ進んでいない
-            // 手も淡色で表示し続ける。実機確認: 「戻ると先のチップが消える」対応。現在手は
-            // highlight 背景）。カード端で折り返し（FlowRow）、残りの縦スペースを
-            // weight(1f) で使い切り、それでも溢れた分だけこの領域内で縦スクロールする。
+            // displayLine全体を淡色を含めて描画し、余剰分だけこの領域内で縦スクロールする。
             FlowRow(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -267,17 +247,8 @@ private fun AnalyzeButton(onClick: () -> Unit) {
 }
 
 /**
- * 手順チップ1つ（現在手=highlight背景・濃墨文字、分岐あり=primary枠＋末尾に下向き
- * チェブロン、先の手（まだ進んでいない）=ink3の淡色）。
- *
- * 分岐マークは絵文字/記号（⑂等）ではなく Material の KeyboardArrowDown アイコンを使う
- * （miyadoさん指定: フォントカバレッジの差でiOS/Androidの見た目が割れるのを避けるため）。
- * ▽▼は後手記号と衝突するため使わない。
- *
- * 現在手のチップは highlight（卵黄）背景になるが、卵黄は面専用の色で文字色には使えない。
- * ダークテーマの highlight は中明度の黄土色で、通常の（テーマ追従の）文字色を乗せると
- * コントラスト不足になるため、現在手チップの文字はテーマによらず常に LightInk
- * （濃墨の固定色）を使う（miyadoさん実機確認）。
+ * 手順チップ。分岐にはMaterialのKeyboardArrowDownを使い、記号の字体差を避ける。
+ * 現在手はhighlight背景とLightInk文字で表示し、ダークテーマでもコントラストを保つ。
  */
 @Composable
 private fun StudyMoveChip(
@@ -323,14 +294,8 @@ private fun StudyMoveChip(
 }
 
 /**
- * baseSfen から moves を順に指したときの各手の日本語表記を返す（moves と同じ長さ）。
- * 画面内の他の手表記と同じ変換（JapaneseNotation.format）を手順全体に適用する。
- *
- * Why not 1つの ShogiBoard を使い回して逐次 push しないか: 途中の1手で notation 変換や
- * push が失敗すると、以降の手すべてが USI 表記へ道連れでフォールバックしてしまう
- * （実機確認: 分岐の手がすべて USI 表記のまま出ていた不具合の原因）。
- * 「depth ごとに baseSfen から独立に組み立て直す」方式にすることで、1手の失敗を
- * その手だけに閉じ込める（手数は小さいため計算コストは無視できる）。
+ * baseSfenから各手の日本語表記を返す。
+ * Why not 盤を使い回さない: 途中の失敗を後続の手へ波及させないため、手ごとに再構築する。
  */
 private fun buildMoveNotations(baseSfen: String, moves: List<String>): List<String> =
     moves.indices.map { depth ->

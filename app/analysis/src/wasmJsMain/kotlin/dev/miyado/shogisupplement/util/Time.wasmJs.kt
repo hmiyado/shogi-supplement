@@ -2,10 +2,7 @@
 
 package dev.miyado.shogisupplement.util
 
-/**
- * [Logger.wasmJs.kt]と同じ理由（wasmJsはデフォルトで`Date`を参照できない）で
- * @JsFun による最小限のブリッジにする。
- */
+/** wasmJsからDateへ接続する最小限の@JsFunブリッジ。 */
 @JsFun("() => Date.now()")
 private external fun jsDateNowMillis(): Double
 

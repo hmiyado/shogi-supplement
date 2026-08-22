@@ -2,11 +2,7 @@
 
 package dev.miyado.shogisupplement.util
 
-/**
- * ブラウザ console.error への橋渡し。wasmJsターゲットは js(IR) と違い `console` を
- * デフォルトで参照できないため（kotlinx-browser等の追加依存が要る）、@JsFun で
- * 直接JSスニペットを呼ぶ最小限のブリッジにする。
- */
+/** wasmJsからブラウザのconsole.errorへ接続する最小限の@JsFunブリッジ。 */
 @JsFun("(msg) => console.error(msg)")
 private external fun jsConsoleError(msg: String)
 

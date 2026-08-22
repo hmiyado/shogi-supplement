@@ -28,7 +28,7 @@ data class AnalysisJobRecord(
     val resultJson: JsonElement?,
     val engineMeta: JsonElement?,
     val error: String?,
-    // RUNNING行のstale判定（AnalysisService.resolveExisting）に使う。
+    // RUNNING行のstale判定に必要な時刻。
     val createdAt: Instant,
 )
 

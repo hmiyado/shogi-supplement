@@ -1,9 +1,4 @@
 package dev.miyado.shogisupplement.util
 
-/**
- * 現在時刻をエポック秒で返す。
- *
- * commonMain では JVM 専用の System.currentTimeMillis() を使えないため
- * expect/actual で分離する（iOS 対応の下準備）。
- */
+/** 現在時刻をエポック秒で返す。プラットフォームごとのactual実装で時刻を取得する。 */
 expect fun currentEpochSeconds(): Long

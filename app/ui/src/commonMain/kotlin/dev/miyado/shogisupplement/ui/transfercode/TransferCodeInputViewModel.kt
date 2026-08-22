@@ -25,14 +25,7 @@ sealed class TransferCodeInputUiState {
     data class Error(val message: String) : TransferCodeInputUiState()
 }
 
-/**
- * 引き継ぎコード入力（復元）ダイアログの ViewModel。
- *
- * 既にログイン中（[AuthRepository.currentUser] が非null）なら [submit] は即座に復元へ進めず
- * [TransferCodeInputUiState.NeedsConfirmation] を経由させる。呼び出し側の確認ダイアログで
- * 承認したら [confirmRestore] を呼ぶ2段階の設計。「未ログイン端末からコードを入力する」
- * 通常経路（初回セットアップ相当）では確認は不要なため分岐する。
- */
+/** 引き継ぎコード復元の状態を管理する。ログイン中は確認を経てから復元し、未ログイン時は直行する。 */
 class TransferCodeInputViewModel(
     private val authRepository: AuthRepository,
     private val transferRestoreService: TransferRestoreService,

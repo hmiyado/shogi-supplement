@@ -1,12 +1,6 @@
 package dev.miyado.shogisupplement.util
 
-/**
- * 純Kotlin実装のSHA-256。
- *
- * `String.encodeToByteArray()`（全プラットフォームでUTF-8）で得たバイト列に対する
- * 標準的なSHA-256実装。既存DBの content_hash 重複チェックとの互換性を保つため、
- * ハッシュ値の算出方法（UTF-8バイト列 → SHA-256 → 小文字16進文字列）を変更しないこと。
- */
+/** UTF-8バイト列をSHA-256へ変換し、小文字16進文字列で返す純Kotlin実装。 */
 fun sha256Hex(text: String): String {
     val bytes = text.encodeToByteArray()
     val digest = sha256(bytes)

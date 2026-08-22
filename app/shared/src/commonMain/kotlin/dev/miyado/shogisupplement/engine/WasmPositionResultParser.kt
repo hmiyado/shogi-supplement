@@ -38,16 +38,7 @@ internal data class RawWasmPositionResult(
 /** [ply] とその局面の MultiPV 結果（[PvInfo] リスト）。 */
 internal data class WasmPositionResult(val ply: Int, val pvs: List<PvInfo>)
 
-/**
- * WKWebView内JSの "position" メッセージの result フィールド（JSON文字列）をパースする。
- *
- * @param resultJson [RawWasmPositionResult] と同じ形の JSON 文字列
- *
- * multipv=2側の nodes は常に 0 を積む: analysis-worker.js の result.multipv2 は
- * {score, pv} のみで nodes を持たない（Web版=:webApp の RawPv2 と同じ形。
- * [dev.miyado.shogisupplement.pipeline.PositionEval] 変換では pv2 の nodes を
- * 参照しないため、この欠落は既存の Web 版と同じ扱いで実害がない）。
- */
+/** WKWebViewのposition結果を解析する。multipv2のnodesは仕様上0として扱う。 @param resultJson RawWasmPositionResult形式のJSON。 */
 internal fun parseWasmPositionResult(resultJson: String): WasmPositionResult {
     val raw = wasmResultJson.decodeFromString(RawWasmPositionResult.serializer(), resultJson)
     val pvs = buildList {

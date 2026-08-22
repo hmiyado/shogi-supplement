@@ -3,18 +3,7 @@ package dev.miyado.shogisupplement.strength
 import kotlin.math.round
 import kotlin.math.roundToInt
 
-/**
- * 強さ指標の推定結果。
- *
- * @param rating lishogi 相当レート値
- * @param clamped クランプされたかどうか（上限/下限の区別）
- * @param errorMargin 表示用の誤差幅（±点）。集計対象手数から
- *   [StrengthEstimator.errorMarginFor] でルックアップする。
- *   手数を積んでも±280程度（偏差値±11）で頭打ちになるため、常時表示する。
- * @param totalMoves 推定に使った集計対象手数（自分の手のみ）。
- *   rating は手数を積むほど収束するため、単独では意味が薄い。必ずこの値とセットで
- *   保存・比較すること（DB game.rating_sample_moves 参照）。
- */
+/** 強さ指標の推定結果。 @param rating 推定レート。 @param clamped 上下限へのクランプ状態。 @param errorMargin 表示用誤差幅。 @param totalMoves 推定対象の手数。 */
 data class StrengthEstimate(
     val rating: Int,
     val clamped: ClampState,
@@ -36,36 +25,21 @@ enum class ClampState {
 
 /**
  * 偏差値換算の基準集団（norm v2）。
- *
- * 較正サンプル（lishogi レート対局者・プレイヤー単位 n=1880）の推定器v2予測値の
- * 平均と標準偏差。偏差値はこの集団内での相対位置（平均50・SD10）。
- *
- * 内部推定はレート軸のまま維持し、表示直前でのみ換算する。推定自体を偏差値軸に
- * しない理由: アンカー・誤差幅・係数表がレート軸で較正済みで、換算は単調な線形写像
- * なので表示層で足りる。基準集団を差し替えるときは版を上げ、ヘルプの基準集団の
- * 説明も合わせて更新する。
+ * 平均50・SD10の較正集団を基準に、表示時だけレートを換算する。
+ * 推定をレート軸に保つのは、係数表と誤差幅がその軸で較正されているため。
  */
 object StrengthNorm {
     const val VERSION = "v2"
     const val MEAN = 1718.0852941473634
     const val SD = 61.43099285964464
 
-    /**
-     * 真レート分布のSD（較正集団の申告レート・プレイヤー単位）。
-     * 誤差幅の偏差値換算にのみ使う。
-     */
+    /** 真レート分布のSD。誤差幅を偏差値へ換算するときに必要とする。 */
     const val TRUE_SCALE_SD = 256.0
 
     /** レート値 → 偏差値（四捨五入）。 */
     fun deviationScore(rating: Int): Int = round(50.0 + 10.0 * (rating - MEAN) / SD).toInt()
 
-    /**
-     * レート幅（±点）→ 偏差値幅（四捨五入）。
-     *
-     * Why not [SD]で割る: 誤差幅は真レート軸で見積もられているため、換算も同じ軸の
-     * 分布幅[TRUE_SCALE_SD]で行うのが正しい。予測分布のSD（縮小写像で真レートより狭い）
-     * で割ると、幅が実態より大きく表示されてしまう。
-     */
+    /** レート幅を偏差値幅へ換算する。真レート軸のSDを使い、予測分布のSDは使わない。 */
     fun deviationWidth(ratingPoints: Int): Int = round(10.0 * ratingPoints / TRUE_SCALE_SD).toInt()
 }
 
@@ -78,12 +52,7 @@ object StrengthNorm {
  */
 object StrengthEstimator {
 
-    /**
-     * 累計手数から表示用誤差幅（±点）をルックアップする（保守側丸め）。
-     *
-     * 復元抽出ブートストラップの90% half-width を保守側に丸めた値で、
-     * 手数を積んでも±280程度で頭打ちになる（個人レベルの系統誤差が支配的なため）。
-     */
+    /** 累計手数から表示用誤差幅を保守側に丸めて返す。個人差を考慮して上限を設ける。 */
     internal fun errorMarginFor(totalMoves: Int): Int = when {
         totalMoves <= 300 -> 290
         else -> 280
@@ -152,12 +121,7 @@ object StrengthEstimator {
         )
     }
 
-    /**
-     * 複数局のレート（各 [estimate] の結果）を平均して表示用の強さ指標を組み立てる。
-     *
-     * Why not 特徴量を積み上げて再度線形式を通す: 推定器v2は1局単位の予測のため、
-     * 確定済みの各局レートを単純平均する方が挙動を説明しやすい。
-     */
+    /** 複数局の推定レートを平均して強さ指標を組み立てる。局単位の結果を平均する。 */
     fun aggregate(ratings: List<Int>, totalMoves: Int): StrengthEstimate {
         require(ratings.isNotEmpty()) { "ratings must not be empty" }
         val avgRating = ratings.sumOf { it }.toDouble() / ratings.size
@@ -170,13 +134,7 @@ object StrengthEstimator {
     }
 }
 
-/**
- * 強さ指標を表示用文字列（偏差値・norm v2換算）に変換する。
- *
- * 常に誤差幅「±NN」を付けて表示する形式。単位ラベル（「偏差値」）は付けない——
- * カードタイトルや接頭文言が単位を持つため、値側に重ねると冗長になる。
- * 例: "51 ±25"
- */
+/** 強さ指標を偏差値と誤差幅の表示用文字列へ変換する。 */
 fun StrengthEstimate.toDisplayString(): String {
     val dev = StrengthNorm.deviationScore(rating)
     val width = StrengthNorm.deviationWidth(errorMargin)

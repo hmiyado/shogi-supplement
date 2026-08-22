@@ -6,17 +6,8 @@ import dev.whyoleg.cryptography.algorithms.HKDF
 import dev.whyoleg.cryptography.algorithms.SHA256
 
 /**
- * マスターシークレット S から K_auth / K_enc を導出する（付録「引き継ぎコードの詳細仕様」）。
- *
- * ```
- * K_auth = HKDF-SHA256(S, info="shogisup/auth/v1", 32B)  // サーバーはこのハッシュのみ保存
- * K_enc  = HKDF-SHA256(S, info="shogisup/enc/v1", 32B)   // サーバーへ送らない
- * ```
- *
- * Why not salt指定: 設計書はHKDFのsalt引数に触れていない。RFC 5869はsalt省略時に
- * ハッシュ長ぶんのゼロ埋めを既定とするため、それと同じ意味になる `salt = null` を渡す
- * （cryptography-kotlinのHKDF実装がRFC既定に従う前提。salt自体を秘密にする設計ではなく、
- * 入力Sそのものが128bitの高エントロピー値のため、salt省略の安全性は損なわれない）。
+ * マスターシークレットからK_authとK_encをHKDF-SHA256で導出する。
+ * Why not salt指定: RFC 5869の既定と仕様を一致させるため、salt=nullとする。
  */
 object TransferSecretKeys {
 

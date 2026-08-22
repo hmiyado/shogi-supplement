@@ -7,16 +7,9 @@ import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.engine.PvInfo
 
 /**
- * サーバー版の二次判定（iOS・baseUrl設定時のみ）。
- *
- * Why not 出題局面も解析し直す（[EngineDrillSecondaryJudge] と同じ2回解析にする）:
- * 出題局面（sfenBefore）の pv1 評価値は解析時に既に [BlunderRecord.cpBefore] として
- * 保存済みで、ここで取り直しても同じ値になる。端末エンジンは無料でローカルに呼べるため
- * 2回解析しても実害が無いが、サーバー版はネットワーク往復そのものがコスト（レイテンシ・
- * 単発局面クォータ消費）なので、ユーザー手後の局面だけを解析して1回で済ませる。
- *
- * @param analyzePosition 単発局面解析関数 `(sfen: String) -> List<PvInfo>`。
- *   [dev.miyado.shogisupplement.engine.RemoteAnalysisRunner.analyzePosition] を渡す想定。
+ * サーバー版の二次判定。
+ * Why not 出題局面を再解析しない: 保存済みcpBeforeを使えば通信を1回にできる。
+ * @param analyzePosition 単発局面解析関数。
  */
 class RemoteDrillSecondaryJudge(
     private val analyzePosition: suspend (sfen: String) -> List<PvInfo>,

@@ -27,39 +27,10 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-// ViewModel は Application/File/UsiEngineProcess への直接依存を持たず、必要最小限の
-// 注入インターフェース（GameRepository/DrillRepository/SettingsRepository と
-// judgeWithEngine 関数）だけに依存する:
-//   - judgeWithEngine: 一次判定（DrillJudge.judgePrimary）が Ambiguous/Unavailable を
-//     返した場合のみ呼ばれる二次判定（DrillSecondaryJudge.judge 相当）。suspend にしているのは
-//     iOSのサーバー版（RemoteDrillSecondaryJudge）がネットワークI/Oを行うため。エンジンの
-//     起動/破棄ライフサイクル（Android版=UsiEngineProcess.create/quit を1回の判定ごとに行う、
-//     iOS版=起動済みの UsiEngineInProcess を使い回す）は完全にホスト側の責務とし、
-//     ViewModel はその結果（DrillJudge.DrillResult）だけを受け取る。
-//   - evalDir・ApplicationInfo・nativeLibraryDir 等 Android専用の解決はすべて
-//     judgeWithEngine を組み立てる Android ホスト側（DrillScreenHost.kt）に閉じ込められて
-//     おり、ViewModel 自体は evalDir を知らない（注入面を最小化している）。
+// ViewModelはリポジトリと判定関数だけに依存し、エンジンのライフサイクルはホストへ委ねる。
+// Android固有のevalDirやApplicationInfoは注入関数を組み立てるホストに閉じ込める。
 
-/**
- * ドリル機能の ViewModel。
- *
- * - DB からドリル候補を取得して出題
- * - 盤面でのタップによる手の入力を処理
- * - エンジンを使って正誤判定（必要な場合のみ、judgeWithEngine 経由）
- * - drill_attempt をDBに保存
- *
- * @param gameRepository 棋譜・悪手レポート操作用リポジトリ（出題局面の対局側判定・読み筋延長）
- * @param drillRepository ドリル出題候補・解答履歴の操作用リポジトリ
- * @param settingsRepository 形勢の表示単位（cp/wp）取得用リポジトリ
- * @param judgeWithEngine 一次判定（best_usi一致/実戦悪手一致/pv2境界）だけでは確定できない
- *   曖昧領域でのみ呼ばれる二次判定関数（[dev.miyado.shogisupplement.drill.DrillSecondaryJudge]
- *   相当）。null なら一次判定のみで、それ以外は不正解扱いになる。
- * @param engineFactory 読み筋のオンデマンド延長（結果画面の「最善」タブ）が必要な場合のみ
- *   呼ばれるエンジン生成関数。null なら延長は常にエラー扱い（ボタン自体は出せるがタップ後に
- *   即エラー状態になる）。ReportViewModel と同じ PvExtensionRunner を使う（エンジンの
- *   起動/破棄ライフサイクルはホスト側の責務。judgeWithEngine と同様の注入方針）。
- * @param ioDispatcher DB/エンジン処理用ディスパッチャ（テスト時はUnconfinedを注入）
- */
+/** ドリルの状態、盤面入力、判定、解答保存を管理する。 @param gameRepository 棋譜と悪手のリポジトリ。 @param drillRepository 出題と履歴のリポジトリ。 @param settingsRepository 表示単位のリポジトリ。 @param judgeWithEngine 二次判定関数。 @param engineFactory PV延長用エンジンfactory。 @param ioDispatcher DBとエンジン処理用dispatcher。 */
 class DrillViewModel(
     private val gameRepository: GameRepository,
     private val drillRepository: DrillRepository,
@@ -120,12 +91,7 @@ class DrillViewModel(
         }
     }
 
-    /**
-     * 盤上のマスをタップしたときの処理。
-     * - 駒未選択: 自駒を選択してハイライト
-     * - 駒選択中: 合法目的マスなら手を確定、そうでなければ選択解除/変更
-     * - 持ち駒選択中: 合法打ちマスなら打つ
-     */
+    /** 盤面タップを処理し、合法手なら確定、無効なら選択状態を更新する。 */
     fun onSquareTapped(sq: ShogiSquare) {
         val state = _state.value as? DrillUiState.Question ?: return
         val board = currentBoard ?: return
@@ -262,16 +228,7 @@ class DrillViewModel(
         }
     }
 
-    /**
-     * 読み筋のオンデマンド延長（結果画面の「最善」タブ末尾から）。
-     *
-     * 対象は現在表示中の DrillUiState.Result.blunder（出題中に正誤判定された悪手）。
-     * best_pv は表示中の blunder に紐づくため、成功時は _state を新しい bestPv を持つ
-     * Result に差し替える（KifuLineViewer の bestMoves remember キーが blunder なので、
-     * これだけで最善タブの手列が自動的に伸びる）。
-     *
-     * @param sfenAtLineEnd 最善タブのライン末尾局面の SFEN（KifuLineViewer.onExtendRequested から渡される）
-     */
+    /** 最善タブのPVを延長する。 @param sfenAtLineEnd ライン末尾局面のSFEN。 */
     fun extendBestPv(sfenAtLineEnd: String) {
         val resultState = _state.value as? DrillUiState.Result ?: return
         val blunder = resultState.blunder

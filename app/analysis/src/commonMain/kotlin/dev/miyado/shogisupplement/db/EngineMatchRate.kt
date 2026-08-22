@@ -9,10 +9,7 @@ package dev.miyado.shogisupplement.db
  */
 object EngineMatchRate {
 
-    /**
-     * @param rate 一致率（0.0-1.0）
-     * @param matched 一致した手数（分子）。レポート画面の「Y%(l/n)」表示に使う
-     */
+    /** @param rate 一致率。 @param matched 一致した手数。 */
     data class Result(val rate: Double, val matched: Int, val sampleMoves: Int)
 
     /**

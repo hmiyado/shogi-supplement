@@ -15,13 +15,8 @@ internal fun HttpRequestBuilder.supabaseServiceRoleHeaders(serviceRoleKey: Strin
 internal fun restUrl(supabaseUrl: String, table: String): String =
     "${supabaseUrl.trimEnd('/')}/rest/v1/$table"
 
-// PostgREST向けHTTPクライアント（Application.kt の restClient）専用のJson。
-// encodeDefaults=true が必須: この用途のペイロード（MarkDonePayload等）はデフォルト値付きの
-// プロパティを持つが、kotlinx.serializationは既定でデフォルト値のプロパティを
-// エンコード時に省略するため、encodeDefaults=falseのままだとPATCH/POSTのJSON本文から
-// 該当フィールドが丸ごと消え、DB側の値が更新されない（例: statusが送られずrunningのまま残る）。
-// decodeにはencodeDefaultsは影響しない（decode時の欠損フィールド補完は各プロパティの
-// デフォルト値そのものによる）ため、レスポンスのパース（JobRow等）への影響はない。
+// PostgREST用JsonはencodeDefaults=trueとする。既定値のフィールドもPATCH/POSTへ送るため。
+// decode側の欠損補完には影響しない。
 val supabaseJson: Json = Json {
     ignoreUnknownKeys = true
     encodeDefaults = true

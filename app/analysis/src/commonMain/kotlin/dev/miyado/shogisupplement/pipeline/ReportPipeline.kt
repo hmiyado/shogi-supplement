@@ -12,17 +12,7 @@ import dev.miyado.shogisupplement.strength.FeatureExtractorV2
 import dev.miyado.shogisupplement.strength.StrengthEstimate
 import dev.miyado.shogisupplement.strength.StrengthEstimator
 
-/**
- * 局面ごとのエンジン評価 → 悪手抽出 → 強さ推定 → 相応判定 のパイプライン。
- *
- * エンジン実行そのものは含まない。入力はエンジン出力データ構造（AnalysisRunner が供給）。
- *
- * 2パス構造:
- *   第1パス: 悪手抽出・分類（BlunderJudge / BlunderClassifier）
- *   第2パス: 強さ推定 → 帯決定 → 相応判定（StrengthEstimator / Judge）
- * 申告レートは帯決定に使わない。今局の解析結果（[FeatureExtractorV2] の6特徴量）から
- * 直接レートを推定する（過去局の累計は使わない）。
- */
+/** 局面評価から悪手抽出、強さ推定、相応判定までを行う。エンジン実行は含めない。 */
 object ReportPipeline {
 
     /**
@@ -46,15 +36,7 @@ object ReportPipeline {
         val ratingSampleMoves: Int get() = strengthEstimate.totalMoves
     }
 
-    /**
-     * 棋譜の悪手一覧（強さ推定に基づく相応判定付き）を返す。
-     *
-     * @param moves USI 手列（KIF パーサ出力そのもの）
-     * @param evals 各局面のエンジン評価（サイズ = moves.size + 1。evals[t] が moves[t] 指す前の評価）
-     * @param sides  解析対象 ("sente" / "gote" / 両方)。強さ推定の「own」側集合としても使う
-     * @param coef   係数表
-     * @return [AnalysisResult]（悪手リスト＋強さ推定）
-     */
+    /** 悪手一覧と強さ推定を返す。 @param moves USI手列。 @param evals 各局面の評価。 @param sides 解析対象の手番。 @param coef 係数表。 @return AnalysisResult。 */
     fun analyze(
         moves: List<String>,
         evals: List<PositionEval>,

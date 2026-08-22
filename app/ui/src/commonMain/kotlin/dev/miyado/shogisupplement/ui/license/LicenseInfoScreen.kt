@@ -27,22 +27,7 @@ import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
-/**
- * OSSライセンス画面（Android/iOS共通の唯一の実装）。
- *
- * 本アプリ（GPLv3）・同梱エンジン（やねうら王・Háo）・フォントライセンスを
- * 固定ヘッダとして表示し、続けて依存OSSの完全な一覧を
- * [libraries]（AboutLibraries の [Libs]）から [LibrariesContainer] で描画する。末尾に
- * ソースリポジトリへのリンクを置く。
- *
- * [libraries] の読み込み手段はプラットフォーム側の責務（Android は
- * `Libs.Builder().withContext(context)`、iOS は compose resources から読んだ JSON を
- * `Libs.Builder().withJson()`）。ここではパラメータとして受け取るだけにして、
- * VRT で決定的に描画できるようにする。
- *
- * URL を開く実処理もプラットフォーム側が [onOpenSourceRepo] として渡す
- * （commonMain は URL オープンAPIを持たないため）。
- */
+/** OSSライセンス画面。ライブラリ一覧とソースリポジトリへのリンクを表示する。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LicenseInfoScreen(

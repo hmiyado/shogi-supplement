@@ -7,21 +7,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import platform.Foundation.NSUUID
 
-/**
- * 端末内WKWebView×WASM版やねうら王による [GameAnalyzer] 実装。
- *
- * 実体はSwift側（iosApp/iosApp/WasmAnalysisHost.swift）がホストするWKWebViewで、
- * 2Workerで並列に解析するJS実装（docs/kento/webapp-bridge.js。局面ごとisready→usinewgameで
- * 置換表を切り、エンジンプロセスを温存したまま孤立解析と同等の決定性を保つ）をそのまま動かす。
- * 境界は [WasmAnalysisBridge] の「文字列とコールバック関数」のみ。
- *
- * Engineless構成（ストア版。cinterop経由のin-processエンジンを一切リンクしない）でも動く:
- * ここはWebKit（システムフレームワーク）とWKWebView内JSのみに依存し、
- * engine_wrapper（IosEngineHost.ENGINE_LINKED）とは無関係。
- *
- * 解析条件（400kノード/Threads=1/USI_Hash=128/MultiPV=2/FV_SCALE=20・局面ごとisready→
- * usinewgame）はdocs/kento/analysis-worker.jsが担保する（このクラスは変更しない）。
- */
+/** WKWebView上のWASMエンジンでGameAnalyzerを実装する。WebKitだけに依存するためengineless構成でも動作する。 */
 class WasmAnalysisRunner : GameAnalyzer {
 
     override suspend fun analyzeGame(
@@ -58,16 +44,7 @@ class WasmAnalysisRunner : GameAnalyzer {
     }
 
     companion object {
-        /**
-         * エンジンWASMバイナリ（VERSION・yaneuraou-*.wasm・nn.bin）の本番配信先。
-         * docs/copy-kento-assets.sh が生成し、Pages（[docs/CNAME]のカスタムドメイン）配下へ
-         * デプロイする（docs/kento-assets/。バージョン付きサブディレクトリの解決は
-         * docs/kento/webapp-bridge.js の resolveAssetDirUrl が担う）。
-         *
-         * Why not ANALYSIS_BASE_URLのようにビルド時設定にする: サーバー解析ベースURLは
-         * dev/prodで環境が分かれるが、PagesのWASMバイナリは本番配信のみ（開発用の別配信は無い）ため
-         * 設定項目を増やす理由が無い。
-         */
+        /** エンジンWASM資産の本番配信先。Why notビルド時設定にしない: Pagesの本番配信だけを使うため。 */
         private const val ASSET_BASE_URL = "https://shogi-supplement.miyado.dev/kento-assets"
         private val json = Json
     }

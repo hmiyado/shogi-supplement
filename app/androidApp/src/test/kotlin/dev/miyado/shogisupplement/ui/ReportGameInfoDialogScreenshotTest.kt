@@ -16,11 +16,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-/**
- * レポート画面の対局情報ダイアログ（Info アイコン→「この棋譜について」）の VRT。
- * AlertDialog は別ウィンドウに描画されるため、compose 単体キャプチャではなく
- * captureScreenRoboImage（画面全体撮影）を使う（AccountDeleteDialogScreenshotTest と同じ規約）。
- */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(
@@ -50,7 +45,6 @@ class ReportGameInfoDialogScreenshotTest {
         coefVersion = "hao_v1",
         movesUsi = listOf("7g7f", "3c3d", "2g2f", "8c8d"),
         userSide = "sente",
-        // source_place は正規化コード（AppStrings.sourcePlaceLabel で表示文言に変換される）。
         sourcePlace = "wars",
     )
 
@@ -77,7 +71,6 @@ class ReportGameInfoDialogScreenshotTest {
         cpBefore = -350L,
     )
 
-    /** 対局情報ダイアログ表示状態（ファイル名・先手/後手名・閉じるのみ）。 */
     @OptIn(ExperimentalRoborazziApi::class)
     @Test
     fun report_viewer_game_info_dialog() {

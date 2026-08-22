@@ -14,15 +14,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-/**
- * アカウント（棋譜提供）画面の VRT（スクリーンショットテスト）。
- *
- * 4 状態をゴールデン画像として記録する:
- *   1. 未提供（データ提供していない）
- *   2. 提供中（自動アップロード OFF）
- *   3. 提供中（自動アップロード ON）
- *   4. エラー表示（サインイン失敗など）
- */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(
@@ -38,7 +29,6 @@ class AccountScreenScreenshotTest {
         compareOptions = RoborazziOptions.CompareOptions(changeThreshold = 0.01f),
     )
 
-    /** 未提供: 初期状態（エラーなし）。 */
     @Test
     fun account_notLoggedIn() {
         captureRoboImage(
@@ -53,7 +43,6 @@ class AccountScreenScreenshotTest {
         }
     }
 
-    /** 提供中: 自動アップロード OFF。 */
     @Test
     fun account_loggedIn() {
         captureRoboImage(
@@ -71,7 +60,6 @@ class AccountScreenScreenshotTest {
         }
     }
 
-    /** 提供中: 自動アップロード ON。 */
     @Test
     fun account_loggedIn_autoUploadOn() {
         captureRoboImage(
@@ -89,7 +77,6 @@ class AccountScreenScreenshotTest {
         }
     }
 
-    /** エラー表示: 匿名サインイン失敗（汎用エラー）。 */
     @Test
     fun account_error() {
         captureRoboImage(

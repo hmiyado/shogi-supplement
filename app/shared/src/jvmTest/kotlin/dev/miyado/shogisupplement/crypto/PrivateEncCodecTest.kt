@@ -69,12 +69,6 @@ class PrivateEncCodecTest {
         assertFailsWith<IllegalArgumentException> { PrivateEncCodec.decrypt(kEnc, badVersion, aad) }
     }
 
-    // ---- ゴールデン形式テスト ----
-    // 固定nonceで暗号化した結果のバイト列をハードコードし、iOS/JVM間で同一形式（バージョン
-    // バイト位置・nonce長・ciphertext|tagレイアウト）になることを固定する。iosTest側にも
-    // 同じ入力・同じ期待値のテストを置き、各プラットフォームが独立にこの値と一致することを
-    // 確認する（cryptography-kotlinがプラットフォーム間で同一ワイヤフォーマットを保証する前提の
-    // 検証。cryptography-core自体の内部実装をここで検証するわけではない）。
 
     @Test
     fun `ゴールデン- 固定nonceでの暗号化結果は固定バイト列と一致する`() = runTest {
@@ -90,7 +84,6 @@ class PrivateEncCodecTest {
     }
 
     companion object {
-        // 下の `printGoldenHex` で実測して固定した値（cryptography-kotlin 0.6.0 / JDK provider）。
         private const val GOLDEN_HEX =
             "01000102030405060708090a0b206dba7fa08bef7de439e3fec38ceadeb9c1bc65d13c744fc8476413e2bf"
     }

@@ -10,15 +10,6 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/**
- * DrillJudge の単体テスト（fake エンジン注入）。
- *
- * 検証範囲:
- * - best_usi 一致 → 即正解（エンジン不要）
- * - 実戦悪手一致 → 即不正解（エンジン不要）
- * - エンジン判定: loss_wp = winProb(best) - winProb(-after) と閾値 0.05 の境界
- * - エンジン無し・不正な指し手のフォールバック（不正解）
- */
 class DrillJudgeTest {
 
     private val initialSfen =
@@ -54,7 +45,6 @@ class DrillJudgeTest {
         secondCp = secondCp,
     )
 
-    /** 呼び出し記録つき fake エンジン。sfen ごとに返す評価値を指定する。 */
     private class FakeEngine(private val scoreBySfen: Map<String, Score>) {
         val receivedSfens = mutableListOf<String>()
 
@@ -66,7 +56,6 @@ class DrillJudgeTest {
         }
     }
 
-    // ─── 即判定（エンジン不要） ───────────────────────────────────────────────
 
     @Test
     fun `best_usiと一致したら即正解でエンジンは呼ばれない`() {
@@ -90,9 +79,7 @@ class DrillJudgeTest {
         assertTrue(engine.receivedSfens.isEmpty(), "engine should not be called")
     }
 
-    // ─── エンジン判定 ─────────────────────────────────────────────────────────
 
-    /** 初期局面から 7g7f を指した後の SFEN（GameRepositoryTest と同じ既知値）。 */
     private val sfenAfter7g7f =
         "lnsgkgsnl/1r5b1/ppppppppp/9/9/2P6/PP1PPPPPP/1B5R1/LNSGKGSNL w - 2"
 
@@ -104,14 +91,12 @@ class DrillJudgeTest {
             ),
         )
         val result = DrillJudge.judge(sampleBlunder(), userMoveUsi = "7g7f", engineAnalyze = engine::analyze)
-        // 出題局面 → ユーザー手後局面 の順で2回解析される
         assertEquals(listOf(initialSfen, sfenAfter7g7f), engine.receivedSfens)
         return result
     }
 
     @Test
     fun `エンジン判定 - loss_wpが公式どおり計算される`() {
-        // best=+300、ユーザー手後は相手番視点0（互角）→ loss = winProb(300) - 0.5
         val result = engineJudge(bestCp = 300, afterCpOpponent = 0)
         val expected = BlunderJudge.winProb(300) - BlunderJudge.winProb(0)
 
@@ -122,7 +107,6 @@ class DrillJudgeTest {
 
     @Test
     fun `エンジン判定 - 閾値0_05の境界（下側）は正解`() {
-        // SIGMOID_SCALE=600 では winProb(120)-winProb(0) ≈ 0.0498 ≤ 0.05
         val result = engineJudge(bestCp = 120, afterCpOpponent = 0)
         val expected = BlunderJudge.winProb(120) - BlunderJudge.winProb(0)
 
@@ -133,7 +117,6 @@ class DrillJudgeTest {
 
     @Test
     fun `エンジン判定 - 閾値0_05の境界（上側）は不正解`() {
-        // winProb(121)-winProb(0) ≈ 0.0502 > 0.05
         val result = engineJudge(bestCp = 121, afterCpOpponent = 0)
         val expected = BlunderJudge.winProb(121) - BlunderJudge.winProb(0)
 
@@ -144,7 +127,6 @@ class DrillJudgeTest {
 
     @Test
     fun `エンジン判定 - ユーザー手後のほうが良い場合はloss_wpが0に切り上げ`() {
-        // best=0（互角）だがユーザー手後に相手番視点-200（ユーザー優勢）→ 負のlossは0へ
         val result = engineJudge(bestCp = 0, afterCpOpponent = -200)
 
         assertEquals(0.0, result.lossWp, 1e-12)
@@ -165,12 +147,6 @@ class DrillJudgeTest {
         assertTrue(result.lossWp > DrillJudge.CORRECT_LOSS_WP_THRESHOLD)
     }
 
-    // ─── 一次判定（judgePrimary・純関数・pv2境界） ──────────────────────────────
-    //
-    // 前提: cpBefore=0（wpBest=0.5固定）にして secondCp だけ動かすと、
-    // lossWpOfSecond = winProb(0) - winProb(secondCp) = winProb(-secondCp) - 0.5
-    //               = winProb(120)-winProb(0) 相当（既存のエンジン判定テストと同じ境界値）。
-    // secondCp=-120 → 閾値内(≈0.0498)、secondCp=-121 → 閾値超(≈0.0502)。
 
     @Test
     fun `judgePrimary - pv2データが無ければUnavailable`() {
@@ -198,7 +174,6 @@ class DrillJudgeTest {
 
     @Test
     fun `judgePrimary - top-2圏外でpv2のloss_wpが既に閾値超なら確定Incorrect`() {
-        // 指した手は pv1(2f6f) でも pv2(7g7f) でもない
         val blunder = sampleBlunder(cpBefore = 0L, secondUsi = "7g7f", secondCp = -121L)
         val verdict = DrillJudge.judgePrimary(blunder, userMoveUsi = "2g2f")
 
@@ -213,7 +188,6 @@ class DrillJudgeTest {
         assertEquals(DrillJudge.PrimaryVerdict.Ambiguous, verdict)
     }
 
-    // ─── 一次判定 → judge() 全体での分岐（エンジン呼び出し有無を含む） ──────────
 
     @Test
     fun `judge - pv2一致かつ閾値内は一次判定だけで正解確定しエンジンは呼ばれない`() {
@@ -249,8 +223,6 @@ class DrillJudgeTest {
 
     @Test
     fun `judge - 一次判定がAmbiguousのときはエンジン注入時に二次判定へ委譲され実際に呼ばれる`() {
-        // Unavailable経路（secondUsi/secondCpが無い）ではなく、Ambiguous経路
-        // （pv2データはあるが下界だけでは確定できない）から二次判定に落ちることを確認する。
         val engine = FakeEngine(
             mapOf(
                 initialSfen to Score.Cp(300),
@@ -266,7 +238,6 @@ class DrillJudgeTest {
         assertEquals(expected, result.lossWp, 1e-12)
     }
 
-    // ─── フォールバック ───────────────────────────────────────────────────────
 
     @Test
     fun `エンジン無しで即判定できない手は不正解`() {

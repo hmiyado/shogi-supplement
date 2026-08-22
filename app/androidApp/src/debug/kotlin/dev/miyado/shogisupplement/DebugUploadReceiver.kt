@@ -11,19 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
-/**
- * デバッグ専用ブロードキャストレシーバ（debug source set にのみ存在）。
- *
- * 未アップロード分の一括アップロードを adb から手動発火し、
- * logcat（タグ: DebugUpload）で根本原因を診断するためのもの。
- *
- * 発火コマンド:
- *   adb shell am broadcast \
- *     -a dev.miyado.shogisupplement.DEBUG_UPLOAD \
- *     -p dev.miyado.shogisupplement
- *
- * release ビルドにはこのファイルが含まれないため、manifest登録も debug source set に分離。
- */
+/** debug専用の一括アップロードレシーバ。releaseビルドには含めない。 */
 class DebugUploadReceiver : BroadcastReceiver() {
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())

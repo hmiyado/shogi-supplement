@@ -6,16 +6,9 @@ import java.io.InputStreamReader
 import java.io.PrintWriter
 
 /**
- * USIエンジンバイナリをサブプロセスとしてexecし、USIプロトコルで通信するEngine実装。
- * Android（nativeLibraryDir配下のバイナリ）とserver/worker（Cloud Run上のバイナリ）の
- * どちらも `java.lang.ProcessBuilder` でexecする点は変わらないため、jvmAndAndroidMain
- * （jvmMain/androidMainの共通source set）に1本だけ置く。
- *
- * Why not Android専用実装のまま複製を維持: プロセス起動・USIハンドシェイク・info行パースは
- * 端末解析とサーバー解析のparity要件（研究に使う解析条件を完全一致させる）上、
- * 2箇所で無関係に変更されると検知しづらい形で乖離しうるため。
- *
- * 解析条件（不変条件）は [EngineInvariants] を単一の真実源とする。
+ * USIエンジンをサブプロセスで実行するEngine実装。
+ * Androidとserverで実装を共有する。解析条件はEngineInvariantsを単一の定義とする。
+ * Why not 実装を複製しない: 起動、ハンドシェイク、info行パースの乖離を防ぐため。
  */
 class UsiEngineSubprocess private constructor(
     private val process: Process,
@@ -25,15 +18,7 @@ class UsiEngineSubprocess private constructor(
 ) : Engine {
 
     companion object {
-        /**
-         * エンジンプロセスを起動し、USIハンドシェイクと不変条件のsetoptionを完了させて返す。
-         *
-         * @param enginePath USIエンジンバイナリの絶対パス
-         * @param evalDir EvalDirの絶対パス
-         * @param logLifecycle 起動・準備完了などのライフサイクルイベントのログ出力先（既定は何もしない）
-         * @param logIo 送受信するUSI行のログ出力先（既定は何もしない。詳細度が高いため
-         *   呼び出し側で抑制できるよう既定を no-op にしている）
-         */
+        /** エンジンを起動し、不変条件を設定する。 @param enginePath エンジンの絶対パス。 @param evalDir EvalDirの絶対パス。 @param logLifecycle ライフサイクルログ。 @param logIo USI行ログ。 */
         fun create(
             enginePath: String,
             evalDir: String,
@@ -167,12 +152,7 @@ class UsiEngineSubprocess private constructor(
         null
     }
 
-    /**
-     * USI info 行をパース。
-     * `info depth ... multipv N score cp/mate V pv ...` を PvInfo に変換する。
-     *
-     * multipv が無い行（lowerbound / upperbound 行など）は null を返す。
-     */
+    /** USI info行をPvInfoへ変換する。multipvがない行はnullを返す。 */
     private fun parseInfoLine(line: String): PvInfo? {
         val toks = line.split(" ")
         var i = 1 // "info" をスキップ

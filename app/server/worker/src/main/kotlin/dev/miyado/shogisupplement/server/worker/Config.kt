@@ -1,6 +1,5 @@
 package dev.miyado.shogisupplement.server.worker
 
-// すべて環境変数から読む。機微情報の注入経路はDockerfile参照。
 data class WorkerConfig(
     val port: Int,
     val supabaseUrl: String,
@@ -15,18 +14,14 @@ data class WorkerConfig(
     val isolatePositions: Boolean,
     val analysisPositionDailyLimit: Int,
     val staleRunningTimeoutMs: Long,
-    // 空文字列＝App Check検証を無効化する（段階導入）。ベータ初期は未設定のまま運用し、
-    // クライアントのFirebase SDK組み込みが揃った後にenv投入して有効化する（古いアプリ
-    // バージョンを一斉に締め出さないため。有効化のタイミングはenv投入そのものが制御する）。
+    // 空文字列はApp Check検証を無効化し、段階導入を可能にする。
     val firebaseProjectNumber: String,
-    // POST /v1/transfer のIPあたりレート制限（多層防御。TransferService参照）。
     val transferRateLimitPerMinute: Int,
 ) {
     companion object {
         fun fromEnv(env: (String) -> String? = System::getenv): WorkerConfig {
             val supabaseUrl = requireEnv(env, "SUPABASE_URL").trimEnd('/')
             return WorkerConfig(
-                // Cloud RunはPORTを注入する（既定8080）。
                 port = (env("PORT") ?: "8080").toInt(),
                 supabaseUrl = supabaseUrl,
                 supabaseServiceRoleKey = requireEnv(env, "SUPABASE_SERVICE_ROLE_KEY"),
@@ -36,21 +31,11 @@ data class WorkerConfig(
                 engineEvalDir = env("ENGINE_EVAL_DIR") ?: "/opt/engine/eval_hao",
                 engineRev = requireEnv(env, "ENGINE_REV"),
                 evalSha256 = requireEnv(env, "ENGINE_EVAL_SHA256"),
-                // 1局面ずつ解析するエンジンプロセスの本数。CPU割り当てと揃えること
-                // （エンジンはThreads=1なので、割り当てを超えるとタイムシェアするだけで速くならない）。
                 analysisWorkers = (env("ANALYSIS_WORKERS") ?: "1").toInt(),
-                // 局面ごとに置換表をクリアするか（[IsolatedEngine]）。既定で有効にし、解析順・
-                // 並列度に結果が依存しないようにする。falseにするのは研究側の解析条件
-                // （順番に流して置換表は引き継ぐ）と比較実験するときだけ。
+                // 局面ごとに置換表をクリアし、解析順と並列度への依存を避ける。
                 isolatePositions = (env("ANALYSIS_ISOLATE_POSITIONS") ?: "true").toBooleanStrict(),
-                // 単発局面解析（mode=position。ドリルの二次判定用）の日次上限。1局解析の
-                // クォータ（quota_limits.daily_limit、既定30）とは別枠かつDB管理外
-                // （ユーザーごとの調整が必要になったらDB化を検討する。現時点では固定値で十分）。
                 analysisPositionDailyLimit = (env("ANALYSIS_POSITION_DAILY_LIMIT") ?: "100").toInt(),
-                // running のまま止まった行をstaleとみなす経過時間。クライアント切断で解析
-                // コルーチンごとキャンセルされmarkError/markDoneに到達できなかった行を検知し、
-                // 短すぎるとまだ解析中の行まで誤ってリセットしてしまうため、通常の解析時間
-                // （pollTimeoutMsの既定280秒）に対して十分な余裕を持たせた既定値にする。
+                // 切断後に終了処理へ到達しないrunning行を、解析時間より長い閾値で検知する。
                 staleRunningTimeoutMs = (env("STALE_RUNNING_TIMEOUT_MS") ?: "600000").toLong(),
                 firebaseProjectNumber = env("FIREBASE_PROJECT_NUMBER") ?: "",
                 transferRateLimitPerMinute = (env("TRANSFER_RATE_LIMIT_PER_MINUTE") ?: "5").toInt(),

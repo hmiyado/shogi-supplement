@@ -46,30 +46,10 @@ import dev.miyado.shogisupplement.ui.drill.DrillUiState
 import dev.miyado.shogisupplement.ui.drill.DrillViewModel
 import java.io.File
 
-// DrillQuestionContent / DrillResultContent（＋Preview群）は :ui commonMain
-// （app/ui/src/commonMain/.../ui/DrillScreen.kt）にある。
-//
-// DrillViewModel 本体（状態・タップ処理・DB保存ロジック）も :ui commonMain
-// （app/ui/src/commonMain/.../ui/DrillViewModel.kt）にあり、android.app.Application に
-// 依存せず GameRepository/DrillRepository/SettingsRepository + judgeWithEngine の
-// 関数注入で構成している。
-//
-// 本ファイルに残るトップの DrillScreen Composable は、MainActivity.kt の呼び出し
-// `DrillScreen(onBack = { vm.loadHome() })` がデフォルト引数 vm に依存している構造上、
-// LocalContext.current（Android専用）を使うファクトリ組み立てが必要なため :ui へは
-// 移動できない（ReportScreen のような完全ホイストはできない構造的な差異）。
-//
-// パッケージは HomeHost.kt / ReportHost.kt / AccountHost.kt / SettingsHost.kt と同じ
-// ルートパッケージ（dev.miyado.shogisupplement）に置く。ファイル名は関数名 DrillScreen
-// とは異なり DrillScreenHost.kt のままにしている（他の *Host.kt と同じ命名規則。
-// 呼び出し側 MainActivity.kt が DrillScreen(...) を呼ぶため関数名は変えない）。
+// 共通の表示とViewModelは:uiに置き、Android専用のエンジンfactoryだけをここで組み立てる。
+// LocalContextを必要とするトップのDrillScreenはandroidAppに残す。
 
-/**
- * Android用 judgeWithEngine 実装（二次判定＝一次判定が曖昧領域のときのみ呼ばれる）。
- * UsiEngineProcess を1回の判定ごとに起動し、analyzeSfen×2（EngineDrillSecondaryJudge内、
- * 旧DrillJudge.judgeByEngine相当）を行った後 finally で quit する。起動失敗時は不正解扱いとする。
- * Androidは常に端末エンジン版のみ（サーバー版はiOS限定。クラスKDoc・実装計画参照）。
- */
+/** Androidの二次判定。判定ごとに端末Engineを起動し、2局面を解析してから終了する。 */
 private fun androidJudgeWithEngine(context: Context): suspend (BlunderRecord, String) -> DrillJudge.DrillResult =
     { blunder, userMoveUsi ->
         try {

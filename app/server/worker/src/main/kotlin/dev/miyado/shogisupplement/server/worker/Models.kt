@@ -15,10 +15,7 @@ sealed class EngineInput {
     }
 }
 
-/**
- * [AnalysisRequest] を [EngineInput] へ変換する。
- * moves_usi が優先。どちらも無ければ null（呼び出し側は400として扱う）。
- */
+/** AnalysisRequestをEngineInputへ変換する。moves_usiを優先し、入力がなければnullを返す。 */
 fun AnalysisRequest.toEngineInput(): EngineInput? {
     val movesUsi = movesUsi
     val sfen = sfen

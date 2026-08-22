@@ -30,13 +30,7 @@ import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.theme.IbmPlexMonoFamily
 import dev.miyado.shogisupplement.ui.theme.shogiColors
 
-/**
- * 棋譜リストシート（ModalBottomSheet 内コンテンツ）。
- * 本譜の全指し手を和式表記で縦に並べ、現在手をハイライトする。
- * 行タップで局面へ遷移してシートを閉じる。
- *
- * 各行末尾に position_eval から評価値/勝率を表示する（PositionEvalDisplay 再利用）。
- */
+/** 棋譜リストシート。全手を和式表記で並べ、現在手を強調して局面移動を提供する。 */
 @Composable
 fun MoveListSheet(
     moves: List<String>,

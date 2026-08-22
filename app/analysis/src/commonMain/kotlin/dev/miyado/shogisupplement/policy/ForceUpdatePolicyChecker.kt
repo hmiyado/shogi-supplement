@@ -6,20 +6,10 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 /**
- * 起動時／フォアグラウンド復帰時の強制アップデート判定の調停役。
- *
- * 優先順位（fail-open最優先。Why not 取得失敗時に一律ブロック: 配信側の障害で
- * 全ユーザーが起動不能になる事故のほうが、ビルド制限を一時的に見逃す被害より大きい）:
- *   1. 取得成功 → 判定に使い、次回の取得失敗に備えてキャッシュへ保存
- *   2. 取得失敗 → 直近のキャッシュがあればそれで判定
- *   3. 取得失敗 かつ キャッシュも無い（初回起動でオフライン等）→ 非ブロックで即返す
- *
- * [AppPolicyRepository]・[SettingsRepository] はどちらもインターフェースのみに依存するため、
- * supabase-kt・SQLDelight実体を持ち込まずにテスト可能（Fakeで代替できる）。
- *
- * @param currentBuild 自分の側のビルド番号を返す関数。expect/actual実体
- *   （:sharedの[dev.miyado.shogisupplement.policy.currentBuildNumber]相当）を
- *   呼び出し側から注入する（このクラス自体はプラットフォーム非依存に保つため）。
+ * 起動時と復帰時の強制アップデート判定を調停する。
+ * Why not 取得失敗時に一律ブロック: 配信障害で全ユーザーが起動不能になるため、fail-openを優先する。
+ * 成功値を保存し、失敗時はキャッシュ、未保存時は非ブロックで判定する。
+ * @param currentBuild 現在のビルド番号を返す関数。
  */
 class ForceUpdatePolicyChecker(
     private val policyRepository: AppPolicyRepository,

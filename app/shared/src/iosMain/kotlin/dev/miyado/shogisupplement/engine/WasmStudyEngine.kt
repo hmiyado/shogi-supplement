@@ -10,25 +10,9 @@ import kotlinx.serialization.json.Json
 import platform.Foundation.NSUUID
 
 /**
- * iOS端末内WKWebView×WASM版やねうら王による、対話的単発局面解析
- * （検討モード・読み筋延長・ドリル二次判定）向け [Engine] 実装。
- *
- * 実体はSwift側（iosApp/iosApp/WasmStudyHost.swift）が保持する常駐WKWebView
- * （docs/kento/wasm-analysis-host.html の `window.__analyzePosition`）。バッチ解析用の
- * [WasmAnalysisRunner]/[WasmAnalysisBridge]（1局まるごと・実行ごとに2Workerを起こして破棄）
- * とはホスト・ブリッジ（[WasmStudyBridge]）を分ける設計判断: 単発局面はWorker1本の
- * スタンバイ方式で足り（メモリ約450MB）、2並列にする理由が無い。逆にバッチの2並列構成へ
- * 単発局面の出入りを混ぜると、常駐ホストのライフサイクルとバッチの実行ごと破棄が絡み合い
- * 複雑になるため、独立させたほうが単純になる。
- *
- * ネイティブエンジン実装（[UsiEngineInProcess.analyzeSfen]）と同じ `position sfen <SFEN>
- * [moves ...]` 形式でUSIコマンドを組み立てる（[analyzeSfen]参照。サーバー解析と結果を
- * 完全一致させる不変条件のため、フォーマットの食い違いは許されない）。
- *
- * [WasmStudyBridge.analyzeHandler] が未登録、または即座に受理できない
- * （ホスト未初期化・WASMバイナリ未準備・別リクエストが処理中）場合は即座に例外を投げる
- * （fail-fast。呼び出し側の合成——[FailoverEngine]——がサーバー経路へ即座に
- * 切り替えられるよう、WASMバイナリのダウンロード中などに数十秒待たせないため）。
+ * iOSの常駐WKWebViewで単発WASM解析を行うEngine実装。
+ * バッチ解析とはホストを分離し、position形式をネイティブ実装と一致させる。
+ * 未準備またはビジーなら即時に例外を返し、サーバー経路へ切り替えられるようにする。
  */
 class WasmStudyEngine : Engine {
 

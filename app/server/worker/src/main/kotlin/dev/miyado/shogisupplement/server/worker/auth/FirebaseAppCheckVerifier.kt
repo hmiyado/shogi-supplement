@@ -11,15 +11,9 @@ import java.time.Clock
 import java.util.Date
 
 /**
- * Firebase App Check が発行するアテステーショントークン（RS256・JWKS署名）を検証する。
- * クライアント側でApp Attest（iOS）/ Play Integrity（Android）を経て取得したトークンが
- * 正規のFirebaseプロジェクトから発行されたことだけを確認する（sub＝アプリIDは見ない。
- * 匿名アカウント量産対策はアプリの真正性を見れば十分で、個別アプリの識別は不要なため）。
- *
- * 処理順序は[SupabaseJwtAuthVerifier]と同型: 署名検証 → exp → iss/aud。
- *
- * Why not sub/appId検証: App Checkの目的は「本物のアプリバイナリからのリクエストか」の
- * 判定であり、アプリの種類（iOS/Android）ごとの分岐は不要（同じプロジェクト番号に閉じる）。
+ * Firebase App CheckのRS256/JWKSトークンを検証する。
+ * 署名、exp、iss、audを確認し、sub/appIdは見ない。
+ * Why not sub/appId検証: App Checkは正規アプリからの要求かだけを判定するため。
  */
 class FirebaseAppCheckVerifier(
     private val jwkSetProvider: JwkSetProvider,

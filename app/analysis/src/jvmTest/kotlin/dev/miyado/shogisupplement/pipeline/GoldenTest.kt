@@ -9,22 +9,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/**
- * Python 版との突合ゴールデンテスト。
- *
- * scripts/report_kifu.py --dump-evals で生成した評価値ダンプ (NDJSON) を入力にして
- * ReportPipeline を実行し、--out で生成したレポート JSON と完全一致を検証する。
- *
- * 検証内容:
- * - 悪手件数・手数（ply）が一致
- * - 分類カテゴリが一致
- * - 相応判定の記号（◎/○/△）が一致
- * - 相応判定の根拠数値（priority）が 1e-9 以内で一致
- * - diff_material / punish_checks / took_moved_piece / missed_mate_in が一致
- */
 class GoldenTest {
 
-    // ── Python レポート JSON のデシリアライズ用 ──────────────────────────────
 
     @Serializable
     private data class PyEntry(
@@ -42,7 +28,6 @@ class GoldenTest {
         val priority: Double,
     )
 
-    // ── eval dump NDJSON のデシリアライズ用 ─────────────────────────────────
 
     @Serializable
     private data class EvalRecord(
@@ -58,7 +43,6 @@ class GoldenTest {
         )
     }
 
-    // ────────────────────────────────────────────────────────────────────────
 
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -88,7 +72,6 @@ class GoldenTest {
     private fun loadHaoCoef(): CoefficientTable =
         CoefficientTable.fromJson(resource(CoefficientTable.COEFFICIENTS_FILE_NAME))
 
-    // ── ゴールデンテスト本体 ─────────────────────────────────────────────────
 
     @Test
     fun `game1 - Kotlinパイプラインの出力がPythonレポートと完全一致する`() {
@@ -118,7 +101,6 @@ class GoldenTest {
         val evals = loadEvals(evalsName)
         val pyReport = loadPyReport(pyReportName)
 
-        // 推定器v2は1局単位の予測のため、過去累計の指定は不要。Python/Kotlin双方が同じ計算でバンドを導く。
         val ktResult = ReportPipeline.analyze(
             moves = moves,
             evals = evals,
@@ -127,7 +109,6 @@ class GoldenTest {
         )
         val ktReport = ktResult.reports
 
-        // ── 悪手件数が一致 ──
         assertEquals(
             pyReport.size, ktReport.size,
             "[$kifName] 悪手件数: Python=${pyReport.size}, Kotlin=${ktReport.size}\n" +
@@ -135,58 +116,45 @@ class GoldenTest {
                 "Kotlin: ${ktReport.map { it.ply }}",
         )
 
-        // ── 並べて全件比較 ──
         val pyByPly = pyReport.sortedBy { it.ply }
         val ktByPly = ktReport.sortedBy { it.ply }
 
         for ((py, kt) in pyByPly.zip(ktByPly)) {
             val ctx = "[$kifName] ply=${py.ply}"
 
-            // 手数
             assertEquals(py.ply, kt.ply, "$ctx: ply mismatch")
 
-            // 手番
             assertEquals(py.side, kt.side, "$ctx: side mismatch")
 
-            // 指し手 USI
             assertEquals(py.move_usi, kt.moveUsi, "$ctx: move_usi mismatch")
 
-            // 最善手 USI
             assertEquals(py.best_usi, kt.bestUsi, "$ctx: best_usi mismatch")
 
-            // 6カテゴリ分類
             assertEquals(py.category, kt.classification.category, "$ctx: category mismatch")
 
-            // 差分駒損
             assertEquals(py.diff_material, kt.classification.diffMaterial, "$ctx: diff_material mismatch")
 
-            // 相手最善応手列の王手回数
             assertEquals(py.punish_checks, kt.classification.punishChecks, "$ctx: punish_checks mismatch")
 
-            // タダ取られ判定
             assertEquals(
                 py.took_moved_piece != 0, kt.classification.tookMovedPiece,
                 "$ctx: took_moved_piece mismatch",
             )
 
-            // 詰み見逃し手数
             val pyMissedMate = py.missed_mate_in.toIntOrNull()
             assertEquals(pyMissedMate, kt.classification.missedMateIn, "$ctx: missed_mate_in mismatch")
 
-            // 相応判定記号（◎/○/△）
             val pySymbol = py.verdict.first().toString()
             assertEquals(
                 pySymbol, kt.judgement.kind.symbol,
                 "$ctx: verdict symbol mismatch. Python='${py.verdict}' Kotlin='${kt.judgement.verdict}'",
             )
 
-            // 根拠数値（priority）
             assertEquals(
                 py.priority, kt.judgement.priority, 1e-9,
                 "$ctx: priority mismatch. Python=${py.priority} Kotlin=${kt.judgement.priority}",
             )
 
-            // 勝率損失（loss_wp）: Python は round(..., 3) なので 5e-4 の許容誤差
             assertEquals(
                 py.loss_wp, kt.lossWp, 5e-4,
                 "$ctx: loss_wp mismatch. Python=${py.loss_wp} Kotlin=${kt.lossWp}",

@@ -21,22 +21,7 @@ import dev.miyado.shogisupplement.ui.theme.ShogiTheme
 import dev.miyado.shogisupplement.ui.theme.shogiColors
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
-/**
- * 強制アップデートの全画面ブロック。
- *
- * Why not 戻る導線を持たせる: 呼び出し側（androidApp/MainActivity・:ui iosMain/MainViewController）
- * がこの画面を表示している間は他のルートへ一切遷移させない設計のため（[ConsentScreen] と同じ型）。
- * 戻るキーの吸収（BackHandler等）は呼び出し側の責務にしている。
- *
- * DESIGN.md準拠: 朱（loss）は使わない・アイコン/イラスト/アニメーションなし・
- * 背景は他画面と同じ生成り（警告色で不安を煽らない）。
- *
- * @param message 管理画面で設定されたお知らせ文（プラットフォーム行＋common行を合成済み。
- *   [dev.miyado.shogisupplement.policy.ForceUpdateJudge.Decision.message]）。null/空なら非表示
- * @param storeUrl ストアのURL。null/空ならボタン自体を出さず案内文のみにする
- * @param versionName バージョン名（例: "1.2.0"）
- * @param buildNumber ビルド番号（例: 42）
- */
+/** 強制アップデートを全画面表示する。Why not 戻る導線: 制限中に他の画面へ進めない契約のため。 @param message お知らせ文。 @param storeUrl ストアURL。 @param versionName バージョン名。 @param buildNumber ビルド番号。 */
 @Composable
 fun ForceUpdateScreen(
     message: String?,

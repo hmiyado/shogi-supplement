@@ -179,10 +179,7 @@ class ShogiBoard {
     var turn: Side = Side.BLACK
         private set
 
-    /**
-     * 手数ベース。fromSfen() で指定された局面の手数を保持し、
-     * toSfen() の手数表示に使う。デフォルト 1（平手初期局面）。
-     */
+    /** SFENの手数を保持し、toSfenの手数表示へ反映する。 */
     private var moveNumberBase: Int = 1
 
     private data class MoveRecord(
@@ -246,10 +243,7 @@ class ShogiBoard {
         }
     }
 
-    /**
-     * SFEN 文字列から局面を設定する内部メソッド。
-     * fromSfen() から呼ばれる。
-     */
+    /** SFEN文字列から局面を設定する内部処理。 */
     private fun initFromSfen(sfen: String) {
         boardMap.clear()
         hands[0].clear()
@@ -402,24 +396,15 @@ class ShogiBoard {
 
     // ─── 合法手生成 ───────────────────────────────────────────────────────────
 
-    /**
-     * 現在の手番の合法手をすべて返す。
-     *
-     * 実装範囲:
-     * - 駒の動き（全駒種）
-     * - 自玉が取られる手の禁止（isLegal チェック）
-     * - 打ち手の二歩・行き所のない駒（打ち歩詰めは対象外）
-     */
+    /** 現在の手番の合法手を返す。駒の動き、王手、自駒打ちの制約を判定する。 */
     fun legalMoves(): List<ShogiMove> {
         val result = mutableListOf<ShogiMove>()
         val promoZone = if (turn == Side.BLACK) 1..3 else 7..9
         val lastRank = if (turn == Side.BLACK) 1 else 9
         val lastTwoRanks = if (turn == Side.BLACK) 1..2 else 8..9
 
-        // ── 盤上の駒 ────────────────────────────────────────────────────
-        // Map.toList()（Pairへの即時コピー）であること。entries.toList() は Kotlin/Native では
-        // 生きた EntryRef のリストになり、ループ内の isLegal() の push/pop 後に key/value を
-        // 読むと ConcurrentModificationException になる（JVM では顕在化しない実装差）
+        // Kotlin/NativeのEntryRefはpush/pop中に無効になるため、Pairへコピーして走査する。
+        // JVMでは顕在化しない実装差なので、entriesを直接保持しない。
         for ((sq, piece) in boardMap.toList()) {
             if (piece.side != turn) continue
 
@@ -507,15 +492,7 @@ class ShogiBoard {
 
     // ─── SFEN 生成 ───────────────────────────────────────────────────────────
 
-    /**
-     * 現在の局面を SFEN 文字列で返す。
-     *
-     * 形式: "[board] [turn] [hands] [move_number]"
-     * - board: rank 1(a)→9(i)、各 rank は file 9→1 の順。Black=大文字、White=小文字、成駒は '+' 接頭辞。
-     * - turn: 'b'(先手) / 'w'(後手)
-     * - hands: R/B/G/S/N/L/P 順。大文字（Black）先、小文字（White）後。枚数 >1 は数字接頭辞。なければ '-'。
-     * - move_number: moveNumberBase + 指した手数（fromSfen の手数から連続して増加）
-     */
+    /** 現在の局面をSFEN文字列で返す。盤、手番、持ち駒、手数を標準形式で連結する。 */
     fun toSfen(): String {
         val sb = StringBuilder()
 

@@ -27,22 +27,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-/**
- * ホーム画面の VRT（スクリーンショットテスト）。
- * レイアウト検証:
- *   ①推定棋力カード ②今日の1問カード ③過去の解析リスト（上から順）
- *   画面最下部の固定「棋譜を追加する」ボタン・⚙設定アイコン
- *   タイトル左のアプリアイコン（全golden共通）。
- *   「直近の解析」見出し右の「すべて見る」は維持・リスト末尾の「すべて見る」は削除
- *   （home_manyGames で4局投入し確認）。
- *   解析中カード（[dev.miyado.shogisupplement.ui.common.AnalyzingGameCard]）は完了済み局の
- *   先頭に出す（home_withAnalyzingCard）。
- *
- * HomeScreen は :ui commonMain（dev.miyado.shogisupplement.ui.home.HomeScreen）にある。
- * タイトルアイコンは Android専用リソースのため titleIcon スロットへホイストしているので、
- * golden 画像を不変に保つため本番（MainActivity.kt）と同じ
- * Image(painterResource(R.drawable.ic_app_title_icon)) を各テストから明示的に渡す。
- */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(
@@ -58,11 +42,6 @@ class HomeScreenScreenshotTest {
         compareOptions = RoborazziOptions.CompareOptions(changeThreshold = 0.01f),
     )
 
-    /**
-     * HomeScreen の titleIcon スロットに渡す本番同等の実装
-     * （MainActivity.kt の HomeScreen 呼び出しと同一のImage/painterResource/Modifier）。
-     * golden 画像を不変に保つため、全テストからこの実装を渡す。
-     */
     @Composable
     private fun testTitleIcon() {
         Image(
@@ -108,7 +87,6 @@ class HomeScreenScreenshotTest {
     private fun pv(cp: Int): List<PvInfo> =
         listOf(PvInfo(multipv = 1, score = Score.Cp(cp), pv = emptyList(), nodes = 0L))
 
-    /** confirmedThrough件だけ順に反映したアキュムレータを持つ解析中セッション（AnalyzingReportScreenScreenshotTestと同じ組み方）。 */
     private fun sampleAnalyzingSession(confirmedThrough: Int): InProgressAnalysis {
         var progressive = ProgressiveReportState.initial(analyzingMoves)
         for (ply in 0 until confirmedThrough) {
@@ -122,7 +100,6 @@ class HomeScreenScreenshotTest {
         )
     }
 
-    /** ログイン中: アップロードバッジがゲームカードに表示される。 */
     @Test
     fun home_loggedIn_withUploadStatus() {
         captureRoboImage(
@@ -147,7 +124,6 @@ class HomeScreenScreenshotTest {
         }
     }
 
-    /** 強さ指標カード表示（user_side入りの解析済み局がある場合）。推定棋力カードが最上部に表示される。 */
     @Test
     fun home_withStrengthCard() {
         captureRoboImage(
@@ -176,7 +152,6 @@ class HomeScreenScreenshotTest {
         }
     }
 
-    /** 未ログイン: アップロードバッジが表示されない。 */
     @Test
     fun home_notLoggedIn() {
         captureRoboImage(
@@ -198,10 +173,6 @@ class HomeScreenScreenshotTest {
         }
     }
 
-    /**
-     * 4局以上のとき「直近の解析」見出し右の「すべて見る」は表示されるが、
-     * リスト末尾の「すべて見る」ボタンは表示されない（削除確認）。
-     */
     @Test
     fun home_manyGames() {
         val manyGames = sampleGames() + listOf(
@@ -250,10 +221,6 @@ class HomeScreenScreenshotTest {
         }
     }
 
-    /**
-     * 解析中カードが完了済み局の先頭（3局枠外）に出ることを確認する
-     * （[dev.miyado.shogisupplement.ui.common.AnalyzingGameCard]）。
-     */
     @Test
     fun home_withAnalyzingCard() {
         captureRoboImage(

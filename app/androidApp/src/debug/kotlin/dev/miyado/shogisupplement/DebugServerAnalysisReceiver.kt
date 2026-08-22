@@ -18,23 +18,9 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 /**
- * デバッグ専用ブロードキャストレシーバ（debug source set にのみ存在）。
- *
- * 端末解析ではなくサーバー解析（Cloud Run の analysis-worker）を経由して1局を解析し、
- * アプリ⇄サーバーの疎通を logcat（タグ: DebugServerAnalysis）で確認するためのもの。
- * Play版の解析導線は端末解析のままで、このレシーバは release ビルドに含まれない。
- *
- * 対象の棋譜は data/kifu_samples/ のサンプル（debugビルドのassetsに入る）から選ぶ。
- * Why not 端末上のファイル: スコープドストレージ下ではadbで置いたファイルをアプリが読めず、
- * 疎通の確認より先に権限の問題で詰まるため。
- *
- * 発火コマンド:
- *   adb shell am broadcast \
- *     -a dev.miyado.shogisupplement.DEBUG_SERVER_ANALYSIS \
- *     -p dev.miyado.shogisupplement \
- *     -e kif miyado_game1.kif
- *
- * ベースURLは local.properties の ANALYSIS_BASE_URL（BuildConfig 経由）。未設定なら何もしない。
+ * debug専用のサーバー解析レシーバ。assetsの棋譜を使い、アプリとCloud Runの疎通を確認する。
+ * Why not 端末ファイルを使わない: scoped storageの権限問題を解析確認から切り離すため。
+ * releaseビルドには含めない。
  */
 class DebugServerAnalysisReceiver : BroadcastReceiver() {
 

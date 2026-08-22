@@ -10,7 +10,7 @@ import kotlinx.serialization.Serializable
 
 /** `user_transfer_secrets.key_auth_hash`（SHA-256(K_auth)のBase64）からuser_idを引く。 */
 interface TransferSecretRepository {
-    /** 一致する行が無ければnull（呼び出し側は情報を漏らさない汎用エラーとして扱う）。 */
+    /** 一致する行がなければnullを返す。 */
     suspend fun findUserId(keyAuthHashBase64: String): String?
 }
 

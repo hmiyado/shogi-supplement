@@ -49,36 +49,7 @@ import dev.miyado.shogisupplement.ui.theme.shogiColors
  */
 data class KifuLine(val name: String, val moves: List<String>)
 
-/**
- * 棋譜ビューアの共通コンポーネント。
- * 持駒行 + 盤 + タブ + ナビ手送りを表示する。
- * 状態（アクティブタブ・手数）はホイストして呼び出し元が管理する。
- *
- * @param startSfen       開始 SFEN（null = 平手）
- * @param lines           名前付きライン（タブ名 + 手列）。1 本のとき タブ行は非表示。
- * @param activeLineIdx   現在アクティブなタブインデックス
- * @param plyIndex        現在の手数（0 = 開始局面）
- * @param flip            後手視点で反転表示するか
- * @param boardMaxHeight  盤の最大高さ制約
- * @param onLineSelected  タブ選択コールバック（新インデックスを渡す）
- * @param onNavigate      ナビゲーション コールバック（新手数を渡す）
- * @param lineEnabled     各タブの有効/無効（省略時はすべて有効）
- * @param currentMoveLabel ナビ行ラベル（null = 簡易ラベルを内部計算）
- * @param currentMoveLabelIsBlunder ラベルを朱色で表示するか
- * @param onMoveListRequested 棋譜リスト Sheet 開くコールバック（null = ラベルをタップ不可）
- * @param evalSuffixText ナビラベル末尾に連結する形勢サフィックス（例:「（−350）」。null = 非表示）。
- *   ドリル結果画面向け。別行スロットではなくラベルに直接連結し、No-jitter（行高不変）
- *   を保つ（DESIGN.md Layout節）。Mono フォント・符号色で他の形勢表示と同じ規約にする。
- * @param evalSuffixSign evalSuffixText の優劣（正 = 優勢[紺青]、負 = 劣勢[朱]、0 = 中立）。
- * @param extendableLineIdx 読み筋のオンデマンド延長に対応するライン（呼び出し側が指定。
- *   ドリル結果画面では「最善」タブのみ）のインデックス。null = 延長非対応（既定。
- *   既存の呼び出し側の挙動を変えない）。
- * @param extendState 延長の状態（Idle=延長可能・Loading=解析中・Error=直近失敗）。
- *   [extendableLineIdx] 指定時のみ意味を持つ。
- * @param onExtendRequested 延長トリガー（[extendableLineIdx] のラインでライン末尾に到達した
- *   状態で▶+タップ時、ライン末尾局面の SFEN を渡す）。null = 延長UIを出さない
- *   （ReportScreen 本譜ビューア等・既定の呼び出しでは常に null のまま）。
- */
+/** 棋譜ビューア。 @param startSfen 開始SFEN。 @param lines 名前付き手順。 @param activeLineIdx 選択中ライン。 @param plyIndex 現在手数。 @param flip 後手視点表示。 @param boardMaxHeight 盤の最大高さ。 @param onLineSelected ライン選択処理。 @param onNavigate 手数移動処理。 @param lineEnabled ラインの有効状態。 @param currentMoveLabel 現在手ラベル。 @param currentMoveLabelIsBlunder 悪手表示。 @param onMoveListRequested 棋譜リスト処理。 @param evalSuffixText 評価値サフィックス。 @param evalSuffixSign 評価値の符号。 @param extendableLineIdx 延長対象ライン。 @param extendState 延長状態。 @param onExtendRequested 延長処理。 */
 @Composable
 fun KifuLineViewer(
     startSfen: String?,
@@ -125,12 +96,8 @@ fun KifuLineViewer(
     }
     val shogiColors = MaterialTheme.shogiColors
 
-    // ▶延長の可視化: extendableLineIdx のラインでライン末尾に到達しているとき、
-    // ▶ボタンを「▶+」（primary色）にして延長トリガーであることを示す（ReportScreen の
-    // 「最善の変化」タブと同じ規約）。Loading中も「▶+」のまま無効化。エラー時はナビラベルに
-    // 「（—）」を出し、「▶+」は有効なまま（再試行可）。extendableLineIdx が非該当ライン・
-    // onExtendRequested 未指定（既定）のときは常に false になり、既存の呼び出し側の挙動は
-    // 完全に不変。
+    // 末尾到達時だけ「▶+」を表示し、解析中は無効化、失敗時は再試行可能にする。
+    // 延長設定がないラインでは表示しない。
     val showExtendIndicator = extendableLineIdx != null &&
         extendableLineIdx == activeLineIdx &&
         onExtendRequested != null &&
@@ -145,11 +112,7 @@ fun KifuLineViewer(
     val effectiveSuffixSign = if (showExtendIndicator && extendState is PvExtState.Error) 0 else evalSuffixSign
 
     Column(modifier = modifier) {
-        // ── 盤 ─────────────────────────────────────────────────────────────
-        // :ui の ShogiBoardView は onSquareTapped のみを公開しており、左右分割タップの
-        // APIはない。KifuLineViewer は検討UXを持たない純閲覧ビューアなので、
-        // タップされたマスの列位置（flip考慮）で左右半分を近似し、手送りナビに
-        // 変換する（MainActivity.kt の「空マスタップ→ナビ」と同じ列しきい値パターン）。
+        // 純閲覧ビューアはタップ列の左右で前後移動を選ぶ。
         ShogiBoardView(
             sfen = currentSfen,
             flip = flip,

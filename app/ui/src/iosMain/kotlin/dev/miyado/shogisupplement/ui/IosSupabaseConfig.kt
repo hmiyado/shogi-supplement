@@ -16,17 +16,7 @@ import platform.posix.fseek
 import platform.posix.ftell
 import platform.posix.rewind
 
-/**
- * バンドル内 SupabaseConfig.properties から Supabase の接続設定を読む。
- *
- * ファイルはビルド時に app/local.properties から生成される（iosApp/project.yml の
- * preBuildScripts 参照）。リポジトリには秘密を置かない（Androidの
- * local.properties→BuildConfig と同じ方針）。ファイルが無い・値が空のときは
- * null を返し、呼び出し側はアカウント導線ごと非表示にする。
- *
- * 読み込みは POSIX API（fopen/fread）で行う（IosCoefficients.kt と同じパターン。
- * Foundation のファイル/plist系APIはバインディングの差異が出やすいため避ける）。
- */
+/** バンドル内のSupabaseConfig.propertiesをPOSIX APIで読む。欠落または空値はnullとする。 */
 internal object IosSupabaseConfig {
 
     data class Config(val url: String, val key: String)
@@ -39,11 +29,7 @@ internal object IosSupabaseConfig {
         return Config(url, key)
     }
 
-    /**
-     * サーバー解析（[dev.miyado.shogisupplement.engine.RemoteAnalysisRunner]）のベースURL。
-     * Supabase設定（url/key）とは独立に判定する（Androidの local.properties→BuildConfig の
-     * ANALYSIS_BASE_URL と同じキー）。未設定なら null（呼び出し側は端末解析へフォールバックする）。
-     */
+    /** サーバー解析のベースURL。Supabase設定とは独立し、未設定ならnullとする。 */
     fun loadAnalysisBaseUrl(): String? =
         loadEntries()?.get("ANALYSIS_BASE_URL")?.takeIf { it.isNotBlank() }
 

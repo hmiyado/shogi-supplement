@@ -77,28 +77,18 @@ class ShogiApp : Application() {
         SupabasePolicyRepository(supabaseClient)
     }
 
-    /**
-     * 起動時・フォアグラウンド復帰時に呼ぶ強制アップデート判定の調停役
-     * （[checkForceUpdate] から呼ぶ。取得失敗時のフォールバックは
-     * [ForceUpdatePolicyChecker] のKDoc参照）。
-     */
+    /** 起動時と復帰時の強制アップデート判定を調停する。 */
     private val forceUpdatePolicyChecker: ForceUpdatePolicyChecker by lazy {
         ForceUpdatePolicyChecker(
             policyRepository = appPolicyRepository,
             settingsRepository = AppDatabase.settingsRepository(this),
-            // Debugビルドは検証用のdev行（android-dev）を読み、本番行（android）を動かさずに
-            // 動作確認できるようにする（resolvePolicyPlatform参照。BuildConfigはandroidApp自身の
-            // 生成物＝実際にインストールされるAPKのビルドタイプと必ず一致する）。
+            // Debugはdev行を読み、本番行を変更せずに判定を確認する。
             platform = resolvePolicyPlatform("android", BuildConfig.DEBUG),
             currentBuild = ::currentBuildNumber,
         )
     }
 
-    /**
-     * Applicationのプロセス生存期間で使い回すスコープ。強制アップデート判定は
-     * Activity再生成（画面回転等）をまたいで状態を保ちたいため、Activity/ViewModelスコープ
-     * ではなくここで持つ（ForceUpdateHost.kt はこのStateFlowをcollectAsStateで購読するだけ）。
-     */
+    /** Applicationの生存期間で強制アップデート状態を保持するスコープ。 */
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     private val _forceUpdateDecision = MutableStateFlow<ForceUpdateJudge.Decision?>(null)
@@ -118,19 +108,14 @@ class ShogiApp : Application() {
     }
 
     private fun initSentry() {
-        // Robolectric（VRT/unitテスト）ではShogiAppが本物同様にonCreateされるため、
-        // ガードしないとテストのクラッシュ（テストJVMのOOM等）が本番プロジェクトへ
-        // 送信される（2026-07-16実害: OutOfMemoryError×10件のテストノイズ）
+        // Robolectricのクラッシュを本番レポートへ送らない。
         if (Build.FINGERPRINT == "robolectric") return
-        // DSN未設定（local.propertiesにSENTRY_DSNが無いビルド）ではクラッシュレポートを
-        // 無効化する（SupabaseのURL/KEYと同じgraceful degradationの方針）
+        // DSN未設定時はクラッシュレポートを無効化する。
         if (BuildConfig.SENTRY_DSN.isBlank()) return
         SentryAndroid.init(this) { options ->
             options.dsn = BuildConfig.SENTRY_DSN
-            // デバッグビルドとリリースビルドを区別してフィルタリングできるようにする
             options.environment = if (BuildConfig.DEBUG) "debug" else "release"
             options.release = BuildConfig.VERSION_NAME
-            // ユーザーのIPアドレス・ユーザー名等のデフォルトPIIを送信しない
             options.isSendDefaultPii = false
         }
     }

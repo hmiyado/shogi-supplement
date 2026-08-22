@@ -27,15 +27,7 @@ data class PublicKifuFields(
     val source: KifuSource,
 )
 
-/**
- * private_enc に暗号化して格納する内容そのもの（このクラス自体は平文構造体であり、
- * 暗号化は呼び出し側の責務＝範囲外）。
- *
- * @property extraHeaders ホワイトリスト外の全ヘッダ。[KifuDecomposer] は知らないキーを
- *   自動的にここへ落とすため、ホワイトリストへの追加漏れが平文流出に直結しない
- * @property comments KIFのコメント行（`*`）・しおり行（`&`）を出現順に並べたもの。
- *   どの手に紐づくかという位置情報は持たない
- */
+/** 暗号化対象の平文構造体。 @property extraHeaders 未知のヘッダ。 @property comments コメントとしおりの出現順リスト。 */
 @Serializable
 data class PrivateKifuFields(
     @SerialName("sente_name") val senteName: String?,
@@ -117,29 +109,13 @@ object KifuDecomposer {
     private fun normalizeWhitelistedValue(key: String, value: String): String =
         if (key in DATETIME_HEADER_KEYS) roundToMinute(value) else value
 
-    /**
-     * 日時ヘッダの秒を切り捨てて分精度にする。「段級位＋秒精度の日時＋出典」の組で
-     * 将棋ウォーズ等の公開対局履歴と突合すると対局者を再識別できてしまうため、分精度に
-     * 丸めてその突合を無効化する（プライバシー要件。精度を戻すと再識別可能になる）。
-     *
-     * Why not 四捨五入: 切り上げで未来側に寄る値が生じうるため切り捨てに統一する。
-     *
-     * 末尾が「時:分:秒」の形をしていない値はそのまま通す（丸められない値を握り潰す／
-     * 例外を投げるのではなく原文を残す。日時フォーマットは出典サービスにより揺れうるため）。
-     */
+    /** 日時ヘッダを分精度へ丸める。Why not 四捨五入: 未来側へ寄る値を避けるため切り捨てる。形式外の値は原文を保つ。 */
     private fun roundToMinute(value: String): String {
         val match = SECONDS_SUFFIX.find(value) ?: return value
         return match.groupValues[1]
     }
 
-    /**
-     * 出典サービスの正規化。lishogi判定（`https://lishogi.org/`プレフィックス）は
-     * lishogi対局URL（場所ヘッダ）の実データから定めた値。
-     *
-     * Why not [decompose] 内部限定にしない: [dev.miyado.shogisupplement.engine.AnalysisOrchestrator]
-     * のローカルDB保存経路からも呼ぶため public。判定ロジックを1箇所に集約し、アップロード用の
-     * 分解処理と保存経路とで分類基準がずれる事故を防ぐ。
-     */
+    /** 出典サービスを正規化する。Why not decompose内部に閉じない: 保存経路でも同じ分類基準を保つため公開する。 */
     fun classifySource(rawText: String, place: String?): KifuSource {
         val trimmedPlace = place?.trim()
         return when {
@@ -172,10 +148,7 @@ object KifuReconstructor {
 
     private const val MOVE_HEADER_LINE = "手数----指手---------消費時間--"
 
-    /**
-     * @param private 秘匿フィールド。null なら実名マスク済みで再構成する
-     * @param userSide ユーザーの先後（"sente"/"gote"/null）。[private] が null のときのみマスクに使う
-     */
+    /** @param private 秘匿フィールド。nullならマスク済みで再構成する。 @param userSide ユーザーの先後。 */
     fun reconstruct(public: PublicKifuFields, private: PrivateKifuFields?, userSide: String? = null): String {
         val (senteName, goteName) = resolveNames(private, userSide)
         val sb = StringBuilder()

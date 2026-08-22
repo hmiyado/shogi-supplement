@@ -158,14 +158,7 @@ private val ShogiShapes = Shapes(
 
 // ─── Theme Composable ─────────────────────────────────────────────────────────
 
-/**
- * 将棋サプリのテーマ。
- * MaterialTheme をラップし、DESIGN.md のカラートークン・タイポグラフィ・シェイプを適用する。
- * Dynamic color（Material You）は使わない——ブランド色が意味を担うため固定。
- *
- * @param themeMode 'system'（デフォルト）/ 'light' / 'dark'。
- *   system = isSystemInDarkTheme() に委譲。
- */
+/** 将棋サプリのテーマ。固定のブランド色とタイポグラフィを適用する。 @param themeMode system、light、darkの表示モード。 */
 @Composable
 fun ShogiTheme(
     themeMode: String = "system",

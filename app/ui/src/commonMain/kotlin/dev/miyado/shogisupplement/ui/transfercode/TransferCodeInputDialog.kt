@@ -19,13 +19,7 @@ import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
-/**
- * 引き継ぎコード入力ダイアログ（[TransferCodeInputUiState] 駆動）。
- *
- * [state] が [TransferCodeInputUiState.NeedsConfirmation] のときは入力欄を隠し
- * [TransferCodeSwitchConfirmDialog] を代わりに表示する（呼び出し側で2枚重ねる必要はない。
- * このComposable自体が状態に応じて出し分ける）。
- */
+/** 引き継ぎコード入力ダイアログ。NeedsConfirmationでは確認ダイアログへ切り替える。 */
 @Composable
 fun TransferCodeInputDialog(
     state: TransferCodeInputUiState,
@@ -39,10 +33,7 @@ fun TransferCodeInputDialog(
         return
     }
     if (state is TransferCodeInputUiState.Success) {
-        // ここで無言で閉じると、復元先アカウントに切り替わったのか単にキャンセルしたのか
-        // 見分けが付かない（ホームのデータはこの機能単独では変わらない。ダウンロード導線が
-        // 無いため。復元アカウントの棋譜再取得は別タスク）。切り替わった事実だけは
-        // 明示してから閉じる。
+        // 無言で閉じると切り替えとキャンセルを区別できないため、切り替えを明示して閉じる。
         AlertDialog(
             onDismissRequest = onDismiss,
             title = { Text(AppStrings.TRANSFER_CODE_INPUT_SUCCESS) },

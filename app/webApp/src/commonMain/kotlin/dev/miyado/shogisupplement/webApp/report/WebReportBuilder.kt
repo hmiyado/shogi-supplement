@@ -28,19 +28,7 @@ data class WebReportData(
     val blunderRateText: String?,
 )
 
-/**
- * KIF/SFEN入力から得た指し手列とエンジン解析結果（[PositionEval]）を、
- * ReportScreenが要求するドメイン型へ組み立てる。
- *
- * アプリ本体のAnalysisOrchestrator/SqlDelightGameRepositoryと同じ変換ロジックを、
- * DB永続化なしのその場限りのセッション（game_id/blunder_idは常に0扱い）向けに移植したもの。
- * 判定ロジック自体（ReportPipeline・係数表）は変更しない。
- *
- * @param userSide ユーザーの側（"sente"/"gote"）。解析開始前の側選択ダイアログ（UserSideDialog）
- *   で確定した値をそのまま受け取る。「指定しない」選択時はnull（＝両側を対象に解析する）。
- *   null時は悪手率・一致率・推定棋力は算出しない
- *   （EngineMatchRate.compute・computeSingleGameStrengthTextと同じ既存の仕様）。
- */
+/** KIF/SFENと解析結果をReportScreenのドメイン型へ変換する。DBへ保存せず、nullのuserSideでは全体を対象にする。 @param userSide ユーザーの先後。 */
 fun buildWebReport(
     fileName: String,
     moves: List<String>,

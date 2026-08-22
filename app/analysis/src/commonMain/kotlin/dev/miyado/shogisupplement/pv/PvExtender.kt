@@ -9,12 +9,7 @@ import dev.miyado.shogisupplement.board.ShogiBoard
  * - isLegalFirstMove: sfenAtLineEnd 局面において firstMove が合法手かどうか検証
  */
 object PvExtender {
-    /**
-     * 現在の PV に新たな手列を継ぎ足す。
-     * @param currentPv 現在の best_pv（スペース区切り。null or blank = ゼロ）
-     * @param newMoves  追加する手列
-     * @return 連結済みの PV 文字列（スペース区切り）
-     */
+    /** 現在のPVへ手列を継ぎ足す。 @param currentPv 現在のPV。 @param newMoves 追加手列。 @return 連結後のPV。 */
     fun concatenate(currentPv: String?, newMoves: List<String>): String {
         val existing = currentPv?.trim()?.takeIf { it.isNotBlank() } ?: ""
         val newPart = newMoves.joinToString(" ")
