@@ -52,7 +52,7 @@ class EstimatedStrengthDetailScreenScreenshotTest {
             StrengthDetailService(
                 serviceId = "shogi_wars",
                 label = "将棋ウォーズ",
-                accountName = "miyado",
+                accountName = "sample",
                 rules = listOf(
                     StrengthDetailServiceRule("10分切れ負け", "2級"),
                     StrengthDetailServiceRule("3分切れ負け", "初段"),
@@ -62,7 +62,7 @@ class EstimatedStrengthDetailScreenScreenshotTest {
             StrengthDetailService(
                 serviceId = "lishogi",
                 label = "lishogi",
-                accountName = "miyado_shogi",
+                accountName = "sample_shogi",
                 ratingText = "1542",
             ),
         ),
