@@ -593,6 +593,7 @@ private fun IosGameListScreenHost(
                 if (outcome == DeleteGameOutcome.Success) {
                     games = repository.getAllGames()
                     pendingUploadCount = if (isLoggedIn) repository.getNotUploadedGames().size else 0
+                    controller.reloadHome()
                 }
             }
         },
@@ -768,6 +769,11 @@ private fun IosReportScreenHost(
 
     val g = game
     if (!loaded || g == null) {
+        // 削除直後の一覧再訪等でgameIdがDBに存在しない場合、g==nullのまま固定されスピナーが
+        // 永久に残るためここで離脱する。
+        if (loaded && g == null) {
+            LaunchedEffect(gameId) { onBack() }
+        }
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
         }
@@ -793,7 +799,10 @@ private fun IosReportScreenHost(
             scope.launch {
                 val outcome = controller.deleteGame(g, deleteServer)
                 onResult(outcome)
-                if (outcome == DeleteGameOutcome.Success) onBack()
+                if (outcome == DeleteGameOutcome.Success) {
+                    controller.reloadHome()
+                    onBack()
+                }
             }
         },
         justCompleted = justCompleted,
