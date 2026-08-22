@@ -1,6 +1,7 @@
 package dev.miyado.shogisupplement.drill
 
 import dev.miyado.shogisupplement.db.BlunderRecord
+import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -12,7 +13,8 @@ import kotlin.test.assertNull
  * 1. 解答回数（drill_attempt 件数）が少ない問題を優先
  * 2. 同数なら ◎ → ○ の順
  * 3. さらに同数なら priority 降順
- * 4. 全問同数のときは次の周が自然に継続される
+ * 4. さらに同数（同一棋譜の問題が並びやすい）ならランダム
+ * 5. 全問同数のときは次の周が自然に継続される
  */
 class DrillRotationTest {
 
@@ -111,15 +113,38 @@ class DrillRotationTest {
     }
 
     @Test
-    fun `未解答で同verdict同priorityのとき先頭が選ばれる`() {
+    fun `未解答で同verdict同priorityのときどちらかが選ばれる`() {
         val first = blunder(id = 1L, verdict = "○ 出題対象", priority = 2.0)
         val second = blunder(id = 2L, verdict = "○ 出題対象", priority = 2.0)
         val candidates = listOf(first, second)
 
         val result = DrillRotation.selectNext(candidates, emptyMap())
-        // どちらでも仕様的に問題ないが、安定した結果を確認
-        assertNull(null) // このケースはどちらでもOK（テスト自体は落ちない）
         assertEquals(true, result?.id == 1L || result?.id == 2L, "どちらかが返るはず")
+    }
+
+    // ─── 同数同verdict同priority時: ランダム（同一棋譜の集中回避） ────────────
+
+    @Test
+    fun `同点のときシードが同じなら結果も同じ`() {
+        val first = blunder(id = 1L, verdict = "○ 出題対象", priority = 2.0)
+        val second = blunder(id = 2L, verdict = "○ 出題対象", priority = 2.0)
+        val candidates = listOf(first, second)
+
+        val a = DrillRotation.selectNext(candidates, emptyMap(), random = Random(42))
+        val b = DrillRotation.selectNext(candidates, emptyMap(), random = Random(42))
+        assertEquals(a?.id, b?.id, "同じ乱数シードなら同じ問題が選ばれるはず")
+    }
+
+    @Test
+    fun `同点のとき十分な試行で両方の問題が選ばれる`() {
+        val first = blunder(id = 1L, verdict = "○ 出題対象", priority = 2.0)
+        val second = blunder(id = 2L, verdict = "○ 出題対象", priority = 2.0)
+        val candidates = listOf(first, second)
+
+        val results = (0 until 50).map {
+            DrillRotation.selectNext(candidates, emptyMap(), random = Random(it))?.id
+        }.toSet()
+        assertEquals(setOf(1L, 2L), results, "十分な試行数なら両方の問題が選ばれるはず")
     }
 
     // ─── 全問同数時: 次の周へ自然に継続 ──────────────────────────────────────
