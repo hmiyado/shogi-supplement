@@ -190,7 +190,9 @@ fun MainApp(vm: MainViewModel, state: MainUiState) {
                 onBack = { vm.loadHome() },
                 onGameClick = { game -> vm.showReport(game.id) },
                 onUpload = { vm.uploadFromGameList() },
-                onDeleteGame = { game -> vm.deleteGame(game.id) },
+                onDeleteGame = { game, deleteServer, onResult ->
+                    vm.deleteGame(game, deleteServer, onResult)
+                },
             )
         }
         is MainUiState.Error -> {

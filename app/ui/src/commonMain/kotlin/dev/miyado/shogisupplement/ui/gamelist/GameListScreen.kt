@@ -33,6 +33,7 @@ import dev.miyado.shogisupplement.db.filterGames
 import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.DeleteGameConfirmDialog
 import dev.miyado.shogisupplement.ui.common.GameCard
+import dev.miyado.shogisupplement.upload.DeleteGameOutcome
 
 /**
  * 棋譜一覧画面。絞り込み条件はボトムシートで編集し、条件チップの出し入れでも一覧側の
@@ -49,7 +50,11 @@ fun GameListScreen(
     onBack: () -> Unit,
     onGameClick: (GameRecord) -> Unit,
     onUpload: () -> Unit = {},
-    onDeleteGame: (GameRecord) -> Unit = {},
+    onDeleteGame: (
+        game: GameRecord,
+        deleteServer: Boolean,
+        onResult: (DeleteGameOutcome) -> Unit,
+    ) -> Unit = { _, _, onResult -> onResult(DeleteGameOutcome.Success) },
 ) {
     // filter: 一覧に反映済みの条件。draftFilter: シート内で編集中の条件（「検索」タップまで
     // filterには反映しない。スワイプ/スクリムでシートを閉じた場合は draftFilter を破棄する）。
@@ -156,9 +161,9 @@ fun GameListScreen(
 
     DeleteGameConfirmDialog(
         show = pendingDeleteGame != null,
-        onConfirm = {
-            pendingDeleteGame?.let(onDeleteGame)
-            pendingDeleteGame = null
+        canDeleteServer = pendingDeleteGame?.uploadedAt != null,
+        onConfirm = { deleteServer, onResult ->
+            pendingDeleteGame?.let { onDeleteGame(it, deleteServer, onResult) }
         },
         onDismiss = { pendingDeleteGame = null },
     )

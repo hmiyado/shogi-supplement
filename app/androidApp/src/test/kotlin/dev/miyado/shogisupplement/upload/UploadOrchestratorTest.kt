@@ -145,6 +145,40 @@ class UploadOrchestratorTest {
         assertTrue("upload should not be called again", upload.calls.isEmpty())
     }
 
+    // ─── deleteUploadedGame ─────────────────────────────────────────────────
+
+    @Test
+    fun deleteUploadedGame_whenLoggedIn_returnsTrue() = runTest {
+        val (orch, upload, _, _) = buildOrchestrator()
+
+        val result = orch.deleteUploadedGame("hash-delete")
+
+        assertTrue(result)
+        assertEquals(listOf("uid1" to "hash-delete"), upload.deleteCalls)
+    }
+
+    @Test
+    fun deleteUploadedGame_whenRepositoryFails_returnsFalse() = runTest {
+        val upload = FakeUploadRepository(deleteResult = false)
+        val (orch, uploadRepository, _, _) = buildOrchestrator(upload = upload)
+
+        val result = orch.deleteUploadedGame("hash-delete")
+
+        assertTrue(!result)
+        assertEquals(listOf("uid1" to "hash-delete"), uploadRepository.deleteCalls)
+    }
+
+    @Test
+    fun deleteUploadedGame_whenNotLoggedIn_returnsFalseWithoutCallingRepository() = runTest {
+        val auth = FakeAuthRepository(initialUser = null)
+        val (orch, upload, _, _) = buildOrchestrator(auth = auth)
+
+        val result = orch.deleteUploadedGame("hash-delete")
+
+        assertTrue(!result)
+        assertTrue(upload.deleteCalls.isEmpty())
+    }
+
     // ─── uploadAll ───────────────────────────────────────────────────────────
 
     @Test
@@ -226,4 +260,3 @@ class UploadOrchestratorTest {
         assertNull(db.getGameById(gameId)?.uploadedAt)
     }
 }
-

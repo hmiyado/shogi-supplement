@@ -48,7 +48,9 @@ fun ReportHost(vm: MainViewModel, state: MainUiState.ShowReport) {
         blunderRateDisplayText = state.blunderRateDisplayText,
         analysisPending = state.game.analysisStatus == GameAnalysisStatus.PENDING,
         onAnalyze = analyze,
-        onDeleteGame = { vm.deleteGame(state.game.id) },
+        onDeleteGame = { deleteServer, onResult ->
+            vm.deleteGame(state.game, deleteServer, onResult)
+        },
         justCompleted = state.justCompleted,
         onBack = { vm.loadHome() },
         pvExtState = pvExtState,

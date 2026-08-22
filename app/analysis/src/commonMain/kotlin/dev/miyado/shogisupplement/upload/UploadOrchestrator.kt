@@ -5,15 +5,7 @@ import dev.miyado.shogisupplement.db.GameRepository
 import dev.miyado.shogisupplement.db.SettingsRepository
 import dev.miyado.shogisupplement.util.currentEpochSeconds
 
-/**
- * アップロードのオーケストレーター。
- * - ログイン状態チェック
- * - 重複チェック（既に uploaded_at が設定済みならスキップ）
- * - アップロード実行
- * - 成功/重複時に uploaded_at を記録
- *
- * constructor injection でテスト可能（fake を注入できる）。
- */
+/** アップロードのオーケストレーター。constructor injectionでテスト可能（fakeを注入できる）。 */
 class UploadOrchestrator(
     private val authRepository: AuthRepository,
     private val uploadRepository: UploadRepository,
@@ -22,12 +14,8 @@ class UploadOrchestrator(
 ) {
 
     /**
-     * 指定ゲームをアップロードする。
-     * - 未ログインなら null を返す（アップロードをスキップ）
-     * - 既に uploaded_at が設定されていればスキップ（Duplicate 扱い）
-     * - 成功 or 重複なら uploaded_at を記録する
-     *
-     * @return UploadResult、または未ログイン/既アップロードのため実行しなかった場合は null
+     * 指定ゲームをアップロードする。未ログイン/既アップロード（Duplicate扱い）で
+     * 実行しなかった場合は null。
      */
     suspend fun uploadGame(gameId: Long): UploadResult? {
         val user = authRepository.currentUser.value ?: return null  // 未ログイン
@@ -39,6 +27,14 @@ class UploadOrchestrator(
             dbRepository.updateUploadedAt(gameId, currentEpochSeconds())
         }
         return result
+    }
+
+    /**
+     * サーバーに保存済みの棋譜を削除する。未ログインなら false。
+     */
+    suspend fun deleteUploadedGame(contentHash: String): Boolean {
+        val user = authRepository.currentUser.value ?: return false
+        return uploadRepository.deleteGame(user.id, contentHash)
     }
 
     /**

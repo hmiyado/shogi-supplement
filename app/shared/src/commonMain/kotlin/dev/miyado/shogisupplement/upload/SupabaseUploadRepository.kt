@@ -83,6 +83,18 @@ class SupabaseUploadRepository(
         }
     }
 
+    override suspend fun deleteGame(userId: String, contentHash: String): Boolean = try {
+        supabase.from("uploaded_games").delete {
+            filter {
+                eq("user_id", userId)
+                eq("content_hash", contentHash)
+            }
+        }
+        true
+    } catch (e: Exception) {
+        false
+    }
+
     // ─── payload ─────────────────────────────────────────────────────────────
 
     @Serializable

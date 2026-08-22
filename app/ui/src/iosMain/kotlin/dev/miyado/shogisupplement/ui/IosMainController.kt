@@ -4,6 +4,7 @@ import dev.miyado.shogisupplement.auth.AuthRepository
 import dev.miyado.shogisupplement.board.PieceType
 import dev.miyado.shogisupplement.board.ShogiSquare
 import dev.miyado.shogisupplement.db.DrillRepository
+import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.GameRepository
 import dev.miyado.shogisupplement.db.RatingSettings
 import dev.miyado.shogisupplement.crash.NoopCrashReporter
@@ -39,6 +40,7 @@ import dev.miyado.shogisupplement.ui.home.HomeViewModel
 import dev.miyado.shogisupplement.ui.report.ReportViewModel
 import dev.miyado.shogisupplement.ui.report.StudyOrigin
 import dev.miyado.shogisupplement.ui.report.StudyState
+import dev.miyado.shogisupplement.upload.DeleteGameOutcome
 import dev.miyado.shogisupplement.upload.UploadOrchestrator
 import dev.miyado.shogisupplement.util.currentEpochSeconds
 import dev.miyado.shogisupplement.util.sha256Hex
@@ -356,7 +358,14 @@ class IosMainController(
     /** 特定のゲームIDのレポート表示状態をDBから読み込む（ReportViewModel へ委譲）。 */
     suspend fun loadReport(gameId: Long): ReportViewModel.ReportResult = reportViewModel.loadReport(gameId)
 
-    suspend fun deleteGame(gameId: Long) = reportViewModel.deleteGame(gameId)
+    suspend fun deleteGame(game: GameRecord, deleteServer: Boolean): DeleteGameOutcome {
+        if (deleteServer && game.uploadedAt != null) {
+            val ok = uploadOrchestrator?.deleteUploadedGame(game.contentHash) ?: false
+            if (!ok) return DeleteGameOutcome.ServerFailed
+        }
+        reportViewModel.deleteGame(game.id)
+        return DeleteGameOutcome.Success
+    }
 
     /** テーマモードを保存し StateFlow を即時更新する。 */
     fun saveThemeMode(mode: String) {

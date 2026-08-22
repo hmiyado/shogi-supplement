@@ -35,6 +35,7 @@ import dev.miyado.shogisupplement.ui.report.ReportViewModel
 import dev.miyado.shogisupplement.ui.strength.StrengthDetailViewModel
 import dev.miyado.shogisupplement.ui.report.StudyOrigin
 import dev.miyado.shogisupplement.ui.report.StudyState
+import dev.miyado.shogisupplement.upload.DeleteGameOutcome
 import dev.miyado.shogisupplement.upload.UploadResult
 import java.io.File
 import kotlinx.coroutines.Dispatchers
@@ -240,10 +241,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /** 棋譜1局を削除する。棋譜一覧から呼ばれたときは一覧を再読込し、それ以外（レポート画面）はホームへ戻る。 */
-    fun deleteGame(gameId: Long) {
+    fun deleteGame(
+        game: GameRecord,
+        deleteServer: Boolean,
+        onResult: (DeleteGameOutcome) -> Unit,
+    ) {
         viewModelScope.launch {
-            withContext(Dispatchers.IO) { gameRepository.deleteGame(gameId) }
+            if (deleteServer && game.uploadedAt != null) {
+                val ok = withContext(Dispatchers.IO) {
+                    app.uploadOrchestrator.deleteUploadedGame(game.contentHash)
+                }
+                if (!ok) {
+                    onResult(DeleteGameOutcome.ServerFailed)
+                    return@launch
+                }
+            }
+            withContext(Dispatchers.IO) { gameRepository.deleteGame(game.id) }
             if (_state.value is MainUiState.GameList) openGameList() else loadHome()
+            onResult(DeleteGameOutcome.Success)
         }
     }
 

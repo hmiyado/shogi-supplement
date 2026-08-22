@@ -304,8 +304,13 @@ object AppStrings {
     const val ACCOUNT_DELETE_CONFIRM = "削除する"
     const val GAME_DELETE_ICON_DESC = "棋譜を削除"
     const val GAME_DELETE_DIALOG_TITLE = "この棋譜を削除しますか？"
-    const val GAME_DELETE_DIALOG_TEXT =
-        "解析結果もまとめて削除されます。この操作は取り消せません"
+    const val GAME_DELETE_DIALOG_TEXT_DEVICE_ONLY =
+        "解析結果も含め、端末から削除されます。この操作は取り消せません。"
+    const val GAME_DELETE_DIALOG_TEXT_WITH_SERVER =
+        "解析結果も含め、端末・サーバーから削除されます。この操作は取り消せません。"
+    const val GAME_DELETE_SERVER_CHECKBOX_LABEL = "サーバーに保存した棋譜も削除する"
+    const val GAME_DELETE_SERVER_ERROR =
+        "サーバーからの削除に失敗しました。時間をおいてお試しください"
     const val GAME_DELETE_CONFIRM = "削除する"
     const val ACCOUNT_AUTO_UPLOAD_LABEL = "棋譜をサーバーに保存する"
     const val ACCOUNT_AUTO_UPLOAD_DESC =

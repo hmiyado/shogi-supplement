@@ -10,10 +10,6 @@ import dev.miyado.shogisupplement.db.GameRecord
 interface UploadRepository {
     /**
      * ゲームとレポートを uploaded_games テーブルにアップロードする。
-     *
-     * @param userId 認証済みユーザーID
-     * @param game ゲームレコード（contentHash / rating / moveCount / coefVersion / kifText / movesUsi）
-     * @param reports 悪手レポートリスト（analysis_json として送付）
      * @return UploadResult（成功 / 重複=成功扱い / 失敗）
      */
     suspend fun uploadGame(
@@ -21,6 +17,12 @@ interface UploadRepository {
         game: GameRecord,
         reports: List<BlunderRecord>,
     ): UploadResult
+
+    /**
+     * uploaded_games から指定ゲームを削除する。
+     * @return 成功したら true、失敗したら false
+     */
+    suspend fun deleteGame(userId: String, contentHash: String): Boolean
 }
 
 /** アップロード結果を表す sealed class。 */

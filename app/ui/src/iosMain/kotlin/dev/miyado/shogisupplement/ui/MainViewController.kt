@@ -83,6 +83,7 @@ import dev.miyado.shogisupplement.ui.transfercode.TransferCodeInputDialog
 import dev.miyado.shogisupplement.ui.transfercode.TransferCodeInputUiState
 import dev.miyado.shogisupplement.ui.transfercode.TransferCodeInputViewModel
 import dev.miyado.shogisupplement.ui.transfercode.TransferCodeScreen
+import dev.miyado.shogisupplement.upload.DeleteGameOutcome
 import dev.miyado.shogisupplement.upload.UploadResult
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -532,6 +533,7 @@ private fun DemoApp(
             IosGameListScreenHost(
                 repository = gameRepository,
                 services = supabaseServices,
+                controller = controller,
                 onBack = { route = DemoRoute.Home },
                 onGameClick = { game -> route = DemoRoute.Report(game.id) },
             )
@@ -564,6 +566,7 @@ private fun DemoApp(
 private fun IosGameListScreenHost(
     repository: GameRepository,
     services: SupabaseServices?,
+    controller: IosMainController,
     onBack: () -> Unit,
     onGameClick: (GameRecord) -> Unit,
 ) {
@@ -583,10 +586,15 @@ private fun IosGameListScreenHost(
         uploadResult = uploadResult,
         onBack = onBack,
         onGameClick = onGameClick,
-        onDeleteGame = { game ->
-            repository.deleteGame(game.id)
-            games = repository.getAllGames()
-            pendingUploadCount = if (isLoggedIn) repository.getNotUploadedGames().size else 0
+        onDeleteGame = { game, deleteServer, onResult ->
+            scope.launch {
+                val outcome = controller.deleteGame(game, deleteServer)
+                onResult(outcome)
+                if (outcome == DeleteGameOutcome.Success) {
+                    games = repository.getAllGames()
+                    pendingUploadCount = if (isLoggedIn) repository.getNotUploadedGames().size else 0
+                }
+            }
         },
         onUpload = {
             val orchestrator = services?.uploadOrchestrator
@@ -781,7 +789,13 @@ private fun IosReportScreenHost(
         blunderRateDisplayText = blunderRateText,
         analysisPending = g.analysisStatus == GameAnalysisStatus.PENDING,
         onAnalyze = { controller.analyzeStoredGame(g) },
-        onDeleteGame = { scope.launch { controller.deleteGame(gameId); onBack() } },
+        onDeleteGame = { deleteServer, onResult ->
+            scope.launch {
+                val outcome = controller.deleteGame(g, deleteServer)
+                onResult(outcome)
+                if (outcome == DeleteGameOutcome.Success) onBack()
+            }
+        },
         justCompleted = justCompleted,
         onBack = onBack,
         pvExtState = pvExtState,

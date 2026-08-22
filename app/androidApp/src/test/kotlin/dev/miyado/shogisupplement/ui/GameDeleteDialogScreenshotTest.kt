@@ -40,7 +40,8 @@ class GameDeleteDialogScreenshotTest {
                 Surface {
                     DeleteGameConfirmDialog(
                         show = true,
-                        onConfirm = {},
+                        canDeleteServer = false,
+                        onConfirm = { _, _ -> },
                         onDismiss = {},
                     )
                 }
@@ -49,6 +50,28 @@ class GameDeleteDialogScreenshotTest {
         composeRule.waitForIdle()
         captureScreenRoboImage(
             filePath = "src/test/snapshots/game_delete_dialog.png",
+            roborazziOptions = roborazziOptions,
+        )
+    }
+
+    @OptIn(ExperimentalRoborazziApi::class)
+    @Test
+    fun game_deleteConfirmDialog_withServerCheckbox() {
+        composeRule.setContent {
+            ShogiTheme {
+                Surface {
+                    DeleteGameConfirmDialog(
+                        show = true,
+                        canDeleteServer = true,
+                        onConfirm = { _, _ -> },
+                        onDismiss = {},
+                    )
+                }
+            }
+        }
+        composeRule.waitForIdle()
+        captureScreenRoboImage(
+            filePath = "src/test/snapshots/game_delete_dialog_with_server_checkbox.png",
             roborazziOptions = roborazziOptions,
         )
     }

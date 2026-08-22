@@ -36,6 +36,7 @@ import dev.miyado.shogisupplement.ui.common.PvExtState
 import dev.miyado.shogisupplement.ui.common.ReportBackHandler
 import dev.miyado.shogisupplement.ui.common.SfenPosition
 import dev.miyado.shogisupplement.ui.theme.shogiColors
+import dev.miyado.shogisupplement.upload.DeleteGameOutcome
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -81,7 +82,10 @@ fun ReportScreen(
     onStudyBranchOptionSelected: (depth: Int, moveUsi: String) -> Unit = { _, _ -> },
     onStudyAnalyze: () -> Unit = {},
     onCopyKif: (String) -> Unit = {},
-    onDeleteGame: () -> Unit = {},
+    onDeleteGame: (
+        deleteServer: Boolean,
+        onResult: (DeleteGameOutcome) -> Unit,
+    ) -> Unit = { _, onResult -> onResult(DeleteGameOutcome.Success) },
     initialSelectedIndex: Int? = null,
     initialViewerModeBestPv: Boolean = false,
     initialPlyIndex: Int = 0,
@@ -439,9 +443,9 @@ fun ReportScreen(
         )
         DeleteGameConfirmDialog(
             show = showDeleteDialog,
-            onConfirm = {
-                showDeleteDialog = false
-                onDeleteGame()
+            canDeleteServer = game.uploadedAt != null,
+            onConfirm = { deleteServer, onResult ->
+                onDeleteGame(deleteServer, onResult)
             },
             onDismiss = { showDeleteDialog = false },
         )
