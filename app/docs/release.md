@@ -97,16 +97,15 @@ fastlane版はpilotを明示的なアップロード手段にするため、`Fas
 
 ## メタデータ・スクリーンショット
 
-`fastlane/metadata/ja-JP/`（name・subtitle・promotional_text・description・keywords・
+`fastlane/metadata/ja/`（name・subtitle・promotional_text・description・keywords・
 release_notes・support_url・privacy_url）は、App Store Connectに2026-07-19時点で
 登録済みの文言（1.1のリリースノートのみ新規）をもとに作成した。
-`fastlane/screenshots/ja-JP/` の7枚（1284×2778・6.5インチ）はASCへ提出済みの実機画像。
+`fastlane/screenshots/ja/` の7枚（1284×2778・6.5インチ）はASCへ提出済みの実機画像。
+ロケールディレクトリが `ja` なのはdeliverが `ja-JP` を受理しないため。
 
+## 残る検証
 
-## 次回リリースで残る手順（実弾検証）
+`beta` はTestFlightアップロードまで通っている（1.6 build 7・2026-08-23）。残りは:
 
-1. `bundle exec fastlane ios beta` を通しで実行し、TestFlightへ実際にアップロードされる
-   ことを確認する（`upload_testflight.sh`との結果比較ができるとなお良い）
-2. 問題なければ `fastlane/metadata`・`fastlane/screenshots` の内容を確定させたうえで
-   `bundle exec fastlane ios release` を実行し、審査提出まで通す
-3. 両方が安定して通ったら `scripts/upload_testflight.sh` の扱い（廃止するか残すか）を判断する
+1. `bundle exec fastlane ios release` を実行し、審査提出まで通す
+2. 安定して通ったら `scripts/upload_testflight.sh` の扱い（廃止するか残すか）を判断する

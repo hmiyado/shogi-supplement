@@ -84,8 +84,10 @@ Debugビルドが入っていることが前提。`./gradlew :androidApp:install
 
 iOSは `fastlane ios beta` が `.maestro/run-ios.sh` を本番ビルド前に実行するので、
 **シミュレータを起動し最新のDebugビルドを入れておく**（未起動だとlaneがそこで落ちる）。
+入っているビルドが古くてもlaneは進んでしまうので、投入コマンドと最新かどうかの
+確認方法は [e2e-testing.md](e2e-testing.md) の手順に従う。
 
-Maestro CLIの導入やビルド前提の詳細は [e2e-testing.md](e2e-testing.md)。
+Maestro CLIの導入やビルド前提の詳細も [e2e-testing.md](e2e-testing.md)。
 
 ## iOS
 
@@ -97,6 +99,10 @@ cd app/iosApp && LC_ALL=en_US.UTF-8 bundle exec fastlane ios beta
 
 APIキーは `ASC_KEY_CONTENT`（`.p8` の中身）か `ASC_KEY_PATH`（`.p8` のパス）で渡す。
 渡し方はリポジトリ外の運用メモにある。
+
+**`SENTRY_AUTH_TOKEN` も一緒に渡す**。無くてもlaneは成功で終わるが、dSYMの送信だけが
+黙って飛ばされ、そのバージョンのクラッシュはアプリのフレームがredactedのままになる。
+送り忘れたビルドには、あとから `sentry-cli debug-files upload` で送れる。
 
 その先の `fastlane ios release`（メタデータ提出と審査提出）はメンテナが実行する。
 審査通過後の公開もApp Store Connectでの手動操作。詳細・前提資材の取得は
