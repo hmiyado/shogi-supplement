@@ -4,7 +4,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(14);
+select plan(22);
 
 insert into auth.users (id, instance_id, aud, role, created_at, updated_at)
 values
@@ -63,7 +63,7 @@ select is(
 );
 
 -- ── GRANTの無い操作は拒否される（RLS以前の一段目の防壁）──────────────────
--- アップロード行の変更・削除機能は提供しない（行の消去はdelete_userのcascade）
+-- アップロード行の変更機能は提供しない（値の変更手段が無い）
 select throws_ok(
   $$update public.uploaded_games set side = 'sente'
     where user_id = '10000000-0000-0000-0000-000000000001'$$,
@@ -71,12 +71,44 @@ select throws_ok(
   'uploaded_games: UPDATE権限自体が無い'
 );
 
-select throws_ok(
-  $$delete from public.uploaded_games
-    where user_id = '10000000-0000-0000-0000-000000000002'$$,
-  '42501', null,
-  'uploaded_games: DELETE権限自体が無い'
+-- ── uploaded_games: DELETE（棋譜削除機能。20260822160000でGRANT）─────────
+-- 引き続きuser2としてログイン中。本人の行のみ消せることを確認する。
+select lives_ok(
+  $$insert into public.uploaded_games (user_id, content_hash, moves_usi)
+    values ('10000000-0000-0000-0000-000000000002', 'rls-own-2', '["7g7f"]')$$,
+  'uploaded_games: user2は自分の行をinsertできる（DELETE検証の準備）'
 );
+
+select lives_ok(
+  $$delete from public.uploaded_games
+    where user_id = '10000000-0000-0000-0000-000000000002'
+      and content_hash = 'rls-own-2'$$,
+  'uploaded_games: 本人の行はDELETEできる'
+);
+
+select is(
+  (select count(*)::int from public.uploaded_games where content_hash = 'rls-own-2'),
+  0,
+  'uploaded_games: DELETEした行は消える'
+);
+
+select lives_ok(
+  $$delete from public.uploaded_games
+    where user_id = '10000000-0000-0000-0000-000000000001'
+      and content_hash = 'rls-own'$$,
+  'uploaded_games: 他人の行を指定したDELETEはRLSで対象0件になり例外にならない'
+);
+
+-- 確認自体もuser2のRLS越しだと他人の行が見えず0件になってしまうため、
+-- 行の生死はRLSをバイパスするpostgresロールで確認する
+reset role;
+select is(
+  (select count(*)::int from public.uploaded_games where content_hash = 'rls-own'),
+  1,
+  'uploaded_games: 他人の行はDELETEで消えない（RLSにより対象外）'
+);
+set local role authenticated;
+set local request.jwt.claims to '{"sub": "10000000-0000-0000-0000-000000000002", "role": "authenticated"}';
 
 -- ワーカー専用テーブルはクライアントから読み書きとも不可
 select throws_ok(
@@ -92,21 +124,52 @@ select throws_ok(
   'analysis_jobs: クライアントからinsertできない'
 );
 
--- ── user_transfer_secrets はinsert固定（Why not upsertの前提を権限で固定）──
+-- user_transfer_secretsのUPDATE検証のため、他人（user1）行との対比用にuser2の行を用意する
+select lives_ok(
+  $$insert into public.user_transfer_secrets (user_id, key_auth_hash)
+    values ('10000000-0000-0000-0000-000000000002', 'hash-own-2')$$,
+  'user_transfer_secrets: user2は自分の行をinsertできる（UPDATE検証の準備）'
+);
+
+-- ── user_transfer_secrets: UPDATE（引き継ぎコード再生成。20260815130000でGRANT）
 set local request.jwt.claims to '{"sub": "10000000-0000-0000-0000-000000000001", "role": "authenticated"}';
 
-select throws_ok(
+select lives_ok(
   $$update public.user_transfer_secrets set key_auth_hash = 'hash-rotated'
     where user_id = '10000000-0000-0000-0000-000000000001'$$,
-  '42501', null,
-  'user_transfer_secrets: UPDATE権限自体が無い（本人でも更新不可）'
+  'user_transfer_secrets: 本人の行はUPDATEできる（コード再生成）'
 );
+
+select is(
+  (select key_auth_hash from public.user_transfer_secrets
+    where user_id = '10000000-0000-0000-0000-000000000001'),
+  'hash-rotated',
+  'user_transfer_secrets: UPDATEした値が反映される'
+);
+
+select lives_ok(
+  $$update public.user_transfer_secrets set key_auth_hash = 'hash-forged'
+    where user_id = '10000000-0000-0000-0000-000000000002'$$,
+  'user_transfer_secrets: 他人の行を指定したUPDATEはRLSで対象0件になり例外にならない'
+);
+
+-- 確認自体もuser1のRLS越しだと他人の行が見えず値を読めないため、
+-- 値の変更有無はRLSをバイパスするpostgresロールで確認する
+reset role;
+select is(
+  (select key_auth_hash from public.user_transfer_secrets
+    where user_id = '10000000-0000-0000-0000-000000000002'),
+  'hash-own-2',
+  'user_transfer_secrets: 他人の行の値はUPDATEで変わらない（RLSにより対象外）'
+);
+set local role authenticated;
+set local request.jwt.claims to '{"sub": "10000000-0000-0000-0000-000000000001", "role": "authenticated"}';
 
 select throws_ok(
   $$insert into public.user_transfer_secrets (user_id, key_auth_hash)
     values ('10000000-0000-0000-0000-000000000001', 'hash-second')$$,
   '23505', null,
-  'user_transfer_secrets: 2回目のinsertはunique_violation（登録済み扱いの前提）'
+  'user_transfer_secrets: 2回目のinsertはunique_violation（行の追加は増やさない前提）'
 );
 
 -- ── anon: 何もできない ───────────────────────────────────────────────────
