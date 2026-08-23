@@ -68,6 +68,7 @@ class ShogiApp : Application() {
             authRepository = authRepository,
             uploadRepository = uploadRepository,
             dbRepository = AppDatabase.gameRepository(this),
+            drillRepository = AppDatabase.drillRepository(this),
             settingsRepository = AppDatabase.settingsRepository(this),
         )
     }

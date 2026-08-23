@@ -10,7 +10,6 @@ import dev.miyado.shogisupplement.auth.AuthRepository
 import dev.miyado.shogisupplement.db.GameRepository
 import dev.miyado.shogisupplement.db.SettingsRepository
 import dev.miyado.shogisupplement.upload.UploadOrchestrator
-import dev.miyado.shogisupplement.upload.UploadResult
 import dev.miyado.shogisupplement.util.Logger
 import dev.miyado.shogisupplement.ui.common.defaultIoDispatcher
 import kotlinx.coroutines.CoroutineDispatcher
@@ -166,9 +165,7 @@ class AccountViewModel(
         val orchestrator = uploadOrchestrator ?: return
         viewModelScope.launch {
             _uiState.value = s.copy(isUploading = true, uploadResultMessage = null)
-            val results = withContext(ioDispatcher) { orchestrator.uploadAll() }
-            val success = results.values.count { it is UploadResult.Success || it is UploadResult.Duplicate }
-            val failed = results.values.count { it is UploadResult.Failure }
+            val result = withContext(ioDispatcher) { orchestrator.uploadAll() }
             val uploadedCount = withContext(ioDispatcher) { gameRepository.getUploadedGameCount() }
             val pendingCount = withContext(ioDispatcher) { gameRepository.getNotUploadedGames().size }
             val current = _uiState.value as? AccountUiState.LoggedIn ?: return@launch
@@ -177,7 +174,11 @@ class AccountViewModel(
                 uploadedCount = uploadedCount,
                 pendingCount = pendingCount,
                 uploadResultMessage = dev.miyado.shogisupplement.text.AppStrings
-                    .accountUploadResult(success, failed),
+                    .accountUploadResult(
+                        result.gameSuccess,
+                        result.gameFailed,
+                        result.drillPendingRemaining + result.drillFailed,
+                    ),
             )
         }
     }

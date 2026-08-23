@@ -116,6 +116,20 @@ class SchemaMigrationTest {
             """.trimIndent(),
             0,
         )
+        driver.execute(
+            null,
+            """
+            CREATE TABLE drill_attempt (
+                id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                blunder_report_id INTEGER NOT NULL REFERENCES blunder_report(id),
+                user_move_usi TEXT NOT NULL,
+                is_correct INTEGER NOT NULL,
+                loss_wp REAL,
+                attempted_at INTEGER NOT NULL
+            )
+            """.trimIndent(),
+            0,
+        )
         // AndroidSqliteDriver/NativeSqliteDriverはPRAGMA user_versionでスキーマ版数を
         // 管理し、これが実際のschema.versionより小さければmigrateを呼ぶ。ここでは
         // その状態（version=1のDBが既に存在する）を手動で再現する。

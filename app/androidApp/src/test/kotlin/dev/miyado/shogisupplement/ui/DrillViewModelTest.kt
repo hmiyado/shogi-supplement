@@ -1,6 +1,8 @@
 package dev.miyado.shogisupplement.ui
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import dev.miyado.shogisupplement.auth.AuthUser
+import dev.miyado.shogisupplement.auth.FakeAuthRepository
 import dev.miyado.shogisupplement.blunder.Score
 import dev.miyado.shogisupplement.board.ShogiBoard
 import dev.miyado.shogisupplement.board.ShogiMove
@@ -20,6 +22,8 @@ import dev.miyado.shogisupplement.pipeline.BlunderReport
 import dev.miyado.shogisupplement.ui.common.PvExtState
 import dev.miyado.shogisupplement.ui.drill.DrillUiState
 import dev.miyado.shogisupplement.ui.drill.DrillViewModel
+import dev.miyado.shogisupplement.upload.FakeUploadRepository
+import dev.miyado.shogisupplement.upload.UploadOrchestrator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -97,6 +101,7 @@ class DrillViewModelTest {
     private fun buildVmAtResult(
         repos: TestRepos = createDb(),
         engineFactory: (() -> Engine)? = null,
+        uploadOrchestrator: UploadOrchestrator? = null,
     ): DrillViewModel {
         val report = BlunderReport(
             ply = 1,
@@ -120,7 +125,7 @@ class DrillViewModelTest {
             ),
             bestPv = "7g7f 3c3d",
         )
-        repos.game.seedFixtureBlunder(
+        val gameId = repos.game.seedFixtureBlunder(
             fileName = "test.kif",
             contentHash = "test-hash-${System.nanoTime()}",
             rating = 1750,
@@ -129,12 +134,15 @@ class DrillViewModelTest {
             sfenBefore = sfenBefore,
             userSide = "sente",
         )
+        // getDrillAttemptsNotUploadedは棋譜アップロード済みの解答のみを対象にする
+        repos.game.updateUploadedAt(gameId, 1L)
         val vm = DrillViewModel(
             gameRepository = repos.game,
             drillRepository = repos.drill,
             settingsRepository = repos.settings,
             engineFactory = engineFactory,
             ioDispatcher = testDispatcher,
+            uploadOrchestrator = uploadOrchestrator,
         )
         vm.onSurrender()
         return vm
@@ -144,6 +152,26 @@ class DrillViewModelTest {
         val board = ShogiBoard.fromSfen(sfenBefore)
         bestPv.split(" ").filter { it.isNotBlank() }.forEach { board.push(ShogiMove.fromUsi(it)) }
         return board.toSfen()
+    }
+
+    @Test
+    fun onSurrender_transitionsToResult_andStartsDrillAutoUpload() {
+        val repos = createDb()
+        val upload = FakeUploadRepository()
+        val auth = FakeAuthRepository(initialUser = AuthUser("uid1"))
+        repos.settings.saveAutoUpload(true)
+        val orchestrator = UploadOrchestrator(
+            authRepository = auth,
+            uploadRepository = upload,
+            dbRepository = repos.game,
+            drillRepository = repos.drill,
+            settingsRepository = repos.settings,
+        )
+
+        val vm = buildVmAtResult(repos, uploadOrchestrator = orchestrator)
+
+        assertTrue("解答直後は通信完了を待たず Result へ遷移する", vm.state.value is DrillUiState.Result)
+        assertEquals("Result 後に次の一手の成績送信が開始される", 1, upload.drillAttemptCalls.size)
     }
 
     // ─── 成功: bestPv が伸びる ─────────────────────────────────────────────────

@@ -19,6 +19,7 @@ import dev.miyado.shogisupplement.engine.Engine
 import dev.miyado.shogisupplement.ui.common.PvExtState
 import dev.miyado.shogisupplement.ui.common.PvExtensionRunner
 import dev.miyado.shogisupplement.ui.common.defaultIoDispatcher
+import dev.miyado.shogisupplement.upload.UploadOrchestrator
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -38,6 +39,7 @@ class DrillViewModel(
     private val judgeWithEngine: (suspend (blunder: BlunderRecord, userMoveUsi: String) -> DrillJudge.DrillResult)? = null,
     private val engineFactory: (() -> Engine)? = null,
     private val ioDispatcher: CoroutineDispatcher = defaultIoDispatcher,
+    private val uploadOrchestrator: UploadOrchestrator? = null,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<DrillUiState>(DrillUiState.Loading)
@@ -225,6 +227,7 @@ class DrillViewModel(
                 )
             }
             _state.value = DrillUiState.Result(surrenderResult, blunder, blunder.sfenBefore, flip)
+            startDrillAttemptUpload()
         }
     }
 
@@ -277,6 +280,16 @@ class DrillViewModel(
                 }
             }
             _state.value = DrillUiState.Result(result, blunder, blunder.sfenBefore, flip)
+            startDrillAttemptUpload()
+        }
+    }
+
+    /** 次の一手の成績アップロードを別コルーチンで起動する。Result遷移をブロックしない。 */
+    private fun startDrillAttemptUpload() {
+        viewModelScope.launch {
+            withContext(ioDispatcher) {
+                uploadOrchestrator?.maybeAutoUploadDrillAttempts()
+            }
         }
     }
 
@@ -308,11 +321,17 @@ class DrillViewModel(
             judgeWithEngine: (suspend (blunder: BlunderRecord, userMoveUsi: String) -> DrillJudge.DrillResult)? = null,
             engineFactory: (() -> Engine)? = null,
             ioDispatcher: CoroutineDispatcher = defaultIoDispatcher,
+            uploadOrchestrator: UploadOrchestrator? = null,
         ): ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 DrillViewModel(
-                    gameRepository, drillRepository, settingsRepository,
-                    judgeWithEngine, engineFactory, ioDispatcher,
+                    gameRepository = gameRepository,
+                    drillRepository = drillRepository,
+                    settingsRepository = settingsRepository,
+                    judgeWithEngine = judgeWithEngine,
+                    engineFactory = engineFactory,
+                    ioDispatcher = ioDispatcher,
+                    uploadOrchestrator = uploadOrchestrator,
                 )
             }
         }

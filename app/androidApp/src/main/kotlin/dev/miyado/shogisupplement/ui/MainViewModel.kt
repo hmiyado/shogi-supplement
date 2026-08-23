@@ -36,7 +36,6 @@ import dev.miyado.shogisupplement.ui.strength.StrengthDetailViewModel
 import dev.miyado.shogisupplement.ui.report.StudyOrigin
 import dev.miyado.shogisupplement.ui.report.StudyState
 import dev.miyado.shogisupplement.upload.DeleteGameOutcome
-import dev.miyado.shogisupplement.upload.UploadResult
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -268,11 +267,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (s.isUploading) return
         _state.value = s.copy(isUploading = true, uploadResult = null)
         viewModelScope.launch {
-            val results = withContext(Dispatchers.IO) { app.uploadOrchestrator.uploadAll() }
-            val success = results.values.count {
-                it is UploadResult.Success || it is UploadResult.Duplicate
-            }
-            val failed = results.values.count { it is UploadResult.Failure }
+            val result = withContext(Dispatchers.IO) { app.uploadOrchestrator.uploadAll() }
             val newGames = withContext(Dispatchers.IO) { gameRepository.getAllGames() }
             val pendingCount = withContext(Dispatchers.IO) { gameRepository.getNotUploadedGames().size }
             val cur = _state.value as? MainUiState.GameList ?: return@launch
@@ -280,7 +275,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 games = newGames,
                 pendingUploadCount = pendingCount,
                 isUploading = false,
-                uploadResult = AppStrings.accountUploadResult(success, failed),
+                uploadResult = AppStrings.accountUploadResult(
+                    result.gameSuccess,
+                    result.gameFailed,
+                    result.drillPendingRemaining + result.drillFailed,
+                ),
             )
         }
     }

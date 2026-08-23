@@ -11,6 +11,12 @@ interface DrillRepository {
      */
     fun getDrillCandidates(): List<BlunderRecord>
 
+    /** 指定棋譜のドリル出題候補だけを優先度順に返す。 */
+    fun getDrillCandidatesByGame(gameId: Long): List<BlunderRecord>
+
+    /** 指定IDの悪手レポートを返す。見つからなければ null。 */
+    fun getBlunderById(id: Long): BlunderRecord?
+
     /** ドリル解答を保存する。 @param blunderReportId 出題元レコード。 @param userMoveUsi ユーザーの手。 @param isCorrect 正解か。 @param lossWp 勝率差。 @param attemptedAt 解答時刻。 @return 作成されたID。 */
     fun saveDrillAttempt(
         blunderReportId: Long,
@@ -25,4 +31,13 @@ interface DrillRepository {
 
     /** 指定 blunder_report の解答履歴を返す（新しい順）。 */
     fun getDrillAttempts(blunderReportId: Long): List<DrillAttemptRecord>
+
+    /** Supabaseへ未送信の解答を古い順で返す。 */
+    fun getDrillAttemptsNotUploaded(limit: Int): List<DrillAttemptRecord>
+
+    /** 解答にクライアント側の冪等キーを保存する。 */
+    fun updateDrillAttemptSyncId(id: Long, syncId: String)
+
+    /** 解答のSupabase送信成功時刻を保存する。 */
+    fun updateDrillAttemptUploadedAt(id: Long, epochSeconds: Long)
 }

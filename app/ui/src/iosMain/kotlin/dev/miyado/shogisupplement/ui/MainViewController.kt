@@ -84,7 +84,6 @@ import dev.miyado.shogisupplement.ui.transfercode.TransferCodeInputUiState
 import dev.miyado.shogisupplement.ui.transfercode.TransferCodeInputViewModel
 import dev.miyado.shogisupplement.ui.transfercode.TransferCodeScreen
 import dev.miyado.shogisupplement.upload.DeleteGameOutcome
-import dev.miyado.shogisupplement.upload.UploadResult
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlin.experimental.ExperimentalNativeApi
@@ -109,6 +108,7 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
                 config.url,
                 config.key,
                 gameRepository,
+                drillRepository,
                 settingsRepository,
                 IosTransferSecretStore(),
                 // framework実体との不一致を避けるため、Swift側ではなくKotlinバイナリのDebug判定を使う。
@@ -461,6 +461,7 @@ private fun DemoApp(
             IosDrillScreen(
                 authRepository = supabaseServices?.authRepository,
                 analysisBaseUrl = analysisBaseUrl,
+                services = supabaseServices,
                 onBack = {
                     route = DemoRoute.Home
                     controller.reloadHome()
@@ -608,15 +609,15 @@ private fun IosGameListScreenHost(
                 isUploading = true
                 uploadResult = null
                 scope.launch {
-                    val results = orchestrator.uploadAll()
-                    val success = results.values.count {
-                        it is UploadResult.Success || it is UploadResult.Duplicate
-                    }
-                    val failed = results.values.count { it is UploadResult.Failure }
+                    val result = orchestrator.uploadAll()
                     games = repository.getAllGames()
                     pendingUploadCount = repository.getNotUploadedGames().size
                     isUploading = false
-                    uploadResult = AppStrings.accountUploadResult(success, failed)
+                    uploadResult = AppStrings.accountUploadResult(
+                        result.gameSuccess,
+                        result.gameFailed,
+                        result.drillPendingRemaining + result.drillFailed,
+                    )
                 }
             }
         },
@@ -854,9 +855,14 @@ private fun IosDrillScreen(
     onBack: () -> Unit,
     authRepository: AuthRepository? = null,
     analysisBaseUrl: String? = null,
+    services: SupabaseServices? = null,
 ) {
-    val vm = remember(authRepository, analysisBaseUrl) {
-        DrillDemoFactory.create(authRepository = authRepository, analysisBaseUrl = analysisBaseUrl)
+    val vm = remember(authRepository, analysisBaseUrl, services) {
+        DrillDemoFactory.create(
+            authRepository = authRepository,
+            analysisBaseUrl = analysisBaseUrl,
+            uploadOrchestrator = services?.uploadOrchestrator,
+        )
     }
     val state by vm.state.collectAsState()
     val evalDisplay by vm.evalDisplay.collectAsState()
