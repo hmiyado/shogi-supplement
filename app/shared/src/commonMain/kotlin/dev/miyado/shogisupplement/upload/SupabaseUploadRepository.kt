@@ -9,9 +9,13 @@ import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.kifu.KifParser
 import dev.miyado.shogisupplement.kifu.KifuDecomposer
 import io.github.jan.supabase.SupabaseClient
+import io.github.jan.supabase.exceptions.RestException
 import io.github.jan.supabase.postgrest.from
+import io.github.jan.supabase.postgrest.exception.PostgrestRestException
+import io.github.jan.supabase.postgrest.query.Columns
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
+import kotlin.time.Instant
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -95,6 +99,101 @@ class SupabaseUploadRepository(
         false
     }
 
+    override suspend fun syncDrillProblems(
+        userId: String,
+        contentHash: String,
+        problems: List<BlunderRecord>,
+    ): UploadResult {
+        if (problems.isEmpty()) return UploadResult.Success
+        return try {
+            upsertDrillProblems(userId, contentHash, problems)
+            UploadResult.Success
+        } catch (e: Exception) {
+            uploadFailureOrDuplicate(e)
+        }
+    }
+
+    override suspend fun uploadDrillAttempt(
+        userId: String,
+        contentHash: String,
+        problem: BlunderRecord,
+        attempt: DrillAttemptUpload,
+    ): UploadResult {
+        return try {
+            // 問題側を先に冪等登録することで、初回送信でもproblem_idを確実に得られる。
+            when (val result = syncDrillProblems(userId, contentHash, listOf(problem))) {
+                is UploadResult.Failure -> return result
+                UploadResult.Success, UploadResult.Duplicate -> Unit
+            }
+
+            val problemId = findDrillProblemId(userId, contentHash, problem.ply)
+                ?: return UploadResult.Failure("ドリル問題が登録されていません")
+
+            supabase.from("drill_attempts").upsert(
+                DrillAttemptPayload(
+                    userId = userId,
+                    problemId = problemId,
+                    clientAttemptId = attempt.syncId,
+                    userMoveUsi = attempt.userMoveUsi,
+                    isCorrect = attempt.isCorrect,
+                    lossWp = attempt.lossWp,
+                    attemptedAt = Instant.fromEpochSeconds(attempt.attemptedAt).toString(),
+                ),
+            ) {
+                onConflict = "user_id,client_attempt_id"
+                ignoreDuplicates = true
+            }
+            UploadResult.Success
+        } catch (e: Exception) {
+            // drill_attemptsの重複は、同じclient_attempt_idが既に保存された状態なので成功扱い。
+            if (isDuplicate(e)) UploadResult.Success else failure(e)
+        }
+    }
+
+    private suspend fun upsertDrillProblems(
+        userId: String,
+        contentHash: String,
+        problems: List<BlunderRecord>,
+    ) {
+        supabase.from("drill_problems").upsert(problems.map { it.toDrillProblemPayload(userId, contentHash) }) {
+            onConflict = "user_id,content_hash,ply"
+            ignoreDuplicates = true
+        }
+    }
+
+    private suspend fun findDrillProblemId(
+        userId: String,
+        contentHash: String,
+        ply: Long,
+    ): String? {
+        return supabase.from("drill_problems")
+            .select(columns = Columns.list("id")) {
+                filter {
+                    eq("user_id", userId)
+                    eq("content_hash", contentHash)
+                    eq("ply", ply)
+                }
+            }
+            .decodeList<DrillProblemIdRow>()
+            .firstOrNull()
+            ?.id
+    }
+
+    private fun uploadFailureOrDuplicate(error: Exception): UploadResult =
+        if (isDuplicate(error)) UploadResult.Duplicate else failure(error)
+
+    private fun failure(error: Exception): UploadResult =
+        UploadResult.Failure(error.message?.ifBlank { null } ?: "アップロードに失敗しました")
+
+    private fun isDuplicate(error: Exception): Boolean {
+        val message = error.message.orEmpty()
+        return message.contains("23505") || message.contains("409") ||
+            message.contains("unique", ignoreCase = true) ||
+            message.contains("duplicate", ignoreCase = true) ||
+            (error as? RestException)?.statusCode == 409 ||
+            (error as? PostgrestRestException)?.code == "23505"
+    }
+
     // ─── payload ─────────────────────────────────────────────────────────────
 
     @Serializable
@@ -137,6 +236,39 @@ class SupabaseUploadRepository(
         val priority: Double,
     )
 
+    @Serializable
+    private data class DrillProblemPayload(
+        @SerialName("user_id") val userId: String,
+        @SerialName("content_hash") val contentHash: String,
+        val ply: Long,
+        val side: String,
+        @SerialName("sfen_before") val sfenBefore: String,
+        @SerialName("move_usi") val moveUsi: String,
+        @SerialName("best_usi") val bestUsi: String?,
+        @SerialName("loss_wp") val lossWp: Double,
+        val category: String,
+        val verdict: String,
+        val note: String,
+        @SerialName("problem_type") val problemType: String,
+        val priority: Double,
+        @SerialName("second_usi") val secondUsi: String?,
+        @SerialName("second_cp") val secondCp: Int?,
+    )
+
+    @Serializable
+    private data class DrillProblemIdRow(val id: String)
+
+    @Serializable
+    private data class DrillAttemptPayload(
+        @SerialName("user_id") val userId: String,
+        @SerialName("problem_id") val problemId: String,
+        @SerialName("client_attempt_id") val clientAttemptId: String,
+        @SerialName("user_move_usi") val userMoveUsi: String,
+        @SerialName("is_correct") val isCorrect: Boolean,
+        @SerialName("loss_wp") val lossWp: Double?,
+        @SerialName("attempted_at") val attemptedAt: String,
+    )
+
     private fun BlunderRecord.toJson() = BlunderReportJson(
         ply = ply,
         side = side,
@@ -148,6 +280,27 @@ class SupabaseUploadRepository(
         note = note,
         problemType = problemType,
         priority = priority,
+    )
+
+    private fun BlunderRecord.toDrillProblemPayload(
+        userId: String,
+        contentHash: String,
+    ) = DrillProblemPayload(
+        userId = userId,
+        contentHash = contentHash,
+        ply = ply,
+        side = side,
+        sfenBefore = sfenBefore,
+        moveUsi = moveUsi,
+        bestUsi = bestUsi,
+        lossWp = lossWp,
+        category = category,
+        verdict = verdict,
+        note = note,
+        problemType = problemType,
+        priority = priority,
+        secondUsi = secondUsi,
+        secondCp = secondCp?.toInt(),
     )
 }
 

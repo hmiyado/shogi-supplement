@@ -90,6 +90,33 @@ class DrillRepositoryTest {
     }
 
     @Test
+    fun `棋譜単位のドリル候補は指定した棋譜だけを返し悪手単体も取得できる`() {
+        val db = newDatabase()
+        val gameRepo = newGameRepository(db)
+        val drillRepo = newDrillRepository(db)
+        val firstGameReports = saveDrillFixture(gameRepo)
+        val secondGameId = gameRepo.saveAnalysis(
+            fileName = "other.kif",
+            contentHash = "other-hash",
+            moves = listOf("7g7f"),
+            headers = emptyMap(),
+            reports = listOf(sampleReport().copy(ply = 99)),
+            rating = 1750,
+            coefVersion = "hao_v1",
+        )
+
+        val candidates = drillRepo.getDrillCandidatesByGame(secondGameId)
+        assertEquals(1, candidates.size)
+        assertEquals(secondGameId, candidates.single().gameId)
+        assertEquals(candidates.single(), drillRepo.getBlunderById(candidates.single().id))
+        assertEquals(null, drillRepo.getBlunderById(-1L))
+        assertEquals(
+            firstGameReports.count { it.verdict.startsWith("◎") || it.verdict.startsWith("○") },
+            drillRepo.getDrillCandidatesByGame(firstGameReports.first().gameId).size,
+        )
+    }
+
+    @Test
     fun `ドリル解答が保存復元できる`() {
         val db = newDatabase()
         val gameRepo = newGameRepository(db)
@@ -126,5 +153,24 @@ class DrillRepositoryTest {
         // 他のblunder_reportの履歴は混ざらない
         assertTrue(drillRepo.getDrillAttempts(target.id + 999).isEmpty())
     }
-}
 
+    @Test
+    fun `未送信解答は古い順に取得でき同期情報を更新できる`() {
+        val db = newDatabase()
+        val gameRepo = newGameRepository(db)
+        val drillRepo = newDrillRepository(db)
+        val target = saveDrillFixture(gameRepo).first()
+
+        val oldest = drillRepo.saveDrillAttempt(target.id, "7g7f", true, 0.0, attemptedAt = 100L)
+        val middle = drillRepo.saveDrillAttempt(target.id, "3c3d", false, 0.1, attemptedAt = 200L)
+        val newest = drillRepo.saveDrillAttempt(target.id, "2g2f", true, null, attemptedAt = 300L)
+        drillRepo.updateDrillAttemptSyncId(oldest, "sync-oldest")
+        drillRepo.updateDrillAttemptUploadedAt(middle, 400L)
+
+        val pending = drillRepo.getDrillAttemptsNotUploaded(limit = 10)
+        assertEquals(listOf(oldest, newest), pending.map { it.id })
+        assertEquals(listOf(100L, 300L), pending.map { it.attemptedAt })
+        assertEquals("sync-oldest", pending.first().syncId)
+        assertEquals(null, pending.first().uploadedAt)
+    }
+}

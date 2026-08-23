@@ -12,6 +12,20 @@ class SqlDelightDrillRepository(private val database: ShogiSupplementDatabase) :
             .map { it.toBlunderRecord() }
     }
 
+    override fun getDrillCandidatesByGame(gameId: Long): List<BlunderRecord> {
+        return database.shogiSupplementQueries
+            .getDrillCandidatesByGame(gameId)
+            .executeAsList()
+            .map { it.toBlunderRecord() }
+    }
+
+    override fun getBlunderById(id: Long): BlunderRecord? {
+        return database.shogiSupplementQueries
+            .getBlunderById(id)
+            .executeAsOneOrNull()
+            ?.toBlunderRecord()
+    }
+
     override fun saveDrillAttempt(
         blunderReportId: Long,
         userMoveUsi: String,
@@ -50,7 +64,36 @@ class SqlDelightDrillRepository(private val database: ShogiSupplementDatabase) :
                     isCorrect = it.is_correct != 0L,
                     lossWp = it.loss_wp,
                     attemptedAt = it.attempted_at,
+                    syncId = it.sync_id,
+                    uploadedAt = it.uploaded_at,
                 )
             }
     }
+
+    override fun getDrillAttemptsNotUploaded(limit: Int): List<DrillAttemptRecord> {
+        return database.shogiSupplementQueries
+            .getDrillAttemptsNotUploaded(limit.toLong())
+            .executeAsList()
+            .map { it.toDrillAttemptRecord() }
+    }
+
+    override fun updateDrillAttemptSyncId(id: Long, syncId: String) {
+        database.shogiSupplementQueries.updateDrillAttemptSyncId(syncId, id)
+    }
+
+    override fun updateDrillAttemptUploadedAt(id: Long, epochSeconds: Long) {
+        database.shogiSupplementQueries.updateDrillAttemptUploadedAt(epochSeconds, id)
+    }
+
+    private fun dev.miyado.shogisupplement.db.Drill_attempt.toDrillAttemptRecord() =
+        DrillAttemptRecord(
+            id = id,
+            blunderReportId = blunder_report_id,
+            userMoveUsi = user_move_usi,
+            isCorrect = is_correct != 0L,
+            lossWp = loss_wp,
+            attemptedAt = attempted_at,
+            syncId = sync_id,
+            uploadedAt = uploaded_at,
+        )
 }

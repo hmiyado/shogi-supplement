@@ -199,6 +199,16 @@ ORDER BY
     CASE WHEN verdict LIKE '◎%' THEN 0 ELSE 1 END,
     priority DESC;
 
+getDrillCandidatesByGame:
+SELECT * FROM blunder_report
+WHERE game_id = ? AND (verdict LIKE '◎%' OR verdict LIKE '○%')
+ORDER BY
+    CASE WHEN verdict LIKE '◎%' THEN 0 ELSE 1 END,
+    priority DESC;
+
+getBlunderById:
+SELECT * FROM blunder_report WHERE id = ?;
+
 getDrillAttemptCountAll:
 SELECT blunder_report_id, COUNT(*) AS attempt_count FROM drill_attempt GROUP BY blunder_report_id;
 

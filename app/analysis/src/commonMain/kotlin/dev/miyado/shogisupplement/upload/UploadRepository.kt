@@ -3,6 +3,15 @@ package dev.miyado.shogisupplement.upload
 import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.db.GameRecord
 
+/** Supabaseへ送信する1回分のドリル解答。 */
+data class DrillAttemptUpload(
+    val syncId: String,
+    val userMoveUsi: String,
+    val isCorrect: Boolean,
+    val lossWp: Double?,
+    val attemptedAt: Long,
+)
+
 /**
  * 棋譜アップロードリポジトリのインターフェース。
  * 実装: SupabaseUploadRepository（androidApp）、FakeUploadRepository（テスト）
@@ -23,6 +32,21 @@ interface UploadRepository {
      * @return 成功したら true、失敗したら false
      */
     suspend fun deleteGame(userId: String, contentHash: String): Boolean
+
+    /** 指定棋譜のドリル問題を、問題キーで冪等に登録する。 */
+    suspend fun syncDrillProblems(
+        userId: String,
+        contentHash: String,
+        problems: List<BlunderRecord>,
+    ): UploadResult
+
+    /** 指定問題に対するドリル解答を、クライアントIDで冪等に登録する。 */
+    suspend fun uploadDrillAttempt(
+        userId: String,
+        contentHash: String,
+        problem: BlunderRecord,
+        attempt: DrillAttemptUpload,
+    ): UploadResult
 }
 
 /** アップロード結果を表す sealed class。 */
