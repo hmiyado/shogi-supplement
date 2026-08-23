@@ -227,9 +227,7 @@ class DrillViewModel(
                 )
             }
             _state.value = DrillUiState.Result(surrenderResult, blunder, blunder.sfenBefore, flip)
-            viewModelScope.launch {
-                uploadOrchestrator?.maybeAutoUploadDrillAttempts()
-            }
+            startDrillAttemptUpload()
         }
     }
 
@@ -282,7 +280,14 @@ class DrillViewModel(
                 }
             }
             _state.value = DrillUiState.Result(result, blunder, blunder.sfenBefore, flip)
-            viewModelScope.launch {
+            startDrillAttemptUpload()
+        }
+    }
+
+    /** 次の一手の成績アップロードを別コルーチンで起動する。Result遷移をブロックしない。 */
+    private fun startDrillAttemptUpload() {
+        viewModelScope.launch {
+            withContext(ioDispatcher) {
                 uploadOrchestrator?.maybeAutoUploadDrillAttempts()
             }
         }

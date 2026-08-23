@@ -318,10 +318,6 @@ object AppStrings {
 
     /** 手動アップロードボタン（提供中画面）。count = 未アップロード件数。 */
     fun accountManualUploadButton(count: Int): String = "未アップロードの棋譜 ${count}局をアップロード"
-    /** アップロード結果メッセージ。棋譜は局、次の一手の成績は件で数える。 */
-    fun accountUploadResult(success: Int, failed: Int): String =
-        accountUploadResult(success, failed, drillPendingRemaining = 0)
-
     /** 手動アップロード完了メッセージ。次の一手の成績未送信数が残る場合だけ付記する。 */
     fun accountUploadResult(
         gameSuccess: Int,

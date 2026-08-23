@@ -616,7 +616,7 @@ private fun IosGameListScreenHost(
                     uploadResult = AppStrings.accountUploadResult(
                         result.gameSuccess,
                         result.gameFailed,
-                        result.drillPendingRemaining,
+                        result.drillPendingRemaining + result.drillFailed,
                     )
                 }
             }

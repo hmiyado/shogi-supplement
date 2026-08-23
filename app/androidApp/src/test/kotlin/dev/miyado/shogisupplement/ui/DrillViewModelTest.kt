@@ -125,7 +125,7 @@ class DrillViewModelTest {
             ),
             bestPv = "7g7f 3c3d",
         )
-        repos.game.seedFixtureBlunder(
+        val gameId = repos.game.seedFixtureBlunder(
             fileName = "test.kif",
             contentHash = "test-hash-${System.nanoTime()}",
             rating = 1750,
@@ -134,6 +134,8 @@ class DrillViewModelTest {
             sfenBefore = sfenBefore,
             userSide = "sente",
         )
+        // getDrillAttemptsNotUploadedは棋譜アップロード済みの解答のみを対象にする
+        repos.game.updateUploadedAt(gameId, 1L)
         val vm = DrillViewModel(
             gameRepository = repos.game,
             drillRepository = repos.drill,

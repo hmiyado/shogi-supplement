@@ -9,13 +9,13 @@ import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.kifu.KifParser
 import dev.miyado.shogisupplement.kifu.KifuDecomposer
 import io.github.jan.supabase.SupabaseClient
-import io.github.jan.supabase.exceptions.RestException
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.exception.PostgrestRestException
 import io.github.jan.supabase.postgrest.query.Columns
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlin.time.Instant
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -74,16 +74,10 @@ class SupabaseUploadRepository(
             )
             supabase.from("uploaded_games").insert(payload)
             UploadResult.Success
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            val msg = e.message ?: ""
-            // 23505 = PostgreSQL unique_violation, 409 = HTTP Conflict
-            if (msg.contains("23505") || msg.contains("409") || msg.contains("unique") ||
-                msg.contains("duplicate")
-            ) {
-                UploadResult.Duplicate
-            } else {
-                UploadResult.Failure(msg.ifBlank { "アップロードに失敗しました" })
-            }
+            uploadFailureOrDuplicate(e)
         }
     }
 
@@ -95,6 +89,8 @@ class SupabaseUploadRepository(
             }
         }
         true
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         false
     }
@@ -108,6 +104,8 @@ class SupabaseUploadRepository(
         return try {
             upsertDrillProblems(userId, contentHash, problems)
             UploadResult.Success
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             uploadFailureOrDuplicate(e)
         }
@@ -144,6 +142,8 @@ class SupabaseUploadRepository(
                 ignoreDuplicates = true
             }
             UploadResult.Success
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             // drill_attemptsの重複は、同じclient_attempt_idが既に保存された状態なので成功扱い。
             if (isDuplicate(e)) UploadResult.Success else failure(e)
@@ -185,14 +185,13 @@ class SupabaseUploadRepository(
     private fun failure(error: Exception): UploadResult =
         UploadResult.Failure(error.message?.ifBlank { null } ?: "アップロードに失敗しました")
 
-    private fun isDuplicate(error: Exception): Boolean {
-        val message = error.message.orEmpty()
-        return message.contains("23505") || message.contains("409") ||
-            message.contains("unique", ignoreCase = true) ||
-            message.contains("duplicate", ignoreCase = true) ||
-            (error as? RestException)?.statusCode == 409 ||
-            (error as? PostgrestRestException)?.code == "23505"
-    }
+    /**
+     * Why not メッセージの文字列マッチ: エラーメッセージにはURLや違反行の値がそのまま
+     * 載ることがあり、"409"等の数字列が偶然含まれると外部キー違反等を重複と誤判定する
+     * （誤判定はSuccess扱いになり、未保存の行が送信済みとして二度と再送されなくなる）。
+     */
+    private fun isDuplicate(error: Exception): Boolean =
+        (error as? PostgrestRestException)?.code == "23505"
 
     // ─── payload ─────────────────────────────────────────────────────────────
 

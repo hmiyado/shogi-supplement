@@ -278,7 +278,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 uploadResult = AppStrings.accountUploadResult(
                     result.gameSuccess,
                     result.gameFailed,
-                    result.drillPendingRemaining,
+                    result.drillPendingRemaining + result.drillFailed,
                 ),
             )
         }

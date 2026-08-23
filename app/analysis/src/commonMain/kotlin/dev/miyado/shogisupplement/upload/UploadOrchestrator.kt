@@ -80,6 +80,9 @@ class UploadOrchestrator(
 
         var gameSuccess = 0
         var gameFailed = 0
+        // uploadGame自体が成功時に問題同期を済ませるため、ここでアップロードした棋譜は
+        // 下の再同期ループの対象から除く（二重の問題upsertを避ける）。
+        val justUploadedGameIds = mutableSetOf<Long>()
         dbRepository.getNotUploadedGames().forEach { game ->
             val result = (try {
                 uploadGame(game.id)
@@ -90,6 +93,7 @@ class UploadOrchestrator(
             }) ?: UploadResult.Failure("未ログイン")
             if (result is UploadResult.Success || result is UploadResult.Duplicate) {
                 gameSuccess++
+                justUploadedGameIds += game.id
             } else {
                 gameFailed++
             }
@@ -97,7 +101,7 @@ class UploadOrchestrator(
 
         var drillFailed = 0
         dbRepository.getAllGames()
-            .filter { it.uploadedAt != null }
+            .filter { it.uploadedAt != null && it.id !in justUploadedGameIds }
             .forEach { game ->
                 val result = try {
                     val problems = drillRepository.getDrillCandidatesByGame(game.id)

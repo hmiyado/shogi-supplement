@@ -212,8 +212,15 @@ SELECT * FROM blunder_report WHERE id = ?;
 getDrillAttemptCountAll:
 SELECT blunder_report_id, COUNT(*) AS attempt_count FROM drill_attempt GROUP BY blunder_report_id;
 
+-- 棋譜自体が未アップロード（drill_problemsが外部キーで要求するuploaded_games行が無い）だと
+-- 解答送信は必ず失敗する。JOINで対象から外し、その解答がattempted_at昇順の先頭に居座って
+-- 後続の送信可能な解答を止め続ける事態（head-of-line blocking）を避ける。
 getDrillAttemptsNotUploaded:
-SELECT * FROM drill_attempt WHERE uploaded_at IS NULL ORDER BY attempted_at ASC LIMIT ?;
+SELECT drill_attempt.* FROM drill_attempt
+INNER JOIN blunder_report ON drill_attempt.blunder_report_id = blunder_report.id
+INNER JOIN game ON blunder_report.game_id = game.id
+WHERE drill_attempt.uploaded_at IS NULL AND game.uploaded_at IS NOT NULL
+ORDER BY drill_attempt.attempted_at ASC LIMIT ?;
 
 updateDrillAttemptSyncId:
 UPDATE drill_attempt SET sync_id = ? WHERE id = ?;

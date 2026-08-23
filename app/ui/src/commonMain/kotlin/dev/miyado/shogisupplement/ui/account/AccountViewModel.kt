@@ -177,7 +177,7 @@ class AccountViewModel(
                     .accountUploadResult(
                         result.gameSuccess,
                         result.gameFailed,
-                        result.drillPendingRemaining,
+                        result.drillPendingRemaining + result.drillFailed,
                     ),
             )
         }

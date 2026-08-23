@@ -165,38 +165,69 @@ class SupabaseDrillUploadRepositoryTest {
     }
 
     @Test
-    fun `解答upsertの40923505duplicateは既存行として成功扱いする`() = runTest {
-        val duplicateResponses = listOf(
-            HttpStatusCode.Conflict to "{\"message\":\"conflict\"}",
-            HttpStatusCode.InternalServerError to "{\"code\":\"23505\"}",
-            HttpStatusCode.BadRequest to "{\"message\":\"duplicate key\"}",
+    fun `解答upsertがPostgreSQLのunique_violationコードを返せば既存行として成功扱いする`() = runTest {
+        var requestCount = 0
+        val engine = MockEngine { _ ->
+            requestCount++
+            when (requestCount) {
+                1 -> respond(content = ByteReadChannel(""), status = HttpStatusCode.Created, headers = jsonHeaders)
+                2 -> respond(
+                    content = ByteReadChannel("[{\"id\":\"problem-uuid\"}]"),
+                    status = HttpStatusCode.OK,
+                    headers = jsonHeaders,
+                )
+                3 -> respond(
+                    content = ByteReadChannel("{\"code\":\"23505\",\"message\":\"duplicate key\"}"),
+                    status = HttpStatusCode.Conflict,
+                    headers = jsonHeaders,
+                )
+                else -> error("unexpected request $requestCount")
+            }
+        }
+
+        val result = repository(engine).uploadDrillAttempt(
+            userId = "user-1",
+            contentHash = "hash-1",
+            problem = problem(),
+            attempt = DrillAttemptUpload("attempt-uuid", "B*3d", false, null, 1_780_000_000L),
         )
 
-        for ((status, body) in duplicateResponses) {
-            var requestCount = 0
-            val engine = MockEngine { _ ->
-                requestCount++
-                when (requestCount) {
-                    1 -> respond(content = ByteReadChannel(""), status = HttpStatusCode.Created, headers = jsonHeaders)
-                    2 -> respond(
-                        content = ByteReadChannel("[{\"id\":\"problem-uuid\"}]"),
-                        status = HttpStatusCode.OK,
-                        headers = jsonHeaders,
-                    )
-                    3 -> respond(content = ByteReadChannel(body), status = status, headers = jsonHeaders)
-                    else -> error("unexpected request $requestCount")
-                }
+        assertEquals(UploadResult.Success, result)
+        assertEquals(3, requestCount)
+    }
+
+    @Test
+    fun `解答upsertがcodeを持たない409を返せば重複と誤判定せずFailureになる`() = runTest {
+        // 外部キー違反（23503）等もPostgRESTはHTTP 409を返すため、ステータスコードや
+        // メッセージ中の"409"という文字列だけでは重複と判別できない。ここではcodeフィールドを
+        // 持たないレスポンスで、それらが誤ってSuccess/Duplicateに丸められないことを確認する。
+        var requestCount = 0
+        val engine = MockEngine { _ ->
+            requestCount++
+            when (requestCount) {
+                1 -> respond(content = ByteReadChannel(""), status = HttpStatusCode.Created, headers = jsonHeaders)
+                2 -> respond(
+                    content = ByteReadChannel("[{\"id\":\"problem-uuid\"}]"),
+                    status = HttpStatusCode.OK,
+                    headers = jsonHeaders,
+                )
+                3 -> respond(
+                    content = ByteReadChannel("{\"message\":\"insert or update on table \\\"drill_attempts\\\" violates foreign key constraint, request id 409\"}"),
+                    status = HttpStatusCode.Conflict,
+                    headers = jsonHeaders,
+                )
+                else -> error("unexpected request $requestCount")
             }
-
-            val result = repository(engine).uploadDrillAttempt(
-                userId = "user-1",
-                contentHash = "hash-1",
-                problem = problem(),
-                attempt = DrillAttemptUpload("attempt-uuid", "B*3d", false, null, 1_780_000_000L),
-            )
-
-            assertEquals(UploadResult.Success, result, "status=$status body=$body")
-            assertEquals(3, requestCount)
         }
+
+        val result = repository(engine).uploadDrillAttempt(
+            userId = "user-1",
+            contentHash = "hash-1",
+            problem = problem(),
+            attempt = DrillAttemptUpload("attempt-uuid", "B*3d", false, null, 1_780_000_000L),
+        )
+
+        assertTrue(result is UploadResult.Failure, "expected Failure but was $result")
+        assertEquals(3, requestCount)
     }
 }

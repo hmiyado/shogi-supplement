@@ -160,6 +160,8 @@ class DrillRepositoryTest {
         val gameRepo = newGameRepository(db)
         val drillRepo = newDrillRepository(db)
         val target = saveDrillFixture(gameRepo).first()
+        // getDrillAttemptsNotUploadedは棋譜アップロード済みの解答のみを対象にする
+        gameRepo.updateUploadedAt(target.gameId, 1L)
 
         val oldest = drillRepo.saveDrillAttempt(target.id, "7g7f", true, 0.0, attemptedAt = 100L)
         val middle = drillRepo.saveDrillAttempt(target.id, "3c3d", false, 0.1, attemptedAt = 200L)
@@ -172,5 +174,20 @@ class DrillRepositoryTest {
         assertEquals(listOf(100L, 300L), pending.map { it.attemptedAt })
         assertEquals("sync-oldest", pending.first().syncId)
         assertEquals(null, pending.first().uploadedAt)
+    }
+
+    @Test
+    fun `棋譜が未アップロードの解答はgetDrillAttemptsNotUploadedの対象から外れる`() {
+        // 棋譜がSupabase未アップロードだと解答送信は外部キー違反で必ず失敗するため、
+        // その解答が古い順の先頭に居座って後続の送信可能な解答を止めないようにする。
+        val db = newDatabase()
+        val gameRepo = newGameRepository(db)
+        val drillRepo = newDrillRepository(db)
+        val target = saveDrillFixture(gameRepo).first()
+        // gameRepo.updateUploadedAtを呼ばない＝棋譜は未アップロードのまま
+
+        drillRepo.saveDrillAttempt(target.id, "7g7f", true, 0.0, attemptedAt = 100L)
+
+        assertTrue(drillRepo.getDrillAttemptsNotUploaded(limit = 10).isEmpty())
     }
 }

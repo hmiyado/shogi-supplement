@@ -4,7 +4,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(37);
+select plan(41);
 
 -- ── テスト用ユーザーとuploaded_games ────────────────────────────────────
 insert into auth.users (id, instance_id, aud, role, created_at, updated_at)
@@ -568,6 +568,40 @@ select lives_ok(
       '60000000-0000-0000-0000-000000000501', '7g7f', true, now()
     )$$,
   'daily_limit: JST日界より前の500件は当日の上限に含まれない'
+);
+
+-- ── UPDATE/DELETE権限自体が無い（送信済みの成績は改変・削除できない）────
+-- RLSポリシーは for all（本人の行はUPDATE/DELETEの条件を満たす）だが、GRANTを
+-- select/insertだけに絞っているため、本人の行でもUPDATE/DELETEはこの時点で拒否される。
+set local role authenticated;
+set local request.jwt.claims to '{"sub": "20000000-0000-0000-0000-000000000001", "role": "authenticated"}';
+
+select throws_ok(
+  $$update public.drill_problems set priority = 9.9
+    where user_id = '20000000-0000-0000-0000-000000000001'$$,
+  '42501', null,
+  'drill_problems: UPDATE権限自体が無い（本人でも更新不可）'
+);
+
+select throws_ok(
+  $$delete from public.drill_problems
+    where user_id = '20000000-0000-0000-0000-000000000001'$$,
+  '42501', null,
+  'drill_problems: DELETE権限自体が無い（本人でも削除不可）'
+);
+
+select throws_ok(
+  $$update public.drill_attempts set is_correct = true
+    where user_id = '20000000-0000-0000-0000-000000000001'$$,
+  '42501', null,
+  'drill_attempts: UPDATE権限自体が無い（本人でも更新不可）'
+);
+
+select throws_ok(
+  $$delete from public.drill_attempts
+    where user_id = '20000000-0000-0000-0000-000000000001'$$,
+  '42501', null,
+  'drill_attempts: DELETE権限自体が無い（本人でも削除不可）'
 );
 
 reset role;

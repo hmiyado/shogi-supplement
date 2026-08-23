@@ -221,9 +221,9 @@ class UploadOrchestratorTest {
         assertEquals(0, result.drillFailed)
         assertEquals(0, result.drillPendingRemaining)
         assertEquals(2, upload.calls.size)
-        // uploadGame自体が棋譜ごとに問題同期を1回呼び、再同期ステップでもう1回呼ぶため
-        // 2棋譜×2回になる（冪等なupsertのため重複呼び出し自体は許容する設計）
-        assertEquals(4, upload.drillProblemCalls.size)
+        // uploadGame自体が棋譜ごとに問題同期を済ませ、再同期ステップは今回アップロードした
+        // 棋譜を除外するため、2棋譜×1回になる（二重upsertを避ける）
+        assertEquals(2, upload.drillProblemCalls.size)
         // uploaded_at が記録されていること
         assertNotNull(db.getGameById(id1)?.uploadedAt)
         assertNotNull(db.getGameById(id2)?.uploadedAt)
@@ -245,9 +245,9 @@ class UploadOrchestratorTest {
         assertEquals(0, result.drillFailed)
         assertEquals(0, result.drillPendingRemaining)
         assertEquals(1, upload.calls.size)
-        // newGameIdはuploadGame自体の問題同期（1）＋再同期ステップ（1）、
-        // uploadedGameIdは再同期ステップ（1）のみで計3回
-        assertEquals(3, upload.drillProblemCalls.size)
+        // newGameIdはuploadGame自体の問題同期のみ（再同期ステップは今回アップロードした
+        // 棋譜を除外）、uploadedGameIdは再同期ステップのみで計2回
+        assertEquals(2, upload.drillProblemCalls.size)
         assertEquals(2, upload.drillAttemptCalls.size)
 
         val firstProblem = upload.events.indexOfFirst { it.startsWith("problem:") }
@@ -336,6 +336,7 @@ class UploadOrchestratorTest {
         val (orch, upload, db, drill, settings) = buildOrchestrator()
         settings.saveAutoUpload(true)
         val gameId = saveGame(db)
+        db.updateUploadedAt(gameId, 1_780_000_000L)
         val blunderId = db.getReports(gameId).single().id
         val attemptId = saveAttempt(drill, db, gameId, attemptedAt = 100L)
 
@@ -355,11 +356,71 @@ class UploadOrchestratorTest {
         val (orch, _, db, drill, settings) = buildOrchestrator(upload = upload)
         settings.saveAutoUpload(true)
         val gameId = saveGame(db)
+        db.updateUploadedAt(gameId, 1_780_000_000L)
         val blunderId = db.getReports(gameId).single().id
         saveAttempt(drill, db, gameId, attemptedAt = 100L)
 
         orch.maybeAutoUploadDrillAttempts()
 
         assertNotNull(drill.getDrillAttempts(blunderId).single().uploadedAt)
+    }
+
+    @Test
+    fun maybeAutoUploadDrillAttempts_gameNotUploaded_excludesAttempt() = runTest {
+        // 棋譜自体が未アップロードだと解答送信は必ず外部キー違反で失敗するため、
+        // 送信可能な解答を止め続けないよう対象から外れることを確認する（head-of-line blocking対策）。
+        val (orch, upload, db, drill, settings) = buildOrchestrator()
+        settings.saveAutoUpload(true)
+        val gameId = saveGame(db)
+        saveAttempt(drill, db, gameId, attemptedAt = 100L)
+
+        orch.maybeAutoUploadDrillAttempts()
+
+        assertTrue("未アップロード棋譜の解答は自動送信の対象にならない", upload.drillAttemptCalls.isEmpty())
+    }
+
+    @Test
+    fun maybeAutoUploadDrillAttempts_whenUploadFails_doesNotMarkUploaded() = runTest {
+        val upload = FakeUploadRepository(drillAttemptResult = UploadResult.Failure("network error"))
+        val (orch, _, db, drill, settings) = buildOrchestrator(upload = upload)
+        settings.saveAutoUpload(true)
+        val gameId = saveGame(db)
+        db.updateUploadedAt(gameId, 1_780_000_000L)
+        val blunderId = db.getReports(gameId).single().id
+        saveAttempt(drill, db, gameId, attemptedAt = 100L)
+
+        orch.maybeAutoUploadDrillAttempts()
+
+        assertNull(drill.getDrillAttempts(blunderId).single().uploadedAt)
+    }
+
+    // ─── 失敗の集計（drillFailed） ───────────────────────────────────────────
+
+    @Test
+    fun uploadAll_drillProblemSyncFails_countsDrillFailed() = runTest {
+        val upload = FakeUploadRepository(drillProblemsResult = UploadResult.Failure("sync error"))
+        val (orch, _, db, _, _) = buildOrchestrator(upload = upload)
+        val gameId = saveGame(db)
+        db.updateUploadedAt(gameId, 1_780_000_000L)  // 再同期ループの対象にする
+
+        val result = orch.uploadAll()
+
+        assertEquals(1, result.drillFailed)
+    }
+
+    @Test
+    fun uploadAll_drillAttemptUploadFails_countsDrillFailedAndKeepsPending() = runTest {
+        val upload = FakeUploadRepository(drillAttemptResult = UploadResult.Failure("attempt error"))
+        val (orch, _, db, drill, _) = buildOrchestrator(upload = upload)
+        val gameId = saveGame(db)
+        db.updateUploadedAt(gameId, 1_780_000_000L)
+        val blunderId = db.getReports(gameId).single().id
+        saveAttempt(drill, db, gameId, attemptedAt = 100L)
+
+        val result = orch.uploadAll()
+
+        assertEquals(1, result.drillFailed)
+        assertEquals(1, result.drillPendingRemaining)
+        assertNull(drill.getDrillAttempts(blunderId).single().uploadedAt)
     }
 }
