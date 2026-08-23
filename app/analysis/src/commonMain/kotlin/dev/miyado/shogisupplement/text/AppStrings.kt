@@ -318,9 +318,23 @@ object AppStrings {
 
     /** 手動アップロードボタン（提供中画面）。count = 未アップロード件数。 */
     fun accountManualUploadButton(count: Int): String = "未アップロードの棋譜 ${count}局をアップロード"
-    /** アップロード結果メッセージ。success = 成功件数、failed = 失敗件数。 */
+    /** アップロード結果メッセージ。棋譜は局、次の一手の成績は件で数える。 */
     fun accountUploadResult(success: Int, failed: Int): String =
-        "アップロード完了: 成功${success}局${if (failed > 0) " / 失敗${failed}局" else ""}"
+        accountUploadResult(success, failed, drillPendingRemaining = 0)
+
+    /** 手動アップロード完了メッセージ。次の一手の成績未送信数が残る場合だけ付記する。 */
+    fun accountUploadResult(
+        gameSuccess: Int,
+        gameFailed: Int,
+        drillPendingRemaining: Int,
+    ): String {
+        val base = "アップロード完了: 成功${gameSuccess}局${if (gameFailed > 0) " / 失敗${gameFailed}局" else ""}"
+        return if (drillPendingRemaining > 0) {
+            "$base／次の一手の成績は${drillPendingRemaining}件送信できませんでした"
+        } else {
+            base
+        }
+    }
 
     /** StrengthCard の申告棋力行プレフィックス。 */
     const val STRENGTH_DECLARED_PREFIX = "申告: "

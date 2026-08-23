@@ -8,6 +8,7 @@ import dev.miyado.shogisupplement.crypto.TransferSecretManager
 import dev.miyado.shogisupplement.crypto.TransferSecretRegistrar
 import dev.miyado.shogisupplement.crypto.TransferSecretStore
 import dev.miyado.shogisupplement.db.GameRepository
+import dev.miyado.shogisupplement.db.DrillRepository
 import dev.miyado.shogisupplement.db.SettingsRepository
 import dev.miyado.shogisupplement.download.GameDownloadService
 import dev.miyado.shogisupplement.download.SupabaseGameDownloadService
@@ -33,6 +34,7 @@ class SupabaseServices(
     supabaseUrl: String,
     supabaseKey: String,
     gameRepository: GameRepository,
+    drillRepository: DrillRepository,
     settingsRepository: SettingsRepository,
     val transferSecretStore: TransferSecretStore,
     platform: String,
@@ -51,6 +53,7 @@ class SupabaseServices(
         authRepository = authRepository,
         uploadRepository = uploadRepository,
         dbRepository = gameRepository,
+        drillRepository = drillRepository,
         settingsRepository = settingsRepository,
     )
 

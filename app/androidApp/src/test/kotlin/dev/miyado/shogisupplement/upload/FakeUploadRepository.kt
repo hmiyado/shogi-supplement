@@ -19,6 +19,7 @@ class FakeUploadRepository(
     val deleteCalls = mutableListOf<Pair<String, String>>()
     val drillProblemCalls = mutableListOf<Triple<String, String, List<BlunderRecord>>>()
     val drillAttemptCalls = mutableListOf<DrillAttemptCall>()
+    val events = mutableListOf<String>()
 
     override suspend fun uploadGame(
         userId: String,
@@ -26,6 +27,7 @@ class FakeUploadRepository(
         reports: List<BlunderRecord>,
     ): UploadResult {
         calls.add(Triple(userId, game, reports))
+        events += "game:${game.contentHash}"
         return result
     }
 
@@ -40,6 +42,7 @@ class FakeUploadRepository(
         problems: List<BlunderRecord>,
     ): UploadResult {
         drillProblemCalls += Triple(userId, contentHash, problems)
+        events += "problem:$contentHash"
         return drillProblemsResult
     }
 
@@ -50,6 +53,7 @@ class FakeUploadRepository(
         attempt: DrillAttemptUpload,
     ): UploadResult {
         drillAttemptCalls += DrillAttemptCall(userId, contentHash, problem, attempt)
+        events += "attempt:${attempt.syncId}"
         return drillAttemptResult
     }
 

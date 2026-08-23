@@ -94,6 +94,7 @@ fun DrillScreen(
     onBack: () -> Unit,
     vm: DrillViewModel = run {
         val context = LocalContext.current
+        val app = context.applicationContext as ShogiApp
         viewModel(
             factory = DrillViewModel.factory(
                 gameRepository = AppDatabase.gameRepository(context),
@@ -101,6 +102,7 @@ fun DrillScreen(
                 settingsRepository = AppDatabase.settingsRepository(context),
                 judgeWithEngine = remember(context) { androidJudgeWithEngine(context) },
                 engineFactory = remember(context) { androidDrillEngineFactory(context) },
+                uploadOrchestrator = app.uploadOrchestrator,
             ),
         )
     },
