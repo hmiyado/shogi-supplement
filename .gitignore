@@ -24,6 +24,9 @@ app/local.properties
 # リリース署名（アップロード鍵とパスワード。絶対にコミットしない）
 app/keystore.properties
 app/keystore/
+# App Store Connect APIキー（.p8の中身が秘密）と、秘密を入れるenvファイル
+*.p8
+.env*
 
 # 研究一式（データ・スクリプト・エンジン・実験ドキュメント）は独立リポジトリ
 # https://github.com/hmiyado/shogi-supplement-research （research/ がそのルート）。

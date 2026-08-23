@@ -33,10 +33,12 @@ Sentry/FirebaseのXCFrameworkと同じ扱いでコミットされない。
 
 `fastlane/Fastfile` 内の `KEY_ID`（`BM62Q97564`）・`ISSUER_ID` は
 `scripts/upload_testflight.sh` と同じ値で、秘密ではない。秘密なのは `.p8` の中身のみ。
-ファイルの場所は実行時に環境変数 `ASC_KEY_PATH` で渡す:
+キーの渡し方は2通り。`ASC_KEY_CONTENT` に `.p8` の中身（PEM）が入っていればそれを使い、
+無ければ `ASC_KEY_PATH` の指すファイルを読む。中身を環境変数で渡せば鍵をディスクへ
+書き出さずに済むため、そちらを既定とする（実際の取り出し方はリポジトリ外の運用メモ）。
 
 ```sh
-LC_ALL=en_US.UTF-8 ASC_KEY_PATH=/path/to/AuthKey_BM62Q97564.p8 bundle exec fastlane ios beta
+LC_ALL=en_US.UTF-8 bundle exec fastlane ios beta
 ```
 
 fastlaneはUTF-8ロケール必須（未設定シェルだと日本語入りplistの解析で

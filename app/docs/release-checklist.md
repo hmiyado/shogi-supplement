@@ -48,7 +48,7 @@
 
 - `docs/release-notes.html` の項目は `<strong>機能名</strong>: 何ができるようになったか`。
 - 文言は `docs/wording.md` に従う。トーンは `DESIGN.md`（誇張しない・根拠で語る）。
-- 裏側だけの変更は載せないことがある（判断はメンテナ）。
+- 裏側だけの変更は載せないことがある（判断はメンテナ。例: 1.6の#27は非掲載）。
 - 過去バージョンの文言は遡及変更しない。
 - Play Consoleの「新機能」欄はメンテナが手入力する。文面は`release_notes.txt`と揃える。
 
@@ -60,7 +60,7 @@
 ```
 1.6のリリース準備をする
 
-<このリリースに含む変更>を含む1.6をリリースする。
+棋譜の個別削除（#26）・手動棋譜入力を含む1.6をリリースする。
 バージョンを1.5→1.6・ビルド番号6→7へ上げ、リリースノートを反映する。
 公開予定日は2026-08-24。
 ```
@@ -77,8 +77,10 @@ iOSは `fastlane ios beta` が `.maestro/run-ios.sh` を本番ビルド前に実
 ## iOS（メンテナがローカル実行）
 
 ```bash
-cd app/iosApp && LC_ALL=en_US.UTF-8 ASC_KEY_PATH=/path/to/AuthKey_XXXX.p8 bundle exec fastlane ios beta
+cd app/iosApp && LC_ALL=en_US.UTF-8 bundle exec fastlane ios beta
 ```
+
+APIキーは `ASC_KEY_CONTENT`（`.p8` の中身）か `ASC_KEY_PATH`（`.p8` のパス）で渡す。
 
 TestFlightまで通ったら `fastlane ios release` で審査提出。審査通過後の公開は
 App Store Connectでの手動操作。詳細・前提資材の取得は [release.md](release.md)。
