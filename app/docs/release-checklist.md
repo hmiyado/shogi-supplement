@@ -24,22 +24,21 @@
 
 ## 準備コミット
 
-バージョンとリリースノートを触る6ファイル。**どれか1つでも漏らすと不整合になる**。
+バージョンとリリースノートで触る4ファイル。
 
 | ファイル | 変更する箇所 |
 | --- | --- |
-| `app/gradle.properties` | `shogisupplement.versionCode` を +1（Android/iOS共通のビルド番号） |
-| `app/iosApp/project.yml` | `CURRENT_PROJECT_VERSION` を上と**同じ値**に |
-| `app/androidApp/build.gradle.kts` | `versionName = "x.y"` |
-| `app/iosApp/iosApp/Info.plist` | `CFBundleShortVersionString` を上と同じバージョン名に |
+| `app/gradle.properties` | `shogisupplement.versionCode` を +1、`shogisupplement.versionName` を新バージョン名に |
+| `app/iosApp/project.yml` | `CURRENT_PROJECT_VERSION` / `MARKETING_VERSION` を上と**同じ値**に |
 | `app/iosApp/fastlane/metadata/ja/release_notes.txt` | App Store用のリリースノート（`・`始まりの1項目1行） |
 | `docs/release-notes.html` | 新しい `<h2>` 節を先頭に追加。`最終更新日` も更新 |
 
-- ビルド番号の値源は `gradle.properties`。Androidの`versionCode`と、fastlaneが
-  `xcargs`で渡すiOSの`CURRENT_PROJECT_VERSION`は、どちらもここを読む。
-  `project.yml`の値が効くのはXcode/xcodebuildを直接叩くビルド（実機確認など）だけだが、
-  提出物と実機確認でビルド番号が食い違わないよう手で同じ値に揃える
-  （強制アップデート判定は `app_policy.min_build` とビルド番号を比較している）。
+- バージョン名・ビルド番号の値源は `gradle.properties` だけ。Androidの`versionName`/
+  `versionCode`、fastlaneが`xcargs`で渡すiOSの`MARKETING_VERSION`/`CURRENT_PROJECT_VERSION`は
+  すべてここを読む（Androidの`build.gradle.kts`とiOSの`Info.plist`は触らない）。
+- `project.yml`の2値だけは手で写す（xcodegenの入力のため）。ずれたままXcodeで
+  ビルドすると突合スクリプトがエラーで止める。fastlane経由の提出物は`xcargs`で
+  上書きされるので`gradle.properties`の値になる。
 - `docs/release-notes.html` の日付は公開**予定**日を入れる。実際の公開日とずれたら
   公開後に訂正コミットを作る（例: `4cab1dee`）。
 - 強制アップデートを発動させたい場合だけ、別途Supabaseの`app_policy.min_build`を上げる。

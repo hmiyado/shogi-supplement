@@ -22,4 +22,4 @@ QA・レビュー時は DESIGN.md に合わない実装をフラグする。
 ## リリース
 
 バージョンを出すときは app/docs/release-checklist.md に従う。
-バージョン番号とリリースノートは6ファイルに分散していて、漏らすと不整合になる。
+バージョン名・ビルド番号の値源は app/gradle.properties だけ。

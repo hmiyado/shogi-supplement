@@ -34,12 +34,12 @@ EXPORT_OPTIONS = {
   teamID: TEAM_ID
 }.freeze
 
-# ビルド番号はgradle.propertiesのshogisupplement.versionCodeを単一の源とする
+# ビルド番号とバージョン名はgradle.propertiesを単一の源とする
 # （upload_testflight.shと同じ理由。タイムスタンプ生成はしない）。
-def read_build_number
+def read_gradle_property(key)
   line = File.readlines(File.join(APP_DIR, "gradle.properties"))
-             .find { |l| l.start_with?("shogisupplement.versionCode=") }
-  UI.user_error!("shogisupplement.versionCodeがgradle.propertiesに見つからない") unless line
+             .find { |l| l.start_with?("#{key}=") }
+  UI.user_error!("#{key}がgradle.propertiesに見つからない") unless line
   line.split("=", 2).last.strip
 end
 
@@ -63,7 +63,8 @@ end
 platform :ios do
   desc "アーカイブしてTestFlightへアップロードする"
   lane :beta do
-    build_number = read_build_number
+    build_number = read_gradle_property("shogisupplement.versionCode")
+    version_name = read_gradle_property("shogisupplement.versionName")
 
     Dir.chdir(IOS_PROJECT_DIR) { sh("xcodegen", "generate") }
 
@@ -86,7 +87,8 @@ platform :ios do
       # gymはexport_optionsへ内部で書き足す（teamID等）ため、定数をそのまま渡すと
       # Ruby 3.4の凍結定数でFrozenErrorになる。呼び出しごとに複製を渡す。
       export_options: EXPORT_OPTIONS.dup,
-      xcargs: "CURRENT_PROJECT_VERSION=#{build_number} DEVELOPMENT_TEAM=#{TEAM_ID} " \
+      xcargs: "CURRENT_PROJECT_VERSION=#{build_number} MARKETING_VERSION=#{version_name} " \
+              "DEVELOPMENT_TEAM=#{TEAM_ID} " \
               "CODE_SIGN_STYLE=Automatic -allowProvisioningUpdates " \
               "-authenticationKeyID #{KEY_ID} -authenticationKeyIssuerID #{ISSUER_ID}",
       # 認証引数はapp_store_connect_api_key設定時にgymが自動付与するため
@@ -101,7 +103,7 @@ platform :ios do
 
     upload_dsyms_to_sentry
 
-    UI.success("TestFlightへアップロード完了 (build=#{build_number})")
+    UI.success("TestFlightへアップロード完了 (#{version_name} build=#{build_number})")
   end
 
   desc "betaの後、メタデータ・スクリーンショットとともに審査へ提出する（自動リリースはしない）"

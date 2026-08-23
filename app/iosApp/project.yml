@@ -81,6 +81,7 @@ targets:
         # INFOPLIST_KEY_ 機構（既知キーのみ対応）では注入できないため、実ファイルを使用。
         GENERATE_INFOPLIST_FILE: NO
         CURRENT_PROJECT_VERSION: 7
+        MARKETING_VERSION: "1.6"
         INFOPLIST_FILE: iosApp/Info.plist
         # :ui が :shared を export した umbrella framework（SharedUi）に統一。
         # :shared.framework は二重リンクせず、SharedUi 経由で :shared の公開APIも使う。
@@ -145,18 +146,22 @@ targets:
           SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) ENGINELESS"
           OTHER_LDFLAGS: "-framework SharedUi -lsqlite3 -lc++ -ObjC"
     preBuildScripts:
-      - name: "Verify CURRENT_PROJECT_VERSION matches gradle.properties versionCode"
+      - name: "Verify MARKETING_VERSION/CURRENT_PROJECT_VERSION match gradle.properties"
         script: |
           set -e
-          EXPECTED="$(grep '^shogisupplement.versionCode=' "$SRCROOT/../gradle.properties" | cut -d= -f2)"
-          if [ -z "$EXPECTED" ]; then
-            echo "error: shogisupplement.versionCode が gradle.properties に見つかりません" >&2
-            exit 1
-          fi
-          if [ "$CURRENT_PROJECT_VERSION" != "$EXPECTED" ]; then
-            echo "error: CURRENT_PROJECT_VERSION ($CURRENT_PROJECT_VERSION) が gradle.properties の shogisupplement.versionCode ($EXPECTED) と不一致。project.yml を直してください" >&2
-            exit 1
-          fi
+          verify() {
+            EXPECTED="$(grep "^shogisupplement.$1=" "$SRCROOT/../gradle.properties" | cut -d= -f2)"
+            if [ -z "$EXPECTED" ]; then
+              echo "error: shogisupplement.$1 が gradle.properties に見つかりません" >&2
+              exit 1
+            fi
+            if [ "$2" != "$EXPECTED" ]; then
+              echo "error: $3 ($2) が gradle.properties の shogisupplement.$1 ($EXPECTED) と不一致。project.yml を直してください" >&2
+              exit 1
+            fi
+          }
+          verify versionCode "$CURRENT_PROJECT_VERSION" CURRENT_PROJECT_VERSION
+          verify versionName "$MARKETING_VERSION" MARKETING_VERSION
       - name: "Build Shared+UI Kotlin Framework (gradlew :ui:linkDebugFramework<Target>)"
         # シミュレータ/実機どちらでビルドされるかで:uiのK/Nターゲットを、
         # Debug/Releaseで:uiのリンクタスクを、それぞれ切り替える
