@@ -180,7 +180,9 @@ CREATE TABLE IF NOT EXISTS drill_attempt (
     user_move_usi TEXT NOT NULL,
     is_correct INTEGER NOT NULL,
     loss_wp REAL,
-    attempted_at INTEGER NOT NULL
+    attempted_at INTEGER NOT NULL,
+    sync_id TEXT,
+    uploaded_at INTEGER
 );
 
 insertDrillAttempt:
@@ -199,6 +201,15 @@ ORDER BY
 
 getDrillAttemptCountAll:
 SELECT blunder_report_id, COUNT(*) AS attempt_count FROM drill_attempt GROUP BY blunder_report_id;
+
+getDrillAttemptsNotUploaded:
+SELECT * FROM drill_attempt WHERE uploaded_at IS NULL ORDER BY attempted_at ASC LIMIT ?;
+
+updateDrillAttemptSyncId:
+UPDATE drill_attempt SET sync_id = ? WHERE id = ?;
+
+updateDrillAttemptUploadedAt:
+UPDATE drill_attempt SET uploaded_at = ? WHERE id = ?;
 
 -- ─── service_rank ───────────────────────────────────────────────────────────
 

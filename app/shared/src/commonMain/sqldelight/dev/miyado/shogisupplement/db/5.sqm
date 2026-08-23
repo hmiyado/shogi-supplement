@@ -1,0 +1,2 @@
+ALTER TABLE drill_attempt ADD COLUMN sync_id TEXT;
+ALTER TABLE drill_attempt ADD COLUMN uploaded_at INTEGER;
