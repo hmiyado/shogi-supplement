@@ -38,8 +38,23 @@ class UploadOrchestrator(
         val result = uploadRepository.uploadGame(user.id, game, reports)
         if (result is UploadResult.Success || result is UploadResult.Duplicate) {
             dbRepository.updateUploadedAt(gameId, currentEpochSeconds())
+            syncDrillProblemsSilently(user.id, game.contentHash, gameId)
         }
         return result
+    }
+
+    /**
+     * 棋譜1局分の次の一手候補を問題として同期する。失敗しても棋譜アップロード自体の
+     * 結果には影響させない（未登録の問題は手動再同期・解答送信時の1件同期で拾われる）。
+     */
+    private suspend fun syncDrillProblemsSilently(userId: String, contentHash: String, gameId: Long) {
+        try {
+            val problems = drillRepository.getDrillCandidatesByGame(gameId)
+            uploadRepository.syncDrillProblems(userId, contentHash, problems)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+        }
     }
 
     /**

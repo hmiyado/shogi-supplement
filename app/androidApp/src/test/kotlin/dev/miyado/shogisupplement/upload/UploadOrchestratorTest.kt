@@ -221,7 +221,9 @@ class UploadOrchestratorTest {
         assertEquals(0, result.drillFailed)
         assertEquals(0, result.drillPendingRemaining)
         assertEquals(2, upload.calls.size)
-        assertEquals(2, upload.drillProblemCalls.size)
+        // uploadGame自体が棋譜ごとに問題同期を1回呼び、再同期ステップでもう1回呼ぶため
+        // 2棋譜×2回になる（冪等なupsertのため重複呼び出し自体は許容する設計）
+        assertEquals(4, upload.drillProblemCalls.size)
         // uploaded_at が記録されていること
         assertNotNull(db.getGameById(id1)?.uploadedAt)
         assertNotNull(db.getGameById(id2)?.uploadedAt)
@@ -243,7 +245,9 @@ class UploadOrchestratorTest {
         assertEquals(0, result.drillFailed)
         assertEquals(0, result.drillPendingRemaining)
         assertEquals(1, upload.calls.size)
-        assertEquals(2, upload.drillProblemCalls.size)
+        // newGameIdはuploadGame自体の問題同期（1）＋再同期ステップ（1）、
+        // uploadedGameIdは再同期ステップ（1）のみで計3回
+        assertEquals(3, upload.drillProblemCalls.size)
         assertEquals(2, upload.drillAttemptCalls.size)
 
         val firstProblem = upload.events.indexOfFirst { it.startsWith("problem:") }
