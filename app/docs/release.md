@@ -1,5 +1,8 @@
 # iOSリリース（fastlane・ローカル実行専用）
 
+リリース全体の手順（バージョン更新・リリースノート・Android側）は
+[release-checklist.md](release-checklist.md) にある。ここはiOS fastlaneの仕様に絞る。
+
 `app/iosApp/fastlane/` に置いた fastlane で TestFlightアップロードと審査提出を行う。
 **CIには載せない・署名関連の秘密はGitHubに置かない方針**。
 署名・APIキー認証・ビルド番号の取得元は `scripts/upload_testflight.sh` を踏襲している。
