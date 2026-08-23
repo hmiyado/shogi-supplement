@@ -7,20 +7,28 @@
 
 | 担当 | 範囲 |
 | --- | --- |
-| Claude（sonnetへの委譲可） | リリース準備コミットの作成まで。Maestroのローカル実行 |
-| メンテナ | push許可・実機ビルド・TestFlight/Play提出・ストアの公開操作・Xポスト投稿 |
+| Claude（sonnetへの委譲可） | リリース準備コミット・Maestro実行・TestFlightアップロード（`fastlane ios beta`） |
+| メンテナ | リリース対象の決定・push許可・審査提出（`fastlane ios release`）・Play Consoleの操作・ストア公開・Xポスト投稿 |
 
+- **何をこのリリースに含めるかはメンテナが決める**。勝手に対象を足さない。
 - pushはメンテナの明示許可を得てから行う。
+- 審査提出から先（`fastlane ios release`・Play Consoleへのアップロード・公開ボタン）は
+  取り消せないのでメンテナが行う。TestFlightは配信先が内部なのでClaudeが実行してよい。
 - 署名の秘密（keystoreパスワード・ASCの`.p8`）は取得も表示もしない。
 
 ## 全体の流れ
 
-1. リリース対象を確定する（issue・mainに入っている変更）
+1. メンテナがリリース対象を決める。バージョン番号はマイルストーンに従う（下記）
 2. リリース準備コミットを作る（下記「準備コミット」）
 3. Maestroをローカル実行する（Android／iOS）
-4. iOS: `fastlane ios beta` → `fastlane ios release`
+4. iOS: `fastlane ios beta`（Claude可）→ `fastlane ios release`（メンテナ）
 5. Android: `bundleRelease` → Play Consoleへアップロード
 6. 公開後: リリースノートの日付を実際の公開日に合わせる／Xポストを作る
+
+### バージョン番号
+
+**番号を自分で決めない**。マイルストーンで決まっているので、リリース対象と一緒に
+メンテナから受け取る。確認先と手順はリポジトリ外の運用メモにある。
 
 ## 準備コミット
 
@@ -28,7 +36,7 @@
 
 | ファイル | 変更する箇所 |
 | --- | --- |
-| `app/gradle.properties` | `shogisupplement.versionCode` を +1、`shogisupplement.versionName` を新バージョン名に |
+| `app/gradle.properties` | `shogisupplement.versionCode` を +1、`shogisupplement.versionName` をマイルストーンのバージョンに |
 | `app/iosApp/project.yml` | `CURRENT_PROJECT_VERSION` / `MARKETING_VERSION` を上と**同じ値**に |
 | `app/iosApp/fastlane/metadata/ja/release_notes.txt` | App Store用のリリースノート（`・`始まりの1項目1行） |
 | `docs/release-notes.html` | 新しい `<h2>` 節を先頭に追加。`最終更新日` も更新 |
@@ -48,7 +56,7 @@
 
 - `docs/release-notes.html` の項目は `<strong>機能名</strong>: 何ができるようになったか`。
 - 文言は `docs/wording.md` に従う。トーンは `DESIGN.md`（誇張しない・根拠で語る）。
-- 裏側だけの変更は載せないことがある（判断はメンテナ。例: 1.6の#27は非掲載）。
+- 裏側だけの変更は載せないことがある（判断はメンテナ）。
 - 過去バージョンの文言は遡及変更しない。
 - Play Consoleの「新機能」欄はメンテナが手入力する。文面は`release_notes.txt`と揃える。
 
@@ -60,7 +68,7 @@
 ```
 1.6のリリース準備をする
 
-棋譜の個別削除（#26）・手動棋譜入力を含む1.6をリリースする。
+<このリリースに含む変更>を含む1.6をリリースする。
 バージョンを1.5→1.6・ビルド番号6→7へ上げ、リリースノートを反映する。
 公開予定日は2026-08-24。
 ```
@@ -71,19 +79,28 @@
 .maestro/run-android.sh
 ```
 
+スクリプトが `adb push` でKIFを置くため、エミュレータ（または実機）が起動していて
+Debugビルドが入っていることが前提。`./gradlew :androidApp:installDebug` で入る。
+
 iOSは `fastlane ios beta` が `.maestro/run-ios.sh` を本番ビルド前に実行するので、
 **シミュレータを起動し最新のDebugビルドを入れておく**（未起動だとlaneがそこで落ちる）。
 
-## iOS（メンテナがローカル実行）
+Maestro CLIの導入やビルド前提の詳細は [e2e-testing.md](e2e-testing.md)。
+
+## iOS
+
+TestFlightへのアップロードまではClaudeが実行してよい。
 
 ```bash
 cd app/iosApp && LC_ALL=en_US.UTF-8 bundle exec fastlane ios beta
 ```
 
 APIキーは `ASC_KEY_CONTENT`（`.p8` の中身）か `ASC_KEY_PATH`（`.p8` のパス）で渡す。
+渡し方はリポジトリ外の運用メモにある。
 
-TestFlightまで通ったら `fastlane ios release` で審査提出。審査通過後の公開は
-App Store Connectでの手動操作。詳細・前提資材の取得は [release.md](release.md)。
+その先の `fastlane ios release`（メタデータ提出と審査提出）はメンテナが実行する。
+審査通過後の公開もApp Store Connectでの手動操作。詳細・前提資材の取得は
+[release.md](release.md)。
 
 ## Android（メンテナがローカル実行）
 
