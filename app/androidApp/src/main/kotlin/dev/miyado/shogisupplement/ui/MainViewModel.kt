@@ -38,6 +38,7 @@ import dev.miyado.shogisupplement.ui.report.StudyOrigin
 import dev.miyado.shogisupplement.ui.report.StudyState
 import dev.miyado.shogisupplement.upload.DeleteGameOutcome
 import dev.miyado.shogisupplement.upload.GameDeleter
+import dev.miyado.shogisupplement.upload.resultMessage
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -258,11 +259,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 games = newGames,
                 pendingUploadCount = pendingCount,
                 isUploading = false,
-                uploadResult = AppStrings.accountUploadResult(
-                    result.gameSuccess,
-                    result.gameFailed,
-                    result.drillPendingRemaining + result.drillFailed,
-                ),
+                uploadResult = result.resultMessage(),
             )
         }
     }

@@ -10,6 +10,7 @@ import dev.miyado.shogisupplement.auth.AuthRepository
 import dev.miyado.shogisupplement.db.GameRepository
 import dev.miyado.shogisupplement.db.SettingsRepository
 import dev.miyado.shogisupplement.upload.UploadOrchestrator
+import dev.miyado.shogisupplement.upload.resultMessage
 import dev.miyado.shogisupplement.util.Logger
 import dev.miyado.shogisupplement.ui.common.defaultIoDispatcher
 import kotlinx.coroutines.CoroutineDispatcher
@@ -173,12 +174,7 @@ class AccountViewModel(
                 isUploading = false,
                 uploadedCount = uploadedCount,
                 pendingCount = pendingCount,
-                uploadResultMessage = dev.miyado.shogisupplement.text.AppStrings
-                    .accountUploadResult(
-                        result.gameSuccess,
-                        result.gameFailed,
-                        result.drillPendingRemaining + result.drillFailed,
-                    ),
+                uploadResultMessage = result.resultMessage(),
             )
         }
     }

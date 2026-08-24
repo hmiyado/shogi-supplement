@@ -5,6 +5,7 @@ import dev.miyado.shogisupplement.db.DrillAttemptRecord
 import dev.miyado.shogisupplement.db.DrillRepository
 import dev.miyado.shogisupplement.db.GameRepository
 import dev.miyado.shogisupplement.db.SettingsRepository
+import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.util.currentEpochSeconds
 import kotlinx.coroutines.CancellationException
 import kotlin.uuid.ExperimentalUuidApi
@@ -16,6 +17,13 @@ data class UploadAllResult(
     val drillFailed: Int,
     val drillPendingRemaining: Int,
 )
+
+/**
+ * 一括アップロードの結果メッセージ。送れなかった成績は、失敗した分と未送信のまま
+ * 残った分を足して1つの件数で見せる（docs/wording.md）。
+ */
+fun UploadAllResult.resultMessage(): String =
+    AppStrings.accountUploadResult(gameSuccess, gameFailed, drillPendingRemaining + drillFailed)
 
 /** アップロードのオーケストレーター。constructor injectionでテスト可能（fakeを注入できる）。 */
 class UploadOrchestrator(

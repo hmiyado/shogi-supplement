@@ -84,6 +84,7 @@ import dev.miyado.shogisupplement.ui.transfercode.TransferCodeInputUiState
 import dev.miyado.shogisupplement.ui.transfercode.TransferCodeInputViewModel
 import dev.miyado.shogisupplement.ui.transfercode.TransferCodeScreen
 import dev.miyado.shogisupplement.upload.DeleteGameOutcome
+import dev.miyado.shogisupplement.upload.resultMessage
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlin.experimental.ExperimentalNativeApi
@@ -613,11 +614,7 @@ private fun IosGameListScreenHost(
                     games = repository.getAllGames()
                     pendingUploadCount = repository.getNotUploadedGames().size
                     isUploading = false
-                    uploadResult = AppStrings.accountUploadResult(
-                        result.gameSuccess,
-                        result.gameFailed,
-                        result.drillPendingRemaining + result.drillFailed,
-                    )
+                    uploadResult = result.resultMessage()
                 }
             }
         },

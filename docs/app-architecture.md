@@ -115,6 +115,27 @@ app/
 4. `api(project(...))` による再公開は増やさない。使うモジュールへ直接依存する
 5. ユーザー向け文言は `analysis/text/AppStrings.kt` 以外に直書きしない
 
+### Android/iOSで共通のもの・ホストに残すもの
+
+同じ調停を両プラットフォームに書くと、片側だけ直して挙動がずれる。共通化できるものは
+commonMainのcontrollerか `:application` のuse caseに置く。
+
+| 調停 | 置き場所 |
+| --- | --- |
+| 表示設定（テーマ・形勢表示・先後確認の省略）の保持と保存 | `ui/common/AppSettingsController` |
+| 棋譜削除（サーバー削除の成否でローカル削除を止める） | `application/upload/GameDeleter` |
+| 取り込み後の行き先（新規なら解析・既存ならレポート） | `application/kifu/GameImportFlow` |
+| 解析後の自動アップロード・成績の同期 | `application/upload/UploadOrchestrator` |
+| 一括アップロードの結果メッセージ | `application/upload/resultMessage` |
+| ホーム・レポート・次の一手・アカウントの画面状態 | `:ui` のViewModel |
+
+ホストに残すのはプラットフォーム固有の部分だけ。
+
+- Android: Foreground Service上での解析、通知、`Uri`からのKIF読み出し、画面遷移の状態機械
+- iOS: プロセス内エンジンでの解析、フォアグラウンド復帰時の再開、`UIPasteboard`、
+  `PendingAnalysisStore` による中断復帰
+- どちらもエンジン生成とHTTPクライアントの供給はホストが行う
+
 ## 3. 目標とする境界（移行中）
 
 `:shared` がSQLDelight実装・Supabase実装・暗号・エンジン実装を1つに抱えたままで、
