@@ -139,6 +139,8 @@ kotlin {
 
 dependencies {
     implementation(project(":shared"))
+    implementation(project(":analysis"))
+    implementation(project(":kifu"))
     implementation(project(":engine:subprocess"))
     implementation(project(":ui"))
     implementation(platform(libs.compose.bom))

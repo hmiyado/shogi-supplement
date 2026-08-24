@@ -129,16 +129,8 @@ kotlin {
         androidMain.get().kotlin.srcDir(generateAndroidBuildNumber)
 
         commonMain.dependencies {
-            // KIFパーサ・盤面表現（dev.miyado.shogisupplement.kifu / board）を提供する。
-            // apiで公開することで、:shared 経由でこれらのpackageをimportしていた既存コード
-            // （androidApp/ui含む）が無変更で使い続けられる（物理的な移動先が変わっただけ）。
-            api(project(":kifu"))
-            // レポート判定・強さ推定等の純Kotlinロジック（dev.miyado.shogisupplement.blunder/
-            // classify/judge/pipeline/strength/text/notation/pv/engine.Engine）を提供する。
-            // apiで公開する理由は:kifuと同じ——:ui/androidAppの既存importを無変更に保つため
-            // （物理的な移動先が変わっただけ。CMP for Web対応でwasmJsコンパイル可能な
-            // モジュールへ切り出した）。
-            api(project(":analysis"))
+            implementation(project(":kifu"))
+            implementation(project(":analysis"))
             // Workerと共有する通信DTO（dev.miyado.shogisupplement.api）。
             implementation(project(":contracts"))
             implementation(libs.kotlinx.serialization.json)
