@@ -19,7 +19,7 @@ import dev.miyado.shogisupplement.engine.Engine
 import dev.miyado.shogisupplement.ui.common.PvExtState
 import dev.miyado.shogisupplement.ui.common.PvExtensionRunner
 import dev.miyado.shogisupplement.ui.common.defaultIoDispatcher
-import dev.miyado.shogisupplement.upload.UploadOrchestrator
+import dev.miyado.shogisupplement.upload.DrillAttemptSync
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -39,7 +39,7 @@ class DrillViewModel(
     private val judgeWithEngine: (suspend (blunder: BlunderRecord, userMoveUsi: String) -> DrillJudge.DrillResult)? = null,
     private val engineFactory: (() -> Engine)? = null,
     private val ioDispatcher: CoroutineDispatcher = defaultIoDispatcher,
-    private val uploadOrchestrator: UploadOrchestrator? = null,
+    private val drillAttemptSync: DrillAttemptSync? = null,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<DrillUiState>(DrillUiState.Loading)
@@ -288,7 +288,7 @@ class DrillViewModel(
     private fun startDrillAttemptUpload() {
         viewModelScope.launch {
             withContext(ioDispatcher) {
-                uploadOrchestrator?.maybeAutoUploadDrillAttempts()
+                drillAttemptSync?.syncPendingAttempts()
             }
         }
     }
@@ -321,7 +321,7 @@ class DrillViewModel(
             judgeWithEngine: (suspend (blunder: BlunderRecord, userMoveUsi: String) -> DrillJudge.DrillResult)? = null,
             engineFactory: (() -> Engine)? = null,
             ioDispatcher: CoroutineDispatcher = defaultIoDispatcher,
-            uploadOrchestrator: UploadOrchestrator? = null,
+            drillAttemptSync: DrillAttemptSync? = null,
         ): ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 DrillViewModel(
@@ -331,7 +331,7 @@ class DrillViewModel(
                     judgeWithEngine = judgeWithEngine,
                     engineFactory = engineFactory,
                     ioDispatcher = ioDispatcher,
-                    uploadOrchestrator = uploadOrchestrator,
+                    drillAttemptSync = drillAttemptSync,
                 )
             }
         }

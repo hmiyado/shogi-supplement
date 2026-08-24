@@ -19,7 +19,7 @@ import dev.miyado.shogisupplement.judge.Judgement
 import dev.miyado.shogisupplement.judge.VerdictKind
 import dev.miyado.shogisupplement.pipeline.BlunderReport
 import dev.miyado.shogisupplement.ui.drill.DrillViewModel
-import dev.miyado.shogisupplement.upload.UploadOrchestrator
+import dev.miyado.shogisupplement.upload.DrillAttemptSync
 import dev.miyado.shogisupplement.util.Logger
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.darwin.Darwin
@@ -45,7 +45,7 @@ object DrillDemoFactory {
     fun create(
         authRepository: AuthRepository? = null,
         analysisBaseUrl: String? = null,
-        uploadOrchestrator: UploadOrchestrator? = null,
+        drillAttemptSync: DrillAttemptSync? = null,
     ): DrillViewModel {
         val gameRepository = DatabaseFactory.gameRepository()
         val drillRepository = DatabaseFactory.drillRepository()
@@ -63,7 +63,7 @@ object DrillDemoFactory {
             judgeWithEngine = buildSecondaryJudge(authRepository, analysisBaseUrl),
             // 延長後のquitで共有エンジンを壊さない実装だけを返す。
             engineFactory = buildStudyEngineFactory(authRepository, analysisBaseUrl),
-            uploadOrchestrator = uploadOrchestrator,
+            drillAttemptSync = drillAttemptSync,
         )
     }
 

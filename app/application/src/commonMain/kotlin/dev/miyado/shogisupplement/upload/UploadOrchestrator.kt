@@ -24,7 +24,9 @@ class UploadOrchestrator(
     private val dbRepository: GameRepository,
     private val drillRepository: DrillRepository,
     private val settingsRepository: SettingsRepository,
-) {
+) : DrillAttemptSync {
+
+    override suspend fun syncPendingAttempts() = maybeAutoUploadDrillAttempts()
 
     /**
      * 指定ゲームをアップロードする。未ログイン/既アップロード（Duplicate扱い）で

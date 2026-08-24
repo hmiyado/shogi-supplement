@@ -861,7 +861,7 @@ private fun IosDrillScreen(
         DrillDemoFactory.create(
             authRepository = authRepository,
             analysisBaseUrl = analysisBaseUrl,
-            uploadOrchestrator = services?.uploadOrchestrator,
+            drillAttemptSync = services?.uploadOrchestrator,
         )
     }
     val state by vm.state.collectAsState()

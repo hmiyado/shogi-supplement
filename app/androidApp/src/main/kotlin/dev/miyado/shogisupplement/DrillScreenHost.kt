@@ -92,7 +92,7 @@ fun DrillScreen(
                 settingsRepository = AppDatabase.settingsRepository(context),
                 judgeWithEngine = remember(context) { androidJudgeWithEngine(context) },
                 engineFactory = remember(context) { androidDrillEngineFactory(context) },
-                uploadOrchestrator = app.uploadOrchestrator,
+                drillAttemptSync = app.uploadOrchestrator,
             ),
         )
     },

@@ -142,7 +142,7 @@ class DrillViewModelTest {
             settingsRepository = repos.settings,
             engineFactory = engineFactory,
             ioDispatcher = testDispatcher,
-            uploadOrchestrator = uploadOrchestrator,
+            drillAttemptSync = uploadOrchestrator,
         )
         vm.onSurrender()
         return vm
