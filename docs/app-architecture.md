@@ -4,47 +4,132 @@
 
 ## 1. モジュール構成（Kotlin Multiplatform）
 
+Gradleモジュールは7つ。矢印は依存の向きで、循環はない。
+
+```mermaid
+flowchart TD
+    kifu[":kifu"]
+    analysis[":analysis"]
+    shared[":shared"]
+    ui[":ui"]
+    android[":androidApp"]
+    ios["iosApp（Xcode）"]
+    web[":webApp"]
+    worker[":server:worker"]
+
+    analysis --> kifu
+    shared --> analysis
+    ui --> analysis
+    ui --> kifu
+    ui --> shared
+    android --> ui
+    android --> shared
+    ios --> ui
+    web --> ui
+    web --> analysis
+    web --> kifu
+    worker --> shared
+```
+
 ```
 app/
-├── shared/              # commonMain: OS非依存のコアロジック（androidTarget/jvm/iosArm64/iosSimulatorArm64）
-│   ├── kifu/            #  KIFパーサ → USI手列＋対局者名
-│   ├── engine/          #  Engine interface（USIブリッジの抽象化）＋AnalysisOrchestrator/AnalysisRunner
-│   ├── board/            #  盤面・合法手生成・SFEN
-│   ├── notation/        #  USI→連盟式棋譜表記（▲３四金直 等。動作優先→位置の曖昧性解消）
-│   ├── blunder/          #  悪手定義（loss判定・勝率換算）
-│   ├── classify/         #  タクソノミ分類（差分駒損・咎めPV）＋表示名
-│   ├── judge/            #  相応判定（係数表照合・◎○△・note生成）
-│   ├── pipeline/         #  抽出→強さ推定→判定の2パス（ReportPipeline）
-│   ├── strength/         #  悪手率→レート相当の推定（StrengthEstimator）
-│   ├── rating/           #  段級位の型・エンコード（WarsRank）
-│   ├── drill/             #  正誤判定（DrillJudge）・周回ローテーション（DrillRotation）
-│   ├── auth/ upload/     #  認証・アップロードinterface（commonMain）＋実装（androidMain/iosMain）
-│   ├── crash/             #  CrashReporter interface（NoopCrashReporter既定）
-│   ├── text/              #  AppStrings＝ユーザー向け文言の一元管理（文言修正はここだけ）
-│   └── db/                #  SQLDelight（game/blunder_report/drill_attempt/user_settings/
-│                          #  service_rank/service_account/position_eval。migrationはdb/N.sqm）
-├── ui/                   # commonMain: Compose Multiplatform UI＋KMP ViewModel（androidTarget/iosArm64/iosSimulatorArm64）
-│   ├── HomeScreen/DrillScreen/ReportScreen/AccountScreen/SettingsScreen/GameListScreen 等
-│   ├── HomeViewModel/DrillViewModel/ReportViewModel/AccountViewModel（androidx.lifecycle
-│   │   ViewModelのKMP版。DB/エンジンアクセスはinterface注入で、Android専用型は持たない）
-│   └── theme/            #  DESIGN.mdトークンの実装（フォント3書体・色・spacing）
-├── androidApp/           # Android専用の配線・実装
-│   ├── engine/            #  UsiEngineProcess（別プロセスexec）＋AndroidAnalysisRunnerFactory
-│   ├── service/            #  解析のForeground Service
-│   ├── auth/ upload/       #  Supabase実装（Android専用、shared/androidMainではなくここに置く
-│   │                        #  ものはAndroid固有APIに直接依存する部分のみ）
-│   ├── crash/              #  SentryCrashReporter（手動init・自動initProviderは無効化）
-│   ├── ui/                 #  :ui のScreenをホストするComposable群・MainViewModel・MainUiState
-│   └── *Host.kt            #  各画面ViewModelへの配線（AccountHost/HomeHost/ReportHost/SettingsHost等）
-└── iosApp/               # Xcodeプロジェクト（xcodegen管理・project.yml）。:shared/:ui の
-                           # フレームワークを読み込む。エンジン本体（YaneuraOu）は
-                           # engine/build_ios.sh が静的ライブラリとしてビルドし、cinterop経由で
-                           # :shared/iosMain にリンクされる
+├── kifu/                # 盤面・合法手・SFEN（board/）とKIFパース（kifu/）。依存の最下層
+│   └── ターゲット: android/jvm/iosArm64/iosSimulatorArm64/js/wasmJs
+├── analysis/            # 解析domainとアプリケーション共通ロジック（:kifu に依存）
+│   ├── engine/          #  Engine・StudyEngine interface（USIブリッジの抽象化）
+│   ├── blunder/ classify/ judge/ strength/ pipeline/ pv/  # 悪手定義・分類・相応判定・
+│   │                    #  強さ推定・2パスのReportPipeline・読み筋延長
+│   ├── notation/ rating/ #  連盟式棋譜表記・段級位
+│   ├── drill/           #  次の一手の正誤判定（DrillJudge）・周回（DrillRotation）
+│   ├── db/              #  GameRepository / DrillRepository / SettingsRepository interfaceと
+│   │                    #  レコード型（実装は :shared）
+│   ├── auth/ upload/ download/ transfer/ policy/  # 認証・アップロード・ダウンロード・
+│   │                    #  引き継ぎ・強制アップデート判定のinterfaceとオーケストレーション
+│   ├── text/            #  AppStrings＝ユーザー向け文言の一元管理（文言修正はここだけ）
+│   └── util/            #  Logger・Time（expect/actual）
+├── shared/              # 具体実装とプラットフォーム配線（:analysis / :kifu を api で再公開）
+│   ├── db/              #  SQLDelight実装＋sqldelight/ にスキーマ（.sq）とmigration（N.sqm）
+│   ├── supabase/ auth/ upload/ download/ policy/ transfer/  # Supabase実装
+│   ├── crypto/          #  引き継ぎコードの鍵・暗号
+│   ├── api/             #  Workerと共有する通信DTO（api/analysis・api/transfer）
+│   ├── engine/          #  AnalysisOrchestrator・AnalysisRunner・リモート解析・
+│   │                    #  UsiEngineSubprocess（jvmAndAndroidMain）・
+│   │                    #  UsiEngineInProcess/IosEngineHost（iosEngineMain）
+│   ├── kifu/            #  GameImporter（取込オーケストレーション）
+│   ├── consent/ crash/ util/
+│   └── ターゲット: android/jvm/iosArm64/iosSimulatorArm64
+├── ui/                  # Compose Multiplatform UIとKMP ViewModel
+│   ├── commonMain       #  画面（home/report/drill/gamelist/settings/account ほか）と
+│   │                    #  ViewModel。theme/ がDESIGN.mdトークンの実装
+│   ├── iosMain          #  IosMainController・MainViewController（iOSのcomposition root）と
+│   │                    #  SharedUi framework（:shared / :analysis / :kifu をexport）
+│   └── ターゲット: android/iosArm64/iosSimulatorArm64/wasmJs
+├── androidApp/          # Androidアプリ本体（composition root）
+│   ├── engine/ service/ #  UsiEngineProcess・解析のForeground Service
+│   ├── db/ crash/       #  ドライバ生成・SentryCrashReporter
+│   └── *Host.kt         #  :ui の画面へViewModelを配線するホスト
+├── webApp/              # 「棋譜を検討する」ページのwasmJsアプリ（:ui / :analysis / :kifu）
+├── server/worker/       # Ktorの解析ワーカー（:shared に依存）
+└── iosApp/              # Xcodeプロジェクト（xcodegen・project.yml）。SharedUi frameworkを
+                         # 読み込む。エンジン本体は engine/build_ios.sh が静的ライブラリを
+                         # ビルドし、cinterop経由で :shared/iosMain にリンクされる
 ```
 
-## 2. エンジン統合
+## 2. composition rootと依存規則
 
-`Engine` interface（`shared/commonMain/engine/Engine.kt`）がUSIブリッジを抽象化し、
+具体実装の組み立ては次の4か所だけで行う。
+
+| プラットフォーム | composition root |
+| --- | --- |
+| Android | `androidApp/ShogiApp.kt`・`MainActivity.kt`・`ui/MainViewModel.kt`・各`*Host.kt` |
+| iOS | `ui/iosMain/MainViewController.kt`・`IosMainController.kt`（Supabase系は`SupabaseServices`） |
+| Web | `webApp/wasmJsMain/main.kt`・`KentoViewModel.kt` |
+| Worker | `server/worker/Application.kt`・`Routes.kt` |
+
+守る規則:
+
+1. `:ui` のViewModelはSupabase・SQLDelight・Android・UIKitの具体型を参照しない。
+   受け取るのは `:analysis` が定義するinterfaceと関数だけ
+2. Gradleのproject依存に循環を作らない
+3. `api(project(...))` による再公開は増やさない。使うモジュールへ直接依存する
+4. ユーザー向け文言は `analysis/text/AppStrings.kt` 以外に直書きしない
+
+## 3. 目標とする境界（移行中）
+
+現在の `:analysis` は解析domainとアプリケーション層が同居し、`:shared` はDB・Supabase・
+暗号・通信DTO・エンジン実装を1つに抱えている。`:server:worker` が必要とするのは通信DTOと
+解析だけなのに `:shared` 全体へ依存しており、クライアント側の変更がWorkerへ波及し得る。
+
+段階的に次の形へ寄せる。
+
+```mermaid
+flowchart TD
+    contracts[":contracts 通信DTO"]
+    kifu2[":kifu 盤面・KIF"]
+    analysis2[":analysis 解析domain"]
+    application[":application use case・port"]
+    ui2[":ui 画面・ViewModel"]
+    data[":data:database / :data:supabase"]
+    engine[":engine:android / :engine:ios / :engine:jvm / :engine:remote"]
+
+    analysis2 --> kifu2
+    application --> analysis2
+    ui2 --> application
+    data --> application
+    engine --> analysis2
+    engine --> contracts
+    worker2[":server:worker"] --> contracts
+    worker2 --> analysis2
+```
+
+- `:application` から `:data:*` や `:engine:*` の具体実装へは依存しない
+- Workerはクライアント用インフラ（DB・Supabase・暗号）へ依存しない
+- この移行で、SQLDelightスキーマ・Supabaseスキーマ・API wire format・
+  エンジン解析条件は変えない
+
+## 4. エンジン統合
+
+`Engine` interface（`analysis/commonMain/engine/Engine.kt`）がUSIブリッジを抽象化し、
 `analyze`/`analyzeSfen`/`quit`/`newGame` の4操作のみを公開する。実装はプラットフォームごとに
 起動方式が異なる。
 
@@ -74,7 +159,7 @@ app/
   `Engine.newGame()` で行う）
 - `shogi_engine_start()` 呼び出し後はプロセスのfd0/fd1がエンジン用パイプに専有されるため、
   アプリ側のログはOSLog/NSLog等を使い、println/print を使ってはならない
-  （`shared/iosMain/util/Logger.ios.kt` 参照）
+  （`analysis/iosMain/util/Logger.ios.kt` 参照）
 - in-processは1インスタンス＝局面並列不可のため、iOSの解析は直列（`workers=1` が既定運用）
 
 ### 共通の不変条件
@@ -82,20 +167,20 @@ app/
 - ノード数（既定400,000固定）・Threads=1・MultiPV=2・FV_SCALE=20（Háo）は両実装で共通。
   これらと評価関数のSHA-256・悪手定義バージョン・係数表バージョンを**解析結果レコードに記録**し、
   係数表と解析条件の不一致を検出したら再解析を促す
-- `AnalysisOrchestrator`（`shared/commonMain`）が「KIFパース→エンジン解析→悪手判定→
+- `AnalysisOrchestrator`（`shared/commonMain/engine`）が「KIFパース→エンジン解析→悪手判定→
   強さ推定→DB保存」を共通化し、Android（`AnalysisService`経由）・iOS
   （クリップボード/ファイル取込フロー）の両方から呼ばれる。プラットフォーム差は
   `engineFactory`/`disposeEngine`の注入だけに閉じ込めている
 - エンジン解析には探索の揺れがある（ワーカー割当→置換表状態）。分類境界局面のビット一致
   assertは書かない
 
-## 3. `:ui` の KMP ViewModel
+## 5. `:ui` の KMP ViewModel
 
 `androidx.lifecycle.ViewModel`/`ViewModelProvider` はKMP対応版を使用しており、
 `HomeViewModel`/`DrillViewModel`/`ReportViewModel`/`AccountViewModel` は `:ui` の
 commonMainに置かれ、Android/iOS両方から同一実装で使われる。ViewModelはAndroid固有の型
-（`Application`・`File`・`UsiEngineProcess`）を直接知らず、`DatabaseRepository` と
-必要最小限の関数（エンジン呼び出しが要る場合は `judgeWithEngine` のような関数注入）だけを
+（`Application`・`File`・`UsiEngineProcess`）を直接知らず、`:analysis` が定義する
+Repository interfaceと必要最小限の関数（エンジン呼び出しが要る場合は `judgeWithEngine` のような関数注入）だけを
 受け取る。Android/iOS専用の解決（`ApplicationInfo`・`nativeLibraryDir`・ファイルI/O等）は
 それぞれ `androidApp/*Host.kt` と `ui/iosMain/IosMainController.kt` 側に閉じ込める。
 
@@ -103,7 +188,7 @@ DB/エンジン処理向けの既定コルーチンディスパッチャは `exp
 プラットフォームごとに分離する（Android= `Dispatchers.IO`、iOS= `Dispatchers.Default`。
 kotlinx.coroutines の Native向けAPIでは `Dispatchers.IO` が公開されていないため）。
 
-## 4. DB
+## 6. DB
 
 SQLDelightで `shared/commonMain/sqldelight/.../ShogiSupplement.sq` にスキーマを定義し、
 Android/iOS双方でネイティブドライバを使う。テーブル: `game` / `blunder_report` /
@@ -111,7 +196,7 @@ Android/iOS双方でネイティブドライバを使う。テーブル: `game` 
 スキーマ変更は `db/N.sqm` のマイグレーションファイルを追加して行う
 （DB保存文字列を変更する場合は必ずmigrationを伴わせること）。
 
-## 5. 相応判定ロジック
+## 7. 相応判定ロジック
 
 - **帯の決定は申告レートではなく棋譜からの強さ推定値**: `ReportPipeline` は
   ①悪手抽出（レート非依存）→ ②（過去累計＋当該局）の悪手率から `StrengthEstimator` で
@@ -123,7 +208,7 @@ Android/iOS双方でネイティブドライバを使う。テーブル: `game` 
 - noteは「あなたの帯: 約N局に1回 ／ R2200+: 約M局に1回」の2点形式（AppStringsのテンプレート）
 - 表示は連盟式棋譜表記（`notation/JapaneseNotation`、▲３四金直 等）。USIは内部表現のみ
 
-## 6. テスト戦略
+## 8. テスト戦略
 
 - **ゴールデンフィクスチャ**: 既知の期待値をテストリソース化
   - KIFパーサ: 実KIF（`app/data/kifu_samples/`）→期待USI出力と一致
@@ -131,14 +216,14 @@ Android/iOS双方でネイティブドライバを使う。テーブル: `game` 
 - UI: VRT（Roborazzi golden、手順は `app/docs/vrt.md`）。開発ループはJVM完結、
   実機E2E（`connectedAndroidTest`／iOS UIテスト／Maestro、手順は `app/docs/e2e-testing.md`）
   はフェーズ最終1回＋依存/manifest変更時のスモークに限定する
-- `:shared` はiOSターゲット（`iosArm64`/`iosSimulatorArm64`）でコンパイル・テスト実行を
+- `:shared` と `:ui` はiOSターゲット（`iosArm64`/`iosSimulatorArm64`）でコンパイル・テスト実行を
   継続的に確認する（`./gradlew :shared:compileKotlinIosArm64` 等）。JVM専用APIは
   `expect`/`actual` で分離する（`util/Time.kt` 等）
 
-## 7. 開発時の注意
+## 9. 開発時の注意
 
-- パッケージ名: `dev.miyado.shogisupplement`。係数表= `app/androidApp/src/main/assets/coefficients_hao_v1.json`
+- パッケージ名: `dev.miyado.shogisupplement`。係数表= `app/androidApp/src/main/assets/coefficients_hao_isolate_v1.json`
   （テストリソースにも同梱）
-- ユーザー向け文言は `shared/text/AppStrings.kt` 以外に直書きしない
+- ユーザー向け文言は `analysis/text/AppStrings.kt` 以外に直書きしない
 - 依存追加時: AboutLibraries `exportLibraryDefinitions` を再実行し、licenses系VRT goldenも更新する。
   manifest・依存変更を含む変更は実機起動スモークを必須とする
