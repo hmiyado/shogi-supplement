@@ -27,6 +27,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -204,6 +206,18 @@ private fun charToPieceType(c: Char): PieceType? = when (c) {
 // 固定トラック幅（CoordinateLabelTrack）を確保し、盤との間に CoordinateLabelGap だけ空ける。
 val CoordinateLabelTrack = 18.dp
 val CoordinateLabelGap = 2.dp
+
+/**
+ * 盤に割り当てる高さの上限。画面の残り高さを基準にしない理由: トップバーやinsetsを引いた
+ * 高さは画面ごとに違い、同じ局面でも盤の大きさが画面間でずれるため。
+ */
+@Composable
+fun boardMaxHeight(): Dp {
+    val containerHeightPx = LocalWindowInfo.current.containerSize.height
+    return with(LocalDensity.current) { containerHeightPx.toDp() } * BoardHeightFraction
+}
+
+private const val BoardHeightFraction = 0.45f
 
 /** reportとdrillで共有する盤サイズを、座標ラベル帯・盤・持ち駒行から計算する。 */
 fun computeBoardCellSize(maxWidth: Dp, maxHeight: Dp): Dp {

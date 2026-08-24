@@ -31,6 +31,7 @@ import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.PositionEvalRow
 import dev.miyado.shogisupplement.text.AppStrings
+import dev.miyado.shogisupplement.ui.common.boardMaxHeight
 import dev.miyado.shogisupplement.ui.common.DeleteGameConfirmDialog
 import dev.miyado.shogisupplement.ui.common.PvExtState
 import dev.miyado.shogisupplement.ui.common.ReportBackHandler
@@ -269,7 +270,7 @@ fun ReportScreen(
                     onPlyIndexChange = { plyIndex = it },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(max = screenHeight * 0.45f),
+                        .heightIn(max = boardMaxHeight()),
                 )
 
                 StudyPromoteDialog(

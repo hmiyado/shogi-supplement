@@ -3,7 +3,6 @@ package dev.miyado.shogisupplement.ui.drill
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -49,6 +48,7 @@ import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.notation.JapaneseNotation
 import dev.miyado.shogisupplement.ui.common.PvExtState
 import dev.miyado.shogisupplement.ui.common.ShogiBoardView
+import dev.miyado.shogisupplement.ui.common.boardMaxHeight
 import dev.miyado.shogisupplement.ui.common.formatFixed1
 import kotlin.math.abs
 
@@ -79,11 +79,6 @@ fun DrillQuestionContent(
         )
     }
 
-    // 盤+操作UIは固定し、下部のみスクロールさせる。レポートビューアと同じ基準
-    // （Scaffold 内 BoxWithConstraints の maxHeight × 0.45）で盤の高さ制約を計算し、
-    // 両画面の盤サイズを統一する。
-    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val screenHeight = maxHeight
     Column(
         // 水平paddingをColumn全体から外している。盤はレポートと同じ全幅（=同じ駒サイズ）にし、
         // スクロール領域側にのみ水平paddingを適用する。
@@ -101,7 +96,7 @@ fun DrillQuestionContent(
             onSquareTapped = onSquareTapped,
             onHandPieceTapped = onHandPieceTapped,
             flip = state.flip,
-            modifier = Modifier.heightIn(max = screenHeight * 0.45f),
+            modifier = Modifier.heightIn(max = boardMaxHeight()),
         )
 
         // ── スクロールエリア（出題情報・降参ボタン）──────────────────────────
@@ -138,7 +133,6 @@ fun DrillQuestionContent(
             Spacer(Modifier.height(16.dp))
         }
     }
-    } // BoxWithConstraints
 }
 
 // ─── 結果画面 ─────────────────────────────────────────────────────────────────
@@ -162,11 +156,6 @@ fun DrillResultContent(
     onNext: () -> Unit,
     onBack: () -> Unit,
 ) {
-    // 盤固定 + 下部スクロール構造。レポートビューアと同じ基準
-    // （BoxWithConstraints maxHeight × 0.45）で盤サイズを統一する。
-    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val screenHeight = maxHeight
-
     // ── KifuLineViewer 用ライン構築 ──────────────────────────────
     val yourMoves = remember(result, blunder) {
         when (result.reason) {
@@ -286,7 +275,7 @@ fun DrillResultContent(
             activeLineIdx = activeLineIdx,
             plyIndex = plyIndex,
             flip = flip,
-            boardMaxHeight = screenHeight * 0.45f,
+            boardMaxHeight = boardMaxHeight(),
             onLineSelected = { idx ->
                 activeLineIdx = idx
                 plyIndex = 0
@@ -479,7 +468,6 @@ fun DrillResultContent(
             Spacer(Modifier.height(8.dp))
         }
     }
-    } // BoxWithConstraints
 }
 
 // ─── Preview ─────────────────────────────────────────────────────────────────

@@ -1,9 +1,6 @@
 package dev.miyado.shogisupplement
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,10 +10,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,11 +19,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import dev.miyado.shogisupplement.ui.theme.ShipporiMinchoFamily
 import androidx.lifecycle.viewmodel.compose.viewModel
 import android.content.Context
 import dev.miyado.shogisupplement.db.AppDatabase
@@ -40,6 +29,7 @@ import dev.miyado.shogisupplement.drill.EngineDrillSecondaryJudge
 import dev.miyado.shogisupplement.engine.Engine
 import dev.miyado.shogisupplement.engine.UsiEngineProcess
 import dev.miyado.shogisupplement.text.AppStrings
+import dev.miyado.shogisupplement.ui.common.ShogiThinTopBar
 import dev.miyado.shogisupplement.ui.drill.DrillQuestionContent
 import dev.miyado.shogisupplement.ui.drill.DrillResultContent
 import dev.miyado.shogisupplement.ui.drill.DrillUiState
@@ -111,38 +101,13 @@ fun DrillScreen(
     val evalDisplay by vm.evalDisplay.collectAsState()
     val pvExtState by vm.pvExtState.collectAsState()
 
-    // レポート画面と同じ32dpインライン情報行に統一している（TopAppBar 64dpは使わない）。
     Scaffold { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(32.dp)
-                    .padding(horizontal = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = onBack, modifier = Modifier.size(32.dp)) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = AppStrings.BACK,
-                        modifier = Modifier.size(18.dp),
-                    )
-                }
-                Text(
-                    text = AppStrings.DRILL_TITLE,
-                    style = TextStyle(
-                        fontFamily = ShipporiMinchoFamily,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 17.sp,
-                    ),
-                    maxLines = 1,
-                    modifier = Modifier.padding(start = 2.dp),
-                )
-            }
+            ShogiThinTopBar(title = AppStrings.DRILL_TITLE, onBack = onBack)
             Box(Modifier.fillMaxSize()) {
             when (val s = state) {
                 is DrillUiState.Loading -> {

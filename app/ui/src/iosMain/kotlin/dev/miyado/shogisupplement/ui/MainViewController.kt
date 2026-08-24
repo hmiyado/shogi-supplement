@@ -24,7 +24,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.runtime.Composable
@@ -57,6 +56,7 @@ import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.transfer.RemoteTransferRestoreService
 import dev.miyado.shogisupplement.ui.account.AccountScreen
 import dev.miyado.shogisupplement.ui.account.AccountViewModel
+import dev.miyado.shogisupplement.ui.common.ShogiThinTopBar
 import dev.miyado.shogisupplement.ui.consent.ConsentScreen
 import dev.miyado.shogisupplement.ui.debug.DebugScreen
 import dev.miyado.shogisupplement.ui.drill.DrillQuestionContent
@@ -868,22 +868,9 @@ private fun IosDrillScreen(
     val evalDisplay by vm.evalDisplay.collectAsState()
     val pvExtState by vm.pvExtState.collectAsState()
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(AppStrings.DRILL_TITLE) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = AppStrings.BACK,
-                        )
-                    }
-                },
-            )
-        },
-    ) { padding ->
-        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+    Scaffold { padding ->
+        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+            ShogiThinTopBar(title = AppStrings.DRILL_TITLE, onBack = onBack)
             when (val s = state) {
                 is DrillUiState.Loading -> {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
