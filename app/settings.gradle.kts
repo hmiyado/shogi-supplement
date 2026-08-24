@@ -23,6 +23,7 @@ dependencyResolutionManagement {
 rootProject.name = "shogi-supplement"
 include(":kifu")
 include(":analysis")
+include(":application")
 include(":contracts")
 include(":engine:subprocess")
 include(":shared")

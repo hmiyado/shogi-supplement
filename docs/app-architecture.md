@@ -4,12 +4,13 @@
 
 ## 1. モジュール構成（Kotlin Multiplatform）
 
-Gradleモジュールは9つ。矢印は依存の向きで、循環はない。
+Gradleモジュールは10。矢印は依存の向きで、循環はない。
 
 ```mermaid
 flowchart TD
     kifu[":kifu"]
     analysis[":analysis"]
+    application[":application"]
     contracts[":contracts"]
     subprocess[":engine:subprocess"]
     shared[":shared"]
@@ -20,14 +21,19 @@ flowchart TD
     worker[":server:worker"]
 
     analysis --> kifu
+    application --> analysis
     contracts --> analysis
     subprocess --> analysis
     shared --> analysis
+    shared --> application
     shared --> contracts
     ui --> analysis
+    ui --> application
     ui --> kifu
     ui --> shared
     android --> ui
+    android --> analysis
+    android --> application
     android --> shared
     android --> subprocess
     ios --> ui
@@ -50,13 +56,14 @@ app/
 │   │                    #  強さ推定・2パスのReportPipeline・読み筋延長
 │   ├── notation/ rating/ #  連盟式棋譜表記・段級位
 │   ├── drill/           #  次の一手の正誤判定（DrillJudge）・周回（DrillRotation）
-│   ├── db/              #  GameRepository / DrillRepository / SettingsRepository interfaceと
-│   │                    #  レコード型（実装は :shared）
-│   ├── auth/ upload/ download/ transfer/ policy/  # 認証・アップロード・ダウンロード・
-│   │                    #  引き継ぎ・強制アップデート判定のinterfaceとオーケストレーション
+│   ├── db/              #  保存レコード型（GameRecord・BlunderRecord ほか）
+│   ├── policy/          #  強制アップデートの判定（AppPolicyRow・ForceUpdateJudge）
 │   ├── text/            #  AppStrings＝ユーザー向け文言の一元管理（文言修正はここだけ）
 │   ├── crash/           #  CrashReporter interface（NoopCrashReporter既定）
 │   └── util/            #  Logger・Time（expect/actual）・SHA-256
+├── application/         # Repository等のport（db/auth/policy）とuse case
+│   │                    #  （UploadOrchestrator・TransferRestoreService・
+│   │                    #  ForceUpdatePolicyChecker・GameDownloadService）。実装は :shared
 ├── contracts/           # Workerとクライアントで共有する通信DTO（api/analysis・api/transfer）
 │                        #  とワイヤ形式↔domainの相互変換
 ├── engine/subprocess/   # 別プロセスexecでUSIを話すエンジン実装（UsiEngineSubprocess）。
@@ -102,18 +109,16 @@ app/
 守る規則:
 
 1. `:ui` のViewModelはSupabase・SQLDelight・Android・UIKitの具体型を参照しない。
-   受け取るのは `:analysis` が定義するinterfaceと関数だけ
-2. Gradleのproject依存に循環を作らない
-3. `api(project(...))` による再公開は増やさない。使うモジュールへ直接依存する
-4. ユーザー向け文言は `analysis/text/AppStrings.kt` 以外に直書きしない
+   受け取るのは `:application` のportと関数だけ
+2. `:application` から `:shared` の具体実装へは依存しない
+3. Gradleのproject依存に循環を作らない
+4. `api(project(...))` による再公開は増やさない。使うモジュールへ直接依存する
+5. ユーザー向け文言は `analysis/text/AppStrings.kt` 以外に直書きしない
 
 ## 3. 目標とする境界（移行中）
 
-現在の `:analysis` は解析domainとアプリケーション層が同居し、`:shared` はDB・Supabase・
-暗号・通信DTO・エンジン実装を1つに抱えている。`:server:worker` が必要とするのは通信DTOと
-解析だけなのに `:shared` 全体へ依存しており、クライアント側の変更がWorkerへ波及し得る。
-
-段階的に次の形へ寄せる。
+`:shared` がSQLDelight実装・Supabase実装・暗号・エンジン実装を1つに抱えたままで、
+`:data:*` と `:engine:*` への分割が残っている。段階的に次の形へ寄せる。
 
 ```mermaid
 flowchart TD

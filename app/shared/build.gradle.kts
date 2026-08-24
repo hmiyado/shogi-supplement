@@ -131,6 +131,7 @@ kotlin {
         commonMain.dependencies {
             implementation(project(":kifu"))
             implementation(project(":analysis"))
+            implementation(project(":application"))
             // Workerと共有する通信DTO（dev.miyado.shogisupplement.api）。
             implementation(project(":contracts"))
             implementation(libs.kotlinx.serialization.json)

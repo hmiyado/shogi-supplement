@@ -33,6 +33,7 @@ kotlin {
             // Swift側が直接参照する切り出しモジュールも列挙する。
             export(project(":kifu"))
             export(project(":analysis"))
+            export(project(":application"))
         }
     }
 
@@ -57,6 +58,7 @@ kotlin {
             // （wasmJsでコンパイルできなくなるため）。:shared は android/ios の
             // プラットフォームソースセット側にのみ持たせる。
             api(project(":analysis"))
+            api(project(":application"))
             api(project(":kifu"))
             implementation(compose.runtime)
             implementation(compose.foundation)

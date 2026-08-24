@@ -140,6 +140,7 @@ kotlin {
 dependencies {
     implementation(project(":shared"))
     implementation(project(":analysis"))
+    implementation(project(":application"))
     implementation(project(":kifu"))
     implementation(project(":engine:subprocess"))
     implementation(project(":ui"))
