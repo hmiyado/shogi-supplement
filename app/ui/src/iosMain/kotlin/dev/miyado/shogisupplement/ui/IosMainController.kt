@@ -27,6 +27,7 @@ import dev.miyado.shogisupplement.engine.WasmStudyBridge
 import dev.miyado.shogisupplement.engine.WasmStudyEngine
 import dev.miyado.shogisupplement.kifu.ClipboardKifValidator
 import dev.miyado.shogisupplement.kifu.KifParser
+import dev.miyado.shogisupplement.kifu.GameImportFlow
 import dev.miyado.shogisupplement.kifu.GameImporter
 import dev.miyado.shogisupplement.kifu.UserSideSuggester
 import dev.miyado.shogisupplement.pipeline.InProgressAnalysisRegistry
@@ -619,22 +620,19 @@ class IosMainController(
 
         val fileName = current.sourceFileName ?: AppStrings.clipboardFileName(currentDateTimeLabel())
         scope.launch {
-            when (val outcome = GameImporter(gameRepository).importGame(
+            val next = GameImportFlow(gameRepository).import(
                 kifContent = current.kifText,
                 fileName = fileName,
                 userSide = userSide,
-            )) {
-                is GameImporter.Outcome.Imported -> {
-                    val game = if (outcome.alreadyExisted) null else gameRepository.getGameById(outcome.gameId)
-                    if (game != null) {
-                        analyzeStoredGame(game)
-                    } else {
-                        _importState.value = ImportState.Idle
-                        reloadHome()
-                        _completedAnalysis.value = CompletedAnalysis(outcome.gameId, justCompleted = false)
-                    }
+            )
+            when (next) {
+                is GameImportFlow.Next.Analyze -> analyzeStoredGame(next.game)
+                is GameImportFlow.Next.OpenReport -> {
+                    _importState.value = ImportState.Idle
+                    reloadHome()
+                    _completedAnalysis.value = CompletedAnalysis(next.gameId, justCompleted = false)
                 }
-                is GameImporter.Outcome.Failed -> _importState.value = ImportState.Error(outcome.message)
+                is GameImportFlow.Next.Failed -> _importState.value = ImportState.Error(next.message)
             }
         }
     }

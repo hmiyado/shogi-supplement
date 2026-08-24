@@ -20,7 +20,7 @@ import dev.miyado.shogisupplement.engine.Engine
 import dev.miyado.shogisupplement.engine.PvInfo
 import dev.miyado.shogisupplement.engine.UsiEngineProcess
 import dev.miyado.shogisupplement.kifu.KifParser
-import dev.miyado.shogisupplement.kifu.GameImporter
+import dev.miyado.shogisupplement.kifu.GameImportFlow
 import dev.miyado.shogisupplement.kifu.SideSuggestion
 import dev.miyado.shogisupplement.kifu.UserSideSuggester
 import dev.miyado.shogisupplement.pipeline.InProgressAnalysisRegistry
@@ -269,7 +269,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     /**
      * KIFを取り込み、新規なら解析を即開始する（単発の取り込みは「即解析」体験を保つ）。
-     * 既存棋譜と同一ハッシュだった場合は再解析せずそのままレポートを開く。
      */
     fun importKif(
         uri: Uri,
@@ -278,29 +277,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         userSide: String? = null,
         ratingRule: String? = null,
     ) {
-        if (userSide != null) settingsRepository.saveLastUserSide(userSide)
         viewModelScope.launch {
-            val outcome = withContext(Dispatchers.IO) {
-                GameImporter(gameRepository).importGame(
-                    kifContent = readKifContentFromUri(uri),
-                    fileName = resolveKifFileName(uri),
-                    userSide = userSide,
-                    ratingService = service,
-                    ratingRaw = ratingRaw?.toLong(),
-                    ratingRule = ratingRule,
-                )
-            }
-            when (outcome) {
-                is GameImporter.Outcome.Imported -> {
-                    if (outcome.alreadyExisted) {
-                        showReport(outcome.gameId)
-                    } else {
-                        val game = withContext(Dispatchers.IO) { gameRepository.getGameById(outcome.gameId) }
-                        if (game != null) analyzeStoredGame(game) else showReport(outcome.gameId)
-                    }
-                }
-                is GameImporter.Outcome.Failed -> _state.value = MainUiState.Error(outcome.message)
-            }
+            val kifContent = withContext(Dispatchers.IO) { readKifContentFromUri(uri) }
+            importKifText(kifContent, resolveKifFileName(uri), service, ratingRaw, userSide, ratingRule)
         }
     }
 
@@ -314,8 +293,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     ) {
         if (userSide != null) settingsRepository.saveLastUserSide(userSide)
         viewModelScope.launch {
-            val outcome = withContext(Dispatchers.IO) {
-                GameImporter(gameRepository).importGame(
+            val next = withContext(Dispatchers.IO) {
+                GameImportFlow(gameRepository).import(
                     kifContent = kifContent,
                     fileName = fileName,
                     userSide = userSide,
@@ -324,16 +303,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     ratingRule = ratingRule,
                 )
             }
-            when (outcome) {
-                is GameImporter.Outcome.Imported -> {
-                    if (outcome.alreadyExisted) {
-                        showReport(outcome.gameId)
-                    } else {
-                        val game = withContext(Dispatchers.IO) { gameRepository.getGameById(outcome.gameId) }
-                        if (game != null) analyzeStoredGame(game) else showReport(outcome.gameId)
-                    }
-                }
-                is GameImporter.Outcome.Failed -> _state.value = MainUiState.Error(outcome.message)
+            when (next) {
+                is GameImportFlow.Next.Analyze -> analyzeStoredGame(next.game)
+                is GameImportFlow.Next.OpenReport -> showReport(next.gameId)
+                is GameImportFlow.Next.Failed -> _state.value = MainUiState.Error(next.message)
             }
         }
     }
