@@ -34,6 +34,7 @@ import dev.miyado.shogisupplement.pipeline.ProgressiveReportState
 import dev.miyado.shogisupplement.policy.ForceUpdateJudge
 import dev.miyado.shogisupplement.policy.ForceUpdatePolicyChecker
 import dev.miyado.shogisupplement.text.AppStrings
+import dev.miyado.shogisupplement.ui.common.AppSettingsController
 import dev.miyado.shogisupplement.ui.common.PvExtState
 import dev.miyado.shogisupplement.ui.common.defaultIoDispatcher
 import dev.miyado.shogisupplement.ui.home.HomeViewModel
@@ -41,6 +42,7 @@ import dev.miyado.shogisupplement.ui.report.ReportViewModel
 import dev.miyado.shogisupplement.ui.report.StudyOrigin
 import dev.miyado.shogisupplement.ui.report.StudyState
 import dev.miyado.shogisupplement.upload.DeleteGameOutcome
+import dev.miyado.shogisupplement.upload.GameDeleter
 import dev.miyado.shogisupplement.upload.UploadOrchestrator
 import dev.miyado.shogisupplement.util.currentEpochSeconds
 import dev.miyado.shogisupplement.util.sha256Hex
@@ -55,6 +57,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import platform.Foundation.NSDate
 import platform.Foundation.NSDateFormatter
 import platform.Foundation.NSNotificationCenter
@@ -181,16 +184,19 @@ class IosMainController(
         settingsRepository = settingsRepository,
     )
 
-    /** 形勢の表示単位（'cp'/'wp'）。DBから読み込み、以後は即時反映する。 */
-    private val _evalDisplay = MutableStateFlow("cp")
-    val evalDisplay: StateFlow<String> = _evalDisplay.asStateFlow()
+    private val appSettings = AppSettingsController(settingsRepository, scope)
+
+    private val gameDeleter = GameDeleter(gameRepository, uploadOrchestrator)
+
+    /** 形勢の表示単位（'cp'/'wp'）。 */
+    val evalDisplay: StateFlow<String> = appSettings.evalDisplay
 
     /** レポート表示状態・読み筋延長・検討モードを担う協力オブジェクト（androidApp と同型）。 */
     val reportViewModel: ReportViewModel = ReportViewModel(
         scope = scope,
         repository = gameRepository,
         engineFactory = studyEngineFactory(),
-        evalDisplayProvider = { _evalDisplay.value },
+        evalDisplayProvider = { appSettings.evalDisplay.value },
         localEngineLikelyAvailable = studyLocalEngineLikelyAvailable(),
     )
 
@@ -278,13 +284,10 @@ class IosMainController(
         _completedAnalysis.value = null
     }
 
-    /** テーマモード（'system'/'light'/'dark'）。DBから読み込み、以後は即時反映する。 */
-    private val _themeMode = MutableStateFlow("system")
-    val themeMode: StateFlow<String> = _themeMode.asStateFlow()
+    /** テーマモード（'system'/'light'/'dark'）。 */
+    val themeMode: StateFlow<String> = appSettings.themeMode
 
-    /** 先後確認の省略設定。DBから読み込み、以後は即時反映する。 */
-    private val _skipSideConfirm = MutableStateFlow(false)
-    val skipSideConfirm: StateFlow<Boolean> = _skipSideConfirm.asStateFlow()
+    val skipSideConfirm: StateFlow<Boolean> = appSettings.skipSideConfirm
 
     /**
      * 強制アップデート判定。null = 未チェック（[MainViewController] 側はこの間、
@@ -295,9 +298,6 @@ class IosMainController(
     val forceUpdateDecision: StateFlow<ForceUpdateJudge.Decision?> = _forceUpdateDecision.asStateFlow()
 
     init {
-        scope.launch { _themeMode.value = settingsRepository.getThemeMode() }
-        scope.launch { _evalDisplay.value = settingsRepository.getEvalDisplay() }
-        scope.launch { _skipSideConfirm.value = settingsRepository.getSkipSideConfirm() }
         reloadHome()
         // 起動時チェック。フォアグラウンド復帰時は onWillEnterForeground 内で再チェックする。
         checkForceUpdate()
@@ -358,38 +358,14 @@ class IosMainController(
     /** 特定のゲームIDのレポート表示状態をDBから読み込む（ReportViewModel へ委譲）。 */
     suspend fun loadReport(gameId: Long): ReportViewModel.ReportResult = reportViewModel.loadReport(gameId)
 
-    suspend fun deleteGame(game: GameRecord, deleteServer: Boolean): DeleteGameOutcome {
-        if (deleteServer && game.uploadedAt != null) {
-            val ok = uploadOrchestrator?.deleteUploadedGame(game.contentHash) ?: false
-            if (!ok) return DeleteGameOutcome.ServerFailed
-        }
-        reportViewModel.deleteGame(game.id)
-        return DeleteGameOutcome.Success
-    }
+    suspend fun deleteGame(game: GameRecord, deleteServer: Boolean): DeleteGameOutcome =
+        withContext(defaultIoDispatcher) { gameDeleter.delete(game, deleteServer) }
 
-    /** テーマモードを保存し StateFlow を即時更新する。 */
-    fun saveThemeMode(mode: String) {
-        scope.launch {
-            settingsRepository.saveThemeMode(mode)
-            _themeMode.value = mode
-        }
-    }
+    fun saveThemeMode(mode: String) = appSettings.saveThemeMode(mode)
 
-    /** 形勢の表示単位を保存し StateFlow を即時更新する。 */
-    fun saveEvalDisplay(mode: String) {
-        scope.launch {
-            settingsRepository.saveEvalDisplay(mode)
-            _evalDisplay.value = mode
-        }
-    }
+    fun saveEvalDisplay(mode: String) = appSettings.saveEvalDisplay(mode)
 
-    /** 先後確認の省略設定を保存し StateFlow を即時更新する。 */
-    fun saveSkipSideConfirm(skip: Boolean) {
-        scope.launch {
-            settingsRepository.saveSkipSideConfirm(skip)
-            _skipSideConfirm.value = skip
-        }
-    }
+    fun saveSkipSideConfirm(skip: Boolean) = appSettings.saveSkipSideConfirm(skip)
 
     /**
      * UIPasteboardの同期読みはIPCやiCloud取得でブロックし得るため、[scope]で読む。

@@ -29,6 +29,7 @@ import dev.miyado.shogisupplement.service.AnalysisService
 import dev.miyado.shogisupplement.service.AnalysisServiceBus
 import dev.miyado.shogisupplement.service.AnalysisServiceBus.ServiceEvent
 import dev.miyado.shogisupplement.text.AppStrings
+import dev.miyado.shogisupplement.ui.common.AppSettingsController
 import dev.miyado.shogisupplement.ui.common.PvExtState
 import dev.miyado.shogisupplement.ui.home.HomeViewModel
 import dev.miyado.shogisupplement.ui.report.ReportViewModel
@@ -36,6 +37,7 @@ import dev.miyado.shogisupplement.ui.strength.StrengthDetailViewModel
 import dev.miyado.shogisupplement.ui.report.StudyOrigin
 import dev.miyado.shogisupplement.ui.report.StudyState
 import dev.miyado.shogisupplement.upload.DeleteGameOutcome
+import dev.miyado.shogisupplement.upload.GameDeleter
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -67,17 +69,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _manualKifRequest.value = null
     }
 
-    /** テーマモード（'system' / 'light' / 'dark'）。DBから読み込んで即時反映する。 */
-    private val _themeMode = MutableStateFlow("system")
-    val themeMode: StateFlow<String> = _themeMode
+    private val appSettings = AppSettingsController(settingsRepository, viewModelScope)
 
-    /** 形勢の表示単位（'cp' = 評価値 / 'wp' = 勝率）。DBから読み込んで即時反映する。 */
-    private val _evalDisplay = MutableStateFlow("cp")
-    val evalDisplay: StateFlow<String> = _evalDisplay
+    /** テーマモード（'system' / 'light' / 'dark'）。 */
+    val themeMode: StateFlow<String> = appSettings.themeMode
 
-    /** 先後確認の省略設定。DBから読み込んで即時反映する。 */
-    private val _skipSideConfirm = MutableStateFlow(false)
-    val skipSideConfirm: StateFlow<Boolean> = _skipSideConfirm
+    /** 形勢の表示単位（'cp' = 評価値 / 'wp' = 勝率）。 */
+    val evalDisplay: StateFlow<String> = appSettings.evalDisplay
+
+    val skipSideConfirm: StateFlow<Boolean> = appSettings.skipSideConfirm
 
     /**
      * 通知タップから起動した場合の gameId。
@@ -105,7 +105,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             scope = viewModelScope,
             repository = gameRepository,
             engineFactory = ::createEngine,
-            evalDisplayProvider = { _evalDisplay.value },
+            evalDisplayProvider = { appSettings.evalDisplay.value },
         )
     }
 
@@ -116,18 +116,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val studyState: StateFlow<StudyState?> get() = reportViewModel.studyState
 
     init {
-        // DBからテーマモードを読み込む
-        viewModelScope.launch {
-            _themeMode.value = withContext(Dispatchers.IO) { settingsRepository.getThemeMode() }
-        }
-        // DBから形勢の表示単位を読み込む
-        viewModelScope.launch {
-            _evalDisplay.value = withContext(Dispatchers.IO) { settingsRepository.getEvalDisplay() }
-        }
-        // DBから先後確認の省略設定を読み込む
-        viewModelScope.launch {
-            _skipSideConfirm.value = withContext(Dispatchers.IO) { settingsRepository.getSkipSideConfirm() }
-        }
         loadHome()
         // ServiceBus からの完了イベントを監視
         viewModelScope.launch {
@@ -246,18 +234,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         onResult: (DeleteGameOutcome) -> Unit,
     ) {
         viewModelScope.launch {
-            if (deleteServer && game.uploadedAt != null) {
-                val ok = withContext(Dispatchers.IO) {
-                    app.uploadOrchestrator.deleteUploadedGame(game.contentHash)
-                }
-                if (!ok) {
-                    onResult(DeleteGameOutcome.ServerFailed)
-                    return@launch
-                }
+            val outcome = withContext(Dispatchers.IO) {
+                GameDeleter(gameRepository, app.uploadOrchestrator).delete(game, deleteServer)
             }
-            withContext(Dispatchers.IO) { gameRepository.deleteGame(game.id) }
-            if (_state.value is MainUiState.GameList) openGameList() else loadHome()
-            onResult(DeleteGameOutcome.Success)
+            if (outcome == DeleteGameOutcome.Success) {
+                if (_state.value is MainUiState.GameList) openGameList() else loadHome()
+            }
+            onResult(outcome)
         }
     }
 
@@ -388,7 +371,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     reports = result.reports,
                     flip = result.flip,
                     strengthDisplayText = result.strengthText,
-                    evalDisplay = _evalDisplay.value,
+                    evalDisplay = appSettings.evalDisplay.value,
                     positionEvals = result.positionEvals,
                     matchRateDisplayText = result.matchRateText,
                     blunderRateDisplayText = result.blunderRateText,
@@ -477,13 +460,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             UserSideSuggester.shouldSkipConfirm(suggestion, settingsRepository.getSkipSideConfirm())
         }
 
-    /** 先後確認の省略設定を保存し StateFlow に反映する。 */
-    fun saveSkipSideConfirm(skip: Boolean) {
-        viewModelScope.launch {
-            withContext(Dispatchers.IO) { settingsRepository.saveSkipSideConfirm(skip) }
-            _skipSideConfirm.value = skip
-        }
-    }
+    fun saveSkipSideConfirm(skip: Boolean) = appSettings.saveSkipSideConfirm(skip)
 
     /** 保存済みレートを取得する（ダイアログのデフォルト値として使用）。 */
     fun getSavedRating(): Int = settingsRepository.getRating()
@@ -530,27 +507,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     /** 全サービスのルール別棋力を取得する（棋力設定ダイアログ用）。 */
     fun getAllServiceRanks(): Map<String, Map<String, Int>> = settingsRepository.getAllServiceRanks()
 
-    /**
-     * テーマモードを保存し StateFlow を即時更新する。
-     * @param themeMode 'system' / 'light' / 'dark'
-     */
-    fun saveThemeMode(themeMode: String) {
-        viewModelScope.launch {
-            withContext(Dispatchers.IO) { settingsRepository.saveThemeMode(themeMode) }
-            _themeMode.value = themeMode
-        }
-    }
+    /** @param themeMode 'system' / 'light' / 'dark' */
+    fun saveThemeMode(themeMode: String) = appSettings.saveThemeMode(themeMode)
 
-    /**
-     * 形勢の表示単位を保存し StateFlow を即時更新する。
-     * @param mode 'cp'（評価値）/ 'wp'（勝率）
-     */
-    fun saveEvalDisplay(mode: String) {
-        viewModelScope.launch {
-            withContext(Dispatchers.IO) { settingsRepository.saveEvalDisplay(mode) }
-            _evalDisplay.value = mode
-        }
-    }
+    /** @param mode 'cp'（評価値）/ 'wp'（勝率） */
+    fun saveEvalDisplay(mode: String) = appSettings.saveEvalDisplay(mode)
 
     /** 完了との競合でセッションが消えていれば、画面遷移しない。 */
     fun resumeAnalyzing(id: String) {

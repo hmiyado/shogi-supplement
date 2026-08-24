@@ -109,10 +109,6 @@ class ReportViewModel(
         ReportResult(g, r, fl, st, pe, mr, br)
     }
 
-    suspend fun deleteGame(gameId: Long) = withContext(ioDispatcher) {
-        repository.deleteGame(gameId)
-    }
-
     /** Why not 悪手レポート一覧から再計算: v2の6特徴量は再現できず、解析時に計算済みの値を使う。 */
     fun computeSingleGameStrengthText(game: GameRecord): String? {
         val side = game.userSide ?: return null
