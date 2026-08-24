@@ -8,12 +8,12 @@
 | 担当 | 範囲 |
 | --- | --- |
 | Claude（sonnetへの委譲可） | リリース準備コミット・Maestro実行・TestFlightアップロード（`fastlane ios beta`） |
-| メンテナ | リリース対象の決定・push許可・審査提出（`fastlane ios release`）・Play Consoleの操作・ストア公開・Xポスト投稿 |
+| メンテナ | リリース対象の決定・push許可・審査情報の入力・Play Consoleの操作・ストア公開・Xポスト投稿 |
 
 - **何をこのリリースに含めるかはメンテナが決める**。勝手に対象を足さない。
 - pushはメンテナの明示許可を得てから行う。
-- 審査提出から先（`fastlane ios release`・Play Consoleへのアップロード・公開ボタン）は
-  取り消せないのでメンテナが行う。TestFlightは配信先が内部なのでClaudeが実行してよい。
+- Play Consoleへのアップロードとストアの公開ボタンは取り消せないのでメンテナが行う。
+  TestFlightアップロードとApp Storeの審査提出はClaudeが実行してよい（2026-08-23許可）。
 - 署名の秘密（keystoreパスワード・ASCの`.p8`）は取得も表示もしない。
 
 ## 全体の流れ
@@ -21,7 +21,7 @@
 1. メンテナがリリース対象を決める。バージョン番号はマイルストーンに従う（下記）
 2. リリース準備コミットを作る（下記「準備コミット」）
 3. Maestroをローカル実行する（Android／iOS）
-4. iOS: `fastlane ios beta`（Claude可）→ `fastlane ios release`（メンテナ）
+4. iOS: `fastlane ios beta` → `fastlane ios submit`（下記「審査提出」）
 5. Android: `bundleRelease` → Play Consoleへアップロード
 6. 公開後: リリースノートの日付を実際の公開日に合わせる／Xポストを作る
 
@@ -104,9 +104,29 @@ APIキーは `ASC_KEY_CONTENT`（`.p8` の中身）か `ASC_KEY_PATH`（`.p8` �
 黙って飛ばされ、そのバージョンのクラッシュはアプリのフレームがredactedのままになる。
 送り忘れたビルドには、あとから `sentry-cli debug-files upload` で送れる。
 
-その先の `fastlane ios release`（メタデータ提出と審査提出）はメンテナが実行する。
-審査通過後の公開もApp Store Connectでの手動操作。詳細・前提資材の取得は
-[release.md](release.md)。
+### 審査提出
+
+アップロード済みのビルドを審査に出すときは `fastlane ios submit` を使う。
+
+```bash
+cd app/iosApp && LC_ALL=en_US.UTF-8 bundle exec fastlane ios submit
+```
+
+`release` レーンは内部で `beta` を再実行するので、アップロード済みのビルド番号のまま
+叩くと同じビルドを送り直そうとして失敗する。beta済みなら `submit` を使う。
+
+2点、そのままだと詰まる:
+
+- **新しいバージョンは審査情報（App Review Information）の連絡先が空で作られる**。
+  空のままでは `appStoreVersions ... is not in valid state` で提出が弾かれる。
+  姓名・電話・メールは個人情報なのでリポジトリには置かず、App Store Connectの画面で
+  入力してから実行する。
+- **提出に成功しても`submit`が異常終了することがある**（提出後のビルド再紐付けで
+  `The specified pre-release build could not be added`）。終了コードではなく
+  バージョンの状態で判断する。`WAITING_FOR_REVIEW` になっていれば提出できている。
+
+審査通過後の公開もApp Store Connectでの手動操作（`automatic_release: false`）。
+詳細・前提資材の取得は [release.md](release.md)。
 
 ## Android（メンテナがローカル実行）
 
