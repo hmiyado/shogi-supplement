@@ -139,6 +139,7 @@ kotlin {
 
 dependencies {
     implementation(project(":shared"))
+    implementation(project(":engine:subprocess"))
     implementation(project(":ui"))
     implementation(platform(libs.compose.bom))
     implementation(libs.androidx.activity.compose)

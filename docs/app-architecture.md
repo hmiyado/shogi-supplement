@@ -4,12 +4,14 @@
 
 ## 1. モジュール構成（Kotlin Multiplatform）
 
-Gradleモジュールは7つ。矢印は依存の向きで、循環はない。
+Gradleモジュールは9つ。矢印は依存の向きで、循環はない。
 
 ```mermaid
 flowchart TD
     kifu[":kifu"]
     analysis[":analysis"]
+    contracts[":contracts"]
+    subprocess[":engine:subprocess"]
     shared[":shared"]
     ui[":ui"]
     android[":androidApp"]
@@ -18,17 +20,23 @@ flowchart TD
     worker[":server:worker"]
 
     analysis --> kifu
+    contracts --> analysis
+    subprocess --> analysis
     shared --> analysis
+    shared --> contracts
     ui --> analysis
     ui --> kifu
     ui --> shared
     android --> ui
     android --> shared
+    android --> subprocess
     ios --> ui
     web --> ui
     web --> analysis
     web --> kifu
-    worker --> shared
+    worker --> contracts
+    worker --> analysis
+    worker --> subprocess
 ```
 
 ```
@@ -36,7 +44,8 @@ app/
 ├── kifu/                # 盤面・合法手・SFEN（board/）とKIFパース（kifu/）。依存の最下層
 │   └── ターゲット: android/jvm/iosArm64/iosSimulatorArm64/js/wasmJs
 ├── analysis/            # 解析domainとアプリケーション共通ロジック（:kifu に依存）
-│   ├── engine/          #  Engine・StudyEngine interface（USIブリッジの抽象化）
+│   ├── engine/          #  Engine・StudyEngine interface（USIブリッジの抽象化）・
+│   │                    #  AnalysisRunner（局面並列の解析実行）・解析条件の不変条件
 │   ├── blunder/ classify/ judge/ strength/ pipeline/ pv/  # 悪手定義・分類・相応判定・
 │   │                    #  強さ推定・2パスのReportPipeline・読み筋延長
 │   ├── notation/ rating/ #  連盟式棋譜表記・段級位
@@ -46,14 +55,17 @@ app/
 │   ├── auth/ upload/ download/ transfer/ policy/  # 認証・アップロード・ダウンロード・
 │   │                    #  引き継ぎ・強制アップデート判定のinterfaceとオーケストレーション
 │   ├── text/            #  AppStrings＝ユーザー向け文言の一元管理（文言修正はここだけ）
-│   └── util/            #  Logger・Time（expect/actual）
+│   ├── crash/           #  CrashReporter interface（NoopCrashReporter既定）
+│   └── util/            #  Logger・Time（expect/actual）・SHA-256
+├── contracts/           # Workerとクライアントで共有する通信DTO（api/analysis・api/transfer）
+│                        #  とワイヤ形式↔domainの相互変換
+├── engine/subprocess/   # 別プロセスexecでUSIを話すエンジン実装（UsiEngineSubprocess）。
+│                        #  ターゲットはjvm（Worker）とandroid（アプリ）
 ├── shared/              # 具体実装とプラットフォーム配線（:analysis / :kifu を api で再公開）
 │   ├── db/              #  SQLDelight実装＋sqldelight/ にスキーマ（.sq）とmigration（N.sqm）
 │   ├── supabase/ auth/ upload/ download/ policy/ transfer/  # Supabase実装
 │   ├── crypto/          #  引き継ぎコードの鍵・暗号
-│   ├── api/             #  Workerと共有する通信DTO（api/analysis・api/transfer）
-│   ├── engine/          #  AnalysisOrchestrator・AnalysisRunner・リモート解析・
-│   │                    #  UsiEngineSubprocess（jvmAndAndroidMain）・
+│   ├── engine/          #  AnalysisOrchestrator・リモート解析・
 │   │                    #  UsiEngineInProcess/IosEngineHost（iosEngineMain）
 │   ├── kifu/            #  GameImporter（取込オーケストレーション）
 │   ├── consent/ crash/ util/
@@ -69,7 +81,8 @@ app/
 │   ├── db/ crash/       #  ドライバ生成・SentryCrashReporter
 │   └── *Host.kt         #  :ui の画面へViewModelを配線するホスト
 ├── webApp/              # 「棋譜を検討する」ページのwasmJsアプリ（:ui / :analysis / :kifu）
-├── server/worker/       # Ktorの解析ワーカー（:shared に依存）
+├── server/worker/       # Ktorの解析ワーカー（:contracts / :analysis / :engine:subprocess に依存。
+│                        #  クライアント用のDB・Supabase・暗号には依存しない）
 └── iosApp/              # Xcodeプロジェクト（xcodegen・project.yml）。SharedUi frameworkを
                          # 読み込む。エンジン本体は engine/build_ios.sh が静的ライブラリを
                          # ビルドし、cinterop経由で :shared/iosMain にリンクされる
@@ -123,6 +136,10 @@ flowchart TD
 ```
 
 - `:application` から `:data:*` や `:engine:*` の具体実装へは依存しない
+- `:contracts` はワイヤ形式↔domainの相互変換を持つため `:analysis` に依存する。
+  変換を持たせない場合はサーバーとクライアントが同じ変換を二重に持つことになるため
+- 別プロセスexecのエンジン実装はjvm（Worker）とandroid（アプリ）で同一のため、
+  `:engine:jvm` と `:engine:android` に分けず `:engine:subprocess` 1つにしている
 - Workerはクライアント用インフラ（DB・Supabase・暗号）へ依存しない
 - この移行で、SQLDelightスキーマ・Supabaseスキーマ・API wire format・
   エンジン解析条件は変えない

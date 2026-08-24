@@ -13,7 +13,9 @@ kotlin {
 }
 
 dependencies {
-    implementation(project(":shared"))
+    implementation(project(":contracts"))
+    implementation(project(":analysis"))
+    implementation(project(":engine:subprocess"))
 
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.netty)
@@ -24,9 +26,8 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.core)
 
-    // Why not supabase-kt: :sharedのcommonMain依存であるsupabase-ktはAuth/anon-key前提の
-    // クライアント認証フローが中心で、service_roleでのRLSバイパスアクセス向けの薄いAPIでは
-    // ないため、ワーカー側はPostgRESTを直接叩く。
+    // Why not supabase-kt: supabase-ktはAuth/anon-key前提のクライアント認証フローが中心で、
+    // service_roleでのRLSバイパスアクセス向けの薄いAPIではないため、PostgRESTを直接叩く。
     implementation(libs.ktor.client.cio)
     implementation(libs.ktor.client.content.negotiation)
 

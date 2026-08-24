@@ -1,11 +1,7 @@
 package dev.miyado.shogisupplement.api.analysis
 
-import dev.miyado.shogisupplement.blunder.Score
-import dev.miyado.shogisupplement.engine.PvInfo
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-
-// POST /v1/analysesの共通DTO。サーバーとクライアントが同じワイヤ形式を参照する。
 
 /**
  * `POST /v1/analyses` のリクエストボディ。
@@ -21,16 +17,6 @@ data class AnalysisRequest(
 @Serializable
 data class ScoreJson(val type: String, val value: Int)
 
-fun Score.toJson(): ScoreJson = when (this) {
-    is Score.Cp -> ScoreJson(type = "cp", value = value)
-    is Score.Mate -> ScoreJson(type = "mate", value = plies)
-}
-
-fun ScoreJson.toScore(): Score = when (type) {
-    "mate" -> Score.Mate(value)
-    else -> Score.Cp(value)
-}
-
 @Serializable
 data class PvInfoJson(
     val multipv: Int,
@@ -38,10 +24,6 @@ data class PvInfoJson(
     val pv: List<String>,
     val nodes: Long,
 )
-
-fun PvInfo.toJson(): PvInfoJson = PvInfoJson(multipv = multipv, score = score.toJson(), pv = pv, nodes = nodes)
-
-fun PvInfoJson.toPvInfo(): PvInfo = PvInfo(multipv = multipv, score = score.toScore(), pv = pv, nodes = nodes)
 
 /** エンジン来歴＋解析条件（不変条件）の記録。 */
 @Serializable

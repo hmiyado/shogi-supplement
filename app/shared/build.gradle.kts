@@ -125,25 +125,8 @@ kotlin {
         }
     }
 
-    // 明示的に呼ぶ必要がある: 下の jvmAndAndroidMain のように dependsOn を手動で書くと
-    // 標準階層テンプレートの自動適用が止まり、iosMain がどのコンパイルにも繋がらなくなる
-    // （commonMain の expect に対する actual が見えず「no actual declaration」で落ちる）。
-    // 明示適用すれば標準の階層に手動のエッジが追加される形になる。
-    applyDefaultHierarchyTemplate()
-
     sourceSets {
-        // androidTarget/jvmの両方でしか使えないAPI（java.lang.ProcessBuilder等）を置く
-        // 中間source set。KMPの標準階層にjvm+android専用の合流点は無いため手動でdependsOnを配線する。
-        // Why not commonMain: java.lang.ProcessBuilder はJVM/Android専用APIでiOS(Kotlin/Native)には
-        // 存在せず、commonMainに置くとiOSターゲットのコンパイルが壊れる。
-        val jvmAndAndroidMain by creating {
-            dependsOn(commonMain.get())
-        }
-        androidMain.get().apply {
-            dependsOn(jvmAndAndroidMain)
-            kotlin.srcDir(generateAndroidBuildNumber)
-        }
-        jvmMain.get().dependsOn(jvmAndAndroidMain)
+        androidMain.get().kotlin.srcDir(generateAndroidBuildNumber)
 
         commonMain.dependencies {
             // KIFパーサ・盤面表現（dev.miyado.shogisupplement.kifu / board）を提供する。
@@ -156,6 +139,8 @@ kotlin {
             // （物理的な移動先が変わっただけ。CMP for Web対応でwasmJsコンパイル可能な
             // モジュールへ切り出した）。
             api(project(":analysis"))
+            // Workerと共有する通信DTO（dev.miyado.shogisupplement.api）。
+            implementation(project(":contracts"))
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.sqldelight.runtime)
             implementation(libs.sqldelight.coroutines.extensions)

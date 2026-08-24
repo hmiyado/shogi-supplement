@@ -1,12 +1,15 @@
 name: Worker Test
 
 # Why not androidApp/iosApp/uiの変更でもトリガー: ワーカーに関係ないapp変更でCIが回ると、
-# 失敗時にどのモジュールの問題か分かりにくくなる。:shared配下はワーカーの依存先なので対象に含める。
+# 失敗時にどのモジュールの問題か分かりにくくなる。ワーカーの依存先（:contracts / :analysis / :engine / :kifu）は対象に含める。
 on:
   pull_request:
     paths:
       - "app/server/worker/**"
-      - "app/shared/**"
+      - "app/contracts/**"
+      - "app/analysis/**"
+      - "app/engine/**"
+      - "app/kifu/**"
       - "app/gradle/**"
       - "app/gradle.properties"
       - "app/gradlew"
@@ -19,7 +22,10 @@ on:
       - main
     paths:
       - "app/server/worker/**"
-      - "app/shared/**"
+      - "app/contracts/**"
+      - "app/analysis/**"
+      - "app/engine/**"
+      - "app/kifu/**"
       - "app/gradle/**"
       - "app/gradle.properties"
       - "app/gradlew"
@@ -52,8 +58,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
       # `--configure-on-demand`が無いと、このmonorepo内のandroidApp（Android SDK必須）も
-      # 構成対象になりCIランナーにAndroid SDKが要る。付けることで:server:worker（と:shared）
-      # だけを構成し、SDKセットアップを丸ごと不要にできる（実機確認済み）。
+      # 構成対象になりCIランナーにAndroid SDKが要る。付けることで:server:workerと
+      # その依存モジュールだけを構成し、SDKセットアップを丸ごと不要にできる（実機確認済み）。
       - name: Run :server:worker:test
         working-directory: app
         run: ./gradlew :server:worker:test --configure-on-demand --stacktrace

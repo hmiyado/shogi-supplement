@@ -2,7 +2,7 @@
 #
 # analysis-worker（Cloud Run）用Dockerfile。
 #
-# ビルドコンテキストは :shared に依存するため `app/` ディレクトリを想定する:
+# ビルドコンテキストは他モジュールに依存するため `app/` ディレクトリを想定する:
 #   cd app && docker build -f server/worker/Dockerfile -t analysis-worker .
 #
 # エンジン（やねうら王 + Háo評価関数）の取り込みは engine-build / eval-fetch の
@@ -51,7 +51,8 @@ RUN /src/fetch_hao_eval.sh "${ENGINE_EVAL_SHA256}" /out
 FROM eclipse-temurin:17-jdk AS build
 WORKDIR /workspace
 
-# :server:worker は :shared のjvmターゲットに依存するため単独ディレクトリでは完結しない。
+# :server:worker は :contracts / :analysis / :engine:subprocess のjvmターゲットに依存するため
+# 単独ディレクトリでは完結しない。
 COPY . .
 
 RUN ./gradlew :server:worker:installDist --no-daemon
