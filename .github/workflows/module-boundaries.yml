@@ -1,0 +1,59 @@
+name: Module Boundaries
+
+# 設計書（docs/app-architecture.md「composition rootと依存規則」）の依存規則を
+# Gradleのproject依存から機械的に検査する。ビルド定義に1行足しただけの違反は
+# コンパイルが通ってしまうため、レビューだけに任せない。
+on:
+  pull_request:
+    paths:
+      - "app/**/build.gradle.kts"
+      - "app/settings.gradle.kts"
+      - ".github/workflows/module-boundaries.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "app/**/build.gradle.kts"
+      - "app/settings.gradle.kts"
+      - ".github/workflows/module-boundaries.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      # Why not v6以降: キャッシュ機能がMIT対象外の商用コンポーネントへ分離され、
+      # 使用にGradle社のTerms of Useへの同意が必要になったため（vrt.ymlと同じ理由）。
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+
+      # Androidターゲットを持つモジュールはconfiguration時にSDKを要求する。
+      # Why not android-actions/setup-android: サードパーティのアクションはリポジトリの
+      # アクション許可設定に依存し、許可されていない環境ではジョブが起動しない（vrt.ymlと同じ）。
+      - name: Set up Android SDK
+        run: |
+          set -eu
+          SDK_ROOT="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"
+          SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            echo "sdkmanager が $SDKMANAGER に見つからない" >&2
+            exit 1
+          fi
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          "$SDKMANAGER" "platforms;android-37.0" "build-tools;37.0.0" > /dev/null
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+
+      - name: Check module boundaries
+        working-directory: app
+        run: ./gradlew checkModuleBoundaries --stacktrace

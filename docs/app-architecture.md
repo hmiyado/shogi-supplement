@@ -125,7 +125,8 @@ app/
 | Web | `webApp/wasmJsMain/main.kt`・`KentoViewModel.kt` |
 | Worker | `server/worker/Application.kt`・`Routes.kt` |
 
-守る規則:
+守る規則（`./gradlew checkModuleBoundaries` が機械的に検査する。1〜3・5はGradleの
+project依存から、4はGradle自体が落とす）:
 
 1. `:ui` commonMain のViewModelはSupabase・SQLDelight・Android・UIKitの具体型を参照しない。
    受け取るのは `:application` のportと関数だけ
@@ -136,7 +137,8 @@ app/
 5. `api(project(...))` による再公開は増やさない。使うモジュールへ直接依存する
 6. ユーザー向け文言は `analysis/text/AppStrings.kt` 以外に直書きしない
 7. モジュールをまたぐ移動で、SQLDelightスキーマ・Supabaseスキーマ・API wire format・
-   エンジン解析条件は変えない
+   エンジン解析条件は変えない（順に `verifyMigrations`・`infra/supabase/tests` のpgTAP・
+   `:contracts` の `WireFormatTest`・`:analysis` の `EngineInvariantsTest` が検査する）
 
 ### 置き場所の決めごと
 
