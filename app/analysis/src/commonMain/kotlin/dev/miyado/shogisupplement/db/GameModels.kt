@@ -42,6 +42,9 @@ data class GameRecord(
     /** 終局語（"投了"/"切れ負け"等）。 */
     val endReason: String? = null,
     val analysisStatus: GameAnalysisStatus = GameAnalysisStatus.COMPLETED,
+    val openingStyle: String? = null,
+    val openingCastle: String? = null,
+    val openingTags: String? = null,
 )
 
 /** 悪手レポートのドメインモデル（UI用）。 */

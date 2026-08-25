@@ -219,6 +219,7 @@ object AppStrings {
 
 
     const val GAME_LIST_FILTER_SOURCE = "出典"
+    const val GAME_LIST_FILTER_OPENING_STYLE = "戦型"
     const val GAME_LIST_FILTER_SIDE = "先後"
     const val PLAYER_SIDE_SENTE = "先手"
     const val PLAYER_SIDE_GOTE = "後手"
@@ -624,6 +625,8 @@ object AppStrings {
     const val GAME_INFO_ICON_DESC = "対局情報"
     /** 対局情報ダイアログのタイトル。 */
     const val GAME_INFO_DIALOG_TITLE = "この棋譜について"
+    const val GAME_INFO_OPENING_STYLE = "戦型"
+    const val GAME_INFO_OPENING_CASTLE = "囲い"
     /** 対局情報ダイアログの閉じるボタン。 */
     const val GAME_INFO_CLOSE = "閉じる"
 

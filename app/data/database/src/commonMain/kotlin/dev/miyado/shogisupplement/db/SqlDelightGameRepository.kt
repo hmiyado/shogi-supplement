@@ -49,6 +49,9 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
             game_winner = gameWinner,
             end_reason = endReason,
             analysis_status = GameAnalysisStatus.PENDING.wireValue,
+            opening_style = null,
+            opening_castle = null,
+            opening_tags = null,
         )
         database.shogiSupplementQueries.getLastInsertRowId().executeAsOne()
     }
@@ -71,6 +74,9 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
         sourcePlace: String?,
         gameWinner: String?,
         endReason: String?,
+        openingStyle: String?,
+        openingCastle: String?,
+        openingTags: String?,
     ): Long {
         // 全局面の SFEN を事前計算: sfenAtPly[i] = i 手目を指す直前の局面
         val sfenAtPly = buildSfenSequence(moves)
@@ -103,6 +109,9 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
                     game_winner = gameWinner,
                     end_reason = endReason,
                     analysis_status = GameAnalysisStatus.COMPLETED.wireValue,
+                    opening_style = openingStyle,
+                    opening_castle = openingCastle,
+                    opening_tags = openingTags,
                 )
             } else {
                 database.shogiSupplementQueries.completePendingGame(
@@ -123,6 +132,9 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
                     source_place = sourcePlace,
                     game_winner = gameWinner,
                     end_reason = endReason,
+                    opening_style = openingStyle,
+                    opening_castle = openingCastle,
+                    opening_tags = openingTags,
                     id = pendingId,
                 )
             }
@@ -197,6 +209,9 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
                 game_winner = null,
                 end_reason = null,
                 analysis_status = GameAnalysisStatus.COMPLETED.wireValue,
+                opening_style = null,
+                opening_castle = null,
+                opening_tags = null,
             )
             val gameId = database.shogiSupplementQueries.getLastInsertRowId().executeAsOne()
 
@@ -396,6 +411,9 @@ internal fun Game.toGameRecord() = GameRecord(
     gameWinner = game_winner,
     endReason = end_reason,
     analysisStatus = GameAnalysisStatus.fromWireValue(analysis_status),
+    openingStyle = opening_style,
+    openingCastle = opening_castle,
+    openingTags = opening_tags,
 )
 
 internal fun Blunder_report.toBlunderRecord() = BlunderRecord(

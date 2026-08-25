@@ -42,6 +42,9 @@ interface GameRepository {
         sourcePlace: String? = null,
         gameWinner: String? = null,
         endReason: String? = null,
+        openingStyle: String? = null,
+        openingCastle: String? = null,
+        openingTags: String? = null,
     ): Long
 
     /**

@@ -13,6 +13,7 @@ import dev.miyado.shogisupplement.kifu.KifuDecomposer
 import dev.miyado.shogisupplement.kifu.KifuParseException
 import dev.miyado.shogisupplement.pipeline.ReportPipeline
 import dev.miyado.shogisupplement.pipeline.toPositionEval
+import dev.miyado.shogisupplement.opening.OpeningClassifier
 import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.util.sha256Hex
 
@@ -91,6 +92,15 @@ class AnalysisOrchestrator(
                 coef = coefTable,
             )
 
+            val opening = when (userSide) {
+                "sente" -> OpeningClassifier.classify(game.moves).black
+                "gote" -> OpeningClassifier.classify(game.moves).white
+                else -> null
+            }
+            // 判定が付かなかった対局は列を空のままにする。画面の絞り込みは保存済みの値から
+            // 選択肢を作るため、「未分類」を保存すると選べる項目として出てしまう。
+            fun classified(value: String?): String? = value?.takeIf { it != OpeningClassifier.UNCLASSIFIED }
+
             val gameId = repository.saveAnalysis(
                 fileName = fileName,
                 contentHash = effectiveContentHash,
@@ -110,6 +120,9 @@ class AnalysisOrchestrator(
                     ?: KifuDecomposer.classifySource(kifContent, game.headers["場所"]).wireValue,
                 gameWinner = game.winner,
                 endReason = game.endReason,
+                openingStyle = classified(opening?.style),
+                openingCastle = classified(opening?.castle),
+                openingTags = opening?.tags?.sorted()?.joinToString("|"),
             )
 
             // 評価値はsente視点に正規化し、後からの計算に必要な第2候補も保存する。

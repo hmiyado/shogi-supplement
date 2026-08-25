@@ -49,6 +49,20 @@ internal fun GameInfoDialog(
                     Spacer(Modifier.height(8.dp))
                 }
                 Text(playersLine, style = MaterialTheme.typography.bodyMedium)
+                if (game.openingStyle != null) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "${AppStrings.GAME_INFO_OPENING_STYLE}：${game.openingStyle}",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+                if (game.openingCastle != null) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "${AppStrings.GAME_INFO_OPENING_CASTLE}：${game.openingCastle}",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
             }
         },
         confirmButton = {

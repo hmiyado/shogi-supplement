@@ -9,6 +9,7 @@ class GameListFilterTest {
         id: Long,
         sourcePlace: String? = null,
         userSide: String? = null,
+        openingStyle: String? = null,
         gameWinner: String? = null,
         analyzedAt: Long = 1_000L,
     ) = GameRecord(
@@ -23,6 +24,7 @@ class GameListFilterTest {
         coefVersion = "hao_v1",
         sourcePlace = sourcePlace,
         userSide = userSide,
+        openingStyle = openingStyle,
         gameWinner = gameWinner,
     )
 
@@ -37,6 +39,7 @@ class GameListFilterTest {
     fun `いずれか1軸でも指定されればisActiveはtrue`() {
         assertEquals(true, GameListFilter(source = "wars").isActive)
         assertEquals(true, GameListFilter(userSide = "sente").isActive)
+        assertEquals(true, GameListFilter(openingStyle = "居飛車").isActive)
         assertEquals(true, GameListFilter(result = GameResultFilter.WIN).isActive)
         assertEquals(true, GameListFilter(dateFrom = 100L).isActive)
     }
@@ -53,10 +56,11 @@ class GameListFilterTest {
         assertEquals(1, GameListFilter(source = "wars").activeCount)
         assertEquals(2, GameListFilter(source = "wars", userSide = "sente").activeCount)
         assertEquals(
-            4,
+            5,
             GameListFilter(
                 source = "wars",
                 userSide = "sente",
+                openingStyle = "居飛車",
                 result = GameResultFilter.WIN,
                 dateFrom = 100L,
             ).activeCount,
@@ -95,6 +99,17 @@ class GameListFilterTest {
             game(3, userSide = null),
         )
         val result = games.filterGames(GameListFilter(userSide = "sente"))
+        assertEquals(listOf(1L), result.map { it.id })
+    }
+
+    @Test
+    fun `戦型フィルタは一致するopeningStyleのみ残す`() {
+        val games = listOf(
+            game(1, openingStyle = "居飛車"),
+            game(2, openingStyle = "四間飛車"),
+            game(3, openingStyle = null),
+        )
+        val result = games.filterGames(GameListFilter(openingStyle = "居飛車"))
         assertEquals(listOf(1L), result.map { it.id })
     }
 
@@ -177,6 +192,17 @@ class GameListFilterTest {
     @Test
     fun `distinctSourcesは空リストなら空を返す`() {
         assertEquals(emptyList(), emptyList<GameRecord>().distinctSources())
+    }
+
+    @Test
+    fun `distinctOpeningStylesは実在する値を重複なくソートして返す`() {
+        val games = listOf(
+            game(1, openingStyle = "四間飛車"),
+            game(2, openingStyle = "居飛車"),
+            game(3, openingStyle = "四間飛車"),
+            game(4, openingStyle = null),
+        )
+        assertEquals(listOf("四間飛車", "居飛車").sorted(), games.distinctOpeningStyles())
     }
 
     // ─── hasUserSideData / hasResultData ────────────────────────────────────

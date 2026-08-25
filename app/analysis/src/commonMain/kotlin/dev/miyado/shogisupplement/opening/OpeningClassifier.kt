@@ -29,6 +29,9 @@ data class OpeningResult(val black: SideOpening, val white: SideOpening) {
  */
 object OpeningClassifier {
 
+    /** どの形にも当てはまらなかったときの値。 */
+    const val UNCLASSIFIED = "未分類"
+
     /** 飛車が同じ筋に留まったら定着とみなす手数。一時的な浮き飛車を拾わないため。 */
     const val SETTLE_PLY_THRESHOLD = 10
 
@@ -136,7 +139,7 @@ object OpeningClassifier {
             board.pieceAt(placement.square.toSquare(side))
                 ?.let { it.type == placement.type && it.side == side } == true
         }
-        return if (isFunagakoi) "舟囲い" else "未分類"
+        return if (isFunagakoi) "舟囲い" else UNCLASSIFIED
     }
 
     private fun ShogiBoard.matches(side: Side, def: PlacementDef): Boolean {
@@ -178,7 +181,7 @@ object OpeningClassifier {
         }
 
         fun style(): String {
-            if (achievedFiles.isEmpty()) return "未分類"
+            if (achievedFiles.isEmpty()) return UNCLASSIFIED
             // 名前の付いた筋への最後の定着を優先する。1・3・4・9筋への定着は
             // 本来の戦法へ移る途中の一時停止であることが多い。
             val named = achievedFiles.filter { it == ROOK_FILE || it in FURIBISHA_LABELS_BY_FILE }
