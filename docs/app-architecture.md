@@ -127,12 +127,25 @@ app/
 
 守る規則:
 
-1. `:ui` のViewModelはSupabase・SQLDelight・Android・UIKitの具体型を参照しない。
+1. `:ui` commonMain のViewModelはSupabase・SQLDelight・Android・UIKitの具体型を参照しない。
    受け取るのは `:application` のportと関数だけ
-2. `:application` から `:data:*` や `:engine:*` の具体実装へは依存しない
-3. Gradleのproject依存に循環を作らない
-4. `api(project(...))` による再公開は増やさない。使うモジュールへ直接依存する
-5. ユーザー向け文言は `analysis/text/AppStrings.kt` 以外に直書きしない
+2. `:application` から `:data:*` や `:engine:*` の具体実装へ依存しない。
+   逆向き（実装がportを実装する）だけを許す
+3. Workerはクライアント用インフラ（DB・Supabase・暗号）へ依存しない
+4. Gradleのproject依存に循環を作らない
+5. `api(project(...))` による再公開は増やさない。使うモジュールへ直接依存する
+6. ユーザー向け文言は `analysis/text/AppStrings.kt` 以外に直書きしない
+7. モジュールをまたぐ移動で、SQLDelightスキーマ・Supabaseスキーマ・API wire format・
+   エンジン解析条件は変えない
+
+### 置き場所の決めごと
+
+- `:contracts` はワイヤ形式↔domainの相互変換を持つため `:analysis` に依存する。
+  変換を持たせないと、サーバーとクライアントが同じ変換を二重に持つことになる
+- 別プロセスexecのエンジン実装はjvm（Worker）とandroid（アプリ）で同一のため、
+  `:engine:jvm` と `:engine:android` に分けず `:engine:subprocess` 1つにする
+- `RemoteAnalysisException`（サーバー解析の失敗の種類）は投げる側ではなく
+  `:application` に置く。失敗をどう扱うかを決めるのはuse case側のため
 
 ### Android/iOSで共通のもの・ホストに残すもの
 
@@ -155,26 +168,7 @@ commonMainのcontrollerか `:application` のuse caseに置く。
   `PendingAnalysisStore` による中断復帰
 - どちらもエンジン生成とHTTPクライアントの供給はホストが行う
 
-## 3. 境界の決めごと
-
-1節の構成は #32 の目標境界に到達した状態。以後は次の決めごとを守って維持する。
-
-- `:application` から `:data:*` や `:engine:*` の具体実装へ依存しない。逆向き
-  （実装がportを実装する）だけを許す
-- `:ui` commonMain のViewModelは `:application` のportと `:analysis` しか見ない。
-  具体実装を組み立てるのは各composition rootだけ（iOSは `ui/iosMain` が兼ねる）
-- Workerはクライアント用インフラ（DB・Supabase・暗号）へ依存しない
-- `:contracts` はワイヤ形式↔domainの相互変換を持つため `:analysis` に依存する。
-  変換を持たせないと、サーバーとクライアントが同じ変換を二重に持つことになるため
-- 別プロセスexecのエンジン実装はjvm（Worker）とandroid（アプリ）で同一のため、
-  `:engine:jvm` と `:engine:android` に分けず `:engine:subprocess` 1つにしている
-- `RemoteAnalysisException`（サーバー解析の失敗の種類）は投げる側ではなく
-  `:application` に置く。失敗をどう扱うかを決めるのはuse case側のため
-
-移行で、SQLDelightスキーマ・Supabaseスキーマ・API wire format・エンジン解析条件は
-変えていない。
-
-## 4. エンジン統合
+## 3. エンジン統合
 
 `Engine` interface（`analysis/commonMain/engine/Engine.kt`）がUSIブリッジを抽象化し、
 `analyze`/`analyzeSfen`/`quit`/`newGame` の4操作のみを公開する。実装はプラットフォームごとに
@@ -221,13 +215,13 @@ commonMainのcontrollerか `:application` のuse caseに置く。
 - エンジン解析には探索の揺れがある（ワーカー割当→置換表状態）。分類境界局面のビット一致
   assertは書かない
 
-## 5. `:ui` の KMP ViewModel
+## 4. `:ui` の KMP ViewModel
 
 `androidx.lifecycle.ViewModel`/`ViewModelProvider` はKMP対応版を使用しており、
 `HomeViewModel`/`DrillViewModel`/`ReportViewModel`/`AccountViewModel` は `:ui` の
 commonMainに置かれ、Android/iOS両方から同一実装で使われる。ViewModelはAndroid固有の型
-（`Application`・`File`・`UsiEngineProcess`）を直接知らず、`:analysis` が定義する
-Repository interfaceと必要最小限の関数（エンジン呼び出しが要る場合は `judgeWithEngine` のような関数注入）だけを
+（`Application`・`File`・`UsiEngineProcess`）を直接知らず、`:application` が定義する
+portと必要最小限の関数（エンジン呼び出しが要る場合は `judgeWithEngine` のような関数注入）だけを
 受け取る。Android/iOS専用の解決（`ApplicationInfo`・`nativeLibraryDir`・ファイルI/O等）は
 それぞれ `androidApp/*Host.kt` と `ui/iosMain/IosMainController.kt` 側に閉じ込める。
 
@@ -235,7 +229,7 @@ DB/エンジン処理向けの既定コルーチンディスパッチャは `exp
 プラットフォームごとに分離する（Android= `Dispatchers.IO`、iOS= `Dispatchers.Default`。
 kotlinx.coroutines の Native向けAPIでは `Dispatchers.IO` が公開されていないため）。
 
-## 6. DB
+## 5. DB
 
 SQLDelightで `data/database/commonMain/sqldelight/.../ShogiSupplement.sq` にスキーマを定義し、
 Android/iOS双方でネイティブドライバを使う。テーブル: `game` / `blunder_report` /
@@ -243,7 +237,7 @@ Android/iOS双方でネイティブドライバを使う。テーブル: `game` 
 スキーマ変更は `db/N.sqm` のマイグレーションファイルを追加して行う
 （DB保存文字列を変更する場合は必ずmigrationを伴わせること）。
 
-## 7. 相応判定ロジック
+## 6. 相応判定ロジック
 
 - **帯の決定は申告レートではなく棋譜からの強さ推定値**: `ReportPipeline` は
   ①悪手抽出（レート非依存）→ ②（過去累計＋当該局）の悪手率から `StrengthEstimator` で
@@ -255,7 +249,7 @@ Android/iOS双方でネイティブドライバを使う。テーブル: `game` 
 - noteは「あなたの帯: 約N局に1回 ／ R2200+: 約M局に1回」の2点形式（AppStringsのテンプレート）
 - 表示は連盟式棋譜表記（`notation/JapaneseNotation`、▲３四金直 等）。USIは内部表現のみ
 
-## 8. テスト戦略
+## 7. テスト戦略
 
 - **ゴールデンフィクスチャ**: 既知の期待値をテストリソース化
   - KIFパーサ: 実KIF（`app/data/kifu_samples/`）→期待USI出力と一致
@@ -267,7 +261,7 @@ Android/iOS双方でネイティブドライバを使う。テーブル: `game` 
   （`./gradlew :ui:compileKotlinIosArm64` / `:data:supabase:iosSimulatorArm64Test` 等）。JVM専用APIは
   `expect`/`actual` で分離する（`util/Time.kt` 等）
 
-## 9. 開発時の注意
+## 8. 開発時の注意
 
 - パッケージ名: `dev.miyado.shogisupplement`。係数表= `app/androidApp/src/main/assets/coefficients_hao_isolate_v1.json`
   （テストリソースにも同梱）
