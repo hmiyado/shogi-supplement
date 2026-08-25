@@ -4,7 +4,7 @@
 
 ## 1. モジュール構成（Kotlin Multiplatform）
 
-Gradleモジュールは13。矢印は依存の向きで、循環はない。
+矢印は依存の向きで、循環はない。
 
 ```mermaid
 flowchart TD
@@ -116,7 +116,7 @@ app/
 
 ## 2. composition rootと依存規則
 
-具体実装の組み立ては次の4か所だけで行う。
+具体実装の組み立ては次の場所だけで行う。
 
 | プラットフォーム | composition root |
 | --- | --- |
