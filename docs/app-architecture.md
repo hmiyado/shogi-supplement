@@ -65,46 +65,44 @@ commonMainのViewModelは `:application` のportと `:analysis` しか見ない�
 app/
 ├── kifu/                # 盤面・合法手・SFEN（board/）とKIFパース（kifu/）。依存の最下層
 │   └── ターゲット: android/jvm/iosArm64/iosSimulatorArm64/js/wasmJs
-├── analysis/            # 解析domainとアプリケーション共通ロジック（:kifu に依存）
-│   ├── engine/          #  Engine・StudyEngine interface（USIブリッジの抽象化）・
-│   │                    #  AnalysisRunner（局面並列の解析実行）・解析条件の不変条件
+├── analysis/            # 解析domain（:kifu に依存）
+│   ├── engine/          #  USIブリッジの抽象化・局面並列の解析実行・解析条件の不変条件
 │   ├── blunder/ classify/ judge/ strength/ pipeline/ pv/  # 悪手定義・分類・相応判定・
-│   │                    #  強さ推定・2パスのReportPipeline・読み筋延長
+│   │                    #  強さ推定・レポート生成の2パス・読み筋延長
 │   ├── notation/ rating/ #  連盟式棋譜表記・段級位
-│   ├── drill/           #  次の一手の正誤判定（DrillJudge）・周回（DrillRotation）
-│   ├── db/              #  保存レコード型（GameRecord・BlunderRecord ほか）
-│   ├── policy/          #  強制アップデートの判定（AppPolicyRow・ForceUpdateJudge）
+│   ├── drill/           #  次の一手の正誤判定と周回
+│   ├── db/              #  保存レコード型
+│   ├── policy/          #  強制アップデートの判定
 │   ├── text/            #  AppStrings＝ユーザー向け文言の一元管理（文言修正はここだけ）
-│   ├── crash/           #  CrashReporter interface（NoopCrashReporter既定）
-│   └── util/            #  Logger・Time（expect/actual）・SHA-256
+│   ├── crash/           #  クラッシュ報告の抽象（既定は何もしない実装）
+│   └── util/            #  ログ・時刻（expect/actual）・SHA-256
 ├── application/         # portとuse case。具体実装は持たない
 │   ├── db/ auth/ policy/ crypto/  # Repository・認証・強制アップデート・引き継ぎ登録のport
-│   ├── upload/ download/ transfer/ consent/  # UploadOrchestrator・GameDeleter・
-│   │                    #  GameDownloadService・TransferRestoreService・ConsentOrchestrator
-│   ├── kifu/            #  GameImporter・GameImportFlow（取り込みと行き先の判断）
-│   ├── engine/          #  AnalysisOrchestrator（取込→解析→保存）・失敗の種類と文言
+│   ├── upload/ download/ transfer/ consent/  # アップロードと成績同期・棋譜削除・
+│   │                    #  ダウンロード復元・引き継ぎ・同意の調停
+│   ├── kifu/            #  取り込みと、そのあとどこへ進むかの判断
+│   ├── engine/          #  取込→解析→保存の進行・失敗の種類と文言
 │   └── ターゲット: android/jvm/iosArm64/iosSimulatorArm64/wasmJs
 ├── contracts/           # Workerとクライアントで共有する通信DTO（api/analysis・api/transfer）
 │                        #  とワイヤ形式↔domainの相互変換
 ├── data/database/       # SQLDelight実装＋sqldelight/ にスキーマ（.sq）とmigration（N.sqm）。
-│                        #  iosMainにDatabaseFactory
+│                        #  iosMainにDBを開く口
 ├── data/supabase/       # Supabase実装（認証・アップロード・ダウンロード・ポリシー取得）と
 │                        #  引き継ぎコードの鍵・暗号（crypto/）
-├── engine/remote/       # サーバー解析（RemoteAnalysisRunner）・失敗時のフェイルオーバー・
-│                        #  検討ページ資産のポリシー（Kento*）
-├── engine/ios/          # iOSのプロセス内エンジン（UsiEngineInProcess・IosEngineHost）と
-│                        #  WKWebView内WASMのブリッジ。cinteropとenginelessフレーバーもここ
-├── engine/subprocess/   # 別プロセスexecでUSIを話すエンジン実装（UsiEngineSubprocess）。
+├── engine/remote/       # サーバー解析・失敗時のフェイルオーバー・検討ページ資産のポリシー
+├── engine/ios/          # iOSのプロセス内エンジンとWKWebView内WASMのブリッジ。
+│                        #  cinteropとenginelessフレーバーもここ
+├── engine/subprocess/   # 別プロセスexecでUSIを話すエンジン実装。
 │                        #  ターゲットはjvm（Worker）とandroid（アプリ）
 ├── ui/                  # Compose Multiplatform UIとKMP ViewModel
 │   ├── commonMain       #  画面（home/report/drill/gamelist/settings/account ほか）と
 │   │                    #  ViewModel。theme/ がDESIGN.mdトークンの実装
-│   ├── iosMain          #  IosMainController・MainViewController（iOSのcomposition root）と
-│   │                    #  SharedUi framework（Swiftが触る型を持つモジュールをexport）
+│   ├── iosMain          #  iOSのcomposition rootと、Swiftが触る型を持つモジュールを
+│   │                    #  exportするSharedUi framework
 │   └── ターゲット: android/iosArm64/iosSimulatorArm64/wasmJs
 ├── androidApp/          # Androidアプリ本体（composition root）
-│   ├── engine/ service/ #  UsiEngineProcess・解析のForeground Service
-│   ├── db/ crash/       #  ドライバ生成・SentryCrashReporter
+│   ├── engine/ service/ #  エンジンプロセスの生成・解析のForeground Service
+│   ├── db/ crash/       #  ドライバ生成・クラッシュ報告の実装
 │   └── *Host.kt         #  :ui の画面へViewModelを配線するホスト
 ├── webApp/              # 「棋譜を検討する」ページのwasmJsアプリ（:ui / :analysis / :kifu）
 ├── server/worker/       # Ktorの解析ワーカー（:contracts / :analysis / :engine:subprocess に依存。
