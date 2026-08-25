@@ -26,8 +26,7 @@ data class OpeningSample(val label: String, val usiMoves: List<String>, val matc
  *
  * @param plyCap これ以降は判定しない手数。終盤の玉の逃避行で偶然一致する形を拾わないため。
  * @param developsFrom より未発達の形。両方成立したときは発展した側を表示する。
- * @param aiIbishaOnly 双方が居飛車のときだけ成立する（対振り飛車で同じ駒組みが現れる形）。
- * @param noBishopExchange 成立時点までに角交換があれば成立しない（取り返しの銀と区別できないため）。
+ * @param conditions 駒の配置に加えて満たす条件。判定にも資料にも同じ宣言を使う。
  */
 data class PlacementDef(
     val name: String,
@@ -38,20 +37,29 @@ data class PlacementDef(
     val forbidden: List<PiecePlacement> = emptyList(),
     val plyCap: Int,
     val developsFrom: String? = null,
-    val aiIbishaOnly: Boolean = false,
-    val noBishopExchange: Boolean = false,
+    val conditions: List<OpeningCondition> = emptyList(),
     val source: String,
     val samples: List<OpeningSample> = emptyList(),
 )
 
+/** タグを誰に付けるか。 */
+enum class TagScope {
+    /** 対局単位で決まる戦型。条件を満たしたら両者に付ける。 */
+    BOTH_SIDES,
+
+    /** その側の指し方を指す戦型。条件を満たした側にだけ付ける。 */
+    MATCHING_SIDE,
+}
+
 /**
  * 序盤の出来事で判定する戦型。駒の配置では表せない（角が盤上から消えたか、
- * 飛車で歩を取ったか、が定義の核）ため、成立条件は [OpeningClassifier] が持つ。
+ * 飛車で歩を取ったか、が定義の核）ため、条件の並びとして宣言する。
  */
-data class EventDef(
+data class EventStrategyDef(
     val name: String,
     val slug: String,
-    val conditions: List<String>,
+    val scope: TagScope,
+    val conditions: List<OpeningCondition>,
     val source: String,
     val samples: List<OpeningSample> = emptyList(),
 )

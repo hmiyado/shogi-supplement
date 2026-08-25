@@ -20,7 +20,7 @@ fun main(args: Array<String>) {
 
     CASTLE_DEFS.forEach { File(outDir, "${it.slug}.md").writeText(placementPage(it, "囲い")) }
     PLACEMENT_STRATEGY_DEFS.forEach { File(outDir, "${it.slug}.md").writeText(placementPage(it, "戦型")) }
-    EVENT_DEFS.forEach { File(outDir, "${it.slug}.md").writeText(eventPage(it)) }
+    EVENT_STRATEGY_DEFS.forEach { File(outDir, "${it.slug}.md").writeText(eventPage(it)) }
     File(outDir, "rook-style.md").writeText(rookStylePage())
     File(outDir, "index.md").writeText(indexPage())
 
@@ -63,15 +63,14 @@ private fun placementPage(def: PlacementDef, kindLabel: String): String = buildS
     def.forbidden.forEach { appendLine("- ${it.square.label()}に自分の${pieceName(it.type)}が**いない**") }
     appendLine("- ${def.plyCap}手以内に成立する")
     def.developsFrom?.let { appendLine("- ${it}の発展形（両方成立したときはこちらを表示する）") }
-    if (def.aiIbishaOnly) appendLine("- 双方が居飛車（成立の直後に相手も自分も振り飛車へ定着しない）")
-    if (def.noBishopExchange) appendLine("- 成立時点までに角交換が起きていない")
+    def.conditions.forEach { appendLine("- ${it.describe()}") }
     appendLine()
     appendLine("出典: ${def.source}")
     appendLine()
     appendSamples(def.samples)
 }
 
-private fun eventPage(def: EventDef): String = buildString {
+private fun eventPage(def: EventStrategyDef): String = buildString {
     appendLine("# ${def.name}（戦型）")
     appendLine()
     appendLine("[← 一覧へ戻る](./index.md)")
@@ -80,7 +79,14 @@ private fun eventPage(def: EventDef): String = buildString {
     appendLine()
     appendLine("駒の配置ではなく、序盤に何が起きたかで決まる。次をすべて満たすと成立する。")
     appendLine()
-    def.conditions.forEach { appendLine("- $it") }
+    def.conditions.forEach { appendLine("- ${it.describe()}") }
+    appendLine()
+    appendLine(
+        when (def.scope) {
+            TagScope.BOTH_SIDES -> "対局単位で決まる戦型なので、成立したら両者に付く。"
+            TagScope.MATCHING_SIDE -> "その側の指し方を指す戦型なので、条件を満たした側にだけ付く。"
+        },
+    )
     appendLine()
     appendLine("出典: ${def.source}")
     appendLine()
@@ -188,7 +194,9 @@ private fun indexPage(): String = buildString {
     appendLine()
     appendLine("### 序盤の出来事で決まるもの")
     appendLine()
-    EVENT_DEFS.forEach { appendLine("- [${it.name}](./${it.slug}.md) — ${it.conditions.first()}") }
+    EVENT_STRATEGY_DEFS.forEach {
+        appendLine("- [${it.name}](./${it.slug}.md) — ${it.conditions.first().describe()}")
+    }
     appendLine()
     appendLine("### 駒の配置で決まるもの")
     appendLine()

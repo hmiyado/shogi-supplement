@@ -43,8 +43,8 @@ object OpeningClassifier {
 
     fun classify(usiMoves: List<String>): OpeningResult {
         val moves = usiMoves.map { ShogiMove.fromUsi(it) }
+        val events = OpeningEvents.record(moves, Side.entries)
         val trackers = Side.entries.associateWith { RookSettleTracker(it) }
-        val events = OpeningEventTracker()
         val achieved = Side.entries.associateWith { mutableMapOf<String, Int>() }
         val board = ShogiBoard()
 
@@ -52,8 +52,6 @@ object OpeningClassifier {
             val ply = index + 1
             val mover = board.turn
             val moving = move.from?.let { board.pieceAt(it) }
-            val captured = board.pieceAt(move.to)
-            events.observe(ply, move, mover, moving, captured)
             board.push(move)
             trackers.getValue(mover).observe(ply, move, moving)
             Side.entries.forEach { side ->
@@ -67,14 +65,27 @@ object OpeningClassifier {
         }
 
         val styles = Side.entries.associateWith { trackers.getValue(it).style() }
-        val tags = Side.entries.associateWith { side ->
-            PLACEMENT_STRATEGY_DEFS
-                .mapNotNull { def -> achieved.getValue(side)[def.slug]?.let { def to it } }
-                .filter { (def, ply) -> events.allows(def, ply) }
-                .map { (def, _) -> def.name }
-                .toMutableSet()
+        val tags = Side.entries.associateWith { mutableSetOf<String>() }
+
+        PLACEMENT_STRATEGY_DEFS.forEach { def ->
+            Side.entries.forEach { side ->
+                val achievedPly = achieved.getValue(side)[def.slug] ?: return@forEach
+                val context = OpeningContext(events, styles, tags, achievementPly = achievedPly)
+                if (def.conditions.all { it.holds(context, side) }) tags.getValue(side) += def.name
+            }
         }
-        events.applyDerivedTags(styles, tags)
+
+        // 宣言の順に評価する。前提にするタグと排他にするタグが先に決まっている必要がある。
+        EVENT_STRATEGY_DEFS.forEach { def ->
+            val context = OpeningContext(events, styles, tags)
+            val matched = Side.entries.filter { side -> def.conditions.all { it.holds(context, side) } }
+            when (def.scope) {
+                TagScope.BOTH_SIDES -> if (matched.size == Side.entries.size) {
+                    tags.values.forEach { it += def.name }
+                }
+                TagScope.MATCHING_SIDE -> matched.forEach { tags.getValue(it) += def.name }
+            }
+        }
 
         return OpeningResult(
             black = sideResult(Side.BLACK, styles, achieved, tags, board),
@@ -86,7 +97,7 @@ object OpeningClassifier {
         side: Side,
         styles: Map<Side, String>,
         achieved: Map<Side, Map<String, Int>>,
-        tags: Map<Side, Set<String>>,
+        tags: Map<Side, MutableSet<String>>,
         finalBoard: ShogiBoard,
     ): SideOpening {
         val achievedCastles = CASTLE_DEFS
@@ -97,7 +108,7 @@ object OpeningClassifier {
             style = styles.getValue(side),
             castle = displayCastle(achievedCastles, side, finalBoard),
             achievedCastles = achievedCastles,
-            tags = tags.getValue(side),
+            tags = tags.getValue(side).toSet(),
         )
     }
 

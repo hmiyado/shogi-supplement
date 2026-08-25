@@ -242,8 +242,10 @@ val PLACEMENT_STRATEGY_DEFS: List<PlacementDef> = listOf(
         kind = OpeningKind.STRATEGY,
         required = listOf(p(SILVER, 7, 7)),
         plyCap = 24,
-        aiIbishaOnly = true,
-        noBishopExchange = true,
+        conditions = listOf(
+            NoSwingAfter(NoSwingAfter.Basis.ACHIEVEMENT, plies = 20),
+            NoBishopExchangeBeforeAchievement,
+        ),
         source = "ja.wikipedia.org/wiki/矢倉囲い（本文『▲7七銀と受け』が矢倉の骨格。完成形『玉を8八に、左金を7八、右金を6七に、左銀を7七に移動させたもの』のうち、囲いの完成を待たずに戦型と分かる7七銀だけを厳密照合の対象とした。完成形の判定は囲いタグ側が担う）",
         samples = listOf(
             sample("成立する手順", "7g7f 8c8d 7i6h 8d8e 6h7g", matches = true),
@@ -257,7 +259,7 @@ val PLACEMENT_STRATEGY_DEFS: List<PlacementDef> = listOf(
         required = listOf(p(GOLD, 7, 8), p(SILVER, 6, 7), p(GOLD, 5, 8)),
         forbidden = listOf(p(SILVER, 7, 7)),
         plyCap = 40,
-        aiIbishaOnly = true,
+        conditions = listOf(NoSwingAfter(NoSwingAfter.Basis.ACHIEVEMENT, plies = 20)),
         source = "ja.wikipedia.org/wiki/雁木囲い（本文『2010年代には、居飛車で左銀を6七に置く形の囲いを総称して雁木囲い』＝現代の雁木は左銀6七が定義の核で、旧型の『6七銀、5七銀、7八金、5八金の金銀4枚』のうち右銀5七は求めない。左銀6七だけでは相居飛車の他の駒組みとも重なるため、金2枚を伴う形を厳密形とした。7七に銀が居ないことは本文『7七に銀がいないため、引き角にしなくても初期位置の8八のまま角を攻めに使える（居角）ことが大きな特徴』に基づく）",
         samples = listOf(
             sample("成立する手順", "7g7f 8c8d 6g6f 8d8e 7i6h 3c3d 6h6g 2b3c 6i7h 7a6b 4i5h 6c6d", matches = true),

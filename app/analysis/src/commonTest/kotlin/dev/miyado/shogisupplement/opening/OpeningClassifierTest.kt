@@ -33,7 +33,7 @@ class OpeningClassifierTest {
     @Test
     fun 出来事で判定する戦型の手順の例が期待どおりに判定される() {
         val failures = mutableListOf<String>()
-        EVENT_DEFS.forEach { def ->
+        EVENT_STRATEGY_DEFS.forEach { def ->
             def.samples.forEach { sample ->
                 val result = OpeningClassifier.classify(sample.usiMoves)
                 val hit = def.name in result.black.tags || def.name in result.white.tags
