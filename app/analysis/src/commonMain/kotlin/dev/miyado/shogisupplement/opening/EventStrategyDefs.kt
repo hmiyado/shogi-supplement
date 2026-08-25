@@ -14,6 +14,18 @@ val EVENT_STRATEGY_DEFS: List<EventStrategyDef> = listOf(
         scope = TagScope.BOTH_SIDES,
         conditions = listOf(BothFuribisha),
         source = "双方が振り飛車に振った対局を指す一般的な呼び方",
+        samples = listOf(
+            sample(
+                "成立する手順（双方が振る）",
+                "2h6h 8b4b 1g1f 1c1d 3g3f 3c3d 4g4f 4c4d 7g7f 7c7d 8g8f 8c8d 9g9f 9c9d 1f1e 1d1e 3f3e 3d3e 4f4e 4d4e 7f7e 7d7e 8f8e 8d8e 9f9e 9d9e",
+                matches = true,
+            ),
+            sample(
+                "先手だけが振ったので成立しない",
+                "2h6h 6c6d 1g1f 7c7d 2g2f 8c8d 3g3f 9c9d 4g4f 6d6e 1f1e 7d7e 2f2e 8d8e 3f3e 9d9e 4f4e 6e6f 1e1d 7e7f 2e2d 8e8f 3e3d 9e9f 4e4d 6f6g",
+                matches = false,
+            ),
+        ),
     ),
     EventStrategyDef(
         name = "角交換振り飛車",
@@ -30,6 +42,11 @@ val EVENT_STRATEGY_DEFS: List<EventStrategyDef> = listOf(
                 "7g7f 3c3d 8h2b+ 3a2b 2h6h 1c1d 1g1f 9c9d 9g9f 4c4d 3g3f 7c7d 4g4f 6c6d " +
                     "5g5f 2b3c 6g6f 8c8d 3i3h 8d8e 5i6i 5c5d",
                 matches = true,
+            ),
+            sample(
+                "角交換していない振り飛車なので成立しない",
+                "2h6h 6c6d 1g1f 7c7d 2g2f 8c8d 3g3f 9c9d 4g4f 6d6e 1f1e 7d7e 2f2e 8d8e 3f3e 9d9e 4f4e 6e6f 1e1d 7e7f 2e2d 8e8f 3e3d 9e9f 4e4d 6f6g",
+                matches = false,
             ),
         ),
     ),

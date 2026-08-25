@@ -46,6 +46,18 @@ class OpeningClassifierTest {
     }
 
     @Test
+    fun すべての定義に成立と不成立の手順がある() {
+        val missing = mutableListOf<String>()
+        fun check(name: String, samples: List<OpeningSample>) {
+            if (samples.none { it.matches }) missing += "$name: 成立する手順が無い"
+            if (samples.none { !it.matches }) missing += "$name: 成立しない手順が無い"
+        }
+        PLACEMENT_DEFS.forEach { check(it.name, it.samples) }
+        EVENT_STRATEGY_DEFS.forEach { check(it.name, it.samples) }
+        assertTrue(missing.isEmpty(), missing.joinToString("\n"))
+    }
+
+    @Test
     fun 美濃は発展した形を表示し達成の記録は残る() {
         val takamino = PLACEMENT_DEFS.first { it.name == "高美濃囲い" }.samples.first { it.matches }
         val result = OpeningClassifier.classify(takamino.usiMoves).of(Side.BLACK)
