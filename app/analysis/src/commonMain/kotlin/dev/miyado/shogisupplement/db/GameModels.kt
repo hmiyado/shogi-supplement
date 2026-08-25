@@ -44,6 +44,7 @@ data class GameRecord(
     val analysisStatus: GameAnalysisStatus = GameAnalysisStatus.COMPLETED,
     val openingStyle: String? = null,
     val openingCastle: String? = null,
+    /** 成立した戦型のタグ。`|`区切りで保存する（[openingTagList]で読む）。 */
     val openingTags: String? = null,
 )
 
@@ -109,3 +110,7 @@ data class PositionEvalRow(
      */
     val secondUsi: String? = null,
 )
+
+/** 保存されている戦型タグを分解する。 */
+fun GameRecord.openingTagList(): List<String> =
+    openingTags?.split("|")?.filter { it.isNotBlank() } ?: emptyList()

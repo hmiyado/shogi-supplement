@@ -122,7 +122,11 @@ class AnalysisOrchestrator(
                 endReason = game.endReason,
                 openingStyle = classified(opening?.style),
                 openingCastle = classified(opening?.castle),
-                openingTags = opening?.tags?.sorted()?.joinToString("|"),
+                // 並び順は代表の戦型から。画面はこの順のまま並べて出す。
+                openingTags = opening?.tags?.let { tags ->
+                    val ordered = OpeningClassifier.PRIMARY_STYLE_PRIORITY.filter { it in tags }
+                    (ordered + (tags - ordered.toSet()).sorted()).joinToString("|")
+                },
             )
 
             // 評価値はsente視点に正規化し、後からの計算に必要な第2候補も保存する。

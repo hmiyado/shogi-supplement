@@ -7,7 +7,7 @@ import dev.miyado.shogisupplement.board.Side
 
 /** 片方の陣営の分類結果。 */
 data class SideOpening(
-    /** 飛車の筋から決まる大分類（居飛車・中飛車・四間飛車・三間飛車・向かい飛車ほか）。 */
+    /** 画面に出す代表の戦型。成立したタグから[PRIMARY_STYLE_PRIORITY]の順で1つ選ぶ。 */
     val style: String,
     /** 表示する囲い。成立していなければ最終局面から残余の形（舟囲い・居玉）を出す。 */
     val castle: String,
@@ -35,9 +35,23 @@ object OpeningClassifier {
     /** 飛車を振った手がこの手数までなら戦型として数える。中盤の攻めの飛車回りを拾わないため。 */
     const val ROOK_STYLE_PLY_CAP = 24
 
+    /** 飛車を振る段（自分視点）。飛車の初期段で、ここへの横移動だけを「振った」とみなす。 */
+    const val ROOK_HOME_RANK = 8
+
     private const val ROOK_FILE = 2
     private val ROOK_TYPES = setOf(PieceType.ROOK, PieceType.PROM_ROOK)
     private val BISHOP_TYPES = setOf(PieceType.BISHOP, PieceType.PROM_BISHOP)
+
+    /**
+     * 代表の戦型として出す順。先にあるものほど、その対局で何を指したかをよく表す。
+     * 攻めの形（棒銀・腰掛け銀など）は代表にせず、タグとしてだけ持つ。
+     */
+    val PRIMARY_STYLE_PRIORITY = listOf(
+        "横歩取り", "一手損角換わり", "角換わり", "相掛かり", "矢倉", "雁木",
+        "石田流", "ツノ銀中飛車", "中飛車", "四間飛車", "三間飛車", "向かい飛車", "袖飛車",
+        "右玉", "相振り飛車", "角交換振り飛車",
+    )
+
     /** 飛車を振った筋（自分視点）と戦型名の対応。2筋（初期の筋）のままは判定しない。 */
     val ROOK_FILE_LABELS = mapOf(
         3 to "袖飛車",
@@ -70,20 +84,20 @@ object OpeningClassifier {
             }
         }
 
-        val styles = Side.entries.associateWith { trackers.getValue(it).style() }
+        val rookStyles = Side.entries.associateWith { trackers.getValue(it).style() }
         val tags = Side.entries.associateWith { mutableSetOf<String>() }
 
         PLACEMENT_STRATEGY_DEFS.forEach { def ->
             Side.entries.forEach { side ->
                 val achievedPly = achieved.getValue(side)[def.slug] ?: return@forEach
-                val context = OpeningContext(events, styles, tags, achievementPly = achievedPly)
+                val context = OpeningContext(events, rookStyles, tags, achievementPly = achievedPly)
                 if (def.conditions.all { it.holds(context, side) }) tags.getValue(side) += def.name
             }
         }
 
         // 宣言の順に評価する。前提にするタグと排他にするタグが先に決まっている必要がある。
         EVENT_STRATEGY_DEFS.forEach { def ->
-            val context = OpeningContext(events, styles, tags)
+            val context = OpeningContext(events, rookStyles, tags)
             val matched = Side.entries.filter { side -> def.conditions.all { it.holds(context, side) } }
             when (def.scope) {
                 TagScope.BOTH_SIDES -> if (matched.size == Side.entries.size) {
@@ -93,15 +107,19 @@ object OpeningClassifier {
             }
         }
 
+        Side.entries.forEach { side ->
+            val rookStyle = rookStyles.getValue(side)
+            if (rookStyle != UNCLASSIFIED) tags.getValue(side) += rookStyle
+        }
+
         return OpeningResult(
-            black = sideResult(Side.BLACK, styles, achieved, tags, board),
-            white = sideResult(Side.WHITE, styles, achieved, tags, board),
+            black = sideResult(Side.BLACK, achieved, tags, board),
+            white = sideResult(Side.WHITE, achieved, tags, board),
         )
     }
 
     private fun sideResult(
         side: Side,
-        styles: Map<Side, String>,
         achieved: Map<Side, Map<String, Int>>,
         tags: Map<Side, MutableSet<String>>,
         finalBoard: ShogiBoard,
@@ -110,11 +128,12 @@ object OpeningClassifier {
             .filter { it.slug in achieved.getValue(side) }
             .map { it.name }
             .toSet()
+        val sideTags = tags.getValue(side)
         return SideOpening(
-            style = styles.getValue(side),
+            style = PRIMARY_STYLE_PRIORITY.firstOrNull { it in sideTags } ?: UNCLASSIFIED,
             castle = displayCastle(achievedCastles, side, finalBoard),
             achievedCastles = achievedCastles,
-            tags = tags.getValue(side).toSet(),
+            tags = sideTags.toSet(),
         )
     }
 
@@ -170,6 +189,9 @@ object OpeningClassifier {
         fun observe(ply: Int, move: ShogiMove, moving: dev.miyado.shogisupplement.board.ShogiPiece?) {
             if (style != null || ply > ROOK_STYLE_PLY_CAP) return
             if (moving == null || moving.side != side || moving.type !in ROOK_TYPES) return
+            // 自陣の段へ横に動かす手だけを「振った」とみなす。浮き飛車が敵陣寄りの段を
+            // 横へ動く手（横歩取りの2四飛→3四飛など）は戦型を決める手ではない。
+            if (bfRank(move.to.rank, side) != ROOK_HOME_RANK) return
             style = ROOK_FILE_LABELS[bfFile(move.to.file, side)]
         }
 

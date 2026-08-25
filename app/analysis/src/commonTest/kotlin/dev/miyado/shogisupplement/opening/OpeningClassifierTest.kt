@@ -81,10 +81,21 @@ class OpeningClassifierTest {
         fun styleOf(moves: String) = OpeningClassifier.classify(usi(moves)).black.style
 
         assertEquals("四間飛車", styleOf("2h6h 3c3d"))
+        assertTrue("四間飛車" in OpeningClassifier.classify(usi("2h6h 3c3d")).black.tags)
         assertEquals("三間飛車", styleOf("2h7h 3c3d"))
         assertEquals("中飛車", styleOf("2h5h 3c3d"))
         assertEquals("向かい飛車", styleOf("2h8h 3c3d"))
         assertEquals("袖飛車", styleOf("3g3f 3c3d 2h3h 8c8d"))
+    }
+
+    @Test
+    fun 浮き飛車の横移動は振ったとみなさない() {
+        val yokofudori = usi(
+            "7g7f 3c3d 2g2f 8c8d 2f2e 8d8e 6i7h 4a3b 2e2d 2c2d 2h2d 8e8f 8g8f 8b8f 2d3d",
+        )
+        val result = OpeningClassifier.classify(yokofudori).black
+        assertFalse("袖飛車" in result.tags, "3四への横移動は袖飛車ではない: $result")
+        assertEquals("横歩取り", result.style, "代表の戦型は横歩取り: $result")
     }
 
     @Test
@@ -107,6 +118,25 @@ class OpeningClassifierTest {
                 "1g1f 1c1d 9g9f 9c9d 5i5h 5c5d 5h6h 5a5b 4g4f 4c4d 2h6h 6b5c",
         )
         assertEquals("未分類", OpeningClassifier.classify(late).black.style, "26手目の飛車回りは数えない")
+    }
+
+    @Test
+    fun 代表の戦型の並びは実在する戦型だけを指す() {
+        val known = OpeningClassifier.ROOK_FILE_LABELS.values.toSet() +
+            EVENT_STRATEGY_DEFS.map { it.name } +
+            PLACEMENT_STRATEGY_DEFS.map { it.name }
+        val unknown = OpeningClassifier.PRIMARY_STYLE_PRIORITY.filterNot { it in known }
+        assertEquals(emptyList(), unknown, "判定されない名前は代表にならない")
+    }
+
+    @Test
+    fun 代表の戦型は具体的なものから選ぶ() {
+        // 角換わりと棒銀が両方成立する対局では、代表は角換わり（棒銀は攻めの形なので代表にしない）。
+        val kakugawari = OpeningClassifier.classify(
+            usi("7g7f 8c8d 2g2f 4a3b 2f2e 8d8e 8h7g 3c3d 7i6h 2b7g+ 6h7g 3a2b"),
+        ).black
+        assertEquals("角換わり", kakugawari.style)
+        assertTrue("角換わり" in kakugawari.tags)
     }
 
     @Test

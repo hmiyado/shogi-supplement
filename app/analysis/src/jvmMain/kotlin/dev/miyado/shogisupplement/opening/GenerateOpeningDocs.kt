@@ -113,6 +113,10 @@ private fun rookStylePage(): String = buildString {
         appendLine("| ${file}筋 | $label |")
     }
     appendLine()
+    appendLine("数えるのは飛車の初期段（自分視点の${KANJI_RANK[OpeningClassifier.ROOK_HOME_RANK - 1]}段）へ")
+    appendLine("動かす手だけ。浮き飛車が敵陣寄りの段を横へ動く手（横歩取りの2四飛→3四飛など）は")
+    appendLine("振ったとみなさない。")
+    appendLine()
     appendLine("最初に振った筋で確定し、その後どこへ回しても変えない。")
     appendLine("初期の筋（2筋）のままの対局は判定しない。")
     appendLine()
@@ -206,6 +210,18 @@ private fun indexPage(): String = buildString {
     appendLine("### 駒の配置で決まるもの")
     appendLine()
     PLACEMENT_STRATEGY_DEFS.forEach { appendLine("- [${it.name}](./${it.slug}.md) — ${summary(it)}") }
+    appendLine()
+    appendLine("## 画面に出す代表の戦型")
+    appendLine()
+    appendLine("1局に複数の戦型が成立する（角換わりで棒銀に出るなど）。対局情報では成立した")
+    appendLine("ものをすべて並べ、棋譜一覧の絞り込みもそのどれでも引ける。カードなど1つしか")
+    appendLine("置けない場所では次の順で先にあるものを選ぶ。")
+    appendLine()
+    OpeningClassifier.PRIMARY_STYLE_PRIORITY.forEachIndexed { i, name ->
+        appendLine("${i + 1}. $name")
+    }
+    appendLine()
+    appendLine("この並びに無い戦型（攻めの形など）は代表にはせず、並記と絞り込みにだけ出る。")
     appendLine()
     appendLine("## 囲い")
     appendLine()

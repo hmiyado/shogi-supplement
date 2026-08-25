@@ -1,6 +1,7 @@
 package dev.miyado.shogisupplement.db
 
 import dev.miyado.shogisupplement.kifu.KifuSource
+import dev.miyado.shogisupplement.opening.OpeningClassifier
 
 enum class GameResultFilter {
     WIN,
@@ -47,7 +48,7 @@ private fun matchesUserSide(game: GameRecord, userSide: String?): Boolean =
     userSide == null || game.userSide == userSide
 
 private fun matchesOpeningStyle(game: GameRecord, openingStyle: String?): Boolean =
-    openingStyle == null || game.openingStyle == openingStyle
+    openingStyle == null || openingStyle in game.openingTagList()
 
 private fun matchesResult(game: GameRecord, result: GameResultFilter?): Boolean {
     if (result == null) return true
@@ -75,5 +76,9 @@ fun List<GameRecord>.hasUserSideData(): Boolean = any { it.userSide != null }
 
 fun List<GameRecord>.hasResultData(): Boolean = any { it.userSide != null && it.gameWinner != null }
 
-fun List<GameRecord>.distinctOpeningStyles(): List<String> =
-    mapNotNull { it.openingStyle }.distinct().sorted()
+/** 保存済みの棋譜に現れる戦型。代表として出す順（[OpeningClassifier.PRIMARY_STYLE_PRIORITY]）に並べる。 */
+fun List<GameRecord>.distinctOpeningStyles(): List<String> {
+    val found = flatMap { it.openingTagList() }.distinct()
+    val ordered = OpeningClassifier.PRIMARY_STYLE_PRIORITY.filter { it in found }
+    return ordered + (found - ordered.toSet()).sorted()
+}

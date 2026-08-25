@@ -10,6 +10,7 @@ class GameListFilterTest {
         sourcePlace: String? = null,
         userSide: String? = null,
         openingStyle: String? = null,
+        openingTags: String? = openingStyle,
         gameWinner: String? = null,
         analyzedAt: Long = 1_000L,
     ) = GameRecord(
@@ -25,6 +26,7 @@ class GameListFilterTest {
         sourcePlace = sourcePlace,
         userSide = userSide,
         openingStyle = openingStyle,
+        openingTags = openingTags,
         gameWinner = gameWinner,
     )
 
@@ -103,14 +105,14 @@ class GameListFilterTest {
     }
 
     @Test
-    fun `戦型フィルタは一致するopeningStyleのみ残す`() {
+    fun `戦型フィルタは代表でない戦型でも残す`() {
         val games = listOf(
-            game(1, openingStyle = "居飛車"),
+            game(1, openingStyle = "角換わり", openingTags = "角換わり|棒銀"),
             game(2, openingStyle = "四間飛車"),
-            game(3, openingStyle = null),
+            game(3, openingStyle = null, openingTags = null),
         )
-        val result = games.filterGames(GameListFilter(openingStyle = "居飛車"))
-        assertEquals(listOf(1L), result.map { it.id })
+        assertEquals(listOf(1L), games.filterGames(GameListFilter(openingStyle = "棒銀")).map { it.id })
+        assertEquals(listOf(1L), games.filterGames(GameListFilter(openingStyle = "角換わり")).map { it.id })
     }
 
     // ─── 勝敗 ────────────────────────────────────────────────────────────────
@@ -195,14 +197,14 @@ class GameListFilterTest {
     }
 
     @Test
-    fun `distinctOpeningStylesは実在する値を重複なくソートして返す`() {
+    fun `distinctOpeningStylesはタグを重複なく代表順で返す`() {
         val games = listOf(
             game(1, openingStyle = "四間飛車"),
-            game(2, openingStyle = "居飛車"),
+            game(2, openingStyle = "角換わり", openingTags = "角換わり|棒銀"),
             game(3, openingStyle = "四間飛車"),
-            game(4, openingStyle = null),
+            game(4, openingStyle = null, openingTags = null),
         )
-        assertEquals(listOf("四間飛車", "居飛車").sorted(), games.distinctOpeningStyles())
+        assertEquals(listOf("角換わり", "四間飛車", "棒銀"), games.distinctOpeningStyles())
     }
 
     // ─── hasUserSideData / hasResultData ────────────────────────────────────

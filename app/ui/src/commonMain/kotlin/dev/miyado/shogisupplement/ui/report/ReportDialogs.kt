@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.PositionEvalRow
+import dev.miyado.shogisupplement.db.openingTagList
 import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.formatDateTime
 import dev.miyado.shogisupplement.ui.theme.shogiColors
@@ -49,10 +50,13 @@ internal fun GameInfoDialog(
                     Spacer(Modifier.height(8.dp))
                 }
                 Text(playersLine, style = MaterialTheme.typography.bodyMedium)
-                if (game.openingStyle != null) {
+                // 1局に複数の戦型が付く（角換わり＋棒銀など）。代表だけ出すと残りが
+                // どこからも見えなくなるので、保存した順のまま並べて出す。
+                val openingStyles = game.openingTagList().ifEmpty { listOfNotNull(game.openingStyle) }
+                if (openingStyles.isNotEmpty()) {
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "${AppStrings.GAME_INFO_OPENING_STYLE}：${game.openingStyle}",
+                        "${AppStrings.GAME_INFO_OPENING_STYLE}：${openingStyles.joinToString("・")}",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
