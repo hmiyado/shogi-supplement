@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.db.GameListFilter
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.GameResultFilter
+import dev.miyado.shogisupplement.db.distinctOpeningStyles
 import dev.miyado.shogisupplement.db.distinctSources
 import dev.miyado.shogisupplement.db.hasResultData
 import dev.miyado.shogisupplement.db.hasUserSideData
@@ -179,6 +180,7 @@ fun GameListFilterBar(
     modifier: Modifier = Modifier,
 ) {
     val sources = allGames.distinctSources()
+    val openingStyles = allGames.distinctOpeningStyles()
     val showSideAxis = allGames.hasUserSideData()
     val showResultAxis = allGames.hasResultData()
     val now = remember { currentEpochSeconds() }
@@ -198,6 +200,24 @@ fun GameListFilterBar(
                         testTag = "filter_chip_source_$source",
                         onClick = {
                             onFilterChange(filter.copy(source = if (filter.source == source) null else source))
+                        },
+                    )
+                }
+            }
+        }
+        if (openingStyles.isNotEmpty()) {
+            FilterAxisRow(AppStrings.GAME_LIST_FILTER_OPENING_STYLE) {
+                openingStyles.forEach { openingStyle ->
+                    FilterChipItem(
+                        label = openingStyle,
+                        selected = filter.openingStyle == openingStyle,
+                        testTag = "filter_chip_opening_style_$openingStyle",
+                        onClick = {
+                            onFilterChange(
+                                filter.copy(
+                                    openingStyle = if (filter.openingStyle == openingStyle) null else openingStyle,
+                                ),
+                            )
                         },
                     )
                 }

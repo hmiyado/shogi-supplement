@@ -69,6 +69,7 @@ class SupabaseGameDownloadServiceTest {
             reports: List<BlunderReport>, rating: Int, ratingSampleMoves: Int?, coefVersion: String,
             analyzedAt: Long, kifText: String?, userSide: String?, ratingService: String?, ratingRaw: Long?,
             ratingRule: String?, sourcePlace: String?, gameWinner: String?, endReason: String?,
+            openingStyle: String?, openingCastle: String?, openingTags: String?,
         ): Long = error("not used by SupabaseGameDownloadService")
 
         override fun seedFixtureBlunder(

@@ -18,10 +18,11 @@ data class GameListFilter(
     val result: GameResultFilter? = null,
     /** 解析日時の下限（epoch秒・含む）。 */
     val dateFrom: Long? = null,
+    val openingStyle: String? = null,
 ) {
     /** 指定された絞り込み軸の数を返す。 */
     val activeCount: Int
-        get() = listOfNotNull(source, userSide, result, dateFrom).size
+        get() = listOfNotNull(source, userSide, openingStyle, result, dateFrom).size
 
     val isActive: Boolean
         get() = activeCount > 0
@@ -33,6 +34,7 @@ fun List<GameRecord>.filterGames(filter: GameListFilter): List<GameRecord> {
     return filter { game ->
         matchesSource(game, filter.source) &&
             matchesUserSide(game, filter.userSide) &&
+            matchesOpeningStyle(game, filter.openingStyle) &&
             matchesResult(game, filter.result) &&
             matchesDateFrom(game, filter.dateFrom)
     }
@@ -43,6 +45,9 @@ private fun matchesSource(game: GameRecord, source: String?): Boolean =
 
 private fun matchesUserSide(game: GameRecord, userSide: String?): Boolean =
     userSide == null || game.userSide == userSide
+
+private fun matchesOpeningStyle(game: GameRecord, openingStyle: String?): Boolean =
+    openingStyle == null || game.openingStyle == openingStyle
 
 private fun matchesResult(game: GameRecord, result: GameResultFilter?): Boolean {
     if (result == null) return true
@@ -69,3 +74,6 @@ fun List<GameRecord>.distinctSources(): List<String> {
 fun List<GameRecord>.hasUserSideData(): Boolean = any { it.userSide != null }
 
 fun List<GameRecord>.hasResultData(): Boolean = any { it.userSide != null && it.gameWinner != null }
+
+fun List<GameRecord>.distinctOpeningStyles(): List<String> =
+    mapNotNull { it.openingStyle }.distinct().sorted()
