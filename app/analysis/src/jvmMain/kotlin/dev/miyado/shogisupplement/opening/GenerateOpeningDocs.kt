@@ -62,9 +62,13 @@ private fun placementPage(def: PlacementDef, kindLabel: String): String = buildS
     def.empty.forEach { appendLine("- ${it.label()}が空いている") }
     def.forbidden.forEach { appendLine("- ${it.square.label()}に自分の${pieceName(it.type)}が**いない**") }
     appendLine("- ${def.plyCap}手以内に成立する")
-    def.developsFrom?.let { appendLine("- ${it}の発展形（両方成立したときはこちらを表示する）") }
     def.conditions.forEach { appendLine("- ${it.describe()}") }
     appendLine()
+    def.developsFrom?.let {
+        appendLine("成立の判定は${it}と独立している（${it}を経由していなくても、")
+        appendLine("この形になれば成立する）。両方成立したときの表示だけこちらを優先する。")
+        appendLine()
+    }
     appendLine("出典: ${def.source}")
     appendLine()
     appendSamples(def.samples)

@@ -65,6 +65,18 @@ class OpeningClassifierTest {
     }
 
     @Test
+    fun 発展形は元の囲いを経由していなくても単体で成立する() {
+        // 左金を6九→6八→5七→4七と回して高美濃の形にする。本美濃の左金5八は経由しない。
+        val direct = usi(
+            "2h7h 1c1d 5i4h 9c9d 4h3h 2c2d 3h2h 8c8d 3i3h 3c3d 4g4f 7c7d " +
+                "5g5f 1d1e 6i6h 9d9e 6h5g 1e1f 5g4g 9e9f",
+        )
+        val result = OpeningClassifier.classify(direct).of(Side.BLACK)
+        assertTrue("高美濃囲い" in result.achievedCastles, result.toString())
+        assertFalse("本美濃囲い" in result.achievedCastles, "本美濃を経由していない")
+    }
+
+    @Test
     fun 飛車の筋から大分類が決まる() {
         val shikenbisha = usi(
             "2h6h 6c6d 1g1f 7c7d 2g2f 8c8d 3g3f 9c9d 4g4f 6d6e 1f1e 7d7e " +

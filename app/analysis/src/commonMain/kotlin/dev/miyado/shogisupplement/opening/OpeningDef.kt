@@ -25,7 +25,8 @@ data class OpeningSample(val label: String, val usiMoves: List<String>, val matc
  * 駒の配置で判定する形。一度成立したら、その後崩れてもその対局の記録として残す。
  *
  * @param plyCap これ以降は判定しない手数。終盤の玉の逃避行で偶然一致する形を拾わないため。
- * @param developsFrom より未発達の形。両方成立したときは発展した側を表示する。
+ * @param developsFrom より未発達の形。判定には使わず（それぞれ独立に成立を見る）、
+ *   両方成立したときにどちらを表示するかだけを決める。
  * @param conditions 駒の配置に加えて満たす条件。判定にも資料にも同じ宣言を使う。
  */
 data class PlacementDef(
