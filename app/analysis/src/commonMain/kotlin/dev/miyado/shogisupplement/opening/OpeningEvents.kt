@@ -5,6 +5,7 @@ import dev.miyado.shogisupplement.board.ShogiMove
 import dev.miyado.shogisupplement.board.ShogiPiece
 import dev.miyado.shogisupplement.board.Side
 import dev.miyado.shogisupplement.opening.OpeningClassifier.bfFile
+import dev.miyado.shogisupplement.opening.OpeningClassifier.ROOK_HOME_RANK
 import dev.miyado.shogisupplement.opening.OpeningClassifier.bfRank
 
 /** 角が最初に取られた手。誰が・相手の角の初期位置で取ったかまで見る。 */
@@ -32,6 +33,18 @@ class OpeningEvents private constructor(
     val bishopDropPly: Int?,
     /** 飛車を振り飛車の筋へ振った手数。 */
     val furibishaPly: Map<Side, Int>,
+    /** 角交換のあと、自分の角を筋違いのマスへ打った手数。 */
+    val sujichigaiDropPly: Map<Side, Int>,
+    /** 7五の歩を突いた手数。 */
+    val sideRookPawnPly: Map<Side, Int>,
+    /** 飛車を7筋へ振った手数。 */
+    val sangenbishaPly: Map<Side, Int>,
+    /** 角道を止める歩を突いた手数。 */
+    val bishopPathClosedPly: Map<Side, Int>,
+    /** 飛車先の歩を交換したあと、その飛車を左翼へ寄せた手数。 */
+    val hineriPly: Map<Side, Int>,
+    /** 自陣の最下段を通して飛車を端筋へ回した手数。 */
+    val chikatetsuPly: Map<Side, Int>,
     private val rooksHomeAtPly: Set<Int>,
 ) {
 
@@ -71,6 +84,25 @@ class OpeningEvents private constructor(
         internal const val YOKOFU_FILE = 3
         internal const val YOKOFU_RANK = 4
 
+        /** 筋違い角を打つマス（先手4五）。 */
+        internal val SUJICHIGAI_SQUARE = BfSquare(4, 5)
+
+        /** 早石田で突く歩（先手7五）。 */
+        internal val SIDE_ROOK_PAWN = BfSquare(7, 5)
+
+        /** 角道を止める歩（先手6六）。 */
+        internal val BISHOP_PATH_PAWN = BfSquare(6, 6)
+
+        /** ひねり飛車で飛車を寄せるマス（先手3六）。 */
+        internal val HINERI_SQUARE = BfSquare(3, 6)
+
+        /** 飛車が三間へ振られる筋。 */
+        internal const val SANGEN_FILE = 7
+
+        /** 地下鉄飛車で飛車を通す段（自陣の最下段）と、その行き先の端筋。 */
+        internal const val LOWEST_RANK = 9
+        internal const val EDGE_FILE = 9
+
         private val ROOK_TYPES = setOf(PieceType.ROOK, PieceType.PROM_ROOK)
         private val BISHOP_TYPES = setOf(PieceType.BISHOP, PieceType.PROM_BISHOP)
         private val BISHOP_HOME = BfSquare(8, 8)
@@ -90,6 +122,13 @@ class OpeningEvents private constructor(
         private var bishopDropPly: Int? = null
         private var pawnTradePly: Int? = null
         private var yokofuPly: Int? = null
+        private val sujichigaiDropPly = mutableMapOf<Side, Int>()
+        private val sideRookPawnPly = mutableMapOf<Side, Int>()
+        private val sangenbishaPly = mutableMapOf<Side, Int>()
+        private val bishopPathClosedPly = mutableMapOf<Side, Int>()
+        private val hineriPly = mutableMapOf<Side, Int>()
+        private val rookLowestRankPly = mutableMapOf<Side, Int>()
+        private val chikatetsuPly = mutableMapOf<Side, Int>()
 
         fun observe(ply: Int, move: ShogiMove, mover: Side, moving: ShogiPiece?, captured: ShogiPiece?) {
             val opponent = if (mover == Side.BLACK) Side.WHITE else Side.BLACK
@@ -135,9 +174,50 @@ class OpeningEvents private constructor(
                 yokofuPly = ply
             }
 
+            if (moving == null && move.dropType == PieceType.BISHOP &&
+                bishopExchangePly != null && mover !in sujichigaiDropPly &&
+                toFile == SUJICHIGAI_SQUARE.file && toRank == SUJICHIGAI_SQUARE.rank
+            ) {
+                sujichigaiDropPly[mover] = ply
+            }
+
+            if (moving?.type == PieceType.PAWN) {
+                if (mover !in sideRookPawnPly &&
+                    toFile == SIDE_ROOK_PAWN.file && toRank == SIDE_ROOK_PAWN.rank
+                ) {
+                    sideRookPawnPly[mover] = ply
+                }
+                if (mover !in bishopPathClosedPly &&
+                    toFile == BISHOP_PATH_PAWN.file && toRank == BISHOP_PATH_PAWN.rank
+                ) {
+                    bishopPathClosedPly[mover] = ply
+                }
+            }
+
             if (isRookMove) {
+                if (mover !in sangenbishaPly && toFile == SANGEN_FILE && toRank == ROOK_HOME_RANK) {
+                    sangenbishaPly[mover] = ply
+                }
+                val traded = pawnTradePly
+                if (mover !in hineriPly && traded != null && ply > traded &&
+                    toFile == HINERI_SQUARE.file && toRank == HINERI_SQUARE.rank
+                ) {
+                    hineriPly[mover] = ply
+                }
+                // 引く手と回る手の順序が定義そのものなので、最下段に居た記録を持ってから見る。
+                if (toRank == LOWEST_RANK) {
+                    val since = rookLowestRankPly[mover]
+                    if (since == null) {
+                        rookLowestRankPly[mover] = ply
+                    } else if (mover !in chikatetsuPly && toFile == EDGE_FILE) {
+                        chikatetsuPly[mover] = ply
+                    }
+                }
                 rookFile[mover] = toFile
-                if (mover !in furibishaPly && toFile in FURIBISHA_FILES) furibishaPly[mover] = ply
+                // 振ったとみなすのは飛車の初期段へ動かす手だけ（浮き飛車の横移動を数えない）。
+                if (mover !in furibishaPly && toFile in FURIBISHA_FILES && toRank == ROOK_HOME_RANK) {
+                    furibishaPly[mover] = ply
+                }
             }
         }
 
@@ -150,6 +230,12 @@ class OpeningEvents private constructor(
             firstBishopCapture = firstBishopCapture,
             bishopDropPly = bishopDropPly,
             furibishaPly = furibishaPly.toMap(),
+            sujichigaiDropPly = sujichigaiDropPly.toMap(),
+            sideRookPawnPly = sideRookPawnPly.toMap(),
+            sangenbishaPly = sangenbishaPly.toMap(),
+            bishopPathClosedPly = bishopPathClosedPly.toMap(),
+            hineriPly = hineriPly.toMap(),
+            chikatetsuPly = chikatetsuPly.toMap(),
             rooksHomeAtPly = rooksHomeAtPly.toSet(),
         )
     }

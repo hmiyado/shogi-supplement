@@ -201,6 +201,18 @@ val PLACEMENT_STRATEGY_DEFS: List<PlacementDef> = listOf(
         ),
     ),
     PlacementDef(
+        name = "雀刺し",
+        slug = "suzumezashi",
+        kind = OpeningKind.STRATEGY,
+        required = listOf(p(LANCE, 1, 7), p(ROOK, 1, 8), p(KNIGHT, 2, 5)),
+        plyCap = 80,
+        source = "shougi.jp/senpou/suzumezashi/（本文『▲1七香、▲1八飛、▲6八角または▲7九角、▲2五桂の位置に攻め駒を移動させ、1三の地点に集中させる』。角だけは本文が6八・7九の二択を示していて一意に定まらないため、残る香1七・飛1八・桂2五を厳密形とした。矢倉に組んでから端へ寄せ直す攻撃形なので上限手数は玉頭位取りより広く取る）",
+        samples = listOf(
+            sample("成立する手順", "1g1f 3c3d 1i1g 4c4d 3g3f 5c5d 2i3g 6c6d 3g2e 7c7d 2h1h 8c8d", matches = true),
+            sample("飛車を1八へ寄せていないので成立しない", "1g1f 3c3d 1i1g 4c4d 3g3f 5c5d 2i3g 6c6d 3g2e 7c7d", matches = false),
+        ),
+    ),
+    PlacementDef(
         name = "石田流",
         slug = "ishida",
         kind = OpeningKind.STRATEGY,
