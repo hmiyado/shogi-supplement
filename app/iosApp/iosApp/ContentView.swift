@@ -165,7 +165,10 @@ struct SpikeView: View {
                 ratingRule: nil,
                 sourcePlace: nil,
                 gameWinner: nil,
-                endReason: nil
+                endReason: nil,
+                openingStyle: nil,
+                openingCastle: nil,
+                openingTags: nil
             )
         }
 
