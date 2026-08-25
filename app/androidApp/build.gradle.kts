@@ -139,6 +139,7 @@ kotlin {
 
 dependencies {
     implementation(project(":shared"))
+    implementation(project(":data:database"))
     implementation(project(":analysis"))
     implementation(project(":application"))
     implementation(project(":kifu"))

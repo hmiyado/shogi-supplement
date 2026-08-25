@@ -2,21 +2,6 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.kotlinSerialization)
     alias(libs.plugins.androidKmpLibrary)
-    alias(libs.plugins.sqldelightPlugin)
-}
-
-sqldelight {
-    databases {
-        create("ShogiSupplementDatabase") {
-            packageName.set("dev.miyado.shogisupplement.db")
-            // 新規作成スキーマ（CREATE TABLE群）と .sqm を積み上げてマイグレーションした
-            // スキーマが一致することをビルド時に機械検証する（verifySqlDelightMigration*タスク）。
-            // verifyMigrationsは比較対象のスキーマスナップショット（.db）の出力先が必要なため
-            // schemaOutputDirectoryも合わせて指定する。
-            verifyMigrations.set(true)
-            schemaOutputDirectory.set(file("src/commonMain/sqldelight/databases"))
-        }
-    }
 }
 
 val generatedAndroidBuildNumberDir =
@@ -135,8 +120,6 @@ kotlin {
             // Workerと共有する通信DTO（dev.miyado.shogisupplement.api）。
             implementation(project(":contracts"))
             implementation(libs.kotlinx.serialization.json)
-            implementation(libs.sqldelight.runtime)
-            implementation(libs.sqldelight.coroutines.extensions)
             // supabase-kt/ktor-client-darwinのiOS klibはABI 2.3.0でビルドされており、
             // Kotlin 2.3系コンパイラで消費できるためcommonMainに置く
             // （HTTPエンジンはAndroid=okhttp（androidApp側で提供）/iOS=darwinを各所で注入）。
@@ -158,10 +141,11 @@ kotlin {
             implementation(libs.ktor.client.mock)
         }
         jvmTest.dependencies {
+            // ConsentOrchestrator/AnalysisOrchestratorのテストが実DBで組み立てる。
+            implementation(project(":data:database"))
             implementation(libs.sqldelight.sqlite.driver)
         }
         iosMain.dependencies {
-            implementation(libs.sqldelight.native.driver)
             // supabase-kt（ktor-client-core経由）のHTTPエンジンをiOS向けに提供。
             // Android側は androidApp/build.gradle.kts の ktor-client-okhttp が担う。
             implementation(libs.ktor.client.darwin)

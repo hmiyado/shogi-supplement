@@ -87,6 +87,7 @@ kotlin {
         // Why not implementation: SharedUi framework の export(project(":shared")) が
         // このターゲットのapi依存であることを要求する（implementationではexport不可）。
         iosMain.dependencies {
+            implementation(project(":data:database"))
             api(project(":shared"))
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.client.darwin)
