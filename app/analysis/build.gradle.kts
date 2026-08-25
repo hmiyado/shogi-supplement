@@ -1,5 +1,7 @@
 @file:OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
 
+import org.gradle.api.tasks.PathSensitivity
+
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.kotlinSerialization)
@@ -73,4 +75,22 @@ kotlin {
 // 復元保証がないため使わない）。
 tasks.named<org.gradle.language.jvm.tasks.ProcessResources>("jvmTestProcessResources") {
     from(rootProject.file("androidApp/src/main/assets/coefficients_hao_isolate_v1.json"))
+}
+
+// 資料の内容もテストの入力にする。これが無いと、資料だけ書き換えたときに
+// jvmTestがUP-TO-DATEで飛ばされ、古いままでも緑になる。
+tasks.named<Test>("jvmTest") {
+    inputs.dir(rootProject.file("docs/opening"))
+        .withPropertyName("openingDocs")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+}
+
+// 戦型・囲いの資料（docs/opening）を定義データから生成する。判定を変えれば資料も変わる。
+val generateOpeningDocs by tasks.registering(JavaExec::class) {
+    group = "documentation"
+    description = "対応している戦型・囲いの一覧と各ページを docs/opening へ生成する"
+    val jvmMain = kotlin.jvm().compilations.getByName("main")
+    classpath(jvmMain.output.allOutputs, jvmMain.runtimeDependencyFiles)
+    mainClass.set("dev.miyado.shogisupplement.opening.GenerateOpeningDocsKt")
+    args(rootProject.file("docs/opening").absolutePath)
 }
