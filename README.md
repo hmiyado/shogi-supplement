@@ -51,10 +51,10 @@ open iosApp.xcodeproj          # Xcodeでビルド・実行（:shared/:ui のフ
 
 ```sh
 cd app
-./gradlew :shared:jvmTest :androidApp:testDebugUnitTest   # unit + VRT照合
+./gradlew jvmTest :androidApp:testDebugUnitTest           # unit + VRT照合
 ./gradlew :androidApp:recordRoborazziDebug                # VRT golden更新
 ./gradlew :androidApp:connectedDebugAndroidTest           # 実機E2E
-./gradlew :shared:iosSimulatorArm64Test                   # :shared のiOS実行テスト
+./gradlew :data:supabase:iosSimulatorArm64Test            # iOS実行テスト（暗号・引き継ぎ）
 ```
 
 VRT（スクリーンショットテスト）の手順は `app/docs/vrt.md`。

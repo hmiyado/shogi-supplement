@@ -22,18 +22,22 @@ kotlin {
     }
 
     // iOS: ComposeUIViewController のエントリを提供する umbrella framework。
-    // :shared を export し、iosApp 側は SharedUi のみをリンクすればよい構成にする
-    // （:shared と :ui の framework を二重にリンクしない）。
+    // iosApp 側は SharedUi のみをリンクすればよい構成にする（frameworkを二重にリンクしない）。
     listOf(iosArm64(), iosSimulatorArm64()).forEach { iosTarget ->
         iosTarget.binaries.framework {
             baseName = "SharedUi"
             isStatic = true
-            export(project(":shared"))
             // api依存でもexportに明記しないとObjCヘッダに型が載らないため、
             // Swift側が直接参照する切り出しモジュールも列挙する。
             export(project(":kifu"))
             export(project(":analysis"))
             export(project(":application"))
+            // Swiftが直接参照する: KentoAssetCachePolicy・KentoAssetManifest（:engine:remote）、
+            // WasmStudyBridge・WasmAnalysisBridge・KentoSiteOverride（:engine:ios）、
+            // DatabaseFactory（:data:database）。
+            export(project(":engine:remote"))
+            export(project(":engine:ios"))
+            export(project(":data:database"))
         }
     }
 
@@ -53,10 +57,10 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             // 画面ソース（ViewModel・Composable）が参照するのは判定ロジック・UI消費型
-            // （:analysis）と盤面表現（:kifu）のみ。DBドライバ・Supabase・エンジン実行系など
-            // プラットフォーム固有実装を持つ :shared への依存は commonMain に置かない
-            // （wasmJsでコンパイルできなくなるため）。:shared は android/ios の
-            // プラットフォームソースセット側にのみ持たせる。
+            // （:analysis）とuse case・port（:application）、盤面表現（:kifu）のみ。
+            // DBドライバ・Supabase・エンジン実行系のような具体実装は commonMain に置かない
+            // （wasmJsでコンパイルできなくなるうえ、ViewModelが実装を知ることになるため）。
+            // それらは android/ios のプラットフォームソースセット側にのみ持たせる。
             api(project(":analysis"))
             api(project(":application"))
             api(project(":kifu"))
@@ -84,11 +88,13 @@ kotlin {
         androidMain.dependencies {
             implementation(libs.androidx.activity.compose)
         }
-        // Why not implementation: SharedUi framework の export(project(":shared")) が
-        // このターゲットのapi依存であることを要求する（implementationではexport不可）。
         iosMain.dependencies {
-            implementation(project(":data:database"))
-            api(project(":shared"))
+            // Why not implementation: SharedUi framework の export(...) は
+            // このターゲットのapi依存であることを要求する（implementationではexport不可）。
+            api(project(":data:database"))
+            api(project(":engine:remote"))
+            api(project(":engine:ios"))
+            implementation(project(":data:supabase"))
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.client.darwin)
             implementation(libs.kotlinx.serialization.json)

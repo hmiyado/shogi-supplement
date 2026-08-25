@@ -4,7 +4,7 @@
 
 ## 1. モジュール構成（Kotlin Multiplatform）
 
-Gradleモジュールは10。矢印は依存の向きで、循環はない。
+Gradleモジュールは13。矢印は依存の向きで、循環はない。
 
 ```mermaid
 flowchart TD
@@ -12,8 +12,11 @@ flowchart TD
     analysis[":analysis"]
     application[":application"]
     contracts[":contracts"]
+    database[":data:database"]
+    supabase[":data:supabase"]
+    engineIos[":engine:ios"]
+    engineRemote[":engine:remote"]
     subprocess[":engine:subprocess"]
-    shared[":shared"]
     ui[":ui"]
     android[":androidApp"]
     ios["iosApp（Xcode）"]
@@ -23,18 +26,27 @@ flowchart TD
     analysis --> kifu
     application --> analysis
     contracts --> analysis
+    database --> application
+    supabase --> application
+    supabase --> contracts
+    engineRemote --> application
+    engineRemote --> contracts
+    engineIos --> analysis
+    engineIos --> engineRemote
     subprocess --> analysis
-    shared --> analysis
-    shared --> application
-    shared --> contracts
     ui --> analysis
     ui --> application
     ui --> kifu
-    ui --> shared
+    ui --> database
+    ui --> supabase
+    ui --> engineRemote
+    ui --> engineIos
     android --> ui
     android --> analysis
     android --> application
-    android --> shared
+    android --> database
+    android --> supabase
+    android --> engineRemote
     android --> subprocess
     ios --> ui
     web --> ui
@@ -44,6 +56,10 @@ flowchart TD
     worker --> analysis
     worker --> subprocess
 ```
+
+`:ui` が具体実装（`:data:*` / `:engine:*`）へ依存しているのはiOSのソースセットだけ。
+commonMainのViewModelは `:application` のportと `:analysis` しか見ない。iOSは
+`ui/iosMain` が composition root を兼ねているため、そこだけ実装を組み立てる。
 
 ```
 app/
@@ -61,27 +77,30 @@ app/
 │   ├── text/            #  AppStrings＝ユーザー向け文言の一元管理（文言修正はここだけ）
 │   ├── crash/           #  CrashReporter interface（NoopCrashReporter既定）
 │   └── util/            #  Logger・Time（expect/actual）・SHA-256
-├── application/         # Repository等のport（db/auth/policy）とuse case
-│   │                    #  （UploadOrchestrator・TransferRestoreService・
-│   │                    #  ForceUpdatePolicyChecker・GameDownloadService）。実装は :shared
+├── application/         # portとuse case。具体実装は持たない
+│   ├── db/ auth/ policy/ crypto/  # Repository・認証・強制アップデート・引き継ぎ登録のport
+│   ├── upload/ download/ transfer/ consent/  # UploadOrchestrator・GameDeleter・
+│   │                    #  GameDownloadService・TransferRestoreService・ConsentOrchestrator
+│   ├── kifu/            #  GameImporter・GameImportFlow（取り込みと行き先の判断）
+│   ├── engine/          #  AnalysisOrchestrator（取込→解析→保存）・失敗の種類と文言
+│   └── ターゲット: android/jvm/iosArm64/iosSimulatorArm64/wasmJs
 ├── contracts/           # Workerとクライアントで共有する通信DTO（api/analysis・api/transfer）
 │                        #  とワイヤ形式↔domainの相互変換
+├── data/database/       # SQLDelight実装＋sqldelight/ にスキーマ（.sq）とmigration（N.sqm）。
+│                        #  iosMainにDatabaseFactory
+├── data/supabase/       # Supabase実装（認証・アップロード・ダウンロード・ポリシー取得）と
+│                        #  引き継ぎコードの鍵・暗号（crypto/）
+├── engine/remote/       # サーバー解析（RemoteAnalysisRunner）・失敗時のフェイルオーバー・
+│                        #  検討ページ資産のポリシー（Kento*）
+├── engine/ios/          # iOSのプロセス内エンジン（UsiEngineInProcess・IosEngineHost）と
+│                        #  WKWebView内WASMのブリッジ。cinteropとenginelessフレーバーもここ
 ├── engine/subprocess/   # 別プロセスexecでUSIを話すエンジン実装（UsiEngineSubprocess）。
 │                        #  ターゲットはjvm（Worker）とandroid（アプリ）
-├── shared/              # 具体実装とプラットフォーム配線（:analysis / :kifu を api で再公開）
-│   ├── db/              #  SQLDelight実装＋sqldelight/ にスキーマ（.sq）とmigration（N.sqm）
-│   ├── supabase/ auth/ upload/ download/ policy/ transfer/  # Supabase実装
-│   ├── crypto/          #  引き継ぎコードの鍵・暗号
-│   ├── engine/          #  AnalysisOrchestrator・リモート解析・
-│   │                    #  UsiEngineInProcess/IosEngineHost（iosEngineMain）
-│   ├── kifu/            #  GameImporter（取込オーケストレーション）
-│   ├── consent/ crash/ util/
-│   └── ターゲット: android/jvm/iosArm64/iosSimulatorArm64
 ├── ui/                  # Compose Multiplatform UIとKMP ViewModel
 │   ├── commonMain       #  画面（home/report/drill/gamelist/settings/account ほか）と
 │   │                    #  ViewModel。theme/ がDESIGN.mdトークンの実装
 │   ├── iosMain          #  IosMainController・MainViewController（iOSのcomposition root）と
-│   │                    #  SharedUi framework（:shared / :analysis / :kifu をexport）
+│   │                    #  SharedUi framework（Swiftが触る型を持つモジュールをexport）
 │   └── ターゲット: android/iosArm64/iosSimulatorArm64/wasmJs
 ├── androidApp/          # Androidアプリ本体（composition root）
 │   ├── engine/ service/ #  UsiEngineProcess・解析のForeground Service
@@ -92,7 +111,7 @@ app/
 │                        #  クライアント用のDB・Supabase・暗号には依存しない）
 └── iosApp/              # Xcodeプロジェクト（xcodegen・project.yml）。SharedUi frameworkを
                          # 読み込む。エンジン本体は engine/build_ios.sh が静的ライブラリを
-                         # ビルドし、cinterop経由で :shared/iosMain にリンクされる
+                         # ビルドし、cinterop経由で :engine:ios にリンクされる
 ```
 
 ## 2. composition rootと依存規則
@@ -110,7 +129,7 @@ app/
 
 1. `:ui` のViewModelはSupabase・SQLDelight・Android・UIKitの具体型を参照しない。
    受け取るのは `:application` のportと関数だけ
-2. `:application` から `:shared` の具体実装へは依存しない
+2. `:application` から `:data:*` や `:engine:*` の具体実装へは依存しない
 3. Gradleのproject依存に循環を作らない
 4. `api(project(...))` による再公開は増やさない。使うモジュールへ直接依存する
 5. ユーザー向け文言は `analysis/text/AppStrings.kt` 以外に直書きしない
@@ -136,39 +155,24 @@ commonMainのcontrollerか `:application` のuse caseに置く。
   `PendingAnalysisStore` による中断復帰
 - どちらもエンジン生成とHTTPクライアントの供給はホストが行う
 
-## 3. 目標とする境界（移行中）
+## 3. 境界の決めごと
 
-`:shared` がSQLDelight実装・Supabase実装・暗号・エンジン実装を1つに抱えたままで、
-`:data:*` と `:engine:*` への分割が残っている。段階的に次の形へ寄せる。
+1節の構成は #32 の目標境界に到達した状態。以後は次の決めごとを守って維持する。
 
-```mermaid
-flowchart TD
-    contracts[":contracts 通信DTO"]
-    kifu2[":kifu 盤面・KIF"]
-    analysis2[":analysis 解析domain"]
-    application[":application use case・port"]
-    ui2[":ui 画面・ViewModel"]
-    data[":data:database / :data:supabase"]
-    engine[":engine:android / :engine:ios / :engine:jvm / :engine:remote"]
-
-    analysis2 --> kifu2
-    application --> analysis2
-    ui2 --> application
-    data --> application
-    engine --> analysis2
-    engine --> contracts
-    worker2[":server:worker"] --> contracts
-    worker2 --> analysis2
-```
-
-- `:application` から `:data:*` や `:engine:*` の具体実装へは依存しない
+- `:application` から `:data:*` や `:engine:*` の具体実装へ依存しない。逆向き
+  （実装がportを実装する）だけを許す
+- `:ui` commonMain のViewModelは `:application` のportと `:analysis` しか見ない。
+  具体実装を組み立てるのは各composition rootだけ（iOSは `ui/iosMain` が兼ねる）
+- Workerはクライアント用インフラ（DB・Supabase・暗号）へ依存しない
 - `:contracts` はワイヤ形式↔domainの相互変換を持つため `:analysis` に依存する。
-  変換を持たせない場合はサーバーとクライアントが同じ変換を二重に持つことになるため
+  変換を持たせないと、サーバーとクライアントが同じ変換を二重に持つことになるため
 - 別プロセスexecのエンジン実装はjvm（Worker）とandroid（アプリ）で同一のため、
   `:engine:jvm` と `:engine:android` に分けず `:engine:subprocess` 1つにしている
-- Workerはクライアント用インフラ（DB・Supabase・暗号）へ依存しない
-- この移行で、SQLDelightスキーマ・Supabaseスキーマ・API wire format・
-  エンジン解析条件は変えない
+- `RemoteAnalysisException`（サーバー解析の失敗の種類）は投げる側ではなく
+  `:application` に置く。失敗をどう扱うかを決めるのはuse case側のため
+
+移行で、SQLDelightスキーマ・Supabaseスキーマ・API wire format・エンジン解析条件は
+変えていない。
 
 ## 4. エンジン統合
 
@@ -210,7 +214,7 @@ flowchart TD
 - ノード数（既定400,000固定）・Threads=1・MultiPV=2・FV_SCALE=20（Háo）は両実装で共通。
   これらと評価関数のSHA-256・悪手定義バージョン・係数表バージョンを**解析結果レコードに記録**し、
   係数表と解析条件の不一致を検出したら再解析を促す
-- `AnalysisOrchestrator`（`shared/commonMain/engine`）が「KIFパース→エンジン解析→悪手判定→
+- `AnalysisOrchestrator`（`application/commonMain/engine`）が「KIFパース→エンジン解析→悪手判定→
   強さ推定→DB保存」を共通化し、Android（`AnalysisService`経由）・iOS
   （クリップボード/ファイル取込フロー）の両方から呼ばれる。プラットフォーム差は
   `engineFactory`/`disposeEngine`の注入だけに閉じ込めている
@@ -233,7 +237,7 @@ kotlinx.coroutines の Native向けAPIでは `Dispatchers.IO` が公開されて
 
 ## 6. DB
 
-SQLDelightで `shared/commonMain/sqldelight/.../ShogiSupplement.sq` にスキーマを定義し、
+SQLDelightで `data/database/commonMain/sqldelight/.../ShogiSupplement.sq` にスキーマを定義し、
 Android/iOS双方でネイティブドライバを使う。テーブル: `game` / `blunder_report` /
 `user_settings` / `drill_attempt` / `service_rank` / `service_account` / `position_eval`。
 スキーマ変更は `db/N.sqm` のマイグレーションファイルを追加して行う
@@ -259,8 +263,8 @@ Android/iOS双方でネイティブドライバを使う。テーブル: `game` 
 - UI: VRT（Roborazzi golden、手順は `app/docs/vrt.md`）。開発ループはJVM完結、
   実機E2E（`connectedAndroidTest`／iOS UIテスト／Maestro、手順は `app/docs/e2e-testing.md`）
   はフェーズ最終1回＋依存/manifest変更時のスモークに限定する
-- `:shared` と `:ui` はiOSターゲット（`iosArm64`/`iosSimulatorArm64`）でコンパイル・テスト実行を
-  継続的に確認する（`./gradlew :shared:compileKotlinIosArm64` 等）。JVM専用APIは
+- iOSターゲット（`iosArm64`/`iosSimulatorArm64`）のコンパイルとテスト実行を継続的に確認する
+  （`./gradlew :ui:compileKotlinIosArm64` / `:data:supabase:iosSimulatorArm64Test` 等）。JVM専用APIは
   `expect`/`actual` で分離する（`util/Time.kt` 等）
 
 ## 9. 開発時の注意
