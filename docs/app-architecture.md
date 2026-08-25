@@ -114,7 +114,7 @@ app/
                          # ビルドし、cinterop経由で :engine:ios にリンクされる
 ```
 
-## 2. composition rootと依存規則
+## 2. composition rootと置き場所
 
 具体実装の組み立ては次の場所だけで行う。
 
@@ -125,20 +125,8 @@ app/
 | Web | `webApp/wasmJsMain/main.kt`・`KentoViewModel.kt` |
 | Worker | `server/worker/Application.kt`・`Routes.kt` |
 
-守る規則（`./gradlew checkModuleBoundaries` が機械的に検査する。1〜3・5はGradleの
-project依存から、4はGradle自体が落とす）:
-
-1. `:ui` commonMain のViewModelはSupabase・SQLDelight・Android・UIKitの具体型を参照しない。
-   受け取るのは `:application` のportと関数だけ
-2. `:application` から `:data:*` や `:engine:*` の具体実装へ依存しない。
-   逆向き（実装がportを実装する）だけを許す
-3. Workerはクライアント用インフラ（DB・Supabase・暗号）へ依存しない
-4. Gradleのproject依存に循環を作らない
-5. `api(project(...))` による再公開は増やさない。使うモジュールへ直接依存する
-6. ユーザー向け文言は `analysis/text/AppStrings.kt` 以外に直書きしない
-7. モジュールをまたぐ移動で、SQLDelightスキーマ・Supabaseスキーマ・API wire format・
-   エンジン解析条件は変えない（順に `verifyMigrations`・`infra/supabase/tests` のpgTAP・
-   `:contracts` の `WireFormatTest`・`:analysis` の `EngineInvariantsTest` が検査する）
+依存規則の正本は `app/build.gradle.kts` の `checkModuleBoundaries`。
+どこがどこへ依存してよいかはそこに書いてあり、CIが検査する。
 
 ### 置き場所の決めごと
 
