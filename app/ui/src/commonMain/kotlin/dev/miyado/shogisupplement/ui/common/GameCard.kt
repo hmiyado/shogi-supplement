@@ -129,6 +129,20 @@ fun GameCard(
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
+            // 一覧では代表の戦型だけを出す。成立した戦型をすべて並べると行が伸びて
+            // カードの他の情報が読みにくくなる（すべては対局情報ダイアログで見せる）。
+            val openingLine = listOfNotNull(
+                game.openingStyle?.let { "${AppStrings.GAME_INFO_OPENING_STYLE}：$it" },
+                game.openingCastle?.let { "${AppStrings.GAME_INFO_OPENING_CASTLE}：$it" },
+            ).joinToString("　")
+            if (openingLine.isNotEmpty()) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    openingLine,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = shogiColors.ink2,
+                )
+            }
             // sourcePlace をタイトルに使った場合は fileName をサブテキストで表示
             if (sourcePlaceLabel != null) {
                 Spacer(Modifier.height(2.dp))

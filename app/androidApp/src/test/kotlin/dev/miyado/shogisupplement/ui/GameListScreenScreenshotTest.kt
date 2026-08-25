@@ -59,6 +59,9 @@ class GameListScreenScreenshotTest {
             sourcePlace = "wars",
             userSide = "sente",
             gameWinner = "sente",
+            openingStyle = "角換わり",
+            openingCastle = "矢倉",
+            openingTags = "角換わり|棒銀",
         ),
         GameRecord(
             id = 2L,
@@ -73,6 +76,9 @@ class GameListScreenScreenshotTest {
             sourcePlace = "lishogi",
             userSide = "gote",
             gameWinner = "sente",
+            openingStyle = "四間飛車",
+            openingCastle = "本美濃囲い",
+            openingTags = "四間飛車",
         ),
         GameRecord(
             id = 3L,
