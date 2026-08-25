@@ -98,28 +98,26 @@ private fun eventPage(def: EventStrategyDef): String = buildString {
 }
 
 private fun rookStylePage(): String = buildString {
-    appendLine("# 飛車の筋による大分類")
+    appendLine("# 飛車を振った筋による戦型")
     appendLine()
     appendLine("[← 一覧へ戻る](./index.md)")
     appendLine()
     appendLine("## 判定条件")
     appendLine()
-    appendLine("飛車が同じ筋に${OpeningClassifier.SETTLE_PLY_THRESHOLD}手留まったら、その筋へ定着したとみなす。")
-    appendLine("一時的に浮いただけの飛車を戦型として拾わないため。")
-    appendLine("${OpeningClassifier.STYLE_PLY_CAP}手を過ぎてからの飛車回りは新たな定着として数えない（中盤の攻めのため）。")
+    appendLine("飛車をその筋へ振った時点で成立する。${OpeningClassifier.ROOK_STYLE_PLY_CAP}手を過ぎてからの")
+    appendLine("飛車回りは数えない（序盤に決めた戦型を、中盤の攻めで塗り替えないため）。")
     appendLine()
-    appendLine("| 定着した筋（自分視点） | 表示 |")
+    appendLine("| 振った筋（自分視点） | 戦型 |")
     appendLine("| --- | --- |")
-    appendLine("| 2筋（初期の筋のまま） | 居飛車 |")
-    OpeningClassifier.FURIBISHA_LABELS_BY_FILE.forEach { (file, label) ->
+    OpeningClassifier.ROOK_FILE_LABELS.toSortedMap().forEach { (file, label) ->
         appendLine("| ${file}筋 | $label |")
     }
-    appendLine("| それ以外 | 振り飛車（その他） |")
     appendLine()
-    appendLine("名前の付いた筋への最後の定着を優先する。1・3・4・9筋への定着は、")
-    appendLine("本来の戦型へ移る途中の一時停止であることが多いため。")
+    appendLine("最初に振った筋で確定し、その後どこへ回しても変えない。")
+    appendLine("初期の筋（2筋）のままの対局は判定しない。")
     appendLine()
-    appendLine("双方が振り飛車なら相振り飛車、序盤に角交換した振り飛車なら角交換振り飛車が付く。")
+    appendLine("双方が振り飛車なら[相振り飛車](./ai-furibisha.md)、序盤に角交換していれば")
+    appendLine("[角交換振り飛車](./kakukoukan-furibisha.md)が付く（袖飛車は振り飛車に含めない）。")
 }
 
 private fun StringBuilder.appendSamples(samples: List<OpeningSample>) {
@@ -192,9 +190,12 @@ private fun indexPage(): String = buildString {
     appendLine()
     appendLine("## 戦型")
     appendLine()
-    appendLine("### 飛車の筋で決まるもの")
+    appendLine("### 飛車を振った筋で決まるもの")
     appendLine()
-    appendLine("- [飛車の筋による大分類](./rook-style.md) — 居飛車・中飛車・四間飛車・三間飛車・向かい飛車")
+    appendLine(
+        "- [飛車を振った筋による戦型](./rook-style.md) — " +
+            OpeningClassifier.ROOK_FILE_LABELS.values.joinToString("・"),
+    )
     appendLine()
     appendLine("### 序盤の出来事で決まるもの")
     appendLine()

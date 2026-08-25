@@ -32,22 +32,25 @@ object OpeningClassifier {
     /** どの形にも当てはまらなかったときの値。 */
     const val UNCLASSIFIED = "未分類"
 
-    /** 飛車が同じ筋に留まったら定着とみなす手数。一時的な浮き飛車を拾わないため。 */
-    const val SETTLE_PLY_THRESHOLD = 10
-
-    /** 中盤以降の飛車回りを新たな定着として拾わない上限。 */
-    const val STYLE_PLY_CAP = 80
+    /** 飛車を振った手がこの手数までなら戦型として数える。中盤の攻めの飛車回りを拾わないため。 */
+    const val ROOK_STYLE_PLY_CAP = 24
 
     private const val ROOK_FILE = 2
     private val ROOK_TYPES = setOf(PieceType.ROOK, PieceType.PROM_ROOK)
     private val BISHOP_TYPES = setOf(PieceType.BISHOP, PieceType.PROM_BISHOP)
-    /** 定着した筋（自分視点）と表示名の対応。 */
-    val FURIBISHA_LABELS_BY_FILE = mapOf(5 to "中飛車", 6 to "四間飛車", 7 to "三間飛車", 8 to "向かい飛車")
+    /** 飛車を振った筋（自分視点）と戦型名の対応。2筋（初期の筋）のままは判定しない。 */
+    val ROOK_FILE_LABELS = mapOf(
+        3 to "袖飛車",
+        5 to "中飛車",
+        6 to "四間飛車",
+        7 to "三間飛車",
+        8 to "向かい飛車",
+    )
 
     fun classify(usiMoves: List<String>): OpeningResult {
         val moves = usiMoves.map { ShogiMove.fromUsi(it) }
         val events = OpeningEvents.record(moves, Side.entries)
-        val trackers = Side.entries.associateWith { RookSettleTracker(it) }
+        val trackers = Side.entries.associateWith { RookFileTracker(it) }
         val achieved = Side.entries.associateWith { mutableMapOf<String, Int>() }
         val board = ShogiBoard()
 
@@ -158,41 +161,19 @@ object OpeningClassifier {
     }
 
     /**
-     * 飛車が同じ筋に留まった時点で「その筋へ定着した」とみなす達成型のトラッカー。
-     * 一時的に浮いただけの飛車を戦法として拾わないための据え置きを持つ。
+     * 飛車を振った筋から戦型を決める。最初に振った筋で確定し、その後どこへ回しても変えない。
+     * 序盤に決めた戦型を、中盤に攻めで飛車を回しただけで塗り替えないため。
      */
-    private class RookSettleTracker(private val side: Side) {
-        private var currentFile = ROOK_FILE
-        private var lastChangePly = 0
-        private val achievedFiles = mutableListOf<Int>()
+    private class RookFileTracker(private val side: Side) {
+        private var style: String? = null
 
         fun observe(ply: Int, move: ShogiMove, moving: dev.miyado.shogisupplement.board.ShogiPiece?) {
-            if (ply > STYLE_PLY_CAP) return
-            if (moving != null && moving.side == side && moving.type in ROOK_TYPES) {
-                val file = bfFile(move.to.file, side)
-                if (file != currentFile) {
-                    currentFile = file
-                    lastChangePly = ply
-                }
-            }
-            if (ply - lastChangePly >= SETTLE_PLY_THRESHOLD && achievedFiles.lastOrNull() != currentFile) {
-                achievedFiles += currentFile
-            }
+            if (style != null || ply > ROOK_STYLE_PLY_CAP) return
+            if (moving == null || moving.side != side || moving.type !in ROOK_TYPES) return
+            style = ROOK_FILE_LABELS[bfFile(move.to.file, side)]
         }
 
-        fun style(): String {
-            if (achievedFiles.isEmpty()) return UNCLASSIFIED
-            // 名前の付いた筋への最後の定着を優先する。1・3・4・9筋への定着は
-            // 本来の戦法へ移る途中の一時停止であることが多い。
-            val named = achievedFiles.filter { it == ROOK_FILE || it in FURIBISHA_LABELS_BY_FILE }
-            return label(named.lastOrNull() ?: achievedFiles.last())
-        }
-
-        private fun label(file: Int): String = when {
-            file == ROOK_FILE -> "居飛車"
-            file in FURIBISHA_LABELS_BY_FILE -> FURIBISHA_LABELS_BY_FILE.getValue(file)
-            else -> "振り飛車（その他）"
-        }
+        fun style(): String = style ?: UNCLASSIFIED
     }
 
     internal fun bfFile(file: Int, side: Side): Int = if (side == Side.BLACK) file else 10 - file

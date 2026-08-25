@@ -30,8 +30,8 @@ class OpeningEvents private constructor(
     val firstBishopCapture: BishopCapture?,
     /** 角交換のあと最初に角を打った手数。 */
     val bishopDropPly: Int?,
-    /** 振り飛車の筋へ定着した手数。 */
-    val furibishaSettlePly: Map<Side, Int>,
+    /** 飛車を振り飛車の筋へ振った手数。 */
+    val furibishaPly: Map<Side, Int>,
     private val rooksHomeAtPly: Set<Int>,
 ) {
 
@@ -46,9 +46,9 @@ class OpeningEvents private constructor(
     /** その手を指す前の時点で、双方の飛車がまだ初期の筋にいたか。 */
     fun bothRooksHomeAt(ply: Int?): Boolean = ply != null && ply in rooksHomeAtPly
 
-    /** 成立からこの手数以内に、どちらかが振り飛車へ定着したか。 */
+    /** 成立からこの手数以内に、どちらかが振り飛車へ振ったか。 */
     fun swungWithin(basePly: Int, plies: Int): Boolean =
-        furibishaSettlePly.values.any { it - basePly <= plies }
+        furibishaPly.values.any { it - basePly <= plies }
 
     companion object {
 
@@ -71,9 +71,6 @@ class OpeningEvents private constructor(
         internal const val YOKOFU_FILE = 3
         internal const val YOKOFU_RANK = 4
 
-        /** 飛車が同じ筋に留まったら定着とみなす手数。一時的な浮き飛車を拾わないため。 */
-        internal const val SETTLE_PLY_THRESHOLD = 10
-
         private val ROOK_TYPES = setOf(PieceType.ROOK, PieceType.PROM_ROOK)
         private val BISHOP_TYPES = setOf(PieceType.BISHOP, PieceType.PROM_BISHOP)
         private val BISHOP_HOME = BfSquare(8, 8)
@@ -83,8 +80,7 @@ class OpeningEvents private constructor(
     /** 1パスで出来事を拾う。判定はここでは行わない。 */
     private class Builder {
         private val rookFile = mutableMapOf(Side.BLACK to ROOK_FILE, Side.WHITE to ROOK_FILE)
-        private val rookChangePly = mutableMapOf(Side.BLACK to 0, Side.WHITE to 0)
-        private val furibishaSettlePly = mutableMapOf<Side, Int>()
+        private val furibishaPly = mutableMapOf<Side, Int>()
         private val rookPawnPushPly = mutableMapOf<Side, Int>()
         private val rooksHomeAtPly = mutableSetOf<Int>()
         private var bishopCaptures = 0
@@ -139,16 +135,9 @@ class OpeningEvents private constructor(
                 yokofuPly = ply
             }
 
-            if (isRookMove && toFile != rookFile.getValue(mover)) {
+            if (isRookMove) {
                 rookFile[mover] = toFile
-                rookChangePly[mover] = ply
-            }
-            listOf(Side.BLACK, Side.WHITE).forEach { side ->
-                if (side !in furibishaSettlePly && rookFile.getValue(side) in FURIBISHA_FILES &&
-                    ply - rookChangePly.getValue(side) >= SETTLE_PLY_THRESHOLD
-                ) {
-                    furibishaSettlePly[side] = ply
-                }
+                if (mover !in furibishaPly && toFile in FURIBISHA_FILES) furibishaPly[mover] = ply
             }
         }
 
@@ -160,7 +149,7 @@ class OpeningEvents private constructor(
             anyBishopCapturePly = anyBishopCapturePly,
             firstBishopCapture = firstBishopCapture,
             bishopDropPly = bishopDropPly,
-            furibishaSettlePly = furibishaSettlePly.toMap(),
+            furibishaPly = furibishaPly.toMap(),
             rooksHomeAtPly = rooksHomeAtPly.toSet(),
         )
     }

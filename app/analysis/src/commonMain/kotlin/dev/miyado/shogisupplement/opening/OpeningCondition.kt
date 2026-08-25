@@ -73,7 +73,7 @@ data class BishopExchanged(val plyCap: Int) : OpeningCondition {
     }
 }
 
-/** 成立の直後に振り飛車へ振っていない。 */
+/** 成立の直後に飛車を振っていない。 */
 data class NoSwingAfter(val basis: Basis, val plies: Int) : OpeningCondition {
     enum class Basis(val label: String) {
         ROOK_PAWN_PUSH("飛車先を伸ばし切った時点"),
@@ -81,7 +81,7 @@ data class NoSwingAfter(val basis: Basis, val plies: Int) : OpeningCondition {
         ACHIEVEMENT("その形が成立した時点"),
     }
 
-    override fun describe(): String = "${basis.label}から${plies}手以内にどちらも振り飛車へ定着しない"
+    override fun describe(): String = "${basis.label}から${plies}手以内にどちらも飛車を振らない"
 
     override fun holds(context: OpeningContext, side: Side): Boolean {
         val base = when (basis) {
@@ -165,7 +165,7 @@ data object NoBishopExchangeBeforeAchievement : OpeningCondition {
 
 /** 双方が振り飛車。 */
 data object BothFuribisha : OpeningCondition {
-    override fun describe(): String = "双方の飛車が振り飛車の筋へ定着している"
+    override fun describe(): String = "双方が振り飛車に振っている"
 
     override fun holds(context: OpeningContext, side: Side): Boolean =
         context.styles.values.all { it in FURIBISHA_STYLE_LABELS }
@@ -173,7 +173,7 @@ data object BothFuribisha : OpeningCondition {
 
 /** 自分が振り飛車。 */
 data object SelfFuribisha : OpeningCondition {
-    override fun describe(): String = "自分の飛車が振り飛車の筋へ定着している"
+    override fun describe(): String = "自分が振り飛車に振っている"
 
     override fun holds(context: OpeningContext, side: Side): Boolean =
         context.styles.getValue(side) in FURIBISHA_STYLE_LABELS
@@ -189,9 +189,8 @@ data class BishopExchangedAnywhere(val plyCap: Int) : OpeningCondition {
     }
 }
 
-internal val FURIBISHA_STYLE_LABELS = setOf(
-    "中飛車", "四間飛車", "三間飛車", "向かい飛車", "振り飛車（その他）",
-)
+/** 振り飛車として扱う戦型名（袖飛車は振り飛車ではないため含めない）。 */
+internal val FURIBISHA_STYLE_LABELS = setOf("中飛車", "四間飛車", "三間飛車", "向かい飛車")
 
 /** 後手の指し方を指す戦型（手損のように、先後で意味が変わるもの）。 */
 data object OnlyGote : OpeningCondition {
