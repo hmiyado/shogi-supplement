@@ -60,7 +60,6 @@ CREATE TABLE user_settings (
     rating INTEGER NOT NULL DEFAULT 1750,
     consent_accepted_at INTEGER,
     auto_upload INTEGER NOT NULL DEFAULT 0,
-    account_declined INTEGER NOT NULL DEFAULT 0,
     rating_service TEXT NOT NULL DEFAULT 'lishogi',
     rating_raw INTEGER NOT NULL DEFAULT 1750,
     last_user_side TEXT,
@@ -69,7 +68,9 @@ CREATE TABLE user_settings (
     theme_mode TEXT NOT NULL DEFAULT 'system',
     eval_display TEXT NOT NULL DEFAULT 'cp',
     skip_side_confirm INTEGER NOT NULL DEFAULT 0,
-    app_policy_cache TEXT
+    -- 以下は列を足した順（.sqmが末尾へ足すため、更新した端末と列順を揃える）。
+    app_policy_cache TEXT,
+    account_declined INTEGER NOT NULL DEFAULT 0
 );
 
 insertGame:
