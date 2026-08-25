@@ -22,6 +22,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -208,13 +209,21 @@ val CoordinateLabelTrack = 18.dp
 val CoordinateLabelGap = 2.dp
 
 /**
- * 盤に割り当てる高さの上限。画面の残り高さを基準にしない理由: トップバーやinsetsを引いた
- * 高さは画面ごとに違い、同じ局面でも盤の大きさが画面間でずれるため。
+ * 盤の大きさの基準にする高さ。アプリのルート（safe areaを引いた後・Scaffoldより外）で与える。
+ * 画面ごとの残り高さを基準にすると、トップバーの厚みの差だけ盤の大きさが画面間でずれる。
+ */
+val LocalBoardBaseHeight = staticCompositionLocalOf<Dp?> { null }
+
+/**
+ * 盤に割り当てる高さの上限。ウィンドウ全体の高さへ素で落とさない理由: iOSはルートで
+ * safe areaを引いてから描くため、ウィンドウ基準だと盤がその分だけ大きくなり本文が入らない。
  */
 @Composable
 fun boardMaxHeight(): Dp {
-    val containerHeightPx = LocalWindowInfo.current.containerSize.height
-    return with(LocalDensity.current) { containerHeightPx.toDp() } * BoardHeightFraction
+    val base = LocalBoardBaseHeight.current ?: with(LocalDensity.current) {
+        LocalWindowInfo.current.containerSize.height.toDp()
+    }
+    return base * BoardHeightFraction
 }
 
 private const val BoardHeightFraction = 0.45f

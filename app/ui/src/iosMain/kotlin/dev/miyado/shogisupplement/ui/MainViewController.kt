@@ -1,6 +1,7 @@
 package dev.miyado.shogisupplement.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -26,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -78,6 +80,7 @@ import dev.miyado.shogisupplement.ui.settings.SettingsScreen
 import dev.miyado.shogisupplement.ui.strength.EstimatedStrengthDetailScreen
 import dev.miyado.shogisupplement.ui.strength.StrengthDetailData
 import dev.miyado.shogisupplement.ui.strength.StrengthDetailViewModel
+import dev.miyado.shogisupplement.ui.common.LocalBoardBaseHeight
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
 import dev.miyado.shogisupplement.ui.transfercode.TransferCodeInputDialog
 import dev.miyado.shogisupplement.ui.transfercode.TransferCodeInputUiState
@@ -150,31 +153,35 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
     val forceUpdateDecision by controller.forceUpdateDecision.collectAsState()
     ShogiTheme(themeMode = themeMode) {
         Surface(modifier = Modifier.fillMaxSize()) {
-            Box(
+            BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxSize()
                     .windowInsetsPadding(WindowInsets.safeDrawing),
             ) {
-                val decision = forceUpdateDecision
-                val services = supabaseServices
-                if (decision != null && decision.blocked) {
-                    val versionName = remember {
-                        (NSBundle.mainBundle.infoDictionary?.get("CFBundleShortVersionString") as? String) ?: "-"
+                // 盤の基準はここで決める。safe areaを引く前のウィンドウ高さを使うと、
+                // iOSだけ盤がその分だけ大きくなり画面下が入らなくなる。
+                CompositionLocalProvider(LocalBoardBaseHeight provides maxHeight) {
+                    val decision = forceUpdateDecision
+                    val services = supabaseServices
+                    if (decision != null && decision.blocked) {
+                        val versionName = remember {
+                            (NSBundle.mainBundle.infoDictionary?.get("CFBundleShortVersionString") as? String) ?: "-"
+                        }
+                        ForceUpdateScreen(
+                            message = decision.message,
+                            storeUrl = decision.storeUrl,
+                            versionName = versionName,
+                            buildNumber = currentBuildNumber(),
+                            onOpenStore = { decision.storeUrl?.let { openUrl(it) } },
+                        )
+                    } else if (showConsent && services != null) {
+                        IosConsentScreenHost(
+                            services = services,
+                            onAccepted = { showConsent = false },
+                        )
+                    } else {
+                        DemoApp(gameRepository, settingsRepository, supabaseServices, controller, analysisBaseUrl)
                     }
-                    ForceUpdateScreen(
-                        message = decision.message,
-                        storeUrl = decision.storeUrl,
-                        versionName = versionName,
-                        buildNumber = currentBuildNumber(),
-                        onOpenStore = { decision.storeUrl?.let { openUrl(it) } },
-                    )
-                } else if (showConsent && services != null) {
-                    IosConsentScreenHost(
-                        services = services,
-                        onAccepted = { showConsent = false },
-                    )
-                } else {
-                    DemoApp(gameRepository, settingsRepository, supabaseServices, controller, analysisBaseUrl)
                 }
             }
         }

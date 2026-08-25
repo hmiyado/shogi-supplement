@@ -2,6 +2,8 @@ package dev.miyado.shogisupplement.ui.report
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -25,7 +27,8 @@ internal fun ReportSummaryBody(
     onAnalyze: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier) {
+    // 縦に余裕が無い端末ではColumnが最後の子（悪手一覧ボタン）を潰すためスクロールさせる。
+    Column(modifier = modifier.verticalScroll(rememberScrollState())) {
         // 未解析では空のグラフを無効表示し、解析済みの空データは表示しない。
         if (evalGraphPoints.isNotEmpty() || analysisPending) {
             EvalGraphCard(
