@@ -8,6 +8,7 @@ import dev.miyado.shogisupplement.download.GameSummaryService
 import dev.miyado.shogisupplement.download.SupabaseGameSummaryService
 import dev.miyado.shogisupplement.transfer.RemoteTransferRestoreService
 import dev.miyado.shogisupplement.transfer.TransferRestoreService
+import dev.miyado.shogisupplement.webApp.js.fetchAppCheckToken
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
@@ -30,15 +31,13 @@ class MyPageDependencies {
 
     val authRepository: AuthRepository = SupabaseAuthRepository(client)
 
-    // appCheckTokenProvider未設定: 本番のCloud RunはFirebase App Checkを必須化しているが、
-    // Web向けのApp Check実装（reCAPTCHA v3等）はまだ無い。本番投入はその対応が入るまで
-    // 見送る前提（App Check未設定のステージング/ローカル環境でのみ疎通する）。
     val transferRestoreService: TransferRestoreService = RemoteTransferRestoreService(
         baseUrl = WORKER_BASE_URL,
         authRepository = authRepository,
         transferSecretStore = transferSecretStore,
         settingsRepository = settingsRepository,
         platform = "web",
+        appCheckTokenProvider = ::fetchAppCheckToken,
     )
 
     val gameSummaryService: GameSummaryService =

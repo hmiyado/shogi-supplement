@@ -42,6 +42,9 @@
     <a href="./terms.html">利用規約・プライバシーポリシー</a>
   </p>
 </footer>
-<script src="kento/webApp.js"></script>
+<script type="module" src="kento/appcheck-bridge.js"></script>
+<!-- moduleスクリプトは常にdefer相当。webApp.js側もdeferにしないと先に実行され、
+     window.appCheckBridge未定義のままログイン操作を受け付けてしまう。 -->
+<script src="kento/webApp.js" defer></script>
 </body>
 </html>
