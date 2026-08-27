@@ -35,6 +35,36 @@ val generateKentoAssetConfig by tasks.registering {
     }
 }
 
+// docs/mypage.html（引き継ぎコードでログインし棋譜一覧を見るページ）用の設定。
+// anon keyはクライアント埋め込み前提の鍵（モバイルのBuildConfig.SUPABASE_KEYと同じ性質）で、
+// 秘密ではないためビルド引数で渡す。未設定時は空文字にし、実行時にエラー表示させる
+// （ANALYSIS_BASE_URL方式に倣う）。
+val mypageSupabaseUrl: String = providers.environmentVariable("SUPABASE_URL").getOrElse("")
+val mypageSupabaseAnonKey: String = providers.environmentVariable("SUPABASE_ANON_KEY").getOrElse("")
+val mypageWorkerBaseUrl: String = providers.environmentVariable("WORKER_BASE_URL").getOrElse("")
+
+val generateMyPageConfig by tasks.registering {
+    val outDir = layout.buildDirectory.dir("generated/myPageConfig/kotlin")
+    inputs.property("supabaseUrl", mypageSupabaseUrl)
+    inputs.property("supabaseAnonKey", mypageSupabaseAnonKey)
+    inputs.property("workerBaseUrl", mypageWorkerBaseUrl)
+    outputs.dir(outDir)
+    doLast {
+        val file = outDir.get().file("dev/miyado/shogisupplement/webApp/mypage/MyPageConfig.kt").asFile
+        file.parentFile.mkdirs()
+        file.writeText(
+            """
+            |package dev.miyado.shogisupplement.webApp.mypage
+            |
+            |/** ビルド時に環境変数から生成される（webApp/build.gradle.kts）。 */
+            |internal const val SUPABASE_URL = "$mypageSupabaseUrl"
+            |internal const val SUPABASE_ANON_KEY = "$mypageSupabaseAnonKey"
+            |internal const val WORKER_BASE_URL = "$mypageWorkerBaseUrl"
+            |""".trimMargin(),
+        )
+    }
+}
+
 kotlin {
     jvmToolchain(libs.versions.jvm.toolchain.get().toInt())
 
@@ -51,6 +81,14 @@ kotlin {
     sourceSets {
         wasmJsMain {
             kotlin.srcDir(generateKentoAssetConfig)
+            kotlin.srcDir(generateMyPageConfig)
+            dependencies {
+                implementation(project(":data:supabase"))
+                implementation(project(":application"))
+                implementation(libs.supabase.auth)
+                implementation(libs.supabase.postgrest)
+                implementation(libs.kmp.lifecycle.viewmodel)
+            }
         }
         commonMain.dependencies {
             implementation(project(":ui"))
