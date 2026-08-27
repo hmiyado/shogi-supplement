@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.db.GameAnalysisStatus
 import dev.miyado.shogisupplement.db.GameRecord
+import dev.miyado.shogisupplement.db.openingTagList
 import dev.miyado.shogisupplement.pipeline.InProgressAnalysis
 import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.theme.TextStyleData
@@ -35,6 +36,8 @@ import dev.miyado.shogisupplement.ui.theme.shogiColors
 // HomeScreen・GameListScreen・ErrorScreen（KIF取り込みフローの重複局面ダイアログ）から共用。
 // 日付表示は java.text.SimpleDateFormat が commonMain で使えないため、
 // ReportPlatform.kt の formatDateTime（expect/actual）を使う。
+
+private const val MAX_OPENING_STYLES_ON_CARD = 2
 
 @Composable
 fun GameCard(
@@ -129,10 +132,14 @@ fun GameCard(
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
-            // 一覧では代表の戦型だけを出す。成立した戦型をすべて並べると行が伸びて
-            // カードの他の情報が読みにくくなる（すべては対局情報ダイアログで見せる）。
+            // 戦型を無制限に並べない: 狭い画面幅では行が伸びてカードの他の情報が
+            // 読みにくくなる（全部は対局情報ダイアログで見せる）。囲いは判定上も
+            // 発展形の1つへ絞られるため、この制限をかけずとも代表のみで足りる。
+            val openingStyles = game.openingTagList().ifEmpty { listOfNotNull(game.openingStyle) }
+                .take(MAX_OPENING_STYLES_ON_CARD)
             val openingLine = listOfNotNull(
-                game.openingStyle?.let { "${AppStrings.GAME_INFO_OPENING_STYLE}：$it" },
+                openingStyles.takeIf { it.isNotEmpty() }
+                    ?.let { "${AppStrings.GAME_INFO_OPENING_STYLE}：${it.joinToString("・")}" },
                 game.openingCastle?.let { "${AppStrings.GAME_INFO_OPENING_CASTLE}：$it" },
             ).joinToString("　")
             if (openingLine.isNotEmpty()) {
