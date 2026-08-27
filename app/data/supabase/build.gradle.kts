@@ -1,3 +1,5 @@
+@file:OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.kotlinSerialization)
@@ -14,6 +16,7 @@ kotlin {
         withHostTest {}
     }
     jvm()
+    wasmJs { browser() }
 
     // ktor-client-darwin導入後、cryptography-kotlinのCryptoKit Swift interopが要求する
     // Swift ABI互換シム（libswiftCompatibility56.a等）をリンカが見つけられず
@@ -71,6 +74,9 @@ kotlin {
             // supabase-kt（ktor-client-core経由）のHTTPエンジンをiOS向けに提供。
             // Android側は androidApp/build.gradle.kts の ktor-client-okhttp が担う。
             implementation(libs.ktor.client.darwin)
+        }
+        wasmJsMain.dependencies {
+            implementation(libs.ktor.client.js)
         }
     }
 }

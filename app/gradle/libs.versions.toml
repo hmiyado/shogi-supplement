@@ -61,6 +61,7 @@ supabase-auth = { module = "io.github.jan-tennert.supabase:auth-kt", version.ref
 supabase-postgrest = { module = "io.github.jan-tennert.supabase:postgrest-kt", version.ref = "supabase" }
 ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
 ktor-client-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "ktor" }
+ktor-client-js = { module = "io.ktor:ktor-client-js", version.ref = "ktor" }
 # RemoteAnalysisRunner（shared commonMain）がPOST /v1/analysesのNDJSONストリーミングを
 # 読むために使う。エンジンはプラットフォーム側（androidApp=okhttp/iosMain=darwin）が既存どおり供給する。
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
