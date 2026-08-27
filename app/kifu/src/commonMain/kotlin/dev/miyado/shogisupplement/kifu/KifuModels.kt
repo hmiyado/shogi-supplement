@@ -22,3 +22,17 @@ interface KifuParser {
     /** @throws KifuParseException 平手以外、または解釈できない指し手があった場合 */
     fun parse(text: String): KifuGame
 }
+
+private val DECISIVE_END_REASONS = setOf("投了", "切れ負け", "時間切れ", "反則負け", "詰み", "反則")
+
+/**
+ * 終局理由と手数から勝者を算出する。投了・切れ負け・時間切れ・詰み等は手数パリティで確定、
+ * 引き分け系はnull。KIF全文が無くても`headers`/`result`列だけから呼べる。
+ */
+fun kifuWinner(endReason: String?, moveCount: Int): String? =
+    if (endReason in DECISIVE_END_REASONS) {
+        // moveCount手目まで指された後、次は (moveCount % 2 == 0) なら sente (1手目が sente)
+        if (moveCount % 2 == 0) "gote" else "sente"
+    } else {
+        null
+    }
