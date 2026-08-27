@@ -55,6 +55,7 @@ fun ReportScreen(
     blunderRateDisplayText: String? = null,
     analysisPending: Boolean = false,
     onAnalyze: () -> Unit = {},
+    canDelete: Boolean = true,
     onBack: () -> Unit,
     pvExtState: Map<Long, PvExtState> = emptyMap(),
     pvExtensionEnabled: Boolean = true,
@@ -236,7 +237,7 @@ fun ReportScreen(
                             }
                         }
                     },
-                    onDeleteClick = { showDeleteDialog = true },
+                    onDeleteClick = if (canDelete) { { showDeleteDialog = true } } else null,
                 )
 
                 val studyCurrentSfen = remember(studyState) {

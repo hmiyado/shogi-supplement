@@ -22,7 +22,7 @@ internal fun ReportTopBar(
     onInfoClick: () -> Unit,
     kifText: String?,
     onCopyKifClick: () -> Unit,
-    onDeleteClick: () -> Unit,
+    onDeleteClick: (() -> Unit)?,
 ) {
     ShogiThinTopBar(title = title, onBack = onBack) {
         // 対局者名（playersLine）は表示しない（対局情報ダイアログと重複するため）。
@@ -42,13 +42,15 @@ internal fun ReportTopBar(
                 )
             }
         }
-        IconButton(onClick = onDeleteClick, modifier = Modifier.size(32.dp)) {
-            Icon(
-                imageVector = Icons.Outlined.Delete,
-                contentDescription = AppStrings.GAME_DELETE_ICON_DESC,
-                tint = MaterialTheme.shogiColors.loss,
-                modifier = Modifier.size(18.dp),
-            )
+        if (onDeleteClick != null) {
+            IconButton(onClick = onDeleteClick, modifier = Modifier.size(32.dp)) {
+                Icon(
+                    imageVector = Icons.Outlined.Delete,
+                    contentDescription = AppStrings.GAME_DELETE_ICON_DESC,
+                    tint = MaterialTheme.shogiColors.loss,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
         }
     }
 }

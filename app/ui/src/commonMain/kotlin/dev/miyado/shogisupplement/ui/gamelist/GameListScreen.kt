@@ -3,6 +3,7 @@ package dev.miyado.shogisupplement.ui.gamelist
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -47,8 +48,10 @@ fun GameListScreen(
     pendingUploadCount: Int = 0,
     isUploading: Boolean = false,
     uploadResult: String? = null,
-    onBack: () -> Unit,
+    canDelete: Boolean = true,
+    onBack: (() -> Unit)?,
     onGameClick: (GameRecord) -> Unit,
+    topBarActions: @Composable RowScope.() -> Unit = {},
     onUpload: () -> Unit = {},
     onDeleteGame: (
         game: GameRecord,
@@ -69,13 +72,16 @@ fun GameListScreen(
             TopAppBar(
                 title = { Text(AppStrings.GAME_LIST_TITLE) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = AppStrings.BACK,
-                        )
+                    if (onBack != null) {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = AppStrings.BACK,
+                            )
+                        }
                     }
                 },
+                actions = topBarActions,
             )
         },
     ) { padding ->
@@ -135,7 +141,7 @@ fun GameListScreen(
                 GameCard(
                     game = game,
                     onClick = { onGameClick(game) },
-                    onDelete = { pendingDeleteGame = game },
+                    onDelete = if (canDelete) { { pendingDeleteGame = game } } else null,
                 )
             }
         }
