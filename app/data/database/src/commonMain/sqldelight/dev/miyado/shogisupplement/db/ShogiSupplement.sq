@@ -22,7 +22,9 @@ CREATE TABLE game (
     analysis_status TEXT NOT NULL DEFAULT 'completed',
     opening_style TEXT,
     opening_castle TEXT,
-    opening_tags TEXT
+    opening_tags TEXT,
+    sente_rating INTEGER,
+    gote_rating INTEGER
 );
 
 CREATE TABLE blunder_report (
@@ -74,8 +76,8 @@ CREATE TABLE user_settings (
 );
 
 insertGame:
-INSERT INTO game (file_name, content_hash, move_count, sente_name, gote_name, analyzed_at, rating, rating_sample_moves, coef_version, kif_text, moves_usi, user_side, rating_service, rating_raw, rating_rule, source_place, game_winner, end_reason, analysis_status, opening_style, opening_castle, opening_tags)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO game (file_name, content_hash, move_count, sente_name, gote_name, analyzed_at, rating, rating_sample_moves, coef_version, kif_text, moves_usi, user_side, rating_service, rating_raw, rating_rule, source_place, game_winner, end_reason, analysis_status, opening_style, opening_castle, opening_tags, sente_rating, gote_rating)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 completePendingGame:
 UPDATE game SET
@@ -83,7 +85,7 @@ UPDATE game SET
     rating = ?, rating_sample_moves = ?, coef_version = ?, kif_text = ?, moves_usi = ?,
     user_side = ?, rating_service = ?, rating_raw = ?, rating_rule = ?, source_place = ?,
     game_winner = ?, end_reason = ?, analysis_status = 'completed',
-    opening_style = ?, opening_castle = ?, opening_tags = ?
+    opening_style = ?, opening_castle = ?, opening_tags = ?, sente_rating = ?, gote_rating = ?
 WHERE id = ? AND analysis_status = 'pending';
 
 getLastInsertRowId:

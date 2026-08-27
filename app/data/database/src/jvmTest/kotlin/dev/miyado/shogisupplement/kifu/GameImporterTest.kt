@@ -39,4 +39,30 @@ class GameImporterTest {
         assertEquals(GameAnalysisStatus.PENDING, repository.getGameById(first.gameId)?.analysisStatus)
         assertEquals(1, repository.getAllGames().size)
     }
+
+    @Test
+    fun `将棋クエストのKIFはquestと判定され対局者名からレートが分離される`() {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        ShogiSupplementDatabase.Schema.create(driver)
+        val repository = SqlDelightGameRepository(ShogiSupplementDatabase(driver))
+        val importer = GameImporter(repository)
+        val kif = """
+            棋戦：Shogi Quest
+            手合割：平手
+            先手：相手A(464)
+            後手：miyado(800)
+            手数----指手---------消費時間--
+            1 ７六歩(77)
+            2 ３四歩(33)
+            3 投了
+        """.trimIndent()
+
+        val outcome = assertIs<GameImporter.Outcome.Imported>(
+            importer.importGame(kif, "game.kif", "gote"),
+        )
+        val game = repository.getGameById(outcome.gameId)
+        assertEquals("shogi_quest", game?.sourcePlace)
+        assertEquals("相手A", game?.senteName)
+        assertEquals(464L, game?.senteRating)
+    }
 }

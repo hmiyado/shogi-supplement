@@ -20,6 +20,8 @@ interface GameRepository {
         sourcePlace: String? = null,
         gameWinner: String? = null,
         endReason: String? = null,
+        senteRating: Long? = null,
+        goteRating: Long? = null,
     ): Long = error("Pending games are not supported by this repository")
 
     /** 解析結果を保存し、新しい game_id を返す。 */
@@ -45,6 +47,8 @@ interface GameRepository {
         openingStyle: String? = null,
         openingCastle: String? = null,
         openingTags: String? = null,
+        senteRating: Long? = null,
+        goteRating: Long? = null,
     ): Long
 
     /**

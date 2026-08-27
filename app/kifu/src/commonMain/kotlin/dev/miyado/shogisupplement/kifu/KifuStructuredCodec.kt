@@ -12,6 +12,7 @@ enum class KifuSource(val wireValue: String) {
     WARS("wars"),
     LISHOGI("lishogi"),
     KIOU("kiou"),
+    QUEST("shogi_quest"),
     OTHER("other"),
 }
 
@@ -34,6 +35,9 @@ data class PrivateKifuFields(
     @SerialName("gote_name") val goteName: String?,
     @SerialName("extra_headers") val extraHeaders: Map<String, String>,
     val comments: List<String>,
+    /** 将棋クエスト等、対局者名の括弧書きから分離したレート。それ以外のsourceでは常にnull。 */
+    @SerialName("sente_rating") val senteRating: Long? = null,
+    @SerialName("gote_rating") val goteRating: Long? = null,
 ) {
     /** 暗号化前のJSON表現。付録の `private_enc` ペイロード形式に対応する。 */
     fun toJson(): String = json.encodeToString(this)
@@ -66,6 +70,13 @@ object KifuDecomposer {
     private const val LISHOGI_PLACE_PREFIX = "https://lishogi.org/"
     private const val WARS_PLACE = "将棋ウォーズ"
 
+    // 将棋クエストはKIOUと同様「場所」ヘッダを出さない。代わりに「棋戦」ヘッダで
+    // 判定する（棋桜のようなrawText走査ではなく構造化済みヘッダで判定できるため、こちらを使う）。
+    private const val QUEST_KISEN = "Shogi Quest"
+
+    // 対局者名末尾の "(数字)" を将棋クエストのレートとみなして分離する。
+    private val QUEST_PLAYER_RATING = Regex("""^(.*\S)\((\d+)\)$""")
+
     private val DATETIME_HEADER_KEYS = setOf("開始日時", "終了日時")
 
     // 末尾が「時:分:秒」の値だけを対象にする。グループ1が「時:分」までの部分。
@@ -89,19 +100,24 @@ object KifuDecomposer {
             }
         }
 
+        val source = classifySource(rawText, game.headers["場所"], game.headers["棋戦"])
+        val players = resolvePlayers(source, game.headers)
+
         return DecomposedKifu(
             public = PublicKifuFields(
                 movesUsi = game.moves,
                 moveTimesSeconds = game.timesSeconds,
                 headers = publicHeaders,
                 result = game.endReason,
-                source = classifySource(rawText, game.headers["場所"]),
+                source = source,
             ),
             private = PrivateKifuFields(
-                senteName = game.senteName,
-                goteName = game.goteName,
+                senteName = players.headers["先手"],
+                goteName = players.headers["後手"],
                 extraHeaders = extraHeaders,
                 comments = extractComments(rawText),
+                senteRating = players.senteRating,
+                goteRating = players.goteRating,
             ),
         )
     }
@@ -116,14 +132,52 @@ object KifuDecomposer {
     }
 
     /** 出典サービスを正規化する。Why not decompose内部に閉じない: 保存経路でも同じ分類基準を保つため公開する。 */
-    fun classifySource(rawText: String, place: String?): KifuSource {
+    fun classifySource(rawText: String, place: String?, kisen: String? = null): KifuSource {
         val trimmedPlace = place?.trim()
         return when {
             trimmedPlace == WARS_PLACE -> KifuSource.WARS
             trimmedPlace != null && trimmedPlace.startsWith(LISHOGI_PLACE_PREFIX) -> KifuSource.LISHOGI
+            kisen?.trim() == QUEST_KISEN -> KifuSource.QUEST
             rawText.lineSequence().any { KIOU_MARKER.containsMatchIn(it.trim()) } -> KifuSource.KIOU
             else -> KifuSource.OTHER
         }
+    }
+
+    /** [headers] の「先手」「後手」と、そこから分離したレート。 */
+    data class ResolvedPlayers(
+        val headers: Map<String, String>,
+        val senteRating: Long?,
+        val goteRating: Long?,
+    )
+
+    /**
+     * 対局者名からレートを分離する。将棋クエスト以外では [headers] をそのまま返す
+     * （他サービスの名前に偶然 "(数字)" が付いていてもレートとして誤読しないため）。
+     */
+    fun resolvePlayers(source: KifuSource, headers: Map<String, String>): ResolvedPlayers {
+        if (source != KifuSource.QUEST) return ResolvedPlayers(headers, null, null)
+        val (senteName, senteRating) = splitPlayerRating(headers["先手"])
+        val (goteName, goteRating) = splitPlayerRating(headers["後手"])
+        val resolvedHeaders = headers.toMutableMap()
+        senteName?.let { resolvedHeaders["先手"] = it }
+        goteName?.let { resolvedHeaders["後手"] = it }
+        return ResolvedPlayers(resolvedHeaders, senteRating, goteRating)
+    }
+
+    /**
+     * KIF原文から対局者名だけを解決する（将棋クエストのレート括弧を分離済み）。
+     * 先後確認・アカウント名照合など、レート自体を必要としない呼び出し元向け。
+     */
+    fun resolvePlayerNames(rawText: String, headers: Map<String, String>): Pair<String?, String?> {
+        val source = classifySource(rawText, headers["場所"], headers["棋戦"])
+        val players = resolvePlayers(source, headers)
+        return players.headers["先手"] to players.headers["後手"]
+    }
+
+    private fun splitPlayerRating(raw: String?): Pair<String?, Long?> {
+        if (raw == null) return null to null
+        val match = QUEST_PLAYER_RATING.find(raw) ?: return raw to null
+        return match.groupValues[1] to match.groupValues[2].toLongOrNull()
     }
 
     // [KifParser] はコメント行・しおり行を読み捨てるため、rawTextを別途走査する。
@@ -160,12 +214,18 @@ object KifuReconstructor {
 
     private fun resolveNames(private: PrivateKifuFields?, userSide: String?): Pair<String?, String?> =
         when {
-            private != null -> private.senteName to private.goteName
+            // レートは実名にのみ付記する。マスク済み再構成はuser/opponentへ既に匿名化しており、
+            // レートを残すと個人を絞り込む手がかりになり得るため出さない。
+            private != null -> withRating(private.senteName, private.senteRating) to
+                withRating(private.goteName, private.goteRating)
             userSide == "sente" -> "user" to "opponent"
             userSide == "gote" -> "opponent" to "user"
             // 先後未確定: どちらがユーザーか判定できないため両者とも player にする。
             else -> "player" to "player"
         }
+
+    private fun withRating(name: String?, rating: Long?): String? =
+        if (name != null && rating != null) "$name($rating)" else name
 
     private fun appendHeaders(
         sb: StringBuilder,

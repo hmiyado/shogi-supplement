@@ -27,6 +27,7 @@ import dev.miyado.shogisupplement.engine.WasmStudyBridge
 import dev.miyado.shogisupplement.engine.WasmStudyEngine
 import dev.miyado.shogisupplement.kifu.ClipboardKifValidator
 import dev.miyado.shogisupplement.kifu.KifParser
+import dev.miyado.shogisupplement.kifu.KifuDecomposer
 import dev.miyado.shogisupplement.kifu.GameImportFlow
 import dev.miyado.shogisupplement.kifu.GameImporter
 import dev.miyado.shogisupplement.kifu.UserSideSuggester
@@ -389,10 +390,11 @@ class IosMainController(
                 _importState.value = ImportState.Error(AppStrings.KIF_CLIPBOARD_INVALID)
             else -> {
                 val headers = runCatching { KifParser().parse(text).headers }.getOrElse { emptyMap() }
+                val (senteName, goteName) = KifuDecomposer.resolvePlayerNames(text, headers)
                 proceedAfterKifValidated(
                     kifText = text,
-                    senteName = headers["先手"],
-                    goteName = headers["後手"],
+                    senteName = senteName,
+                    goteName = goteName,
                     sourceFileName = null,
                 )
             }
@@ -405,10 +407,11 @@ class IosMainController(
             _importState.value = ImportState.Error(AppStrings.KIF_FILE_INVALID)
             return
         }
+        val (senteName, goteName) = KifuDecomposer.resolvePlayerNames(kifText, game.headers)
         proceedAfterKifValidated(
             kifText = kifText,
-            senteName = game.senteName,
-            goteName = game.goteName,
+            senteName = senteName,
+            goteName = goteName,
             sourceFileName = fileName,
             skipRatingSetup = true,
         )
@@ -602,10 +605,11 @@ class IosMainController(
                 _importState.value = ImportState.Error(AppStrings.KIF_FILE_INVALID, fromFile = true)
             else -> {
                 val headers = runCatching { KifParser().parse(text).headers }.getOrElse { emptyMap() }
+                val (senteName, goteName) = KifuDecomposer.resolvePlayerNames(text, headers)
                 proceedAfterKifValidated(
                     kifText = text,
-                    senteName = headers["先手"],
-                    goteName = headers["後手"],
+                    senteName = senteName,
+                    goteName = goteName,
                     sourceFileName = fileName,
                 )
             }

@@ -20,6 +20,7 @@ import dev.miyado.shogisupplement.engine.Engine
 import dev.miyado.shogisupplement.engine.PvInfo
 import dev.miyado.shogisupplement.engine.UsiEngineProcess
 import dev.miyado.shogisupplement.kifu.KifParser
+import dev.miyado.shogisupplement.kifu.KifuDecomposer
 import dev.miyado.shogisupplement.kifu.GameImportFlow
 import dev.miyado.shogisupplement.kifu.SideSuggestion
 import dev.miyado.shogisupplement.kifu.UserSideSuggester
@@ -372,8 +373,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      */
     suspend fun parseKifPlayers(uri: Uri): Pair<String?, String?> = withContext(Dispatchers.IO) {
         runCatching {
-            val headers = KifParser().parse(readKifContentFromUri(uri)).headers
-            headers["先手"] to headers["後手"]
+            val kifText = readKifContentFromUri(uri)
+            val headers = KifParser().parse(kifText).headers
+            KifuDecomposer.resolvePlayerNames(kifText, headers)
         }.getOrElse { null to null }
     }
 

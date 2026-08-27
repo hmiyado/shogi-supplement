@@ -24,6 +24,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.db.GameAnalysisStatus
 import dev.miyado.shogisupplement.db.GameRecord
@@ -128,7 +129,14 @@ fun GameCard(
             if (game.senteName != null || game.goteName != null) {
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    AppStrings.playersLine(game.senteName, game.goteName),
+                    buildAnnotatedString {
+                        append("先手: ")
+                        append(game.senteName ?: AppStrings.PLAYER_UNKNOWN)
+                        appendPlayerRating(game.senteRating)
+                        append("  後手: ")
+                        append(game.goteName ?: AppStrings.PLAYER_UNKNOWN)
+                        appendPlayerRating(game.goteRating)
+                    },
                     style = MaterialTheme.typography.bodySmall,
                 )
             }

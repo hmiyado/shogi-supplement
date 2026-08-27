@@ -83,7 +83,7 @@ object AppStrings {
 
     fun gameMoveCount(count: Long): String = "${count}手"
     fun playersLine(senteName: String?, goteName: String?): String =
-        "先手: ${senteName ?: "不明"}  後手: ${goteName ?: "不明"}"
+        "先手: ${senteName ?: PLAYER_UNKNOWN}  後手: ${goteName ?: PLAYER_UNKNOWN}"
 
 
     const val RATING_DIALOG_TITLE = "棋力設定"
@@ -350,6 +350,7 @@ object AppStrings {
         "wars" -> "将棋ウォーズ"
         "lishogi" -> "lishogi"
         "kiou" -> "棋桜"
+        "shogi_quest" -> "将棋クエスト"
         else -> null
     }
 

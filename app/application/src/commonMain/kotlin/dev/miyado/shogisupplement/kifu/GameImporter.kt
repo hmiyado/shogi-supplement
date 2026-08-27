@@ -26,20 +26,23 @@ class GameImporter(private val repository: GameRepository) {
             return Outcome.Imported(it, alreadyExisted = true)
         }
         val game = KifParser().parse(kifContent)
+        val source = KifuDecomposer.classifySource(kifContent, game.headers["場所"], game.headers["棋戦"])
+        val players = KifuDecomposer.resolvePlayers(source, game.headers)
         val gameId = repository.savePendingGame(
             fileName = fileName,
             contentHash = effectiveHash,
             moves = game.moves,
-            headers = game.headers,
+            headers = players.headers,
             kifText = kifContent,
             userSide = userSide,
             ratingService = ratingService,
             ratingRaw = ratingRaw,
             ratingRule = ratingRule,
-            sourcePlace = sourcePlaceOverride
-                ?: KifuDecomposer.classifySource(kifContent, game.headers["場所"]).wireValue,
+            sourcePlace = sourcePlaceOverride ?: source.wireValue,
             gameWinner = game.winner,
             endReason = game.endReason,
+            senteRating = players.senteRating,
+            goteRating = players.goteRating,
         )
         Outcome.Imported(gameId, alreadyExisted = false)
     } catch (e: Exception) {
