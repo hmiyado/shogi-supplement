@@ -53,7 +53,10 @@ fun Application.module(config: WorkerConfig) {
     // Web版（docs/mypage.html）からのfetchはブラウザのプリフライトで弾かれるため必須。
     install(CORS) {
         allowHost("shogi-supplement.miyado.dev", schemes = listOf("https"))
-        allowHost("localhost:8000", schemes = listOf("http"))
+        // ALLOW_LOCALHOST_CORS=true（ローカル起動時のみ）でdocs/mypage.htmlの動作確認を可能にする。
+        if (config.allowLocalhostCors) {
+            allowHost("localhost:8000", schemes = listOf("http"))
+        }
         allowMethod(io.ktor.http.HttpMethod.Post)
         allowHeader(HttpHeaders.ContentType)
         allowHeader(ApiHeaders.APP_CHECK)
@@ -127,10 +130,9 @@ fun Application.module(config: WorkerConfig) {
 
     val transferSecretRepository =
         SupabaseTransferSecretRepository(restClient, config.supabaseUrl, config.supabaseServiceRoleKey)
-    // Postgrest（restClient）とは別に、GoTrue Admin API（/auth/v1/admin/*・/auth/v1/verify）を
-    // 叩く専用クライアント。ContentNegotiationはSupabaseTransferSecretRepository等と
-    // 同じsupabaseJson（encodeDefaults=true。GoTrueへ送るtype等の既定値付きフィールドが
-    // 欠落しないようにする必要がある。TransferSessionIssuer参照）で揃える。
+    // Postgrest（restClient）とは別の、GoTrue Admin API専用クライアント。
+    // ContentNegotiationは同じsupabaseJson（encodeDefaults=trueでGoTrueへの既定値
+    // フィールド欠落を防ぐ。TransferSessionIssuer参照）で揃える。
     val authClient = HttpClient(CIO) {
         install(ClientContentNegotiation) {
             json(supabaseJson)
