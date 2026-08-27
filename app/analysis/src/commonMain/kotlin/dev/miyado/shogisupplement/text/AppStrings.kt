@@ -885,4 +885,15 @@ object AppStrings {
     const val STRENGTH_DETAIL_ACCOUNT_NAME_UNSET = "アカウント名未入力"
     const val STRENGTH_DETAIL_RULE_UNSET = "未入力"
     const val STRENGTH_DETAIL_LISHOGI_RATING_LABEL = "レーティング"
+
+    // ═══ 39. マイページ（Web版・引き継ぎコードでログインして棋譜一覧を見る）══════════════
+
+    const val MYPAGE_LOGIN_DESCRIPTION = "アプリの設定画面で表示した引き継ぎコードを入力すると、自分の棋譜一覧を見られます。"
+    const val MYPAGE_LOGIN_BUTTON = "引き継ぎコードを入力"
+    const val MYPAGE_ERROR_NO_SECRET = "棋譜を復元できませんでした。もう一度ログインし直してください。"
+    const val MYPAGE_ERROR_NOT_FOUND = "この棋譜が見つかりませんでした。削除された可能性があります。"
+    const val MYPAGE_ERROR_NETWORK = "通信に失敗しました。しばらくしてから再度お試しください。"
+    const val MYPAGE_ERROR_LOGOUT_FAILED = "ログアウトに失敗しました。もう一度お試しください。"
+    const val MYPAGE_LOGOUT_BUTTON = "ログアウト"
+    const val MYPAGE_BACK_TO_LIST_BUTTON = "一覧へ戻る"
 }

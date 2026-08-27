@@ -6,6 +6,7 @@ import dev.miyado.shogisupplement.crypto.TransferSecretManager
 import dev.miyado.shogisupplement.crypto.TransferSecretStore
 import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.db.GameRecord
+import dev.miyado.shogisupplement.download.BlunderReportJson
 import dev.miyado.shogisupplement.kifu.KifParser
 import dev.miyado.shogisupplement.kifu.KifuDecomposer
 import io.github.jan.supabase.SupabaseClient
@@ -219,20 +220,6 @@ class SupabaseUploadRepository(
         @SerialName("move_count") val moveCount: Long,
         @SerialName("coef_version") val coefVersion: String,
         @SerialName("analysis_json") val analysisJson: List<BlunderReportJson>,
-    )
-
-    @Serializable
-    private data class BlunderReportJson(
-        val ply: Long,
-        val side: String,
-        @SerialName("move_usi") val moveUsi: String,
-        @SerialName("best_usi") val bestUsi: String?,
-        @SerialName("loss_wp") val lossWp: Double,
-        val category: String,
-        val verdict: String,
-        val note: String,
-        @SerialName("problem_type") val problemType: String,
-        val priority: Double,
     )
 
     @Serializable

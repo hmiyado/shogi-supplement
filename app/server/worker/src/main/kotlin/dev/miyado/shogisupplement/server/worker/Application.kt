@@ -1,5 +1,6 @@
 package dev.miyado.shogisupplement.server.worker
 
+import dev.miyado.shogisupplement.api.ApiHeaders
 import dev.miyado.shogisupplement.api.analysis.EngineMetaJson
 import dev.miyado.shogisupplement.api.analysis.ErrorJson
 import dev.miyado.shogisupplement.engine.EngineInvariants
@@ -25,8 +26,10 @@ import io.ktor.server.application.Application
 import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
+import io.ktor.http.HttpHeaders
 import io.ktor.server.plugins.calllogging.CallLogging
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.server.plugins.cors.routing.CORS
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.response.respond
 import io.ktor.server.routing.routing
@@ -46,6 +49,16 @@ fun main() {
 fun Application.module(config: WorkerConfig) {
     install(ContentNegotiation) {
         json(Json { ignoreUnknownKeys = true })
+    }
+    // Web版（docs/mypage.html）からのfetchはブラウザのプリフライトで弾かれるため必須。
+    install(CORS) {
+        allowHost("shogi-supplement.miyado.dev", schemes = listOf("https"))
+        allowHost("localhost:8000", schemes = listOf("http"))
+        allowMethod(io.ktor.http.HttpMethod.Post)
+        allowHeader(HttpHeaders.ContentType)
+        allowHeader(ApiHeaders.APP_CHECK)
+        allowHeader(ApiHeaders.APP_PLATFORM)
+        allowHeader(ApiHeaders.APP_BUILD)
     }
     install(CallLogging)
     install(StatusPages) {
