@@ -19,7 +19,7 @@ roborazzi = "1.72.0"
 robolectric = "4.16.1"
 supabase = "3.7.0"
 ktor = "3.5.2"
-aboutlibraries = "15.0.4"
+aboutlibraries = "15.1.0"
 sentry = "8.53.0"
 compose-multiplatform = "1.11.1"
 # JetBrains製 multiplatform lifecycle-viewmodel（iOS向け）。Android上ではandroidx.lifecycleへの
