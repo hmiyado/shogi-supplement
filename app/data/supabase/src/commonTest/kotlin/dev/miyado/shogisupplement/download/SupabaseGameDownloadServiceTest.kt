@@ -70,6 +70,7 @@ class SupabaseGameDownloadServiceTest {
             analyzedAt: Long, kifText: String?, userSide: String?, ratingService: String?, ratingRaw: Long?,
             ratingRule: String?, sourcePlace: String?, gameWinner: String?, endReason: String?,
             openingStyle: String?, openingCastle: String?, openingTags: String?,
+            senteRating: Long?, goteRating: Long?,
         ): Long = error("not used by SupabaseGameDownloadService")
 
         override fun seedFixtureBlunder(
@@ -194,6 +195,28 @@ class SupabaseGameDownloadServiceTest {
         assertTrue(captured[0].kifText.contains("太郎"), "復号済みの対局者名がKIFに反映されるはず")
         assertEquals(listOf(0 to 1, 1 to 1), progress)
         assertEquals(listOf(42L), repository.uploadedAtCalls, "取込成功後はuploaded_atを確定させ再アップロード対象から外すはず")
+    }
+
+    @Test
+    fun `source_placeがotherの行はoverrideを渡さず再構成KIFからの判定に委ねる`() = runTest {
+        val contentHash = "hash-other"
+        val privateEnc = encryptedPrivateEnc(
+            contentHash,
+            PrivateKifuFields(senteName = "太郎", goteName = "花子", extraHeaders = emptyMap(), comments = emptyList()),
+        )
+        val json = """
+            [{"id":"row-1","content_hash":"$contentHash","moves_usi":["7g7f","3c3d"],
+              "headers":{"開始日時":"2026/01/01 00:00","手合割":"平手"},"result":"投了",
+              "source_place":"other","side":"sente","private_enc":"$privateEnc"}]
+        """.trimIndent()
+
+        val captured = mutableListOf<ReconstructedGame>()
+        service(rowsResponseEngine(json)).downloadAndImport { game ->
+            captured += game
+            GameImportOutcome(success = true, gameId = 1L)
+        }
+
+        assertEquals(null, captured[0].sourcePlaceOverride)
     }
 
     @Test

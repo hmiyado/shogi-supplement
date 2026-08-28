@@ -20,8 +20,11 @@ env:
     clearState: false
 - tapOn: "棋譜を追加する"
 - tapOn: "ファイルから選ぶ"
-# システムのドキュメントピッカー（com.android.documentsui）側の「最近使ったファイル」に
-# 表示されたファイル名をそのままタップする。
+# システムのドキュメントピッカー（com.android.documentsui）側は「最近使ったファイル」に
+# push直後のKIFが出ないことがあるため、検索からファイル名を絞り込む。
+- tapOn:
+    id: "com.google.android.documentsui:id/option_menu_search"
+- inputText: "wars_game3"
 - tapOn: "wars_game3.kif"
 - runFlow: ../common/select_gote_and_start_analysis.yaml
 # 通知権限ダイアログ（Android 13+、初回の解析開始時のみ要求される）。許可/拒否の

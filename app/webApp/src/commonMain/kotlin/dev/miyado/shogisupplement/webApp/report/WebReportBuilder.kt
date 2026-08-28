@@ -50,13 +50,15 @@ fun buildWebReport(
 
     val positionEvalRows = evals.mapIndexedNotNull { t, posEval -> toPositionEvalRow(t, posEval) }
 
+    val source = KifuDecomposer.classifySource(kifText ?: "", headers["場所"], headers["棋戦"])
+    val players = KifuDecomposer.resolvePlayers(source, headers)
     val game = GameRecord(
         id = 0L,
         fileName = fileName,
         contentHash = "",
         moveCount = moves.size.toLong(),
-        senteName = headers["先手"],
-        goteName = headers["後手"],
+        senteName = players.headers["先手"],
+        goteName = players.headers["後手"],
         // Web版はDB永続化を持たず「解析した時刻」という概念がないため0（日時不明の
         // センチネル）を渡す。
         analyzedAt = 0L,
@@ -66,9 +68,11 @@ fun buildWebReport(
         kifText = kifText,
         movesUsi = moves,
         userSide = userSide,
-        sourcePlace = KifuDecomposer.classifySource(kifText ?: "", headers["場所"]).wireValue,
+        sourcePlace = source.wireValue,
         gameWinner = winner,
         endReason = endReason,
+        senteRating = players.senteRating,
+        goteRating = players.goteRating,
     )
 
     val matchRateResult = EngineMatchRate.compute(moves, positionEvalRows, userSide)

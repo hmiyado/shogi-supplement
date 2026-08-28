@@ -28,11 +28,15 @@ on:
       - "app/androidApp/src/main/assets/coefficients_hao_isolate_v1.json"
       # 検討ページ本体(:webApp)・依存モジュール(:ui/:analysis/:kifu)のwasmJs
       # production distributionから生成する。ビルド設定を変えるとバンドル内容が
-      # 変わりうるため合わせて対象にする。
+      # 変わりうるため合わせて対象にする。マイページ(:data:supabase/:application/:contracts)も
+      # 同じバンドルに含まれるため、ここだけの変更でも再ビルドが要る。
       - "app/webApp/**"
       - "app/ui/**"
       - "app/analysis/**"
       - "app/kifu/**"
+      - "app/data/supabase/**"
+      - "app/application/**"
+      - "app/contracts/**"
       - "app/build.gradle.kts"
       - "app/settings.gradle.kts"
       # npm依存の固定内容が変わるとwasmバンドルの構成も変わりうる
@@ -107,6 +111,12 @@ jobs:
         run: ./engine-wasm/build_wasm_browser.sh
 
       - name: 検討ページの資産をdocs/kento-assets・docs/kento・docs/composeResourcesへ配置(:webAppのGradleビルドを含む)
+        # SUPABASE_ANON_KEYはクライアント埋め込み前提の鍵で秘密ではないため、
+        # secretsではなくvarsに置く（モバイルのBuildConfig.SUPABASE_KEYと同じ性質）。
+        env:
+          SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ vars.SUPABASE_ANON_KEY }}
+          WORKER_BASE_URL: ${{ vars.WORKER_BASE_URL }}
         run: ./docs/copy-kento-assets.sh
 
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0

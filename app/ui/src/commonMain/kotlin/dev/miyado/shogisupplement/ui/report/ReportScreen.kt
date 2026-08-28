@@ -22,6 +22,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.board.PieceType
 import dev.miyado.shogisupplement.board.ShogiBoard
@@ -32,6 +33,7 @@ import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.PositionEvalRow
 import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.boardMaxHeight
+import dev.miyado.shogisupplement.ui.common.appendPlayerRating
 import dev.miyado.shogisupplement.ui.common.DeleteGameConfirmDialog
 import dev.miyado.shogisupplement.ui.common.PvExtState
 import dev.miyado.shogisupplement.ui.common.ReportBackHandler
@@ -55,6 +57,7 @@ fun ReportScreen(
     blunderRateDisplayText: String? = null,
     analysisPending: Boolean = false,
     onAnalyze: () -> Unit = {},
+    canDelete: Boolean = true,
     onBack: () -> Unit,
     pvExtState: Map<Long, PvExtState> = emptyMap(),
     pvExtensionEnabled: Boolean = true,
@@ -172,9 +175,16 @@ fun ReportScreen(
 
     val senteSuffix = if (game.userSide == "sente") AppStrings.PLAYER_YOU else ""
     val goteSuffix = if (game.userSide == "gote") AppStrings.PLAYER_YOU else ""
-    val senteName = game.senteName ?: AppStrings.PLAYER_UNKNOWN
-    val goteName = game.goteName ?: AppStrings.PLAYER_UNKNOWN
-    val playersLine = "▲$senteName$senteSuffix　△$goteName$goteSuffix"
+    val playersLine = buildAnnotatedString {
+        append("▲")
+        append(game.senteName ?: AppStrings.PLAYER_UNKNOWN)
+        appendPlayerRating(game.senteRating)
+        append(senteSuffix)
+        append("　△")
+        append(game.goteName ?: AppStrings.PLAYER_UNKNOWN)
+        appendPlayerRating(game.goteRating)
+        append(goteSuffix)
+    }
     var showGameInfoDialog by remember { mutableStateOf(initialShowGameInfoDialog) }
     var showDeleteDialog by remember { mutableStateOf(false) }
 
@@ -236,7 +246,7 @@ fun ReportScreen(
                             }
                         }
                     },
-                    onDeleteClick = { showDeleteDialog = true },
+                    onDeleteClick = if (canDelete) { { showDeleteDialog = true } } else null,
                 )
 
                 val studyCurrentSfen = remember(studyState) {

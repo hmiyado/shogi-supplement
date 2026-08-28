@@ -1,5 +1,6 @@
 package dev.miyado.shogisupplement.server.worker
 
+import dev.miyado.shogisupplement.api.ApiHeaders
 import dev.miyado.shogisupplement.api.analysis.EngineMetaJson
 import dev.miyado.shogisupplement.api.analysis.ErrorJson
 import dev.miyado.shogisupplement.engine.EngineInvariants
@@ -25,8 +26,10 @@ import io.ktor.server.application.Application
 import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
+import io.ktor.http.HttpHeaders
 import io.ktor.server.plugins.calllogging.CallLogging
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.server.plugins.cors.routing.CORS
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.response.respond
 import io.ktor.server.routing.routing
@@ -46,6 +49,19 @@ fun main() {
 fun Application.module(config: WorkerConfig) {
     install(ContentNegotiation) {
         json(Json { ignoreUnknownKeys = true })
+    }
+    // Web版（docs/mypage.html）からのfetchはブラウザのプリフライトで弾かれるため必須。
+    install(CORS) {
+        allowHost("shogi-supplement.miyado.dev", schemes = listOf("https"))
+        // ALLOW_LOCALHOST_CORS=true（ローカル起動時のみ）でdocs/mypage.htmlの動作確認を可能にする。
+        if (config.allowLocalhostCors) {
+            allowHost("localhost:8000", schemes = listOf("http"))
+        }
+        allowMethod(io.ktor.http.HttpMethod.Post)
+        allowHeader(HttpHeaders.ContentType)
+        allowHeader(ApiHeaders.APP_CHECK)
+        allowHeader(ApiHeaders.APP_PLATFORM)
+        allowHeader(ApiHeaders.APP_BUILD)
     }
     install(CallLogging)
     install(StatusPages) {
@@ -114,10 +130,9 @@ fun Application.module(config: WorkerConfig) {
 
     val transferSecretRepository =
         SupabaseTransferSecretRepository(restClient, config.supabaseUrl, config.supabaseServiceRoleKey)
-    // Postgrest（restClient）とは別に、GoTrue Admin API（/auth/v1/admin/*・/auth/v1/verify）を
-    // 叩く専用クライアント。ContentNegotiationはSupabaseTransferSecretRepository等と
-    // 同じsupabaseJson（encodeDefaults=true。GoTrueへ送るtype等の既定値付きフィールドが
-    // 欠落しないようにする必要がある。TransferSessionIssuer参照）で揃える。
+    // Postgrest（restClient）とは別の、GoTrue Admin API専用クライアント。
+    // ContentNegotiationは同じsupabaseJson（encodeDefaults=trueでGoTrueへの既定値
+    // フィールド欠落を防ぐ。TransferSessionIssuer参照）で揃える。
     val authClient = HttpClient(CIO) {
         install(ClientContentNegotiation) {
             json(supabaseJson)

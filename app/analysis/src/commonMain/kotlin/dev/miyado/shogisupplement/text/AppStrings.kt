@@ -83,7 +83,7 @@ object AppStrings {
 
     fun gameMoveCount(count: Long): String = "${count}手"
     fun playersLine(senteName: String?, goteName: String?): String =
-        "先手: ${senteName ?: "不明"}  後手: ${goteName ?: "不明"}"
+        "先手: ${senteName ?: PLAYER_UNKNOWN}  後手: ${goteName ?: PLAYER_UNKNOWN}"
 
 
     const val RATING_DIALOG_TITLE = "棋力設定"
@@ -99,6 +99,7 @@ object AppStrings {
         "lishogi" to "lishogi",
         "shogi_wars" to "将棋ウォーズ",
         "kiou" to "棋桜",
+        "shogi_quest" to "将棋クエスト",
     )
 
     /** 将棋ウォーズのルール選択肢（ID to 表示ラベル）。増減はこのリストだけ修正する。 */
@@ -340,6 +341,7 @@ object AppStrings {
     fun serviceShortName(serviceId: String): String = when (serviceId) {
         "shogi_wars" -> "ウォーズ"
         "kiou" -> "棋桜"
+        "shogi_quest" -> "クエスト"
         else -> serviceId
     }
 
@@ -350,6 +352,7 @@ object AppStrings {
         "wars" -> "将棋ウォーズ"
         "lishogi" -> "lishogi"
         "kiou" -> "棋桜"
+        "shogi_quest" -> "将棋クエスト"
         else -> null
     }
 
@@ -885,4 +888,15 @@ object AppStrings {
     const val STRENGTH_DETAIL_ACCOUNT_NAME_UNSET = "アカウント名未入力"
     const val STRENGTH_DETAIL_RULE_UNSET = "未入力"
     const val STRENGTH_DETAIL_LISHOGI_RATING_LABEL = "レーティング"
+
+    // ═══ 39. マイページ（Web版・引き継ぎコードでログインして棋譜一覧を見る）══════════════
+
+    const val MYPAGE_LOGIN_DESCRIPTION = "アプリの設定画面で表示した引き継ぎコードを入力すると、自分の棋譜一覧を見られます。"
+    const val MYPAGE_LOGIN_BUTTON = "引き継ぎコードを入力"
+    const val MYPAGE_ERROR_NO_SECRET = "棋譜を復元できませんでした。もう一度ログインし直してください。"
+    const val MYPAGE_ERROR_NOT_FOUND = "この棋譜が見つかりませんでした。削除された可能性があります。"
+    const val MYPAGE_ERROR_NETWORK = "通信に失敗しました。しばらくしてから再度お試しください。"
+    const val MYPAGE_ERROR_LOGOUT_FAILED = "ログアウトに失敗しました。もう一度お試しください。"
+    const val MYPAGE_LOGOUT_BUTTON = "ログアウト"
+    const val MYPAGE_BACK_TO_LIST_BUTTON = "一覧へ戻る"
 }

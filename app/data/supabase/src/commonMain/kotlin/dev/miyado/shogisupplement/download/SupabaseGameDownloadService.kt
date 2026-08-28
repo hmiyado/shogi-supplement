@@ -15,13 +15,8 @@ import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Columns
 import io.github.jan.supabase.postgrest.query.Count
-import io.github.jan.supabase.postgrest.query.Order
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
-
-private const val TABLE = "uploaded_games"
 
 /**
  * 復元された端末シークレットSからK_encを導出し、`uploaded_games.private_enc`を復号する。
@@ -34,8 +29,10 @@ class SupabaseGameDownloadService(
     private val gameRepository: GameRepository,
 ) : GameDownloadService {
 
+    private val remoteSource = UploadedGamesRemoteSource(supabase)
+
     override suspend fun countRemoteGames(): Result<Int> = runCatching {
-        val result = supabase.from(TABLE).select(columns = Columns.list("id")) {
+        val result = supabase.from(UPLOADED_GAMES_TABLE).select(columns = Columns.list("id")) {
             head = true
             count(Count.EXACT)
         }
@@ -56,7 +53,7 @@ class SupabaseGameDownloadService(
         val kEnc = TransferSecretKeys.deriveEncKey(secrets.encSecret)
 
         val rows = try {
-            fetchAllRows()
+            remoteSource.fetchAllRows()
         } catch (e: Exception) {
             return GameDownloadOutcome.NetworkError(e.message ?: "communication failed")
         }
@@ -126,47 +123,11 @@ class SupabaseGameDownloadService(
                 ratingService = row.ratingService,
                 ratingRaw = row.ratingRaw?.toLong(),
                 ratingRule = row.ratingRule,
-                sourcePlaceOverride = row.sourcePlace,
+                // "other" は出典分類が増える前の暫定値であり得るため強制しない
+                // （再構成KIFの棋戦・場所ヘッダから現行の分類器で判定させる）。
+                sourcePlaceOverride = row.sourcePlace?.takeIf { it != KifuSource.OTHER.wireValue },
             ),
         )
     }
 
-    /** created_at昇順で全ページを取得する。件数は日次50行上限があるため通常は1ページで収まる。 */
-    private suspend fun fetchAllRows(): List<UploadedGameRow> {
-        val rows = mutableListOf<UploadedGameRow>()
-        var offset = 0L
-        while (true) {
-            // RLSが自分の行だけに絞るため、user_idでの絞り込みは書かない。
-            val page = supabase.from(TABLE)
-                .select {
-                    order("created_at", Order.ASCENDING)
-                    range(offset, offset + PAGE_SIZE - 1)
-                }
-                .decodeList<UploadedGameRow>()
-            rows += page
-            if (page.size < PAGE_SIZE) break
-            offset += PAGE_SIZE
-        }
-        return rows
-    }
-
-    @Serializable
-    private data class UploadedGameRow(
-        val id: String,
-        @SerialName("content_hash") val contentHash: String,
-        @SerialName("moves_usi") val movesUsi: List<String>,
-        @SerialName("move_times") val moveTimes: List<Int?>? = null,
-        val headers: Map<String, String>? = null,
-        val result: String? = null,
-        @SerialName("source_place") val sourcePlace: String? = null,
-        val side: String? = null,
-        @SerialName("private_enc") val privateEnc: String? = null,
-        @SerialName("rating_service") val ratingService: String? = null,
-        @SerialName("rating_raw") val ratingRaw: Int? = null,
-        @SerialName("rating_rule") val ratingRule: String? = null,
-    )
-
-    companion object {
-        private const val PAGE_SIZE = 200L
-    }
 }

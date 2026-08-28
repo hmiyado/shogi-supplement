@@ -198,3 +198,52 @@ data object OnlyGote : OpeningCondition {
 
     override fun holds(context: OpeningContext, side: Side): Boolean = side == Side.WHITE
 }
+
+/** 角交換の直後に、自分の角を筋違いのマスへ打つ。 */
+data class SujichigaiDrop(val withinPlies: Int) : OpeningCondition {
+    override fun describe(): String =
+        "角交換から${withinPlies}手以内に、自分の角を筋違いのマス（先手4五・後手6五）へ打つ"
+
+    override fun holds(context: OpeningContext, side: Side): Boolean {
+        val drop = context.events.sujichigaiDropPly[side] ?: return false
+        val exchange = context.events.bishopExchangePly ?: return false
+        return drop - exchange <= withinPlies
+    }
+}
+
+/** 角道を開けたまま7五の歩を突き、飛車を7筋へ振る。 */
+data class HayaishidaSetup(val plyCap: Int) : OpeningCondition {
+    override fun describe(): String =
+        "${plyCap}手以内に7五（後手3五）の歩を突き、飛車を7筋（後手3筋）へ振る。" +
+            "角道を止める歩（先手6六・後手4四）は突いていない"
+
+    override fun holds(context: OpeningContext, side: Side): Boolean {
+        val pawn = context.events.sideRookPawnPly[side] ?: return false
+        val rook = context.events.sangenbishaPly[side] ?: return false
+        // 角道を止めた将棋はただの三間飛車。角道を開けたまま突くのが早石田。
+        if (context.events.bishopPathClosedPly[side] != null) return false
+        return maxOf(pawn, rook) <= plyCap
+    }
+}
+
+/** 飛車先の歩を交換したあと、その飛車を左翼へ寄せる。 */
+data class HineriTurn(val plyCap: Int) : OpeningCondition {
+    override fun describe(): String =
+        "飛車先の歩を交換したあと、${plyCap}手以内にその飛車を3六（後手7四）へ寄せる"
+
+    override fun holds(context: OpeningContext, side: Side): Boolean {
+        val ply = context.events.hineriPly[side] ?: return false
+        return ply <= plyCap
+    }
+}
+
+/** 自陣の最下段へ引いた飛車を、その段のまま端筋へ通す。 */
+data class ChikatetsuTunnel(val plyCap: Int) : OpeningCondition {
+    override fun describe(): String =
+        "自陣の最下段へ引いた飛車を、その段のまま${plyCap}手以内に端筋（先手9筋・後手1筋）へ回す"
+
+    override fun holds(context: OpeningContext, side: Side): Boolean {
+        val ply = context.events.chikatetsuPly[side] ?: return false
+        return ply <= plyCap
+    }
+}

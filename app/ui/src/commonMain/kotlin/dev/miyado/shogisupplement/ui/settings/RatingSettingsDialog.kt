@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.rating.RankScale
 import dev.miyado.shogisupplement.rating.ShogiRank
 import dev.miyado.shogisupplement.text.AppStrings
+import dev.miyado.shogisupplement.ui.theme.TextStyleData
 
 // ─── レートルール定数（文言の実体は AppStrings に集約）───────────────────────
 
@@ -54,6 +55,9 @@ private val KIOU_SCALE = RankScale(maxKyu = 10)
 private val WARS_RANK_DEFAULT_INDEX = 0
 private val KIOU_RANK_DEFAULT_INDEX = 0
 
+/** レーティング制サービスの初期表示値。 */
+private const val DEFAULT_RATING_TEXT = "1750"
+
 /**
  * 棋力設定ダイアログ。UI順: サービス選択 → アカウント名 → ルール別段級位/レート（任意）。
  * サービス/ルール/段級位は申告のみで相応判定には使わない。アカウント名は先後自動選択の
@@ -70,7 +74,13 @@ fun RatingSettingsDialog(
     onDismiss: () -> Unit,
 ) {
     var service by remember { mutableStateOf(savedService) }
-    var ratingText by remember { mutableStateOf((savedRatingRaw ?: 1750).toString()) }
+    // レーティング制サービス（lishogi・将棋クエスト）ごとの入力値。単一のstateにすると
+    // サービス切替時に前のサービスの値が残ったまま別サービスとして保存されてしまうため分ける。
+    val serviceRatingTexts = remember {
+        mutableStateMapOf<String, String>().also { map ->
+            if (savedRatingRaw != null) map[savedService] = savedRatingRaw.toString()
+        }
+    }
     // サービスごとのアカウント名（state-aware map）
     val serviceAccountNames = remember {
         mutableStateMapOf<String, String>().also { map ->
@@ -131,13 +141,15 @@ fun RatingSettingsDialog(
 
                 // ── 3. ルール別段級位/レート入力 ────────────────────────────
                 when (service) {
-                    "lishogi" -> {
-                        // lishogi: レーティング数値1行
+                    "lishogi", "shogi_quest" -> {
+                        // レーティング制サービス: レーティング数値1行
                         Text(AppStrings.RATING_FIELD_RATING, style = MaterialTheme.typography.labelMedium)
+                        val currentRatingText = serviceRatingTexts[service] ?: DEFAULT_RATING_TEXT
                         OutlinedTextField(
-                            value = ratingText,
-                            onValueChange = { ratingText = it },
+                            value = currentRatingText,
+                            onValueChange = { serviceRatingTexts[service] = it },
                             label = { Text("レーティング") },
+                            textStyle = TextStyleData,
                             singleLine = true,
                         )
                     }
@@ -175,10 +187,11 @@ fun RatingSettingsDialog(
                     val kiouMap = kiouRankIndices.mapValues { (_, idx) -> KIOU_SCALE.fromIndex(idx).toRaw() }
                     if (kiouMap.isNotEmpty()) put("kiou", kiouMap)
                 }
-                // lishogi のレートは savedRatingRaw/ratingText で扱う（ルール別ではなく単一値）
+                // レーティング制サービスのレートは savedRatingRaw/serviceRatingTexts で扱う
+                // （ルール別ではなく単一値。保存できるのは選択中サービス1件分のみ）。
                 val ratingRaw = when (service) {
                     "shogi_wars", "kiou" -> null // ルール別に保存するため単一値は使わない
-                    else -> ratingText.toIntOrNull()
+                    else -> (serviceRatingTexts[service] ?: DEFAULT_RATING_TEXT).toIntOrNull()
                 }
                 // 空でないアカウント名だけを保存する
                 val builtAccounts = serviceAccountNames

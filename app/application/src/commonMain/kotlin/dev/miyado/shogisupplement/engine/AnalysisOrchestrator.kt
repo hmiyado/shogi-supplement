@@ -92,6 +92,9 @@ class AnalysisOrchestrator(
                 coef = coefTable,
             )
 
+            val source = KifuDecomposer.classifySource(kifContent, game.headers["場所"], game.headers["棋戦"])
+            val players = KifuDecomposer.resolvePlayers(source, game.headers)
+
             val opening = when (userSide) {
                 "sente" -> OpeningClassifier.classify(game.moves).black
                 "gote" -> OpeningClassifier.classify(game.moves).white
@@ -105,7 +108,7 @@ class AnalysisOrchestrator(
                 fileName = fileName,
                 contentHash = effectiveContentHash,
                 moves = game.moves,
-                headers = game.headers,
+                headers = players.headers,
                 reports = analysisResult.reports,
                 rating = analysisResult.estimatedRating,
                 ratingSampleMoves = analysisResult.ratingSampleMoves,
@@ -116,8 +119,7 @@ class AnalysisOrchestrator(
                 ratingRaw = ratingRaw,
                 ratingRule = ratingRule,
                 // 「場所」には対局識別URLが入り得るため保存せず、正規化した出典だけを残す。
-                sourcePlace = sourcePlaceOverride
-                    ?: KifuDecomposer.classifySource(kifContent, game.headers["場所"]).wireValue,
+                sourcePlace = sourcePlaceOverride ?: source.wireValue,
                 gameWinner = game.winner,
                 endReason = game.endReason,
                 openingStyle = classified(opening?.style),
@@ -127,6 +129,8 @@ class AnalysisOrchestrator(
                     val ordered = OpeningClassifier.PRIMARY_STYLE_PRIORITY.filter { it in tags }
                     (ordered + (tags - ordered.toSet()).sorted()).joinToString("|")
                 },
+                senteRating = players.senteRating,
+                goteRating = players.goteRating,
             )
 
             // 評価値はsente視点に正規化し、後からの計算に必要な第2候補も保存する。

@@ -47,6 +47,8 @@ class ReportViewModelStudyResetTest {
             openingStyle: String?,
             openingCastle: String?,
             openingTags: String?,
+            senteRating: Long?,
+            goteRating: Long?,
         ): Long = 0
 
         override fun seedFixtureBlunder(

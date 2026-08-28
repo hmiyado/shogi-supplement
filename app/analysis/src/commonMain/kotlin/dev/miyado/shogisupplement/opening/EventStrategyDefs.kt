@@ -134,4 +134,86 @@ val EVENT_STRATEGY_DEFS: List<EventStrategyDef> = listOf(
             ),
         ),
     ),
+    EventStrategyDef(
+        name = "筋違い角",
+        slug = "sujichigai-kaku",
+        scope = TagScope.MATCHING_SIDE,
+        conditions = listOf(
+            SujichigaiDrop(withinPlies = 10),
+        ),
+        source = "shougi.jp/senpou/sujichigaikaku/（「▲7六歩△3四歩▲2二角成△同銀▲4五角」）",
+        samples = listOf(
+            sample("成立する手順", "7g7f 3c3d 8h2b+ 3a2b B*4e", matches = true),
+            sample(
+                "角を交換しただけで打っていないので成立しない",
+                "7g7f 3c3d 8h2b+ 3a2b 3i4h 2b3c",
+                matches = false,
+            ),
+        ),
+    ),
+    EventStrategyDef(
+        name = "早石田",
+        slug = "hayaishida",
+        scope = TagScope.MATCHING_SIDE,
+        conditions = listOf(
+            HayaishidaSetup(plyCap = 20),
+        ),
+        source = "shougi.jp/senpou/hayaishida/（「▲7八飛、▲7五歩」「▲7六歩△3四歩のあとに" +
+            "角道を止めず▲7五歩を突く」）",
+        samples = listOf(
+            sample("成立する手順", "7g7f 3c3d 7f7e 8c8d 2h7h", matches = true),
+            sample(
+                "角道を止めた三間飛車は成立しない",
+                "7g7f 3c3d 6g6f 8c8d 2h7h 8d8e 7f7e 4a3b",
+                matches = false,
+            ),
+        ),
+    ),
+    EventStrategyDef(
+        name = "ひねり飛車",
+        slug = "hineribisha",
+        scope = TagScope.MATCHING_SIDE,
+        conditions = listOf(
+            RequiresTag("相掛かり"),
+            HineriTurn(plyCap = 40),
+        ),
+        source = "shougi.jp/senpou/hineribisya/（「相掛かり戦法の出だしから飛車を左翼に転換して" +
+            "戦う戦法」「▲３六飛まで」）",
+        samples = listOf(
+            sample(
+                "成立する手順",
+                "2g2f 8c8d 2f2e 8d8e 6i7h 4a3b 2e2d 2c2d 2h2d 8e8f 8g8f 8b8f " +
+                    "2d2f 8f8b 2f3f 6a5b",
+                matches = true,
+            ),
+            sample(
+                "飛車を左翼へ寄せていない相掛かりでは成立しない",
+                "2g2f 8c8d 2f2e 8d8e 6i7h 4a3b 2e2d 2c2d 2h2d 8e8f 8g8f 8b8f 2d2h 8f8b",
+                matches = false,
+            ),
+        ),
+    ),
+    EventStrategyDef(
+        name = "地下鉄飛車",
+        slug = "chikatetsu-bisha",
+        scope = TagScope.MATCHING_SIDE,
+        conditions = listOf(
+            ChikatetsuTunnel(plyCap = 60),
+        ),
+        source = "ja.wikipedia.org/wiki/地下鉄飛車（「飛車を1段目に引いた後、飛車を転換して指す」" +
+            "「9筋に飛車を転換すると地下鉄飛車となる」）",
+        samples = listOf(
+            sample(
+                "成立する手順",
+                "3g3f 3c3d 7g7f 4c4d 2i3g 5c5d 3i3h 6c6d 4i4h 7c7d 5i5h 8c8d " +
+                    "6i6h 1c1d 7i7h 9c9d 8i7g 2c2d 9i9h 4a3b 2h2i 5a4b 2i9i 6a5b",
+                matches = true,
+            ),
+            sample(
+                "最下段へ引いただけで端筋へ回していないので成立しない",
+                "3g3f 3c3d 7g7f 4c4d 2i3g 5c5d 3i3h 6c6d 2h2i 4a3b",
+                matches = false,
+            ),
+        ),
+    ),
 )

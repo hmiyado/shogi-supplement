@@ -104,6 +104,10 @@ APIキーは `ASC_KEY_CONTENT`（`.p8` の中身）か `ASC_KEY_PATH`（`.p8` �
 黙って飛ばされ、そのバージョンのクラッシュはアプリのフレームがredactedのままになる。
 送り忘れたビルドには、あとから `sentry-cli debug-files upload` で送れる。
 
+`SENTRY_AUTH_TOKEN`だけでは`An organization ID or slug is required`で失敗する。
+`SENTRY_ORG`・`SENTRY_PROJECT`も一緒に渡す（値は`app/local.properties`の
+`SENTRY_DSN`から機械的に読み取れる。DSN自体はアプリバイナリに同梱される公開情報）。
+
 ### 審査提出
 
 アップロード済みのビルドを審査に出すときは `fastlane ios submit` を使う。
