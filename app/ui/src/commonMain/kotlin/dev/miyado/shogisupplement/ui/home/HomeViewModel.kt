@@ -16,6 +16,10 @@ import kotlinx.coroutines.withContext
 /** 段級位ではなくレーティング数値を単一値で申告するサービス。 */
 private val RATING_SERVICES = setOf("lishogi", "shogi_quest")
 
+/** 学習の記録カードの移動窓（直近30日）。ストリークのような単一日数指標にせず、1日抜けても
+ *  大きく動かない指標にすることで、猶予のない一発リセット的な体験を避ける。 */
+private const val DRILL_RECORD_WINDOW_DAYS = 30
+
 /** ホームのゲーム一覧、推定棋力カード、今日の問題に必要な表示データを計算する。 */
 class HomeViewModel(
     private val gameRepository: GameRepository,
@@ -28,6 +32,7 @@ class HomeViewModel(
         val games: List<GameRecord>,
         val strengthCard: StrengthCardData?,
         val todaysDrillHint: TodaysDrillHint?,
+        val drillRecordCard: DrillRecordCardData?,
     )
 
     /** ホーム画面（過去の解析一覧）表示用データをロードする。 */
@@ -39,7 +44,20 @@ class HomeViewModel(
             val gameExists = g.any { it.id == blunder.gameId }
             if (gameExists) TodaysDrillHint(blunder.ply) else null
         }
-        HomeResult(g, sc, hint)
+        val record = computeDrillRecordCard()
+        HomeResult(g, sc, hint, record)
+    }
+
+    /** 一度も解いていなければカード自体を出さない（データが無い状態を数字の0で見せない方針）。 */
+    private fun computeDrillRecordCard(): DrillRecordCardData? {
+        val totalAttempts = drillRepository.getDrillAttemptCountTotal()
+        if (totalAttempts == 0) return null
+        val activeDays = drillRepository.getDrillAttemptActiveDayCount(DRILL_RECORD_WINDOW_DAYS)
+        return DrillRecordCardData(
+            activeDaysInWindow = activeDays,
+            windowDays = DRILL_RECORD_WINDOW_DAYS,
+            totalAttempts = totalAttempts,
+        )
     }
 
     /** user_side設定済みゲームから強さ指標カードを計算する。Why not悪手を再集計しない: 推定器v2は局単位の予測を平均するため。 */

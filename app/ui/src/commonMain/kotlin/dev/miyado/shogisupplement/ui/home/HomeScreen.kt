@@ -33,6 +33,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.pipeline.InProgressAnalysis
@@ -56,6 +59,7 @@ fun HomeScreen(
     isLoggedIn: Boolean = false,
     strengthCard: StrengthCardData? = null,
     todaysDrillHint: TodaysDrillHint? = null,
+    drillRecordCard: DrillRecordCardData? = null,
     /** 解析中セッション（完了・失敗すると一覧から消え、pastGames側の通常カードに置き換わる）。 */
     analyzingSessions: List<InProgressAnalysis> = emptyList(),
     onOpenKif: () -> Unit,
@@ -127,6 +131,15 @@ fun HomeScreen(
                         shogiColors = shogiColors,
                         onHelpClick = onOpenStrengthHelp,
                         onCardClick = onOpenStrengthDetail,
+                    )
+                }
+            }
+
+            if (drillRecordCard != null) {
+                item {
+                    DrillRecordCard(
+                        drillRecordCard = drillRecordCard,
+                        shogiColors = shogiColors,
                     )
                 }
             }
@@ -304,6 +317,61 @@ fun StrengthCard(
                     color = shogiColors.ink3,
                 )
             }
+        }
+    }
+}
+
+@Composable
+fun DrillRecordCard(
+    drillRecordCard: DrillRecordCardData,
+    shogiColors: ShogiColors,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = AppStrings.DRILL_RECORD_CARD_TITLE,
+                style = MaterialTheme.typography.labelLarge,
+                color = shogiColors.ink2,
+            )
+            Spacer(Modifier.height(4.dp))
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(
+                    text = drillRecordCard.activeDaysInWindow.toString(),
+                    style = TextStyleDataLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = buildAnnotatedString {
+                        append(AppStrings.DRILL_RECORD_WINDOW_PREFIX)
+                        withStyle(SpanStyle(fontFamily = IbmPlexMonoFamily)) {
+                            append(drillRecordCard.windowDays.toString())
+                        }
+                        append(AppStrings.DRILL_RECORD_WINDOW_SUFFIX)
+                    },
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = shogiColors.ink2,
+                    modifier = Modifier.padding(bottom = 4.dp),
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = buildAnnotatedString {
+                    append(AppStrings.DRILL_RECORD_TOTAL_PREFIX)
+                    withStyle(SpanStyle(fontFamily = IbmPlexMonoFamily)) {
+                        append(drillRecordCard.totalAttempts.toString())
+                    }
+                    append(AppStrings.DRILL_RECORD_TOTAL_SUFFIX)
+                },
+                style = MaterialTheme.typography.labelMedium,
+                color = shogiColors.ink3,
+            )
         }
     }
 }

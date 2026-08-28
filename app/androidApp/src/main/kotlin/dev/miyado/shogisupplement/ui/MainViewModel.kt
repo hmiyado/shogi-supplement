@@ -172,6 +172,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 isLoggedIn = isLoggedIn,
                 strengthCard = result.strengthCard,
                 todaysDrillHint = result.todaysDrillHint,
+                drillRecordCard = result.drillRecordCard,
                 // ここで同期スナップショットを取る（init の sessions.collect は「変化」でしか
                 // 発火しないため、既に進行中のセッションがある状態でHomeへ戻ったときに
                 // 次の局面到着まで一覧が空のままになるのを防ぐ）。

@@ -28,6 +28,7 @@ fun HomeHost(
         isLoggedIn = state.isLoggedIn,
         strengthCard = state.strengthCard,
         todaysDrillHint = state.todaysDrillHint,
+        drillRecordCard = state.drillRecordCard,
         analyzingSessions = state.analyzingSessions,
         onOpenKif = onOpenKif,
         onGameClick = { game -> vm.showReport(game.id) },

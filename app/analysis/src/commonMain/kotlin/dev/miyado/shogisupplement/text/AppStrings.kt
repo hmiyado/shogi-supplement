@@ -81,6 +81,13 @@ object AppStrings {
     const val STRENGTH_CARD_TITLE = "推定棋力（偏差値）"
     fun strengthDetail(gameCount: Int): String = "直近${gameCount}局から算出"
 
+    const val DRILL_RECORD_CARD_TITLE = "学習の記録"
+    // 数値はmono書体が必須のため、地の文とは結合せず別々に持つ。
+    const val DRILL_RECORD_WINDOW_PREFIX = "/ 直近"
+    const val DRILL_RECORD_WINDOW_SUFFIX = "日"
+    const val DRILL_RECORD_TOTAL_PREFIX = "累計 "
+    const val DRILL_RECORD_TOTAL_SUFFIX = "問"
+
     fun gameMoveCount(count: Long): String = "${count}手"
     fun playersLine(senteName: String?, goteName: String?): String =
         "先手: ${senteName ?: PLAYER_UNKNOWN}  後手: ${goteName ?: PLAYER_UNKNOWN}"

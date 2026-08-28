@@ -40,4 +40,10 @@ interface DrillRepository {
 
     /** 解答のSupabase送信成功時刻を保存する。 */
     fun updateDrillAttemptUploadedAt(id: Long, epochSeconds: Long)
+
+    /** asOfEpochSeconds時点を基準に、直近windowDays暦日のうち解答があった日数（判定境界は深夜0時から4時間の猶予つき）。 */
+    fun getDrillAttemptActiveDayCount(windowDays: Int, asOfEpochSeconds: Long = currentEpochSeconds()): Int
+
+    /** 全期間の累計解答数。 */
+    fun getDrillAttemptCountTotal(): Int
 }

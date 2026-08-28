@@ -235,6 +235,23 @@ UPDATE drill_attempt SET sync_id = ? WHERE id = ?;
 updateDrillAttemptUploadedAt:
 UPDATE drill_attempt SET uploaded_at = ? WHERE id = ?;
 
+-- 日付境界は深夜0時ちょうどではなく4時間ずらす（'-4 hours'）。日付が変わった直後に
+-- 解いた分が前日扱いのまま継続扱いになるようにするための猶予（グレース期間）。
+-- windowDaysNegativeOffset には (窓の日数 - 1) を渡す（今日を含めてその日数前から）。
+-- epoch秒の単純な引き算だと境界を跨いだ端数（時・分）ぶん論理日が1つ多く／少なく
+-- 混ざるため、境界そのものをSQLiteの日付演算に委ねて暦日単位で揃える。
+-- 上限もasOfEpochSecondsの論理日で揃える（端末時計のズレで一時的に未来の
+-- attempted_atが入っても、それを恒久的に「窓内」として数え続けないようにする）。
+getDrillAttemptActiveDaysSince:
+SELECT DISTINCT date(attempted_at, 'unixepoch', 'localtime', '-4 hours') AS day
+FROM drill_attempt
+WHERE date(attempted_at, 'unixepoch', 'localtime', '-4 hours')
+    BETWEEN date(:asOfEpochSeconds, 'unixepoch', 'localtime', '-4 hours', (0 - :windowDaysNegativeOffset) || ' days')
+    AND date(:asOfEpochSeconds, 'unixepoch', 'localtime', '-4 hours');
+
+getDrillAttemptCountTotal:
+SELECT COUNT(*) FROM drill_attempt;
+
 -- ─── service_rank ───────────────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS service_rank (

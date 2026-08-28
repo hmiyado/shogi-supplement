@@ -85,6 +85,20 @@ class SqlDelightDrillRepository(private val database: ShogiSupplementDatabase) :
         database.shogiSupplementQueries.updateDrillAttemptUploadedAt(epochSeconds, id)
     }
 
+    override fun getDrillAttemptActiveDayCount(windowDays: Int, asOfEpochSeconds: Long): Int {
+        return database.shogiSupplementQueries
+            .getDrillAttemptActiveDaysSince(asOfEpochSeconds.toString(), (windowDays - 1).toLong())
+            .executeAsList()
+            .size
+    }
+
+    override fun getDrillAttemptCountTotal(): Int {
+        return database.shogiSupplementQueries
+            .getDrillAttemptCountTotal()
+            .executeAsOne()
+            .toInt()
+    }
+
     private fun dev.miyado.shogisupplement.db.Drill_attempt.toDrillAttemptRecord() =
         DrillAttemptRecord(
             id = id,

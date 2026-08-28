@@ -17,6 +17,7 @@ import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.engine.PvInfo
 import dev.miyado.shogisupplement.pipeline.InProgressAnalysis
 import dev.miyado.shogisupplement.pipeline.ProgressiveReportState
+import dev.miyado.shogisupplement.ui.home.DrillRecordCardData
 import dev.miyado.shogisupplement.ui.home.HomeScreen
 import dev.miyado.shogisupplement.ui.home.StrengthCardData
 import dev.miyado.shogisupplement.ui.home.TodaysDrillHint
@@ -141,6 +142,39 @@ class HomeScreenScreenshotTest {
                         ),
                         todaysDrillHint = TodaysDrillHint(
                             ply = 27L,
+                        ),
+                        onOpenKif = {},
+                        onGameClick = {},
+                        onStartDrill = {},
+                        titleIcon = { testTitleIcon() },
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun home_withDrillRecordCard() {
+        captureRoboImage(
+            filePath = "src/test/snapshots/home_with_drill_record_card.png",
+            roborazziOptions = roborazziOptions,
+        ) {
+            ShogiTheme {
+                Surface {
+                    HomeScreen(
+                        pastGames = sampleGames(),
+                        isLoggedIn = false,
+                        strengthCard = StrengthCardData(
+                            displayText = "58",
+                            detailText = "直近8局から算出",
+                        ),
+                        drillRecordCard = DrillRecordCardData(
+                            activeDaysInWindow = 18,
+                            windowDays = 30,
+                            totalAttempts = 142,
+                        ),
+                        todaysDrillHint = TodaysDrillHint(
+                            ply = 32L,
                         ),
                         onOpenKif = {},
                         onGameClick = {},

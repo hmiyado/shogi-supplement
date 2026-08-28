@@ -20,3 +20,16 @@ data class StrengthCardData(
 data class TodaysDrillHint(
     val ply: Long,
 )
+
+/**
+ * 学習の記録カードの表示データ。積み上げ値（後退しない数字）だけを持つ。
+ * 正答率のような増減する指標は意図的に含めない。分散学習・交互練習を取り入れると
+ * 正答率は一時的に下がるのが正常なため。
+ */
+data class DrillRecordCardData(
+    /** 直近[windowDays]日のうち、次の一手問題を1問以上解いた日数。 */
+    val activeDaysInWindow: Int,
+    val windowDays: Int,
+    /** 全期間の累計解答数。 */
+    val totalAttempts: Int,
+)

@@ -405,6 +405,7 @@ private fun DemoApp(
                     pastGames = data.games,
                     strengthCard = data.strengthCard,
                     todaysDrillHint = data.todaysDrillHint,
+                    drillRecordCard = data.drillRecordCard,
                     analyzingSessions = analyzingSessions.values.toList(),
                     onOpenKif = { showKifSourceDialog = true },
                     onGameClick = { game -> route = DemoRoute.Report(game.id) },
