@@ -13,6 +13,9 @@ import dev.miyado.shogisupplement.ui.common.defaultIoDispatcher
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 
+/** 段級位ではなくレーティング数値を単一値で申告するサービス。 */
+private val RATING_SERVICES = setOf("lishogi", "shogi_quest")
+
 /** ホームのゲーム一覧、推定棋力カード、今日の問題に必要な表示データを計算する。 */
 class HomeViewModel(
     private val gameRepository: GameRepository,
@@ -76,9 +79,10 @@ class HomeViewModel(
                 entries += "$shortName$ruleLabel $rankLabel"
             }
         }
-        // lishogi は単一レート（明示的に保存済みの場合のみ表示）
-        if (settings.service == "lishogi" && settingsRepository.hasUserSavedRatingSettings()) {
-            entries += "lishogi ${settings.ratingRaw}"
+        // レーティング制サービス（lishogi・将棋クエスト）は単一レート（明示的に保存済みの場合のみ表示）。
+        // レート欄を空のまま保存すると0が入るため、0は未申告として扱う。
+        if (settings.service in RATING_SERVICES && settings.ratingRaw > 0 && settingsRepository.hasUserSavedRatingSettings()) {
+            entries += "${AppStrings.serviceShortName(settings.service)} ${settings.ratingRaw}"
         }
         return if (entries.isEmpty()) null
         else AppStrings.strengthDeclaredLine(entries.joinToString(" ／ "))

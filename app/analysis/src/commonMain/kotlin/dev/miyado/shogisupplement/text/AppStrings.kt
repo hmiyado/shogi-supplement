@@ -99,6 +99,7 @@ object AppStrings {
         "lishogi" to "lishogi",
         "shogi_wars" to "将棋ウォーズ",
         "kiou" to "棋桜",
+        "shogi_quest" to "将棋クエスト",
     )
 
     /** 将棋ウォーズのルール選択肢（ID to 表示ラベル）。増減はこのリストだけ修正する。 */
@@ -340,6 +341,7 @@ object AppStrings {
     fun serviceShortName(serviceId: String): String = when (serviceId) {
         "shogi_wars" -> "ウォーズ"
         "kiou" -> "棋桜"
+        "shogi_quest" -> "クエスト"
         else -> serviceId
     }
 
