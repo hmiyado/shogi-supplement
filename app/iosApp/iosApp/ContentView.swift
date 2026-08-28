@@ -168,7 +168,9 @@ struct SpikeView: View {
                 endReason: nil,
                 openingStyle: nil,
                 openingCastle: nil,
-                openingTags: nil
+                openingTags: nil,
+                senteRating: nil,
+                goteRating: nil
             )
         }
 

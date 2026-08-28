@@ -94,4 +94,34 @@ class ReportGameInfoDialogScreenshotTest {
             roborazziOptions = roborazziOptions,
         )
     }
+
+    @OptIn(ExperimentalRoborazziApi::class)
+    @Test
+    fun report_viewer_game_info_dialog_quest_rating() {
+        composeRule.setContent {
+            ShogiTheme {
+                Surface {
+                    ReportScreen(
+                        game = sampleGame().copy(
+                            senteName = "相手A",
+                            goteName = "player1",
+                            sourcePlace = "shogi_quest",
+                            senteRating = 464L,
+                            goteRating = 800L,
+                        ),
+                        reports = listOf(sampleBlunder()),
+                        flip = false,
+                        strengthDisplayText = "52 ±27",
+                        onBack = {},
+                        initialShowGameInfoDialog = true,
+                    )
+                }
+            }
+        }
+        composeRule.waitForIdle()
+        captureScreenRoboImage(
+            filePath = "src/test/snapshots/report_viewer_game_info_dialog_quest_rating.png",
+            roborazziOptions = roborazziOptions,
+        )
+    }
 }

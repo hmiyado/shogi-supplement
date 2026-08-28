@@ -1,5 +1,18 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended"],
-  "minimumReleaseAge": "7 days"
+  "minimumReleaseAge": "7 days",
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "terraform-lint.ymlのterraform_versionをproviders.tfのrequired_versionと同じPRで追従させる",
+      "fileMatch": ["^\\.github/workflows/terraform-lint\\.yml$"],
+      "matchStrings": [
+        "terraform_version:\\s*[\"'](?<currentValue>[0-9.]+)[\"']"
+      ],
+      "depNameTemplate": "hashicorp/terraform",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$"
+    }
+  ]
 }

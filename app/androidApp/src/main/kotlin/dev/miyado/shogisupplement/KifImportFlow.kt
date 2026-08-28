@@ -103,8 +103,11 @@ fun KifImportFlow(
         scope.launch {
             val parsed = runCatching { dev.miyado.shogisupplement.kifu.KifParser().parse(text) }
                 .getOrNull()
-            kifSenteName = parsed?.senteName
-            kifGoteName = parsed?.goteName
+            val resolved = parsed?.let {
+                dev.miyado.shogisupplement.kifu.KifuDecomposer.resolvePlayerNames(text, it.headers)
+            }
+            kifSenteName = resolved?.first
+            kifGoteName = resolved?.second
             val suggestion = vm.suggestUserSideWithMatch(kifSenteName, kifGoteName)
             suggestedSide = suggestion.side
             suggestedByAccount = suggestion.matchedByAccount

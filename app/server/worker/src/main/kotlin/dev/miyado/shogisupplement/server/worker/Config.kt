@@ -17,6 +17,9 @@ data class WorkerConfig(
     // 空文字列はApp Check検証を無効化し、段階導入を可能にする。
     val firebaseProjectNumber: String,
     val transferRateLimitPerMinute: Int,
+    // ローカルのdocs/mypage.html（python http.server等）からの動作確認用。
+    // 本番のCloud Run環境変数には設定しないため既定false。
+    val allowLocalhostCors: Boolean,
 ) {
     companion object {
         fun fromEnv(env: (String) -> String? = System::getenv): WorkerConfig {
@@ -39,6 +42,7 @@ data class WorkerConfig(
                 staleRunningTimeoutMs = (env("STALE_RUNNING_TIMEOUT_MS") ?: "600000").toLong(),
                 firebaseProjectNumber = env("FIREBASE_PROJECT_NUMBER") ?: "",
                 transferRateLimitPerMinute = (env("TRANSFER_RATE_LIMIT_PER_MINUTE") ?: "5").toInt(),
+                allowLocalhostCors = (env("ALLOW_LOCALHOST_CORS") ?: "false").toBooleanStrict(),
             )
         }
 

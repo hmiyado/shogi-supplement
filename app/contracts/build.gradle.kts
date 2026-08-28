@@ -1,3 +1,5 @@
+@file:OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.kotlinSerialization)
@@ -16,6 +18,7 @@ kotlin {
     jvm()
     iosArm64()
     iosSimulatorArm64()
+    wasmJs { browser() }
 
     sourceSets {
         commonMain.dependencies {

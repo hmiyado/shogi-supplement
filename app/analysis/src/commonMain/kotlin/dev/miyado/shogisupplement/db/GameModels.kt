@@ -46,6 +46,9 @@ data class GameRecord(
     val openingCastle: String? = null,
     /** 成立した戦型のタグ。`|`区切りで保存する（[openingTagList]で読む）。 */
     val openingTags: String? = null,
+    /** 対局者のレート（将棋クエスト等、KIFの対局者名に付随して出典サービスが記録している値）。 */
+    val senteRating: Long? = null,
+    val goteRating: Long? = null,
 )
 
 /** 悪手レポートのドメインモデル（UI用）。 */

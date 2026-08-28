@@ -198,6 +198,100 @@ class KifuStructuredCodecTest {
     }
 
     @Test
+    fun `棋戦ヘッダがShogi Questならquestと判定される`() {
+        val kif = """
+            棋戦：Shogi Quest
+            手合割：平手
+            先手：相手A(464)
+            後手：player1(800)
+            手数----指手---------消費時間--
+               1 ７六歩(77)
+        """.trimIndent()
+        val game = parser.parse(kif)
+        val decomposed = KifuDecomposer.decompose(kif, game)
+        assertEquals(KifuSource.QUEST, decomposed.public.source)
+        // decompose経由でもレートは分離される（Supabaseアップロード時のprivate_encに
+        // レート込みの名前がそのまま入らないようにするため）。
+        assertEquals("相手A", decomposed.private.senteName)
+        assertEquals("player1", decomposed.private.goteName)
+    }
+
+    @Test
+    fun `resolvePlayerNamesは先後確認フロー向けにレート抜きの名前だけを返す`() {
+        val kif = """
+            棋戦：Shogi Quest
+            手合割：平手
+            先手：相手A(464)
+            後手：player1(800)
+            手数----指手---------消費時間--
+               1 ７六歩(77)
+        """.trimIndent()
+        val headers = parser.parse(kif).headers
+        assertEquals("相手A" to "player1", KifuDecomposer.resolvePlayerNames(kif, headers))
+    }
+
+    @Test
+    fun `quest判定時のみ対局者名末尾の括弧書きをレートとして分離する`() {
+        val kif = """
+            棋戦：Shogi Quest
+            手合割：平手
+            先手：相手A(464)
+            後手：player1(800)
+            手数----指手---------消費時間--
+               1 ７六歩(77)
+        """.trimIndent()
+        val game = parser.parse(kif)
+        val source = KifuDecomposer.classifySource(kif, game.headers["場所"], game.headers["棋戦"])
+        val players = KifuDecomposer.resolvePlayers(source, game.headers)
+        assertEquals("相手A", players.headers["先手"])
+        assertEquals("player1", players.headers["後手"])
+        assertEquals(464L, players.senteRating)
+        assertEquals(800L, players.goteRating)
+    }
+
+    @Test
+    fun `questのレートは実名込み再構成で対局者名へ復元されマスク済み再構成では出ない`() {
+        val kif = """
+            棋戦：Shogi Quest
+            手合割：平手
+            先手：相手A(464)
+            後手：player1(800)
+            手数----指手---------消費時間--
+               1 ７六歩(77)
+        """.trimIndent()
+        val game = parser.parse(kif)
+        val decomposed = KifuDecomposer.decompose(kif, game)
+
+        val reconstructed = KifuReconstructor.reconstruct(decomposed.public, decomposed.private)
+        val reparsed = parser.parse(reconstructed)
+        assertEquals("相手A(464)", reparsed.senteName)
+        assertEquals("player1(800)", reparsed.goteName)
+
+        val masked = KifuReconstructor.reconstruct(decomposed.public, private = null, userSide = "sente")
+        val maskedReparsed = parser.parse(masked)
+        assertEquals("user", maskedReparsed.senteName)
+        assertEquals("opponent", maskedReparsed.goteName)
+    }
+
+    @Test
+    fun `quest以外では対局者名の括弧書きをレートとして分離しない`() {
+        val kif = """
+            場所：将棋ウォーズ
+            手合割：平手
+            先手：相手A(464)
+            後手：花子
+            手数----指手---------消費時間--
+               1 ７六歩(77)
+        """.trimIndent()
+        val game = parser.parse(kif)
+        val source = KifuDecomposer.classifySource(kif, game.headers["場所"], game.headers["棋戦"])
+        assertEquals(KifuSource.WARS, source)
+        val players = KifuDecomposer.resolvePlayers(source, game.headers)
+        assertEquals("相手A(464)", players.headers["先手"])
+        assertNull(players.senteRating)
+    }
+
+    @Test
     fun `場所ヘッダが無ければotherになる`() {
         val kif = """
             手合割：平手

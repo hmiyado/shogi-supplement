@@ -131,15 +131,35 @@ class StrengthDetailViewModel(
         }
 
         // レーティングは単一行のsettings（rating_service列）に紐づくため、
-        // 最後に選ばれたサービスがlishogiのときだけ有効になる。
+        // 最後に選ばれたサービスのときだけ有効になる。レート欄を空のまま保存すると
+        // 0が入るため、0は未申告として扱う。
         val lishogiAccount = serviceAccounts["lishogi"]
-        val lishogiRating = if (ratingSettings.service == "lishogi" && hasSavedRating) ratingSettings.ratingRaw else null
+        val lishogiRating = if (ratingSettings.service == "lishogi" && hasSavedRating && ratingSettings.ratingRaw > 0) {
+            ratingSettings.ratingRaw
+        } else {
+            null
+        }
         if (lishogiAccount != null || lishogiRating != null) {
             result += StrengthDetailService(
                 serviceId = "lishogi",
                 label = AppStrings.serviceLabel("lishogi"),
                 accountName = lishogiAccount,
                 ratingText = lishogiRating?.toString(),
+            )
+        }
+
+        val questAccount = serviceAccounts["shogi_quest"]
+        val questRating = if (ratingSettings.service == "shogi_quest" && hasSavedRating && ratingSettings.ratingRaw > 0) {
+            ratingSettings.ratingRaw
+        } else {
+            null
+        }
+        if (questAccount != null || questRating != null) {
+            result += StrengthDetailService(
+                serviceId = "shogi_quest",
+                label = AppStrings.serviceLabel("shogi_quest"),
+                accountName = questAccount,
+                ratingText = questRating?.toString(),
             )
         }
 

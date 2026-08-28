@@ -59,16 +59,7 @@ class KifParser : KifuParser {
             prevDest = dest
         }
 
-        // 勝者判定: 投了・切れ負け・時間切れ・詰みは手数パリティで確定。引き分け系はnull。
-        // 次に指す番の側（= moves.size が偶数なら sente が次）が負けた場合に勝者を算出。
-        val winner: String? = if (endReason != null &&
-            endReason in setOf("投了", "切れ負け", "時間切れ", "反則負け", "詰み", "反則")
-        ) {
-            // moves.size 手目まで指された後、次は (moves.size % 2 == 0) なら sente (1手目が sente)
-            if (moves.size % 2 == 0) "gote" else "sente"
-        } else {
-            null
-        }
+        val winner = kifuWinner(endReason, moves.size)
 
         return KifuGame(moves, times, headers, endReason, winner, displayMoves)
     }
