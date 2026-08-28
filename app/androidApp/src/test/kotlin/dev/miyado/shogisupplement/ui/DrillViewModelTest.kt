@@ -6,6 +6,7 @@ import dev.miyado.shogisupplement.auth.FakeAuthRepository
 import dev.miyado.shogisupplement.blunder.Score
 import dev.miyado.shogisupplement.board.ShogiBoard
 import dev.miyado.shogisupplement.board.ShogiMove
+import dev.miyado.shogisupplement.board.ShogiSquare
 import dev.miyado.shogisupplement.classify.ClassificationResult
 import dev.miyado.shogisupplement.db.DrillRepository
 import dev.miyado.shogisupplement.db.GameRepository
@@ -148,6 +149,47 @@ class DrillViewModelTest {
         return vm
     }
 
+    /** ドリル候補を1件seedし、出題中（DrillUiState.Question）のDrillViewModelを返す。 */
+    private fun buildVmAtQuestion(repos: TestRepos = createDb()): DrillViewModel {
+        val report = BlunderReport(
+            ply = 1,
+            side = "sente",
+            moveUsi = "1g1f",
+            bestUsi = "7g7f",
+            lossWp = 0.1,
+            classification = ClassificationResult(
+                category = "駒損（タクティクス）",
+                diffMaterial = 0,
+                punishChecks = 0,
+                tookMovedPiece = false,
+                missedMateIn = null,
+            ),
+            judgement = Judgement(
+                kind = VerdictKind.TARGET,
+                verdict = "○ 出題対象",
+                note = "テスト用",
+                problem = "テスト問題",
+                priority = 1.0,
+            ),
+            bestPv = "7g7f 3c3d",
+        )
+        repos.game.seedFixtureBlunder(
+            fileName = "test.kif",
+            contentHash = "test-hash-question-${System.nanoTime()}",
+            rating = 1750,
+            coefVersion = "test",
+            report = report,
+            sfenBefore = sfenBefore,
+            userSide = "sente",
+        )
+        return DrillViewModel(
+            gameRepository = repos.game,
+            drillRepository = repos.drill,
+            settingsRepository = repos.settings,
+            ioDispatcher = testDispatcher,
+        )
+    }
+
     private fun sfenAtLineEnd(bestPv: String): String {
         val board = ShogiBoard.fromSfen(sfenBefore)
         bestPv.split(" ").filter { it.isNotBlank() }.forEach { board.push(ShogiMove.fromUsi(it)) }
@@ -258,49 +300,112 @@ class DrillViewModelTest {
     @Test
     fun extendBestPv_notInResultState_isNoOp() {
         // Question 状態のまま呼んでも何も起きない（対象は現在出題中の blunder のみ）。
-        val repos = createDb()
-        val report = BlunderReport(
-            ply = 1,
-            side = "sente",
-            moveUsi = "1g1f",
-            bestUsi = "7g7f",
-            lossWp = 0.1,
-            classification = ClassificationResult(
-                category = "駒損（タクティクス）",
-                diffMaterial = 0,
-                punishChecks = 0,
-                tookMovedPiece = false,
-                missedMateIn = null,
-            ),
-            judgement = Judgement(
-                kind = VerdictKind.TARGET,
-                verdict = "○ 出題対象",
-                note = "テスト用",
-                problem = "テスト問題",
-                priority = 1.0,
-            ),
-            bestPv = "7g7f 3c3d",
-        )
-        repos.game.seedFixtureBlunder(
-            fileName = "test.kif",
-            contentHash = "test-hash-question-${System.nanoTime()}",
-            rating = 1750,
-            coefVersion = "test",
-            report = report,
-            sfenBefore = sfenBefore,
-            userSide = "sente",
-        )
-        val vm = DrillViewModel(
-            gameRepository = repos.game,
-            drillRepository = repos.drill,
-            settingsRepository = repos.settings,
-            ioDispatcher = testDispatcher,
-        )
+        val vm = buildVmAtQuestion()
         assertTrue(vm.state.value is DrillUiState.Question)
 
         vm.extendBestPv(sfenAtLineEnd("7g7f 3c3d"))
 
         assertTrue(vm.state.value is DrillUiState.Question)
         assertNull(vm.pvExtState.value[(vm.state.value as DrillUiState.Question).blunder.id])
+    }
+
+    // ─── 読み筋の連続入力（自己説明） ─────────────────────────────────────────
+
+    @Test
+    fun onSquareTapped_appliesMoveButStaysInQuestion_andAccumulatesMoves() {
+        val vm = buildVmAtQuestion()
+
+        // 7g7f（先手の飛車先の歩を突く）を選択→確定
+        vm.onSquareTapped(ShogiSquare(7, 7))
+        vm.onSquareTapped(ShogiSquare(7, 6))
+
+        val afterFirst = vm.state.value as DrillUiState.Question
+        assertEquals(listOf("7g7f"), afterFirst.moves)
+        assertEquals(ShogiBoard.fromSfen(sfenBefore).also { it.push(ShogiMove.fromUsi("7g7f")) }.toSfen(), afterFirst.sfenCurrent)
+
+        // 続けて後手の応手（3c3d）も同じ盤へ積める（読み筋の続き）
+        vm.onSquareTapped(ShogiSquare(3, 3))
+        vm.onSquareTapped(ShogiSquare(3, 4))
+
+        val afterSecond = vm.state.value as DrillUiState.Question
+        assertEquals(listOf("7g7f", "3c3d"), afterSecond.moves)
+    }
+
+    @Test
+    fun undoLastMove_removesOnlyLastMove() {
+        val vm = buildVmAtQuestion()
+        vm.onSquareTapped(ShogiSquare(7, 7))
+        vm.onSquareTapped(ShogiSquare(7, 6))
+        vm.onSquareTapped(ShogiSquare(3, 3))
+        vm.onSquareTapped(ShogiSquare(3, 4))
+        assertEquals(listOf("7g7f", "3c3d"), (vm.state.value as DrillUiState.Question).moves)
+
+        vm.undoLastMove()
+
+        val afterUndo = vm.state.value as DrillUiState.Question
+        assertEquals(listOf("7g7f"), afterUndo.moves)
+        assertEquals(ShogiBoard.fromSfen(sfenBefore).also { it.push(ShogiMove.fromUsi("7g7f")) }.toSfen(), afterUndo.sfenCurrent)
+    }
+
+    @Test
+    fun undoLastMove_onEmptyMoves_isNoOp() {
+        val vm = buildVmAtQuestion()
+        vm.undoLastMove()
+        assertEquals(emptyList<String>(), (vm.state.value as DrillUiState.Question).moves)
+    }
+
+    @Test
+    fun resetMoves_clearsAllMovesAndRestoresQuestionSfen() {
+        val vm = buildVmAtQuestion()
+        vm.onSquareTapped(ShogiSquare(7, 7))
+        vm.onSquareTapped(ShogiSquare(7, 6))
+        vm.onSquareTapped(ShogiSquare(3, 3))
+        vm.onSquareTapped(ShogiSquare(3, 4))
+
+        vm.resetMoves()
+
+        val afterReset = vm.state.value as DrillUiState.Question
+        assertEquals(emptyList<String>(), afterReset.moves)
+        assertEquals(sfenBefore, afterReset.sfenCurrent)
+    }
+
+    @Test
+    fun submitAnswer_withoutReadPv_judgesOnlyFirstMoveAndSavesNullReadPv() {
+        val repos = createDb()
+        val vm = buildVmAtQuestion(repos)
+        vm.onSquareTapped(ShogiSquare(7, 7))
+        vm.onSquareTapped(ShogiSquare(7, 6))
+
+        vm.submitAnswer()
+
+        val result = vm.state.value as DrillUiState.Result
+        assertEquals("7g7f", result.drillResult.userMoveUsi)
+        assertTrue("7g7f はbestUsiと一致するため正解", result.drillResult.isCorrect)
+        assertNull("読み筋を続けて入力していなければreadPvはnull", result.readPv)
+
+        val saved = repos.drill.getDrillAttempts((vm.state.value as DrillUiState.Result).blunder.id).first()
+        assertNull(saved.readPv)
+    }
+
+    @Test
+    fun submitAnswer_withReadPv_judgesFirstMoveOnly_andSavesContinuationAsReadPv() {
+        val repos = createDb()
+        val vm = buildVmAtQuestion(repos)
+        // 予測手（7g7f）＋ 読み筋として3c3dを続けて入力
+        vm.onSquareTapped(ShogiSquare(7, 7))
+        vm.onSquareTapped(ShogiSquare(7, 6))
+        vm.onSquareTapped(ShogiSquare(3, 3))
+        vm.onSquareTapped(ShogiSquare(3, 4))
+
+        vm.submitAnswer()
+
+        val result = vm.state.value as DrillUiState.Result
+        // 判定対象は予測手（先頭の7g7f）だけで、続きの読み筋は判定に使わない
+        assertEquals("7g7f", result.drillResult.userMoveUsi)
+        assertEquals("3c3d", result.readPv)
+
+        val saved = repos.drill.getDrillAttempts(result.blunder.id).first()
+        assertEquals("7g7f", saved.userMoveUsi)
+        assertEquals("3c3d", saved.readPv)
     }
 }

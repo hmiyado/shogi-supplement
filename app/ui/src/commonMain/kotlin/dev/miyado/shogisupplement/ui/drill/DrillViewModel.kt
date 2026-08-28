@@ -127,7 +127,7 @@ class DrillViewModel(
                             )
                         }
                     }
-                    legalToHere.size == 1 -> executeMove(legalToHere.first())
+                    legalToHere.size == 1 -> applyMove(legalToHere.first())
                     else -> {
                         // 成り/不成の選択が必要
                         val promote = legalToHere.firstOrNull { it.promote } ?: legalToHere.first()
@@ -144,7 +144,7 @@ class DrillViewModel(
                     it.dropType == state.selectedDropType && it.to == sq
                 }
                 if (dropMoves.isNotEmpty()) {
-                    executeMove(dropMoves.first())
+                    applyMove(dropMoves.first())
                 } else {
                     _state.value = state.copy(
                         selectedDropType = null,
@@ -203,10 +203,10 @@ class DrillViewModel(
             ?: pending.copy(promote = promote)
 
         _state.value = state.copy(showPromoteDialog = false, pendingPromoteMove = null)
-        executeMove(actualMove)
+        applyMove(actualMove)
     }
 
-    /** 「答えを見る」ボタンが押された。 */
+    /** 「正解を見る」ボタンが押された。 */
     fun onSurrender() {
         val blunder = currentBlunder ?: return
         val flip = (_state.value as? DrillUiState.Question)?.flip ?: false
@@ -227,6 +227,69 @@ class DrillViewModel(
                 )
             }
             _state.value = DrillUiState.Result(surrenderResult, blunder, blunder.sfenBefore, flip)
+            startDrillAttemptUpload()
+        }
+    }
+
+    /** 盤で1手戻す。読み筋を含め、最後に入力した1手だけを取り消す。 */
+    fun undoLastMove() {
+        val state = _state.value as? DrillUiState.Question ?: return
+        if (state.moves.isEmpty()) return
+        val blunder = currentBlunder ?: return
+        val newMoves = state.moves.dropLast(1)
+        val board = ShogiBoard.fromSfen(blunder.sfenBefore)
+        newMoves.forEach { usi -> board.push(ShogiMove.fromUsi(usi)) }
+        currentBoard = board
+        _state.value = state.copy(
+            sfenCurrent = board.toSfen(),
+            selectedFrom = null,
+            selectedDropType = null,
+            legalDestinations = emptySet(),
+            moves = newMoves,
+        )
+    }
+
+    /** 盤への入力を最初からやり直す。出題局面まで巻き戻す。 */
+    fun resetMoves() {
+        val state = _state.value as? DrillUiState.Question ?: return
+        val blunder = currentBlunder ?: return
+        val board = ShogiBoard.fromSfen(blunder.sfenBefore)
+        currentBoard = board
+        _state.value = state.copy(
+            sfenCurrent = board.toSfen(),
+            selectedFrom = null,
+            selectedDropType = null,
+            legalDestinations = emptySet(),
+            moves = emptyList(),
+        )
+    }
+
+    /** 「答える」ボタンが押された。先頭の手を予測手として判定し、続きがあれば読み筋として保存する。 */
+    fun submitAnswer() {
+        val state = _state.value as? DrillUiState.Question ?: return
+        val blunder = currentBlunder ?: return
+        val userMoveUsi = state.moves.firstOrNull() ?: return
+        val readPv = state.moves.drop(1).takeIf { it.isNotEmpty() }?.joinToString(" ")
+        val flip = state.flip
+
+        _state.value = DrillUiState.Judging
+
+        viewModelScope.launch {
+            val result = withContext(ioDispatcher) {
+                judgeMove(blunder, userMoveUsi)
+            }
+            withContext(ioDispatcher) {
+                runCatching {
+                    drillRepository.saveDrillAttempt(
+                        blunderReportId = blunder.id,
+                        userMoveUsi = userMoveUsi,
+                        isCorrect = result.isCorrect,
+                        lossWp = if (result.lossWp.isNaN()) null else result.lossWp,
+                        readPv = readPv,
+                    )
+                }
+            }
+            _state.value = DrillUiState.Result(result, blunder, blunder.sfenBefore, flip, readPv)
             startDrillAttemptUpload()
         }
     }
@@ -258,30 +321,18 @@ class DrillViewModel(
 
     // ─── 内部ヘルパー ─────────────────────────────────────────────────────────
 
-    private fun executeMove(move: ShogiMove) {
-        val blunder = currentBlunder ?: return
-        val userMoveUsi = move.toUsiString()
-        val flip = (_state.value as? DrillUiState.Question)?.flip ?: false
-
-        _state.value = DrillUiState.Judging
-
-        viewModelScope.launch {
-            val result = withContext(ioDispatcher) {
-                judgeMove(blunder, userMoveUsi)
-            }
-            withContext(ioDispatcher) {
-                runCatching {
-                    drillRepository.saveDrillAttempt(
-                        blunderReportId = blunder.id,
-                        userMoveUsi = userMoveUsi,
-                        isCorrect = result.isCorrect,
-                        lossWp = if (result.lossWp.isNaN()) null else result.lossWp,
-                    )
-                }
-            }
-            _state.value = DrillUiState.Result(result, blunder, blunder.sfenBefore, flip)
-            startDrillAttemptUpload()
-        }
+    /** 盤へ1手積む。予測手・読み筋のいずれも、判定や保存はせずここで盤面とmovesだけを進める。 */
+    private fun applyMove(move: ShogiMove) {
+        val state = _state.value as? DrillUiState.Question ?: return
+        val board = currentBoard ?: return
+        board.push(move)
+        _state.value = state.copy(
+            sfenCurrent = board.toSfen(),
+            selectedFrom = null,
+            selectedDropType = null,
+            legalDestinations = emptySet(),
+            moves = state.moves + move.toUsiString(),
+        )
     }
 
     /** 次の一手の成績アップロードを別コルーチンで起動する。Result遷移をブロックしない。 */

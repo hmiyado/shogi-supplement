@@ -189,12 +189,13 @@ CREATE TABLE IF NOT EXISTS drill_attempt (
     loss_wp REAL,
     attempted_at INTEGER NOT NULL,
     sync_id TEXT,
-    uploaded_at INTEGER
+    uploaded_at INTEGER,
+    read_pv TEXT
 );
 
 insertDrillAttempt:
-INSERT INTO drill_attempt (blunder_report_id, user_move_usi, is_correct, loss_wp, attempted_at)
-VALUES (?, ?, ?, ?, ?);
+INSERT INTO drill_attempt (blunder_report_id, user_move_usi, is_correct, loss_wp, attempted_at, read_pv)
+VALUES (?, ?, ?, ?, ?, ?);
 
 getDrillAttemptsByBlunder:
 SELECT * FROM drill_attempt WHERE blunder_report_id = ? ORDER BY attempted_at DESC;

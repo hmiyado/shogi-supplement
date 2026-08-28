@@ -17,13 +17,14 @@ interface DrillRepository {
     /** 指定IDの悪手レポートを返す。見つからなければ null。 */
     fun getBlunderById(id: Long): BlunderRecord?
 
-    /** ドリル解答を保存する。 @param blunderReportId 出題元レコード。 @param userMoveUsi ユーザーの手。 @param isCorrect 正解か。 @param lossWp 勝率差。 @param attemptedAt 解答時刻。 @return 作成されたID。 */
+    /** ドリル解答を保存する。 @param blunderReportId 出題元レコード。 @param userMoveUsi ユーザーの手。 @param isCorrect 正解か。 @param lossWp 勝率差。 @param attemptedAt 解答時刻。 @param readPv ユーザーが続けて入力した読み筋（USI手列をスペース区切り）。未入力ならnull。 @return 作成されたID。 */
     fun saveDrillAttempt(
         blunderReportId: Long,
         userMoveUsi: String,
         isCorrect: Boolean,
         lossWp: Double?,
         attemptedAt: Long = currentEpochSeconds(),
+        readPv: String? = null,
     ): Long
 
     /** 全blunder_reportの解答回数を、IDから件数へのマップで返す。履歴がないIDは含めない。 */

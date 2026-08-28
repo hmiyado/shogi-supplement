@@ -141,6 +141,9 @@ fun DrillScreen(
                         onHandPieceTapped = vm::onHandPieceTapped,
                         onPromoteDecision = vm::onPromoteDecision,
                         onSurrender = vm::onSurrender,
+                        onUndoMove = vm::undoLastMove,
+                        onResetMoves = vm::resetMoves,
+                        onSubmitAnswer = vm::submitAnswer,
                     )
                 }
 
@@ -160,6 +163,7 @@ fun DrillScreen(
                         blunder = s.blunder,
                         sfenBefore = s.sfenBefore,
                         flip = s.flip,
+                        readPv = s.readPv,
                         evalDisplay = evalDisplay,
                         pvExtState = pvExtState,
                         onExtendBestPv = vm::extendBestPv,

@@ -1,9 +1,12 @@
 package dev.miyado.shogisupplement.ui.drill
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,6 +16,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -29,9 +33,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.ui.common.ShogiSecondaryButton
+import dev.miyado.shogisupplement.ui.theme.ShipporiMinchoFamily
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
 import dev.miyado.shogisupplement.ui.theme.TextStyleDataMove
 import dev.miyado.shogisupplement.ui.theme.shogiColors
@@ -41,9 +48,10 @@ import dev.miyado.shogisupplement.board.PieceType
 import dev.miyado.shogisupplement.board.ShogiBoard
 import dev.miyado.shogisupplement.board.ShogiMove
 import dev.miyado.shogisupplement.board.ShogiSquare
-import dev.miyado.shogisupplement.classify.BlunderCategoryLabels
 import dev.miyado.shogisupplement.db.BlunderRecord
+import dev.miyado.shogisupplement.drill.DrillContestType
 import dev.miyado.shogisupplement.drill.DrillJudge
+import dev.miyado.shogisupplement.drill.DrillReadPvMatch
 import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.notation.JapaneseNotation
 import dev.miyado.shogisupplement.ui.common.PvExtState
@@ -64,6 +72,9 @@ fun DrillQuestionContent(
     onHandPieceTapped: (PieceType) -> Unit,
     onPromoteDecision: (Boolean) -> Unit,
     onSurrender: () -> Unit,
+    onUndoMove: () -> Unit,
+    onResetMoves: () -> Unit,
+    onSubmitAnswer: () -> Unit,
 ) {
     // 成り選択ダイアログ
     if (state.showPromoteDialog) {
@@ -99,7 +110,7 @@ fun DrillQuestionContent(
             modifier = Modifier.heightIn(max = boardMaxHeight()),
         )
 
-        // ── スクロールエリア（出題情報・降参ボタン）──────────────────────────
+        // ── スクロールエリア（問いかけ・読み筋入力・周回情報・ボタン）────────────
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -108,6 +119,30 @@ fun DrillQuestionContent(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Spacer(Modifier.height(8.dp))
+            Text(
+                text = AppStrings.DRILL_QUESTION_PROMPT,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontFamily = ShipporiMinchoFamily,
+                    fontWeight = FontWeight.Bold,
+                ),
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = AppStrings.DRILL_QUESTION_HINT,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.shogiColors.ink2,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(12.dp))
+
+            DrillYourLineCard(
+                sfenAtQuestion = state.blunder.sfenBefore,
+                moves = state.moves,
+                onUndoMove = onUndoMove,
+                onResetMoves = onResetMoves,
+            )
+            Spacer(Modifier.height(12.dp))
+
             // 周回情報
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -124,6 +159,14 @@ fun DrillQuestionContent(
                 )
             }
             Spacer(Modifier.height(16.dp))
+            Button(
+                onClick = onSubmitAnswer,
+                enabled = state.moves.isNotEmpty(),
+                modifier = Modifier.fillMaxWidth(0.6f),
+            ) {
+                Text(AppStrings.DRILL_SUBMIT_ANSWER)
+            }
+            Spacer(Modifier.height(8.dp))
             ShogiSecondaryButton(
                 onClick = onSurrender,
                 modifier = Modifier.fillMaxWidth(0.6f),
@@ -135,6 +178,77 @@ fun DrillQuestionContent(
     }
 }
 
+/** 出題画面の「あなたの読み筋」カード。予測手と、続けて入力した読み筋をチップ列で並べる。 */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun DrillYourLineCard(
+    sfenAtQuestion: String,
+    moves: List<String>,
+    onUndoMove: () -> Unit,
+    onResetMoves: () -> Unit,
+) {
+    val notations = remember(sfenAtQuestion, moves) {
+        buildDrillMoveNotations(sfenAtQuestion, moves)
+    }
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.shogiColors.line),
+        shape = RoundedCornerShape(8.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                text = AppStrings.DRILL_YOUR_LINE_LABEL,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.shogiColors.ink3,
+            )
+            Spacer(Modifier.height(6.dp))
+            FlowRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(88.dp)
+                    .verticalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                notations.forEach { notation ->
+                    Surface(
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                        shape = RoundedCornerShape(4.dp),
+                    ) {
+                        Text(
+                            text = notation,
+                            style = TextStyleDataMove,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(4.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                TextButton(onClick = onUndoMove, enabled = moves.isNotEmpty()) { Text(AppStrings.DRILL_UNDO_MOVE) }
+                TextButton(onClick = onResetMoves, enabled = moves.isNotEmpty()) { Text(AppStrings.DRILL_RESET_MOVES) }
+            }
+        }
+    }
+}
+
+/** sfenAtQuestionを起点に、moves各手の日本語棋譜表記を先頭から順に返す。 */
+private fun buildDrillMoveNotations(sfenAtQuestion: String, moves: List<String>): List<String> =
+    moves.indices.map { depth ->
+        val prevSfen = computeSfenAtStepKifuViewer(sfenAtQuestion, moves, depth)
+        val board = runCatching { ShogiBoard.fromSfen(prevSfen) }.getOrNull()
+        if (board != null) {
+            runCatching { JapaneseNotation.format(moves[depth], board) }.getOrElse { moves[depth] }
+        } else {
+            moves[depth]
+        }
+    }
+
 // ─── 結果画面 ─────────────────────────────────────────────────────────────────
 
 @Composable
@@ -143,6 +257,8 @@ fun DrillResultContent(
     blunder: BlunderRecord,
     sfenBefore: String = blunder.sfenBefore,
     flip: Boolean = false,
+    /** 予測手のあとにユーザーが続けて入力した読み筋（USI手列をスペース区切り）。未入力ならnull。 */
+    readPv: String? = null,
     /** 形勢の表示単位（"cp" or "wp"）。 */
     evalDisplay: String = "cp",
     /** VRT用: 初期表示手数（ReportScreen の initialPlyIndex と同じ用途）。 */
@@ -444,11 +560,35 @@ fun DrillResultContent(
                     blunder.moveUsi
                 }
                 Text(AppStrings.drillActualMove(actualMoveDisplay), style = MaterialTheme.typography.bodyMedium)
-                Spacer(Modifier.height(4.dp))
-                val categoryLabel = BlunderCategoryLabels.of(blunder.category)
-                Text(AppStrings.drillCategory(categoryLabel.label), style = MaterialTheme.typography.bodyMedium)
-                Spacer(Modifier.height(4.dp))
-                Text(AppStrings.drillNote(blunder.note), style = MaterialTheme.typography.bodySmall)
+            }
+
+            // 読み筋を入力していた場合のみ、あなたの読み筋と実際の進行を並べて示す。
+            if (readPv != null && result.userMoveUsi != "[降参]") {
+                Spacer(Modifier.height(16.dp))
+                val sfenAfterUserMove = remember(blunder, result) {
+                    runCatching {
+                        val board = ShogiBoard.fromSfen(blunder.sfenBefore)
+                        board.push(ShogiMove.fromUsi(result.userMoveUsi))
+                        board.toSfen()
+                    }.getOrNull()
+                }
+                val userContinuation = remember(readPv) {
+                    readPv.split(" ").filter { it.isNotBlank() }
+                }
+                val actualContinuation = remember(yourMoves) { yourMoves.drop(1) }
+                // 一次判定のみで確定した判定（PRIMARY_MATCH_SECOND/PRIMARY_OUT_OF_TOP2）は
+                // 継続読み筋を取得していないため、比較対象が無い状態で空の照合を出さない。
+                if (sfenAfterUserMove != null && actualContinuation.isNotEmpty()) {
+                    val isCloseContest = remember(blunder) {
+                        DrillContestType.isCloseContest(blunder.cpBefore, blunder.secondCp, blunder.missedMateIn)
+                    }
+                    DrillReadPvCompareBlock(
+                        sfenAfterUserMove = sfenAfterUserMove,
+                        userContinuation = userContinuation,
+                        actualContinuation = actualContinuation,
+                        isCloseContest = isCloseContest,
+                    )
+                }
             }
 
             Spacer(Modifier.height(24.dp))
@@ -470,6 +610,100 @@ fun DrillResultContent(
     }
 }
 
+/**
+ * 結果画面の読み筋比較ブロック。あなたの読み筋と実際の進行を2行で並べ、色だけで一致/分岐を示す。
+ * @param isCloseContest 有力な代替手が複数ある拮抗局面かどうか。真なら食い違いを不一致（朱）として
+ * 扱わない（[DrillContestType]参照）。
+ */
+@Composable
+private fun DrillReadPvCompareBlock(
+    sfenAfterUserMove: String,
+    userContinuation: List<String>,
+    actualContinuation: List<String>,
+    isCloseContest: Boolean,
+) {
+    val userNotations = remember(sfenAfterUserMove, userContinuation) {
+        buildDrillMoveNotations(sfenAfterUserMove, userContinuation)
+    }
+    val actualNotations = remember(sfenAfterUserMove, actualContinuation) {
+        buildDrillMoveNotations(sfenAfterUserMove, actualContinuation)
+    }
+    val matchLen = remember(userContinuation, actualContinuation) {
+        DrillReadPvMatch.matchLength(userContinuation, actualContinuation)
+    }
+
+    Column {
+        if (isCloseContest) {
+            Text(
+                text = AppStrings.DRILL_CLOSE_CONTEST_NOTE,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.shogiColors.ink2,
+            )
+            Spacer(Modifier.height(6.dp))
+        }
+        Text(
+            text = AppStrings.DRILL_YOUR_LINE_LABEL,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.shogiColors.ink3,
+        )
+        Spacer(Modifier.height(4.dp))
+        DrillReadPvChipRow(
+            notations = userNotations,
+            matchLen = matchLen,
+            otherLength = actualContinuation.size,
+            isCloseContest = isCloseContest,
+        )
+        Spacer(Modifier.height(10.dp))
+        Text(
+            text = AppStrings.DRILL_ANALYSIS_LINE_LABEL,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.shogiColors.ink3,
+        )
+        Spacer(Modifier.height(4.dp))
+        DrillReadPvChipRow(
+            notations = actualNotations,
+            matchLen = matchLen,
+            otherLength = userContinuation.size,
+            isCloseContest = isCloseContest,
+        )
+    }
+}
+
+/**
+ * 一致した手は紺青、両方に手がありながら食い違った手は朱で示す。
+ * 片方の読みがそこで尽きているだけ（比較対象が無い）手は不一致ではないので半透明にとどめる。
+ * 拮抗局面（[DrillContestType]）では食い違いも朱にせず半透明にとどめ、悪手として扱わない。
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun DrillReadPvChipRow(notations: List<String>, matchLen: Int, otherLength: Int, isCloseContest: Boolean) {
+    val shogiColors = MaterialTheme.shogiColors
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        notations.forEachIndexed { index, notation ->
+            val color = when {
+                index < matchLen -> MaterialTheme.colorScheme.primary
+                index < otherLength && !isCloseContest -> shogiColors.loss
+                else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+            }
+            Surface(
+                border = BorderStroke(1.dp, color),
+                shape = RoundedCornerShape(4.dp),
+            ) {
+                Text(
+                    text = notation,
+                    style = TextStyleDataMove,
+                    color = color,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                )
+            }
+        }
+    }
+}
+
 // ─── Preview ─────────────────────────────────────────────────────────────────
 
 @Preview
@@ -486,6 +720,9 @@ private fun PreviewDrillQuestion() {
                 onHandPieceTapped = {},
                 onPromoteDecision = {},
                 onSurrender = {},
+                onUndoMove = {},
+                onResetMoves = {},
+                onSubmitAnswer = {},
             )
         }
     }

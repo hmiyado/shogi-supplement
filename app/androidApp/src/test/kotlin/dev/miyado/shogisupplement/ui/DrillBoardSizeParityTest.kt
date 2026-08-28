@@ -80,6 +80,9 @@ class DrillBoardSizeParityTest {
                     onHandPieceTapped = {},
                     onPromoteDecision = {},
                     onSurrender = {},
+                    onUndoMove = {},
+                    onResetMoves = {},
+                    onSubmitAnswer = {},
                 )
             }
         }

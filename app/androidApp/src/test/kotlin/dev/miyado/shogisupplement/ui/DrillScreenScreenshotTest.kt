@@ -42,6 +42,9 @@ class DrillScreenScreenshotTest {
                         onHandPieceTapped = {},
                         onPromoteDecision = {},
                         onSurrender = {},
+                        onUndoMove = {},
+                        onResetMoves = {},
+                        onSubmitAnswer = {},
                     )
                 }
             }
@@ -68,6 +71,9 @@ class DrillScreenScreenshotTest {
                         onHandPieceTapped = {},
                         onPromoteDecision = {},
                         onSurrender = {},
+                        onUndoMove = {},
+                        onResetMoves = {},
+                        onSubmitAnswer = {},
                     )
                 }
             }
@@ -167,6 +173,147 @@ class DrillScreenScreenshotTest {
                         ),
                         blunder = vrtBlunderRecord().copy(cpBefore = -350L, cpAfter = 200L),
                         initialPlyIndex = 1,
+                        onNext = {},
+                        onBack = {},
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun drillQuestion_withReadPv() {
+        captureRoboImage(
+            filePath = "src/test/snapshots/drill_question_with_read_pv.png",
+            roborazziOptions = screenshotRoborazziOptions,
+        ) {
+            ShogiTheme {
+                Surface {
+                    DrillQuestionContent(
+                        state = DrillUiState.Question(
+                            blunder = vrtBlunderRecord(),
+                            sfenCurrent = "ln2g3l/2ks1s3/1pppppnr1/p7p/5gpp1/P1P4RP/1PSPPSP2/1KGG5/LN5NL b BPbp 41",
+                            attemptCount = 2,
+                            totalCandidates = 5,
+                            moves = listOf("2f6f", "4e4f"),
+                        ),
+                        onSquareTapped = {},
+                        onHandPieceTapped = {},
+                        onPromoteDecision = {},
+                        onSurrender = {},
+                        onUndoMove = {},
+                        onResetMoves = {},
+                        onSubmitAnswer = {},
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun drillResult_withReadPv_match() {
+        captureRoboImage(
+            filePath = "src/test/snapshots/drill_result_with_read_pv_match.png",
+            roborazziOptions = screenshotRoborazziOptions,
+        ) {
+            ShogiTheme {
+                Surface {
+                    DrillResultContent(
+                        result = DrillJudge.DrillResult(
+                            isCorrect = true,
+                            lossWp = 0.0,
+                            userMoveUsi = "2f6f",
+                            bestMoveUsi = "2f6f",
+                            reason = DrillJudge.Reason.MATCH_BEST,
+                        ),
+                        blunder = vrtBlunderRecord().copy(bestPv = "2f6f 4e4f 2i1g"),
+                        readPv = "4e4f 2i1g",
+                        onNext = {},
+                        onBack = {},
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun drillResult_withReadPv_diverge() {
+        captureRoboImage(
+            filePath = "src/test/snapshots/drill_result_with_read_pv_diverge.png",
+            roborazziOptions = screenshotRoborazziOptions,
+        ) {
+            ShogiTheme {
+                Surface {
+                    DrillResultContent(
+                        result = DrillJudge.DrillResult(
+                            isCorrect = false,
+                            lossWp = 0.225,
+                            userMoveUsi = "B*3d",
+                            bestMoveUsi = "2f6f",
+                            reason = DrillJudge.Reason.MATCH_ACTUAL_BLUNDER,
+                        ),
+                        blunder = vrtBlunderRecord().copy(punishPv = "4e4f 2i1g"),
+                        readPv = "4g4f",
+                        onNext = {},
+                        onBack = {},
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun drillResult_withReadPv_shortRead() {
+        // 読み筋は先頭の1手だけ入力し、そこで止めたケース。実際の進行はさらに続く
+        // （2手目以降は「不一致」ではなく比較対象が無いだけなので半透明になる想定）。
+        captureRoboImage(
+            filePath = "src/test/snapshots/drill_result_with_read_pv_short_read.png",
+            roborazziOptions = screenshotRoborazziOptions,
+        ) {
+            ShogiTheme {
+                Surface {
+                    DrillResultContent(
+                        result = DrillJudge.DrillResult(
+                            isCorrect = false,
+                            lossWp = 0.225,
+                            userMoveUsi = "B*3d",
+                            bestMoveUsi = "2f6f",
+                            reason = DrillJudge.Reason.MATCH_ACTUAL_BLUNDER,
+                        ),
+                        blunder = vrtBlunderRecord().copy(punishPv = "4e4f 2i1g"),
+                        readPv = "4e4f",
+                        onNext = {},
+                        onBack = {},
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun drillResult_withReadPv_closeContest() {
+        // 拮抗局面（|cp|<800かつgap<400）では、読み筋が食い違っても悪手として扱わない
+        // （朱ではなく中立色で示す）。
+        captureRoboImage(
+            filePath = "src/test/snapshots/drill_result_with_read_pv_close_contest.png",
+            roborazziOptions = screenshotRoborazziOptions,
+        ) {
+            ShogiTheme {
+                Surface {
+                    DrillResultContent(
+                        result = DrillJudge.DrillResult(
+                            isCorrect = false,
+                            lossWp = 0.225,
+                            userMoveUsi = "B*3d",
+                            bestMoveUsi = "2f6f",
+                            reason = DrillJudge.Reason.MATCH_ACTUAL_BLUNDER,
+                        ),
+                        blunder = vrtBlunderRecord().copy(
+                            punishPv = "4e4f 2i1g",
+                            cpBefore = 100L,
+                            secondCp = 50L,
+                        ),
+                        readPv = "4g4f",
                         onNext = {},
                         onBack = {},
                     )

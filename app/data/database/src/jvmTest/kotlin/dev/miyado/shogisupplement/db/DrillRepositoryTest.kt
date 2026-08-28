@@ -148,6 +148,7 @@ class DrillRepositoryTest {
             isCorrect = true,
             lossWp = 0.0,
             attemptedAt = 1_780_000_100L,
+            readPv = "3c3d 2f2e",
         )
         val id2 = drillRepo.saveDrillAttempt(
             blunderReportId = target.id,
@@ -165,9 +166,11 @@ class DrillRepositoryTest {
         assertEquals(false, attempts[0].isCorrect)
         assertNull(attempts[0].lossWp)
         assertEquals(1_780_000_200L, attempts[0].attemptedAt)
+        assertNull(attempts[0].readPv, "読み筋を入力しなかった解答はnull")
         assertEquals("2f6f", attempts[1].userMoveUsi)
         assertEquals(true, attempts[1].isCorrect)
         assertEquals(0.0, attempts[1].lossWp!!, 1e-12)
+        assertEquals("3c3d 2f2e", attempts[1].readPv)
 
         // 他のblunder_reportの履歴は混ざらない
         assertTrue(drillRepo.getDrillAttempts(target.id + 999).isEmpty())

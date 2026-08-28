@@ -32,6 +32,7 @@ class SqlDelightDrillRepository(private val database: ShogiSupplementDatabase) :
         isCorrect: Boolean,
         lossWp: Double?,
         attemptedAt: Long,
+        readPv: String?,
     ): Long {
         return database.transactionWithResult {
             database.shogiSupplementQueries.insertDrillAttempt(
@@ -40,6 +41,7 @@ class SqlDelightDrillRepository(private val database: ShogiSupplementDatabase) :
                 is_correct = if (isCorrect) 1L else 0L,
                 loss_wp = lossWp,
                 attempted_at = attemptedAt,
+                read_pv = readPv,
             )
             database.shogiSupplementQueries.getLastInsertRowId().executeAsOne()
         }
@@ -66,6 +68,7 @@ class SqlDelightDrillRepository(private val database: ShogiSupplementDatabase) :
                     attemptedAt = it.attempted_at,
                     syncId = it.sync_id,
                     uploadedAt = it.uploaded_at,
+                    readPv = it.read_pv,
                 )
             }
     }
@@ -122,5 +125,6 @@ class SqlDelightDrillRepository(private val database: ShogiSupplementDatabase) :
             attemptedAt = attempted_at,
             syncId = sync_id,
             uploadedAt = uploaded_at,
+            readPv = read_pv,
         )
 }

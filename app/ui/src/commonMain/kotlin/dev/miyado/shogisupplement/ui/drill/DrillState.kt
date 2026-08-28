@@ -39,6 +39,8 @@ sealed class DrillUiState {
         val totalCandidates: Int = 0,
         /** 盤を180度反転するか（出題元の局で自分が後手の場合）。 */
         val flip: Boolean = false,
+        /** ここまでに盤へ入力した手（USI）。先頭が予測手、以降は任意で続けた読み筋。 */
+        val moves: List<String> = emptyList(),
     ) : DrillUiState()
 
     /** エンジン判定中。 */
@@ -56,5 +58,7 @@ sealed class DrillUiState {
          * としても再利用する（MainActivity.kt の BEST_PV 形勢行と同じ定義のため）。
          */
         val flip: Boolean = false,
+        /** 予測手のあとにユーザーが続けて入力した読み筋（USI手列をスペース区切り）。未入力ならnull。 */
+        val readPv: String? = null,
     ) : DrillUiState()
 }
