@@ -252,6 +252,14 @@ WHERE date(attempted_at, 'unixepoch', 'localtime', '-4 hours')
 getDrillAttemptCountTotal:
 SELECT COUNT(*) FROM drill_attempt;
 
+-- 取組日（グレース込み）をJulian day number（連続する整数）に変換して昇順で返す。
+-- 連続区間の判定（隣接値の差が1かどうか）はここでは行わない
+-- （SQLDelightのSQLiteダイアレクトがROW_NUMBER等のウィンドウ関数[3.25+]に未対応のため）。
+getDrillAttemptDayNumbers:
+SELECT DISTINCT CAST(julianday(date(attempted_at, 'unixepoch', 'localtime', '-4 hours')) AS INTEGER) AS dayNumber
+FROM drill_attempt
+ORDER BY dayNumber ASC;
+
 -- ─── service_rank ───────────────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS service_rank (

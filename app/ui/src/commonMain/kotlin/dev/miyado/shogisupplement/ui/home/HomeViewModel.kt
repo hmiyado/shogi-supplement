@@ -53,10 +53,12 @@ class HomeViewModel(
         val totalAttempts = drillRepository.getDrillAttemptCountTotal()
         if (totalAttempts == 0) return null
         val activeDays = drillRepository.getDrillAttemptActiveDayCount(DRILL_RECORD_WINDOW_DAYS)
+        val weekStreakCount = drillRepository.getDrillAttemptWeekStreakCount()
         return DrillRecordCardData(
             activeDaysInWindow = activeDays,
             windowDays = DRILL_RECORD_WINDOW_DAYS,
             totalAttempts = totalAttempts,
+            weekStreakCount = weekStreakCount,
         )
     }
 

@@ -99,6 +99,19 @@ class SqlDelightDrillRepository(private val database: ShogiSupplementDatabase) :
             .toInt()
     }
 
+    override fun getDrillAttemptWeekStreakCount(): Int {
+        val dayNumbers = database.shogiSupplementQueries
+            .getDrillAttemptDayNumbers()
+            .executeAsList()
+        var weekStreakCount = 0
+        var runLength = 0
+        for (i in dayNumbers.indices) {
+            runLength = if (i > 0 && dayNumbers[i] == dayNumbers[i - 1] + 1L) runLength + 1 else 1
+            if (runLength % 7 == 0) weekStreakCount++
+        }
+        return weekStreakCount
+    }
+
     private fun dev.miyado.shogisupplement.db.Drill_attempt.toDrillAttemptRecord() =
         DrillAttemptRecord(
             id = id,

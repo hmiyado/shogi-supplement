@@ -308,4 +308,67 @@ class DrillRepositoryTest {
 
         assertEquals(1, drillRepo.getDrillAttemptActiveDayCount(windowDays = 30, asOfEpochSeconds = asOf))
     }
+
+    private fun saveAttemptsOnDates(drillRepo: DrillRepository, blunderReportId: Long, vararg tokyoDates: String) {
+        tokyoDates.forEachIndexed { i, tokyoDate ->
+            drillRepo.saveDrillAttempt(blunderReportId, "7g7f", true, 0.0, attemptedAt = epochSecondsAt("${tokyoDate}T10:00:00") + i)
+        }
+    }
+
+    @Test
+    fun `7日未満の連続取組は7日ストリークとして数えない`() {
+        val db = newDatabase()
+        val gameRepo = newGameRepository(db)
+        val drillRepo = newDrillRepository(db)
+        val target = saveDrillFixture(gameRepo).first()
+
+        saveAttemptsOnDates(
+            drillRepo, target.id,
+            "2025-06-01", "2025-06-02", "2025-06-03", "2025-06-04", "2025-06-05", "2025-06-06",
+        )
+
+        assertEquals(0, drillRepo.getDrillAttemptWeekStreakCount())
+    }
+
+    @Test
+    fun `7日連続で1回、14日連続で2回、途切れた別区間は合算しない`() {
+        val db = newDatabase()
+        val gameRepo = newGameRepository(db)
+        val drillRepo = newDrillRepository(db)
+        val target = saveDrillFixture(gameRepo).first()
+
+        // 6/1〜6/7 の7日連続（1回目）
+        saveAttemptsOnDates(
+            drillRepo, target.id,
+            "2025-06-01", "2025-06-02", "2025-06-03", "2025-06-04", "2025-06-05", "2025-06-06", "2025-06-07",
+        )
+        assertEquals(1, drillRepo.getDrillAttemptWeekStreakCount())
+
+        // 間隔（6/8を抜かす）を空けて 6/9〜6/22 の14日連続（2回加算）
+        saveAttemptsOnDates(
+            drillRepo, target.id,
+            "2025-06-09", "2025-06-10", "2025-06-11", "2025-06-12", "2025-06-13", "2025-06-14", "2025-06-15",
+            "2025-06-16", "2025-06-17", "2025-06-18", "2025-06-19", "2025-06-20", "2025-06-21", "2025-06-22",
+        )
+        assertEquals(3, drillRepo.getDrillAttemptWeekStreakCount())
+    }
+
+    @Test
+    fun `深夜0時から4時までの猶予は7日ストリークの連続判定にも及ぶ`() {
+        val db = newDatabase()
+        val gameRepo = newGameRepository(db)
+        val drillRepo = newDrillRepository(db)
+        val target = saveDrillFixture(gameRepo).first()
+
+        drillRepo.saveDrillAttempt(target.id, "7g7f", true, 0.0, attemptedAt = epochSecondsAt("2025-06-01T10:00:00"))
+        drillRepo.saveDrillAttempt(target.id, "7g7f", true, 0.0, attemptedAt = epochSecondsAt("2025-06-02T10:00:00"))
+        drillRepo.saveDrillAttempt(target.id, "7g7f", true, 0.0, attemptedAt = epochSecondsAt("2025-06-03T10:00:00"))
+        drillRepo.saveDrillAttempt(target.id, "7g7f", true, 0.0, attemptedAt = epochSecondsAt("2025-06-04T10:00:00"))
+        drillRepo.saveDrillAttempt(target.id, "7g7f", true, 0.0, attemptedAt = epochSecondsAt("2025-06-05T10:00:00"))
+        drillRepo.saveDrillAttempt(target.id, "7g7f", true, 0.0, attemptedAt = epochSecondsAt("2025-06-06T10:00:00"))
+        // 6/7は日付として記録されず、6/8の深夜0時10分（猶予内＝6/7の続き扱い）に解答
+        drillRepo.saveDrillAttempt(target.id, "7g7f", true, 0.0, attemptedAt = epochSecondsAt("2025-06-08T00:10:00"))
+
+        assertEquals(1, drillRepo.getDrillAttemptWeekStreakCount())
+    }
 }

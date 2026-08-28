@@ -35,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.db.GameRecord
@@ -346,6 +347,12 @@ fun DrillRecordCard(
                     style = TextStyleDataLarge,
                     color = MaterialTheme.colorScheme.primary,
                 )
+                Text(
+                    text = AppStrings.DRILL_RECORD_ACTIVE_DAYS_SUFFIX,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(bottom = 4.dp),
+                )
                 Spacer(Modifier.width(6.dp))
                 Text(
                     text = buildAnnotatedString {
@@ -368,9 +375,20 @@ fun DrillRecordCard(
                         append(drillRecordCard.totalAttempts.toString())
                     }
                     append(AppStrings.DRILL_RECORD_TOTAL_SUFFIX)
+                    // 未達成（0回）は0を見せるより丸ごと省く方が素直なので条件付きで足す
+                    if (drillRecordCard.weekStreakCount > 0) {
+                        append(" ・ ")
+                        append(AppStrings.DRILL_RECORD_WEEK_STREAK_PREFIX)
+                        withStyle(SpanStyle(fontFamily = IbmPlexMonoFamily)) {
+                            append(drillRecordCard.weekStreakCount.toString())
+                        }
+                        append(AppStrings.DRILL_RECORD_WEEK_STREAK_SUFFIX)
+                    }
                 },
                 style = MaterialTheme.typography.labelMedium,
                 color = shogiColors.ink3,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }

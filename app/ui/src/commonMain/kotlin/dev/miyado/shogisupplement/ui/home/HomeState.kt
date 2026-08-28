@@ -32,4 +32,6 @@ data class DrillRecordCardData(
     val windowDays: Int,
     /** 全期間の累計解答数。 */
     val totalAttempts: Int,
+    /** 連続取組が7日進むごとに1回加算する累計回数（14日連続なら2回）。 */
+    val weekStreakCount: Int,
 )

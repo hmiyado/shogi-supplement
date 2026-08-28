@@ -172,6 +172,7 @@ class HomeScreenScreenshotTest {
                             activeDaysInWindow = 18,
                             windowDays = 30,
                             totalAttempts = 142,
+                            weekStreakCount = 3,
                         ),
                         todaysDrillHint = TodaysDrillHint(
                             ply = 32L,

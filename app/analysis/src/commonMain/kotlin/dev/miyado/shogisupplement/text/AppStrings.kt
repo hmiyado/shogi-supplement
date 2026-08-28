@@ -83,10 +83,13 @@ object AppStrings {
 
     const val DRILL_RECORD_CARD_TITLE = "学習の記録"
     // 数値はmono書体が必須のため、地の文とは結合せず別々に持つ。
+    const val DRILL_RECORD_ACTIVE_DAYS_SUFFIX = "日"
     const val DRILL_RECORD_WINDOW_PREFIX = "/ 直近"
     const val DRILL_RECORD_WINDOW_SUFFIX = "日"
     const val DRILL_RECORD_TOTAL_PREFIX = "累計 "
     const val DRILL_RECORD_TOTAL_SUFFIX = "問"
+    const val DRILL_RECORD_WEEK_STREAK_PREFIX = "7日間連続 "
+    const val DRILL_RECORD_WEEK_STREAK_SUFFIX = "回"
 
     fun gameMoveCount(count: Long): String = "${count}手"
     fun playersLine(senteName: String?, goteName: String?): String =
