@@ -1,8 +1,6 @@
 package dev.miyado.shogisupplement.ui
 
 import androidx.compose.material3.Surface
-import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
-import com.github.takahirom.roborazzi.RoborazziOptions
 import com.github.takahirom.roborazzi.captureRoboImage
 import dev.miyado.shogisupplement.ui.settings.SettingsScreen
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
@@ -22,17 +20,11 @@ import org.robolectric.annotation.GraphicsMode
 )
 class SettingsScreenScreenshotTest {
 
-    @OptIn(ExperimentalRoborazziApi::class)
-    private val roborazziOptions = RoborazziOptions(
-        recordOptions = RoborazziOptions.RecordOptions(resizeScale = 0.5),
-        compareOptions = RoborazziOptions.CompareOptions(changeThreshold = 0.01f),
-    )
-
     @Test
     fun settings_default() {
         captureRoboImage(
             filePath = "src/test/snapshots/settings_default.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {
@@ -58,7 +50,7 @@ class SettingsScreenScreenshotTest {
     fun settings_create_account_row() {
         captureRoboImage(
             filePath = "src/test/snapshots/settings_create_account_row.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {
@@ -85,7 +77,7 @@ class SettingsScreenScreenshotTest {
     fun settings_dark() {
         captureRoboImage(
             filePath = "src/test/snapshots/settings_dark.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme(themeMode = "dark") {
                 Surface {
@@ -116,7 +108,7 @@ class SettingsScreenScreenshotTest {
     fun settings_debug_section() {
         captureRoboImage(
             filePath = "src/test/snapshots/settings_debug_section.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {

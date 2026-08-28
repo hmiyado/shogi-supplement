@@ -2,8 +2,6 @@ package dev.miyado.shogisupplement.ui
 
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
 import androidx.compose.material3.Surface
-import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
-import com.github.takahirom.roborazzi.RoborazziOptions
 import com.github.takahirom.roborazzi.captureRoboImage
 import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.account.AccountNotProvidingContent
@@ -23,17 +21,11 @@ import org.robolectric.annotation.GraphicsMode
 )
 class AccountScreenScreenshotTest {
 
-    @OptIn(ExperimentalRoborazziApi::class)
-    private val roborazziOptions = RoborazziOptions(
-        recordOptions = RoborazziOptions.RecordOptions(resizeScale = 0.5),
-        compareOptions = RoborazziOptions.CompareOptions(changeThreshold = 0.01f),
-    )
-
     @Test
     fun account_notLoggedIn() {
         captureRoboImage(
             filePath = "src/test/snapshots/account_not_logged_in.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {
@@ -47,7 +39,7 @@ class AccountScreenScreenshotTest {
     fun account_loggedIn() {
         captureRoboImage(
             filePath = "src/test/snapshots/account_logged_in.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {
@@ -64,7 +56,7 @@ class AccountScreenScreenshotTest {
     fun account_loggedIn_autoUploadOn() {
         captureRoboImage(
             filePath = "src/test/snapshots/account_logged_in_auto_upload_on.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {
@@ -81,7 +73,7 @@ class AccountScreenScreenshotTest {
     fun account_error() {
         captureRoboImage(
             filePath = "src/test/snapshots/account_error.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {

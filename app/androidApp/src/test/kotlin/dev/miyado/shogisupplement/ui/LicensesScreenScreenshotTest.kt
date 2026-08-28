@@ -3,8 +3,6 @@ package dev.miyado.shogisupplement.ui
 import dev.miyado.shogisupplement.ui.license.LicenseInfoHeader
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
 import androidx.compose.material3.Surface
-import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
-import com.github.takahirom.roborazzi.RoborazziOptions
 import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -21,17 +19,11 @@ import org.robolectric.annotation.GraphicsMode
 )
 class LicensesScreenScreenshotTest {
 
-    @OptIn(ExperimentalRoborazziApi::class)
-    private val roborazziOptions = RoborazziOptions(
-        recordOptions = RoborazziOptions.RecordOptions(resizeScale = 0.5),
-        compareOptions = RoborazziOptions.CompareOptions(changeThreshold = 0.01f),
-    )
-
     @Test
     fun licenses_screen() {
         captureRoboImage(
             filePath = "src/test/snapshots/licenses_screen.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {
@@ -45,7 +37,7 @@ class LicensesScreenScreenshotTest {
     fun licenses_header() {
         captureRoboImage(
             filePath = "src/test/snapshots/licenses_header.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {

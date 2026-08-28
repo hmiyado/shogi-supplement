@@ -8,8 +8,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
-import com.github.takahirom.roborazzi.RoborazziOptions
 import com.github.takahirom.roborazzi.captureRoboImage
 import dev.miyado.shogisupplement.R
 import dev.miyado.shogisupplement.blunder.Score
@@ -36,12 +34,6 @@ import org.robolectric.annotation.GraphicsMode
     application = android.app.Application::class,
 )
 class HomeScreenScreenshotTest {
-
-    @OptIn(ExperimentalRoborazziApi::class)
-    private val roborazziOptions = RoborazziOptions(
-        recordOptions = RoborazziOptions.RecordOptions(resizeScale = 0.5),
-        compareOptions = RoborazziOptions.CompareOptions(changeThreshold = 0.01f),
-    )
 
     @Composable
     private fun testTitleIcon() {
@@ -105,7 +97,7 @@ class HomeScreenScreenshotTest {
     fun home_loggedIn_withUploadStatus() {
         captureRoboImage(
             filePath = "src/test/snapshots/home_logged_in_with_upload.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {
@@ -129,7 +121,7 @@ class HomeScreenScreenshotTest {
     fun home_withStrengthCard() {
         captureRoboImage(
             filePath = "src/test/snapshots/home_with_strength_card.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {
@@ -157,7 +149,7 @@ class HomeScreenScreenshotTest {
     fun home_withDrillRecordCard() {
         captureRoboImage(
             filePath = "src/test/snapshots/home_with_drill_record_card.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {
@@ -191,7 +183,7 @@ class HomeScreenScreenshotTest {
     fun home_notLoggedIn() {
         captureRoboImage(
             filePath = "src/test/snapshots/home_not_logged_in.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {
@@ -238,7 +230,7 @@ class HomeScreenScreenshotTest {
         )
         captureRoboImage(
             filePath = "src/test/snapshots/home_many_games.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {
@@ -260,7 +252,7 @@ class HomeScreenScreenshotTest {
     fun home_withAnalyzingCard() {
         captureRoboImage(
             filePath = "src/test/snapshots/home_with_analyzing_card.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {

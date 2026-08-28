@@ -5,8 +5,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
-import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
-import com.github.takahirom.roborazzi.RoborazziOptions
 import com.github.takahirom.roborazzi.captureRoboImage
 import dev.miyado.shogisupplement.blunder.PositionEvalDisplay
 import dev.miyado.shogisupplement.board.ShogiSquare
@@ -37,12 +35,6 @@ class ReportViewerScreenshotTest {
     @get:Rule
     val composeRule = createComposeRule()
 
-    @OptIn(ExperimentalRoborazziApi::class)
-    private val roborazziOptions = RoborazziOptions(
-        recordOptions = RoborazziOptions.RecordOptions(resizeScale = 0.5),
-        compareOptions = RoborazziOptions.CompareOptions(changeThreshold = 0.01f),
-    )
-
     /**
      * Why not ラムダ版 captureRoboImage: Espresso の idle 待ちが、フレームを流し続ける
      * 無限アニメーションでは終わらない。Compose テスト規則はこれを idle 判定から除く。
@@ -52,7 +44,7 @@ class ReportViewerScreenshotTest {
         composeRule.waitForIdle()
         composeRule.onRoot().captureRoboImage(
             filePath = "src/test/snapshots/$fileName.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         )
     }
 
@@ -100,7 +92,7 @@ class ReportViewerScreenshotTest {
     fun report_viewer_mainline() {
         captureRoboImage(
             filePath = "src/test/snapshots/report_viewer_mainline.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {
@@ -121,7 +113,7 @@ class ReportViewerScreenshotTest {
     fun report_viewer_mainline_flipped() {
         captureRoboImage(
             filePath = "src/test/snapshots/report_viewer_mainline_flipped.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {
@@ -142,7 +134,7 @@ class ReportViewerScreenshotTest {
     fun report_viewer_no_blunders() {
         captureRoboImage(
             filePath = "src/test/snapshots/report_viewer_no_blunders.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {
@@ -163,7 +155,7 @@ class ReportViewerScreenshotTest {
     fun report_viewer_with_eval() {
         captureRoboImage(
             filePath = "src/test/snapshots/report_viewer_with_eval.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {
@@ -190,7 +182,7 @@ class ReportViewerScreenshotTest {
         val blunder = sampleBlunder().copy(ply = 3L)
         captureRoboImage(
             filePath = "src/test/snapshots/report_viewer_eval_graph_and_match_rate.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {
@@ -221,7 +213,7 @@ class ReportViewerScreenshotTest {
     fun report_viewer_eval_graph_flipped_gote() {
         captureRoboImage(
             filePath = "src/test/snapshots/report_viewer_eval_graph_flipped_gote.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {
@@ -246,7 +238,7 @@ class ReportViewerScreenshotTest {
     fun report_viewer_list_no_selection() {
         captureRoboImage(
             filePath = "src/test/snapshots/report_viewer_list_no_selection.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {
@@ -270,7 +262,7 @@ class ReportViewerScreenshotTest {
         val bestPvMoveCount = blunder.bestPv!!.split(" ").filter { it.isNotBlank() }.size
         captureRoboImage(
             filePath = "src/test/snapshots/report_viewer_best_pv_end.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {
@@ -295,7 +287,7 @@ class ReportViewerScreenshotTest {
         val blunder = sampleBlunder()
         captureRoboImage(
             filePath = "src/test/snapshots/report_viewer_best_pv_mid.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {
@@ -320,7 +312,7 @@ class ReportViewerScreenshotTest {
         val blunder = sampleBlunder().copy(cpBefore = 30_000L)
         captureRoboImage(
             filePath = "src/test/snapshots/report_viewer_best_pv_mate.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {
@@ -344,7 +336,7 @@ class ReportViewerScreenshotTest {
     fun report_viewer_move_list_with_eval() {
         captureRoboImage(
             filePath = "src/test/snapshots/report_viewer_move_list_with_eval.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {
@@ -374,7 +366,7 @@ class ReportViewerScreenshotTest {
         val blunder = sampleBlunder()
         captureRoboImage(
             filePath = "src/test/snapshots/report_viewer_study_selection.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {
@@ -411,7 +403,7 @@ class ReportViewerScreenshotTest {
         val blunder = sampleBlunder()
         captureRoboImage(
             filePath = "src/test/snapshots/report_viewer_study_eval.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {
@@ -495,7 +487,7 @@ class ReportViewerScreenshotTest {
         val blunder = sampleBlunder()
         captureRoboImage(
             filePath = "src/test/snapshots/report_viewer_study_line_ahead.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {
@@ -533,7 +525,7 @@ class ReportViewerScreenshotTest {
         val blunder = sampleBlunder()
         captureRoboImage(
             filePath = "src/test/snapshots/report_viewer_study_selected_chip_dark.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme(themeMode = "dark") {
                 Surface {
@@ -629,7 +621,7 @@ class ReportViewerScreenshotTest {
         val displayLine = playedMoves + futureMoves
         captureRoboImage(
             filePath = "src/test/snapshots/report_viewer_study_pv_scroll.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {
@@ -672,7 +664,7 @@ class ReportViewerScreenshotTest {
     fun report_viewer_source_place() {
         captureRoboImage(
             filePath = "src/test/snapshots/report_viewer_source_place.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {
@@ -695,7 +687,7 @@ class ReportViewerScreenshotTest {
     fun report_viewer_completion_banner() {
         captureRoboImage(
             filePath = "src/test/snapshots/report_viewer_completion_banner.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {

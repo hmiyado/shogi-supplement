@@ -1,8 +1,6 @@
 package dev.miyado.shogisupplement.ui
 
 import androidx.compose.material3.Surface
-import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
-import com.github.takahirom.roborazzi.RoborazziOptions
 import com.github.takahirom.roborazzi.captureRoboImage
 import dev.miyado.shogisupplement.blunder.Score
 import dev.miyado.shogisupplement.engine.PvInfo
@@ -24,12 +22,6 @@ import org.robolectric.annotation.GraphicsMode
 )
 class AnalyzingReportScreenScreenshotTest {
 
-    @OptIn(ExperimentalRoborazziApi::class)
-    private val roborazziOptions = RoborazziOptions(
-        recordOptions = RoborazziOptions.RecordOptions(resizeScale = 0.5),
-        compareOptions = RoborazziOptions.CompareOptions(changeThreshold = 0.01f),
-    )
-
     private val sampleMoves = listOf(
         "7g7f", "3c3d", "2g2f", "8c8d", "2f2e", "8d8e", "2e2d", "2c2d", "2h2d", "4a3b",
     )
@@ -50,7 +42,7 @@ class AnalyzingReportScreenScreenshotTest {
     fun analyzing_report_30pct() {
         captureRoboImage(
             filePath = "src/test/snapshots/analyzing_report_30pct.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {
@@ -70,7 +62,7 @@ class AnalyzingReportScreenScreenshotTest {
     fun analyzing_report_80pct() {
         captureRoboImage(
             filePath = "src/test/snapshots/analyzing_report_80pct.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {

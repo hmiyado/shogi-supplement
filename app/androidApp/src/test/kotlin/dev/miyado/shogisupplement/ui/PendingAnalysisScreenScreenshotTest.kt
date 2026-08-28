@@ -7,8 +7,6 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
-import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
-import com.github.takahirom.roborazzi.RoborazziOptions
 import com.github.takahirom.roborazzi.captureRoboImage
 import dev.miyado.shogisupplement.db.GameAnalysisStatus
 import dev.miyado.shogisupplement.db.GameRecord
@@ -49,15 +47,11 @@ class PendingAnalysisScreenScreenshotTest {
         analysisStatus = GameAnalysisStatus.PENDING,
     )
 
-    @OptIn(ExperimentalRoborazziApi::class)
     @Test
     fun pendingAnalysis() {
         captureRoboImage(
             filePath = "src/test/snapshots/pending_analysis.png",
-            roborazziOptions = RoborazziOptions(
-                recordOptions = RoborazziOptions.RecordOptions(resizeScale = 0.5),
-                compareOptions = RoborazziOptions.CompareOptions(changeThreshold = 0.01f),
-            ),
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {

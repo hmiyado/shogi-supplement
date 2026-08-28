@@ -1,8 +1,6 @@
 package dev.miyado.shogisupplement.ui
 
 import androidx.compose.material3.Surface
-import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
-import com.github.takahirom.roborazzi.RoborazziOptions
 import com.github.takahirom.roborazzi.captureRoboImage
 import dev.miyado.shogisupplement.ui.consent.ConsentScreen
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
@@ -21,17 +19,11 @@ import org.robolectric.annotation.GraphicsMode
 )
 class ConsentScreenScreenshotTest {
 
-    @OptIn(ExperimentalRoborazziApi::class)
-    private val roborazziOptions = RoborazziOptions(
-        recordOptions = RoborazziOptions.RecordOptions(resizeScale = 0.5),
-        compareOptions = RoborazziOptions.CompareOptions(changeThreshold = 0.01f),
-    )
-
     @Test
     fun consent_default() {
         captureRoboImage(
             filePath = "src/test/snapshots/consent_default.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {

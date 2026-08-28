@@ -1,8 +1,6 @@
 package dev.miyado.shogisupplement.ui
 
 import androidx.compose.material3.Surface
-import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
-import com.github.takahirom.roborazzi.RoborazziOptions
 import com.github.takahirom.roborazzi.captureRoboImage
 import dev.miyado.shogisupplement.ui.strength.EstimatedStrengthDetailScreen
 import dev.miyado.shogisupplement.ui.strength.StrengthDetailBestRank
@@ -26,12 +24,6 @@ import org.robolectric.annotation.GraphicsMode
     application = android.app.Application::class,
 )
 class EstimatedStrengthDetailScreenScreenshotTest {
-
-    @OptIn(ExperimentalRoborazziApi::class)
-    private val roborazziOptions = RoborazziOptions(
-        recordOptions = RoborazziOptions.RecordOptions(resizeScale = 0.5),
-        compareOptions = RoborazziOptions.CompareOptions(changeThreshold = 0.01f),
-    )
 
     private fun sampleData(): StrengthDetailData = StrengthDetailData(
         deviation = 58,
@@ -72,7 +64,7 @@ class EstimatedStrengthDetailScreenScreenshotTest {
     fun strength_detail_default() {
         captureRoboImage(
             filePath = "src/test/snapshots/strength_detail_default.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {
@@ -90,7 +82,7 @@ class EstimatedStrengthDetailScreenScreenshotTest {
     fun strength_detail_dark() {
         captureRoboImage(
             filePath = "src/test/snapshots/strength_detail_dark.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme(themeMode = "dark") {
                 Surface {
@@ -109,7 +101,7 @@ class EstimatedStrengthDetailScreenScreenshotTest {
     fun strength_detail_no_services() {
         captureRoboImage(
             filePath = "src/test/snapshots/strength_detail_no_services.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {

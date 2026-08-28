@@ -2,8 +2,6 @@ package dev.miyado.shogisupplement.ui
 
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
 import androidx.compose.material3.Surface
-import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
-import com.github.takahirom.roborazzi.RoborazziOptions
 import com.github.takahirom.roborazzi.captureRoboImage
 import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.drill.DrillJudge
@@ -25,17 +23,11 @@ import org.robolectric.annotation.GraphicsMode
 )
 class DrillScreenScreenshotTest {
 
-    @OptIn(ExperimentalRoborazziApi::class)
-    private val roborazziOptions = RoborazziOptions(
-        recordOptions = RoborazziOptions.RecordOptions(resizeScale = 0.5),
-        compareOptions = RoborazziOptions.CompareOptions(changeThreshold = 0.01f),
-    )
-
     @Test
     fun drillQuestion() {
         captureRoboImage(
             filePath = "src/test/snapshots/drill_question.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {
@@ -60,7 +52,7 @@ class DrillScreenScreenshotTest {
     fun drillQuestion_flipped() {
         captureRoboImage(
             filePath = "src/test/snapshots/drill_question_flipped.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {
@@ -86,7 +78,7 @@ class DrillScreenScreenshotTest {
     fun drillResult_correct() {
         captureRoboImage(
             filePath = "src/test/snapshots/drill_result_correct.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {
@@ -111,7 +103,7 @@ class DrillScreenScreenshotTest {
     fun drillResult_incorrect() {
         captureRoboImage(
             filePath = "src/test/snapshots/drill_result_incorrect.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {
@@ -136,7 +128,7 @@ class DrillScreenScreenshotTest {
     fun drillResult_withEval() {
         captureRoboImage(
             filePath = "src/test/snapshots/drill_result_with_eval.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {
@@ -161,7 +153,7 @@ class DrillScreenScreenshotTest {
     fun drillResult_withEval_ply1() {
         captureRoboImage(
             filePath = "src/test/snapshots/drill_result_with_eval_ply1.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {
@@ -187,7 +179,7 @@ class DrillScreenScreenshotTest {
     fun drillResult_extend_indicator() {
         captureRoboImage(
             filePath = "src/test/snapshots/drill_result_extend_indicator.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {

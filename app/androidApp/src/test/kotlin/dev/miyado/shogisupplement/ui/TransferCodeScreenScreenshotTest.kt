@@ -6,7 +6,6 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
-import com.github.takahirom.roborazzi.RoborazziOptions
 import com.github.takahirom.roborazzi.captureRoboImage
 import com.github.takahirom.roborazzi.captureScreenRoboImage
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
@@ -30,12 +29,6 @@ class TransferCodeScreenScreenshotTest {
     @get:Rule
     val composeRule = createComposeRule()
 
-    @OptIn(ExperimentalRoborazziApi::class)
-    private val roborazziOptions = RoborazziOptions(
-        recordOptions = RoborazziOptions.RecordOptions(resizeScale = 0.5),
-        compareOptions = RoborazziOptions.CompareOptions(changeThreshold = 0.01f),
-    )
-
     private val sampleCode = "8QZKM-2XRTN-P9VCB-H4WLD-A7YFE-J3"
 
     @Test
@@ -50,7 +43,7 @@ class TransferCodeScreenScreenshotTest {
         composeRule.waitForIdle()
         composeRule.onRoot().captureRoboImage(
             filePath = "src/test/snapshots/transfer_code_masked_default.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         )
     }
 
@@ -66,7 +59,7 @@ class TransferCodeScreenScreenshotTest {
         composeRule.waitForIdle()
         composeRule.onRoot().captureRoboImage(
             filePath = "src/test/snapshots/transfer_code_regenerate_available.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         )
     }
 
@@ -89,7 +82,7 @@ class TransferCodeScreenScreenshotTest {
         // ダイアログは別ウィンドウに描画されるため、画面全体で撮る。
         captureScreenRoboImage(
             filePath = "src/test/snapshots/transfer_code_regenerate_confirm.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         )
     }
 
@@ -106,7 +99,7 @@ class TransferCodeScreenScreenshotTest {
         composeRule.waitForIdle()
         composeRule.onRoot().captureRoboImage(
             filePath = "src/test/snapshots/transfer_code_revealed.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         )
     }
 
@@ -122,7 +115,7 @@ class TransferCodeScreenScreenshotTest {
         composeRule.waitForIdle()
         composeRule.onRoot().captureRoboImage(
             filePath = "src/test/snapshots/transfer_code_masked_dark.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         )
     }
 }

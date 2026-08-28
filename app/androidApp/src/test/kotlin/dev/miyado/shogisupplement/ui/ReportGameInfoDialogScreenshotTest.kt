@@ -3,7 +3,6 @@ package dev.miyado.shogisupplement.ui
 import androidx.compose.material3.Surface
 import androidx.compose.ui.test.junit4.createComposeRule
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
-import com.github.takahirom.roborazzi.RoborazziOptions
 import com.github.takahirom.roborazzi.captureScreenRoboImage
 import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.db.GameRecord
@@ -26,12 +25,6 @@ class ReportGameInfoDialogScreenshotTest {
 
     @get:Rule
     val composeRule = createComposeRule()
-
-    @OptIn(ExperimentalRoborazziApi::class)
-    private val roborazziOptions = RoborazziOptions(
-        recordOptions = RoborazziOptions.RecordOptions(resizeScale = 0.5),
-        compareOptions = RoborazziOptions.CompareOptions(changeThreshold = 0.01f),
-    )
 
     private fun sampleGame() = GameRecord(
         id = 1L,
@@ -91,7 +84,7 @@ class ReportGameInfoDialogScreenshotTest {
         composeRule.waitForIdle()
         captureScreenRoboImage(
             filePath = "src/test/snapshots/report_viewer_game_info_dialog.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         )
     }
 
@@ -121,7 +114,7 @@ class ReportGameInfoDialogScreenshotTest {
         composeRule.waitForIdle()
         captureScreenRoboImage(
             filePath = "src/test/snapshots/report_viewer_game_info_dialog_quest_rating.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         )
     }
 }

@@ -5,7 +5,6 @@ import dev.miyado.shogisupplement.ui.theme.ShogiTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.test.junit4.createComposeRule
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
-import com.github.takahirom.roborazzi.RoborazziOptions
 import com.github.takahirom.roborazzi.captureScreenRoboImage
 import org.junit.Rule
 import org.junit.Test
@@ -26,12 +25,6 @@ class AccountDeleteDialogScreenshotTest {
     val composeRule = createComposeRule()
 
     @OptIn(ExperimentalRoborazziApi::class)
-    private val roborazziOptions = RoborazziOptions(
-        recordOptions = RoborazziOptions.RecordOptions(resizeScale = 0.5),
-        compareOptions = RoborazziOptions.CompareOptions(changeThreshold = 0.01f),
-    )
-
-    @OptIn(ExperimentalRoborazziApi::class)
     @Test
     fun account_deleteConfirmDialog() {
         composeRule.setContent {
@@ -49,7 +42,7 @@ class AccountDeleteDialogScreenshotTest {
         composeRule.waitForIdle()
         captureScreenRoboImage(
             filePath = "src/test/snapshots/account_delete_dialog.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         )
     }
 }

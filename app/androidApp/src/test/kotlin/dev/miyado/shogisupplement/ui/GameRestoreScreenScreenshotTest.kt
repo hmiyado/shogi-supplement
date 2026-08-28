@@ -3,8 +3,6 @@ package dev.miyado.shogisupplement.ui
 import androidx.compose.material3.Surface
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
-import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
-import com.github.takahirom.roborazzi.RoborazziOptions
 import com.github.takahirom.roborazzi.captureRoboImage
 import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.restore.GameRestoreScreen
@@ -29,12 +27,6 @@ class GameRestoreScreenScreenshotTest {
     @get:Rule
     val composeRule = createComposeRule()
 
-    @OptIn(ExperimentalRoborazziApi::class)
-    private val roborazziOptions = RoborazziOptions(
-        recordOptions = RoborazziOptions.RecordOptions(resizeScale = 0.5),
-        compareOptions = RoborazziOptions.CompareOptions(changeThreshold = 0.01f),
-    )
-
     private fun capture(fileName: String, state: GameRestoreUiState, dark: Boolean = false) {
         composeRule.setContent {
             ShogiTheme(themeMode = if (dark) "dark" else "light") {
@@ -46,7 +38,7 @@ class GameRestoreScreenScreenshotTest {
         composeRule.waitForIdle()
         composeRule.onRoot().captureRoboImage(
             filePath = "src/test/snapshots/$fileName.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         )
     }
 

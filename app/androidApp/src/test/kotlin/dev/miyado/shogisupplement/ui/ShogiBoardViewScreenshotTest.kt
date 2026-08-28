@@ -3,8 +3,6 @@ package dev.miyado.shogisupplement.ui
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
-import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
-import com.github.takahirom.roborazzi.RoborazziOptions
 import com.github.takahirom.roborazzi.captureRoboImage
 import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.ui.common.ShogiBoardView
@@ -24,18 +22,11 @@ import org.robolectric.annotation.GraphicsMode
 )
 class ShogiBoardViewScreenshotTest {
 
-    @OptIn(ExperimentalRoborazziApi::class)
-    private val roborazziOptions = RoborazziOptions(
-        recordOptions = RoborazziOptions.RecordOptions(resizeScale = 0.5),
-        compareOptions = RoborazziOptions.CompareOptions(changeThreshold = 0.01f),
-    )
-
-
     @Test
     fun shogiBoard_initialPosition() {
         captureRoboImage(
             filePath = "src/test/snapshots/shogiboard_initial.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             TestWrapper {
                 ShogiBoardView(
@@ -49,7 +40,7 @@ class ShogiBoardViewScreenshotTest {
     fun shogiBoard_midgamePosition_ply40() {
         captureRoboImage(
             filePath = "src/test/snapshots/shogiboard_midgame_ply40.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             TestWrapper {
                 ShogiBoardView(
@@ -63,7 +54,7 @@ class ShogiBoardViewScreenshotTest {
     fun shogiBoard_flipped() {
         captureRoboImage(
             filePath = "src/test/snapshots/shogiboard_flipped.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             TestWrapper {
                 ShogiBoardView(
@@ -73,7 +64,6 @@ class ShogiBoardViewScreenshotTest {
             }
         }
     }
-
 
     @Test
     fun blunderCard_noBoard() {
@@ -98,7 +88,7 @@ class ShogiBoardViewScreenshotTest {
         )
         captureRoboImage(
             filePath = "src/test/snapshots/blunder_card_no_board.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             TestWrapper {
                 BlunderCard(report = sampleBlunder)
@@ -106,12 +96,11 @@ class ShogiBoardViewScreenshotTest {
         }
     }
 
-
     @Test
     fun shogiBoard_blackHandMax() {
         captureRoboImage(
             filePath = "src/test/snapshots/shogiboard_black_hand_max.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             TestWrapper {
                 ShogiBoardView(sfen = DebugPositions.BLACK_HAND_MAX)
@@ -123,7 +112,7 @@ class ShogiBoardViewScreenshotTest {
     fun shogiBoard_whiteHandMax() {
         captureRoboImage(
             filePath = "src/test/snapshots/shogiboard_white_hand_max.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             TestWrapper {
                 ShogiBoardView(sfen = DebugPositions.WHITE_HAND_MAX)
@@ -131,12 +120,11 @@ class ShogiBoardViewScreenshotTest {
         }
     }
 
-
     @Test
     fun shogiBoard_legacySfenFallback() {
         captureRoboImage(
             filePath = "src/test/snapshots/shogiboard_legacy_fallback.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             TestWrapper {
                 ShogiBoardView(sfen = "startpos moves 2g2f 3c3d")

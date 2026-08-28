@@ -3,7 +3,6 @@ package dev.miyado.shogisupplement.ui
 import androidx.compose.material3.Surface
 import androidx.compose.ui.test.junit4.createComposeRule
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
-import com.github.takahirom.roborazzi.RoborazziOptions
 import com.github.takahirom.roborazzi.captureScreenRoboImage
 import dev.miyado.shogisupplement.ui.common.DeleteGameConfirmDialog
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
@@ -27,12 +26,6 @@ class GameDeleteDialogScreenshotTest {
     val composeRule = createComposeRule()
 
     @OptIn(ExperimentalRoborazziApi::class)
-    private val roborazziOptions = RoborazziOptions(
-        recordOptions = RoborazziOptions.RecordOptions(resizeScale = 0.5),
-        compareOptions = RoborazziOptions.CompareOptions(changeThreshold = 0.01f),
-    )
-
-    @OptIn(ExperimentalRoborazziApi::class)
     @Test
     fun game_deleteConfirmDialog() {
         composeRule.setContent {
@@ -50,7 +43,7 @@ class GameDeleteDialogScreenshotTest {
         composeRule.waitForIdle()
         captureScreenRoboImage(
             filePath = "src/test/snapshots/game_delete_dialog.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         )
     }
 
@@ -72,7 +65,7 @@ class GameDeleteDialogScreenshotTest {
         composeRule.waitForIdle()
         captureScreenRoboImage(
             filePath = "src/test/snapshots/game_delete_dialog_with_server_checkbox.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         )
     }
 }

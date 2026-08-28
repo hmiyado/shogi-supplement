@@ -6,8 +6,6 @@ import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
-import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
-import com.github.takahirom.roborazzi.RoborazziOptions
 import com.github.takahirom.roborazzi.captureRoboImage
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.GameAnalysisStatus
@@ -31,12 +29,6 @@ class GameListScreenScreenshotTest {
 
     @get:Rule
     val composeRule = createComposeRule()
-
-    @OptIn(ExperimentalRoborazziApi::class)
-    private val roborazziOptions = RoborazziOptions(
-        recordOptions = RoborazziOptions.RecordOptions(resizeScale = 0.5),
-        compareOptions = RoborazziOptions.CompareOptions(changeThreshold = 0.01f),
-    )
 
     /** Popupを含む場合も最後に追加された表示rootを取得する。 */
     private fun topRoot(): SemanticsNodeInteraction {
@@ -116,7 +108,7 @@ class GameListScreenScreenshotTest {
     fun gameList_headerNoFilter() {
         captureRoboImage(
             filePath = "src/test/snapshots/game_list_header_no_filter.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {
@@ -134,7 +126,7 @@ class GameListScreenScreenshotTest {
     fun gameList_emptyGames() {
         captureRoboImage(
             filePath = "src/test/snapshots/game_list_empty.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {
@@ -157,7 +149,7 @@ class GameListScreenScreenshotTest {
         )
         captureRoboImage(
             filePath = "src/test/snapshots/game_list_pending_analysis.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         ) {
             ShogiTheme {
                 Surface {
@@ -188,7 +180,7 @@ class GameListScreenScreenshotTest {
 
         topRoot().captureRoboImage(
             filePath = "src/test/snapshots/game_list_filter_sheet_open.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         )
     }
 
@@ -210,7 +202,7 @@ class GameListScreenScreenshotTest {
 
         topRoot().captureRoboImage(
             filePath = "src/test/snapshots/game_list_filter_sheet_chip_selected.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         )
     }
 
@@ -233,7 +225,7 @@ class GameListScreenScreenshotTest {
 
         topRoot().captureRoboImage(
             filePath = "src/test/snapshots/game_list_filter_applied.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         )
     }
 
@@ -254,7 +246,7 @@ class GameListScreenScreenshotTest {
 
         topRoot().captureRoboImage(
             filePath = "src/test/snapshots/game_list_filter_sheet_only_period_axis.png",
-            roborazziOptions = roborazziOptions,
+            roborazziOptions = screenshotRoborazziOptions,
         )
     }
 }
