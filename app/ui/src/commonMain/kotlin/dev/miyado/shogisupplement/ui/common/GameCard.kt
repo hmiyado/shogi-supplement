@@ -49,7 +49,7 @@ fun GameCard(
     // sourcePlace をタイトルとして優先表示（正規化コードのまま出さず表示ラベルへ変換する。
     // ReportScreenのトップバーと同じ変換で、ホームとレポートの表記を一致させる）
     val sourcePlaceLabel = AppStrings.sourcePlaceLabel(game.sourcePlace)
-    val timeControlLine = buildTimeControlLine(game.timeControlKind, game.timeControlBaseMinutes, game.timeControlIncrementSeconds)
+    val timeControlLine = buildTimeControlLine(game.sourcePlace, game.timeControlRaw, game.timeControlByoyomiRaw)
     val displayTitle = buildAnnotatedString {
         append(sourcePlaceLabel ?: game.fileName)
         if (timeControlLine != null) {

@@ -49,9 +49,8 @@ class ReportViewModelStudyResetTest {
             openingTags: String?,
             senteRating: Long?,
             goteRating: Long?,
-            timeControlKind: String?,
-            timeControlBaseMinutes: Long?,
-            timeControlIncrementSeconds: Long?,
+            timeControlRaw: String?,
+            timeControlByoyomiRaw: String?,
         ): Long = 0
 
         override fun seedFixtureBlunder(

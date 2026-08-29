@@ -655,15 +655,6 @@ object AppStrings {
     const val EDIT_PLAYERS_SENTE_LABEL = "先手"
     const val EDIT_PLAYERS_GOTE_LABEL = "後手"
 
-    // 持ち時間行（対局情報ダイアログ）の文言断片。基本時間・加算秒はDESIGN.mdの
-    // 「数値と符号は例外なくmono」規約に従いUI側でmono化するため、断片ごとに分けて持つ。
-    const val TIME_CONTROL_FISCHER_MID = "分"
-    const val TIME_CONTROL_FISCHER_SUFFIX = "秒（フィッシャー）"
-    const val TIME_CONTROL_SUDDEN_DEATH_SUFFIX = "分切れ負け"
-    const val TIME_CONTROL_BYOYOMI_MID = "分・秒読み"
-    const val TIME_CONTROL_BYOYOMI_ONLY_PREFIX = "秒読み"
-    const val TIME_CONTROL_SECONDS_SUFFIX = "秒"
-
     // :ui commonMain の LicenseInfoScreen が唯一の実装（Android/iOSとも同じ画面を使う）。
     // 依存OSSの完全な一覧は AboutLibraries（Libs）を LibrariesContainer に渡して描画するため、
     // 手動要約の文字列は持たない（旧 LICENSE_OSS_HEADER/BODY は撤去）。

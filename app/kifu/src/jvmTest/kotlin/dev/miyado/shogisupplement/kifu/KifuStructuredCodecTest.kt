@@ -494,49 +494,4 @@ class KifuStructuredCodecTest {
         assertEquals(original.timesSeconds, decomposed.public.moveTimesSeconds)
     }
 
-    // ---- classifyTimeControl ----
-
-    @Test
-    fun `フィッシャー加算の実サンプル3種を判定できる`() {
-        // kiou_game1: 持ち時間：10分+30秒
-        assertEquals(TimeControl(TimeControlKind.FISCHER, 10, 30), KifuDecomposer.classifyTimeControl("10分+30秒", null))
-        // miyado_game1: 持ち時間：5分+30秒
-        assertEquals(TimeControl(TimeControlKind.FISCHER, 5, 30), KifuDecomposer.classifyTimeControl("5分+30秒", null))
-        // kiou_game3: 持ち時間：5分+5秒追加（表記ゆれ「追加」付き）
-        assertEquals(TimeControl(TimeControlKind.FISCHER, 5, 5), KifuDecomposer.classifyTimeControl("5分+5秒追加", null))
-    }
-
-    @Test
-    fun `切れ負けの実サンプルを判定できる`() {
-        // wars_game1・kiou_game2: 持ち時間：3分切れ負け
-        assertEquals(TimeControl(TimeControlKind.SUDDEN_DEATH, 3, null), KifuDecomposer.classifyTimeControl("3分切れ負け", null))
-    }
-
-    @Test
-    fun `秒読みの実サンプルを判定できる`() {
-        // wars_game2・wars_game3: 持ち時間：0分 ＋ 秒読み：10秒
-        assertEquals(TimeControl(TimeControlKind.BYOYOMI, 0, 10), KifuDecomposer.classifyTimeControl("0分", "10秒"))
-    }
-
-    @Test
-    fun `秒読みヘッダが無い基本時間のみの表記は判定不能としてnullを返す`() {
-        // 「切れ負け」表記が無い基本時間だけでは切れ負けと秒読みを区別できないため、
-        // 誤判定より非表示の方が安全（実サンプルでは秒読みヘッダと必ず対で出る）。
-        assertNull(KifuDecomposer.classifyTimeControl("10分", null))
-    }
-
-    @Test
-    fun `ヘッダが無い・形式が想定外の場合はnullを返す`() {
-        assertNull(KifuDecomposer.classifyTimeControl(null, null))
-        assertNull(KifuDecomposer.classifyTimeControl("不明", null))
-    }
-
-    @Test
-    fun `Int範囲を超える数値は例外を投げずnullを返す`() {
-        // 正規表現には桁数上限が無いため、壊れた/悪意あるKIFで非現実的に長い数字が
-        // 来てもtoIntOrNullでnullへ落とす契約（Intオーバーフローで解析全体を失敗させない）。
-        assertNull(KifuDecomposer.classifyTimeControl("999999999999999999分切れ負け", null))
-        assertNull(KifuDecomposer.classifyTimeControl("999999999999999999分+30秒", null))
-        assertNull(KifuDecomposer.classifyTimeControl("0分", "999999999999999999秒"))
-    }
 }

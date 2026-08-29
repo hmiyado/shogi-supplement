@@ -73,9 +73,9 @@ internal fun GameInfoDialog(
                     )
                 }
                 val timeControlLine = buildTimeControlLine(
-                    game.timeControlKind,
-                    game.timeControlBaseMinutes,
-                    game.timeControlIncrementSeconds,
+                    game.sourcePlace,
+                    game.timeControlRaw,
+                    game.timeControlByoyomiRaw,
                 )
                 if (timeControlLine != null) {
                     Spacer(Modifier.height(8.dp))

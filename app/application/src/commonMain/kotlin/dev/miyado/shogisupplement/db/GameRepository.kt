@@ -22,9 +22,8 @@ interface GameRepository {
         endReason: String? = null,
         senteRating: Long? = null,
         goteRating: Long? = null,
-        timeControlKind: String? = null,
-        timeControlBaseMinutes: Long? = null,
-        timeControlIncrementSeconds: Long? = null,
+        timeControlRaw: String? = null,
+        timeControlByoyomiRaw: String? = null,
     ): Long = error("Pending games are not supported by this repository")
 
     /** 解析結果を保存し、新しい game_id を返す。 */
@@ -52,9 +51,8 @@ interface GameRepository {
         openingTags: String? = null,
         senteRating: Long? = null,
         goteRating: Long? = null,
-        timeControlKind: String? = null,
-        timeControlBaseMinutes: Long? = null,
-        timeControlIncrementSeconds: Long? = null,
+        timeControlRaw: String? = null,
+        timeControlByoyomiRaw: String? = null,
     ): Long
 
     /**

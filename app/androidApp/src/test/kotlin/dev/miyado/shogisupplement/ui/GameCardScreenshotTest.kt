@@ -45,9 +45,7 @@ class GameCardScreenshotTest {
                             rating = 1750L,
                             coefVersion = "hao_v1",
                             sourcePlace = "kiou",
-                            timeControlKind = "fischer",
-                            timeControlBaseMinutes = 5L,
-                            timeControlIncrementSeconds = 30L,
+                            timeControlRaw = "5分+5秒追加",
                         ),
                         onClick = {},
                     )

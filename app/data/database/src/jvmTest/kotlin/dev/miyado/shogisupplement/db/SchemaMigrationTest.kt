@@ -197,4 +197,96 @@ class SchemaMigrationTest {
         assertEquals(1, restoredEvals.size)
         assertEquals("2g2f", restoredEvals[0].secondUsi)
     }
+
+    /** 9.sqm確定直後（バージョン10）相当の game テーブル。 */
+    private fun createV10GameTable(driver: JdbcSqliteDriver) {
+        driver.execute(
+            null,
+            """
+            CREATE TABLE game (
+                id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                file_name TEXT NOT NULL,
+                content_hash TEXT NOT NULL,
+                move_count INTEGER NOT NULL,
+                sente_name TEXT,
+                gote_name TEXT,
+                analyzed_at INTEGER NOT NULL,
+                rating INTEGER NOT NULL,
+                rating_sample_moves INTEGER,
+                coef_version TEXT NOT NULL,
+                kif_text TEXT,
+                uploaded_at INTEGER,
+                moves_usi TEXT,
+                user_side TEXT,
+                rating_service TEXT,
+                rating_raw INTEGER,
+                rating_rule TEXT,
+                source_place TEXT,
+                game_winner TEXT,
+                end_reason TEXT,
+                analysis_status TEXT NOT NULL DEFAULT 'completed',
+                opening_style TEXT,
+                opening_castle TEXT,
+                opening_tags TEXT,
+                sente_rating INTEGER,
+                gote_rating INTEGER,
+                time_control_kind TEXT,
+                time_control_base_minutes INTEGER,
+                time_control_increment_seconds INTEGER
+            )
+            """.trimIndent(),
+            0,
+        )
+    }
+
+    @Test
+    fun `9sqm確定直後(v10)のtime_control列は10sqmの移行で新2列へ復元される`() {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        createV10GameTable(driver)
+        driver.execute(
+            null,
+            """
+            INSERT INTO game (
+                file_name, content_hash, move_count, analyzed_at, rating, coef_version, source_place,
+                time_control_kind, time_control_base_minutes, time_control_increment_seconds
+            ) VALUES
+            ('lishogi_fischer.kif', 'hash-lishogi-fischer', 1, 1, 1750, 'hao_v1', 'lishogi', 'fischer', 5, 30),
+            ('kiou_fischer_5_5.kif', 'hash-kiou-fischer-5-5', 1, 1, 1750, 'hao_v1', 'kiou', 'fischer', 5, 5),
+            ('kiou_fischer_10_30.kif', 'hash-kiou-fischer-10-30', 1, 1, 1750, 'hao_v1', 'kiou', 'fischer', 10, 30),
+            ('sudden_death.kif', 'hash-sudden-death', 1, 1, 1750, 'hao_v1', NULL, 'sudden_death', 3, NULL),
+            ('byoyomi.kif', 'hash-byoyomi', 1, 1, 1750, 'hao_v1', NULL, 'byoyomi', 0, 10),
+            ('unset.kif', 'hash-unset', 1, 1, 1750, 'hao_v1', NULL, NULL, NULL, NULL)
+            """.trimIndent(),
+            0,
+        )
+        driver.execute(null, "PRAGMA user_version = 10", 0)
+
+        ShogiSupplementDatabase.Schema.migrate(
+            driver,
+            oldVersion = 10,
+            newVersion = ShogiSupplementDatabase.Schema.version,
+        )
+
+        val repo = SqlDelightGameRepository(ShogiSupplementDatabase(driver))
+        val lishogiFischer = repo.getByHash("hash-lishogi-fischer")!!.let { repo.getGameById(it)!! }
+        assertEquals("5分+30秒", lishogiFischer.timeControlRaw)
+
+        // 棋桜の(5分,5秒)だけ実サンプルが「追加」付きで出力するため、その表記で復元される。
+        val kiouFischer55 = repo.getByHash("hash-kiou-fischer-5-5")!!.let { repo.getGameById(it)!! }
+        assertEquals("5分+5秒追加", kiouFischer55.timeControlRaw)
+
+        // 他の組み合わせ（カジュアル/真剣勝負のような曖昧ケース）まで「追加」を付けない。
+        val kiouFischer1030 = repo.getByHash("hash-kiou-fischer-10-30")!!.let { repo.getGameById(it)!! }
+        assertEquals("10分+30秒", kiouFischer1030.timeControlRaw)
+
+        val suddenDeath = repo.getByHash("hash-sudden-death")!!.let { repo.getGameById(it)!! }
+        assertEquals("3分切れ負け", suddenDeath.timeControlRaw)
+
+        val byoyomi = repo.getByHash("hash-byoyomi")!!.let { repo.getGameById(it)!! }
+        assertEquals("0分", byoyomi.timeControlRaw)
+        assertEquals("10秒", byoyomi.timeControlByoyomiRaw)
+
+        val unset = repo.getByHash("hash-unset")!!.let { repo.getGameById(it)!! }
+        assertEquals(null, unset.timeControlRaw)
+    }
 }

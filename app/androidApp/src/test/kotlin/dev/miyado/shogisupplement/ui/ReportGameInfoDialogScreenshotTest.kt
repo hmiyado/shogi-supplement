@@ -126,9 +126,8 @@ class ReportGameInfoDialogScreenshotTest {
                 Surface {
                     ReportScreen(
                         game = sampleGame().copy(
-                            timeControlKind = "fischer",
-                            timeControlBaseMinutes = 5L,
-                            timeControlIncrementSeconds = 30L,
+                            sourcePlace = "kiou",
+                            timeControlRaw = "5分+5秒追加",
                         ),
                         reports = listOf(sampleBlunder()),
                         flip = false,

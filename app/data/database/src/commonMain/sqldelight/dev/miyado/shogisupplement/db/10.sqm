@@ -1,0 +1,28 @@
+-- 9.sqmで追加したtime_control_kind/base_minutes/increment_secondsは使わなくなったが、
+-- minSdk 29の端末はDROP COLUMN未対応（SQLite 3.35+要）のため列自体は残し、
+-- 新しい2列（原文をそのまま持つ）だけを追加する。
+ALTER TABLE game ADD COLUMN time_control_raw TEXT;
+ALTER TABLE game ADD COLUMN time_control_byoyomi_raw TEXT;
+
+-- 9.sqm確定後に保存されたレコードは旧3列にのみ値を持つため、新2列へ復元する。
+-- 棋桜の(5分,5秒)だけは実サンプルが常に「追加」付きで出力し表示側のラベル
+-- テーブルもその表記にのみヒットするため、この組み合わせだけ特別扱いする
+-- （他のkiou/fischerな組み合わせに一律で"追加"を付けると原文と異なる表記になる）。
+UPDATE game SET
+    time_control_raw = CASE
+        WHEN time_control_kind = 'fischer' AND source_place = 'kiou'
+            AND time_control_base_minutes = 5 AND time_control_increment_seconds = 5 THEN
+            '5分+5秒追加'
+        WHEN time_control_kind = 'fischer' THEN
+            time_control_base_minutes || '分+' || time_control_increment_seconds || '秒'
+        WHEN time_control_kind = 'sudden_death' THEN
+            time_control_base_minutes || '分切れ負け'
+        WHEN time_control_kind = 'byoyomi' THEN
+            time_control_base_minutes || '分'
+        ELSE NULL
+    END,
+    time_control_byoyomi_raw = CASE time_control_kind
+        WHEN 'byoyomi' THEN time_control_increment_seconds || '秒'
+        ELSE NULL
+    END
+WHERE time_control_kind IS NOT NULL;

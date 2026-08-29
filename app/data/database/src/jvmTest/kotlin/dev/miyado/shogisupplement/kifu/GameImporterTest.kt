@@ -67,7 +67,7 @@ class GameImporterTest {
     }
 
     @Test
-    fun `持ち時間ヘッダのあるKIFは持ち時間ルールが判定され未解析状態でも保存される`() {
+    fun `持ち時間ヘッダのあるKIFは原文のまま未解析状態でも保存される`() {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         ShogiSupplementDatabase.Schema.create(driver)
         val repository = SqlDelightGameRepository(ShogiSupplementDatabase(driver))
@@ -87,8 +87,6 @@ class GameImporterTest {
             importer.importGame(kif, "game.kif", "sente"),
         )
         val game = repository.getGameById(outcome.gameId)
-        assertEquals("fischer", game?.timeControlKind)
-        assertEquals(5L, game?.timeControlBaseMinutes)
-        assertEquals(30L, game?.timeControlIncrementSeconds)
+        assertEquals("5分+30秒", game?.timeControlRaw)
     }
 }

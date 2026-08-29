@@ -100,7 +100,7 @@ class GameRepositoryTest {
     }
 
     @Test
-    fun `持ち時間ルールを保存・復元できる`() {
+    fun `持ち時間ヘッダの原文を保存・復元できる`() {
         val repo = newRepository()
         val gameId = repo.saveAnalysis(
             fileName = "kiou_game1.kif",
@@ -110,19 +110,16 @@ class GameRepositoryTest {
             reports = emptyList(),
             rating = 1750,
             coefVersion = "hao_v1",
-            timeControlKind = "fischer",
-            timeControlBaseMinutes = 10,
-            timeControlIncrementSeconds = 30,
+            timeControlRaw = "10分+30秒",
         )
 
         val game = repo.getGameById(gameId)!!
-        assertEquals("fischer", game.timeControlKind)
-        assertEquals(10L, game.timeControlBaseMinutes)
-        assertEquals(30L, game.timeControlIncrementSeconds)
+        assertEquals("10分+30秒", game.timeControlRaw)
+        assertNull(game.timeControlByoyomiRaw)
     }
 
     @Test
-    fun `持ち時間ルールを渡さない場合は3列ともnullのまま保存される`() {
+    fun `持ち時間ヘッダを渡さない場合はnullのまま保存される`() {
         val repo = newRepository()
         val gameId = repo.saveAnalysis(
             fileName = "miyado_game2.kif",
@@ -135,13 +132,12 @@ class GameRepositoryTest {
         )
 
         val game = repo.getGameById(gameId)!!
-        assertNull(game.timeControlKind)
-        assertNull(game.timeControlBaseMinutes)
-        assertNull(game.timeControlIncrementSeconds)
+        assertNull(game.timeControlRaw)
+        assertNull(game.timeControlByoyomiRaw)
     }
 
     @Test
-    fun `未解析棋譜として保存した持ち時間ルールは解析完了後も引き継がれる`() {
+    fun `未解析棋譜として保存した持ち時間ヘッダは解析完了後も引き継がれる`() {
         val repo = newRepository()
         val gameId = repo.savePendingGame(
             fileName = "wars_game2.kif",
@@ -150,9 +146,8 @@ class GameRepositoryTest {
             headers = emptyMap(),
             kifText = "手合割：平手",
             userSide = "sente",
-            timeControlKind = "byoyomi",
-            timeControlBaseMinutes = 0,
-            timeControlIncrementSeconds = 10,
+            timeControlRaw = "0分",
+            timeControlByoyomiRaw = "10秒",
         )
 
         val completedId = repo.saveAnalysis(
@@ -163,16 +158,14 @@ class GameRepositoryTest {
             reports = emptyList(),
             rating = 1600,
             coefVersion = "hao_v1",
-            timeControlKind = "byoyomi",
-            timeControlBaseMinutes = 0,
-            timeControlIncrementSeconds = 10,
+            timeControlRaw = "0分",
+            timeControlByoyomiRaw = "10秒",
         )
 
         assertEquals(gameId, completedId)
         val game = repo.getGameById(completedId)!!
-        assertEquals("byoyomi", game.timeControlKind)
-        assertEquals(0L, game.timeControlBaseMinutes)
-        assertEquals(10L, game.timeControlIncrementSeconds)
+        assertEquals("0分", game.timeControlRaw)
+        assertEquals("10秒", game.timeControlByoyomiRaw)
     }
 
     @Test
