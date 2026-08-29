@@ -100,6 +100,82 @@ class GameRepositoryTest {
     }
 
     @Test
+    fun `持ち時間ルールを保存・復元できる`() {
+        val repo = newRepository()
+        val gameId = repo.saveAnalysis(
+            fileName = "kiou_game1.kif",
+            contentHash = "hash-time-control",
+            moves = listOf("7g7f"),
+            headers = emptyMap(),
+            reports = emptyList(),
+            rating = 1750,
+            coefVersion = "hao_v1",
+            timeControlKind = "fischer",
+            timeControlBaseMinutes = 10,
+            timeControlIncrementSeconds = 30,
+        )
+
+        val game = repo.getGameById(gameId)!!
+        assertEquals("fischer", game.timeControlKind)
+        assertEquals(10L, game.timeControlBaseMinutes)
+        assertEquals(30L, game.timeControlIncrementSeconds)
+    }
+
+    @Test
+    fun `持ち時間ルールを渡さない場合は3列ともnullのまま保存される`() {
+        val repo = newRepository()
+        val gameId = repo.saveAnalysis(
+            fileName = "miyado_game2.kif",
+            contentHash = "hash-no-time-control",
+            moves = listOf("7g7f"),
+            headers = emptyMap(),
+            reports = emptyList(),
+            rating = 1750,
+            coefVersion = "hao_v1",
+        )
+
+        val game = repo.getGameById(gameId)!!
+        assertNull(game.timeControlKind)
+        assertNull(game.timeControlBaseMinutes)
+        assertNull(game.timeControlIncrementSeconds)
+    }
+
+    @Test
+    fun `未解析棋譜として保存した持ち時間ルールは解析完了後も引き継がれる`() {
+        val repo = newRepository()
+        val gameId = repo.savePendingGame(
+            fileName = "wars_game2.kif",
+            contentHash = "hash-pending-time-control",
+            moves = listOf("7g7f"),
+            headers = emptyMap(),
+            kifText = "手合割：平手",
+            userSide = "sente",
+            timeControlKind = "byoyomi",
+            timeControlBaseMinutes = 0,
+            timeControlIncrementSeconds = 10,
+        )
+
+        val completedId = repo.saveAnalysis(
+            fileName = "wars_game2.kif",
+            contentHash = "hash-pending-time-control",
+            moves = listOf("7g7f"),
+            headers = emptyMap(),
+            reports = emptyList(),
+            rating = 1600,
+            coefVersion = "hao_v1",
+            timeControlKind = "byoyomi",
+            timeControlBaseMinutes = 0,
+            timeControlIncrementSeconds = 10,
+        )
+
+        assertEquals(gameId, completedId)
+        val game = repo.getGameById(completedId)!!
+        assertEquals("byoyomi", game.timeControlKind)
+        assertEquals(0L, game.timeControlBaseMinutes)
+        assertEquals(10L, game.timeControlIncrementSeconds)
+    }
+
+    @Test
     fun `同一ハッシュはgetByHashで既存IDが返る`() {
         val repo = newRepository()
         assertNull(repo.getByHash("hash-abc"))

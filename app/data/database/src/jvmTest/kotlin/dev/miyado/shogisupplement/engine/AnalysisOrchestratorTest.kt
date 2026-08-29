@@ -133,6 +133,31 @@ class AnalysisOrchestratorTest {
         assertEquals("kiou", sourcePlace)
     }
 
+    @Test
+    fun `切れ負けの持ち時間ヘッダは保存経路でも持ち時間ルールとして保存される`() = runBlocking {
+        val (orchestrator, repository) = newOrchestrator()
+        val kif = singleMoveKif(
+            listOf("持ち時間：3分切れ負け", "手合割：平手", "先手：太郎", "後手：花子"),
+        )
+        val outcome = orchestrator.analyzeAndSave(kif, fileName = "sudden_death.kif")
+        val completed = outcome as? AnalysisOrchestrator.Outcome.Completed
+            ?: fail("解析に失敗した: ${(outcome as AnalysisOrchestrator.Outcome.Failed).message}")
+        val game = repository.getGameById(completed.gameId)
+        assertEquals("sudden_death", game?.timeControlKind)
+        assertEquals(3L, game?.timeControlBaseMinutes)
+    }
+
+    @Test
+    fun `持ち時間ヘッダが無ければ持ち時間ルールはnullのまま保存される`() = runBlocking {
+        val (orchestrator, repository) = newOrchestrator()
+        val kif = singleMoveKif(listOf("手合割：平手", "先手：太郎", "後手：花子"))
+        val outcome = orchestrator.analyzeAndSave(kif, fileName = "no_time_control.kif")
+        val completed = outcome as? AnalysisOrchestrator.Outcome.Completed
+            ?: fail("解析に失敗した: ${(outcome as AnalysisOrchestrator.Outcome.Failed).message}")
+        val game = repository.getGameById(completed.gameId)
+        assertEquals(null, game?.timeControlKind)
+    }
+
     /** pv1/pv2を区別して返すFakeEngine。plyごとに異なる値を返し、先手視点への正規化を検証する。 */
     private class PvAwareFakeEngine : Engine {
         override fun analyze(moves: List<String>, nodes: Int): List<PvInfo> = if (moves.isEmpty()) {

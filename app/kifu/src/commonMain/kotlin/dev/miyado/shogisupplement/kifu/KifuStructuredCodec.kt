@@ -16,6 +16,24 @@ enum class KifuSource(val wireValue: String) {
     OTHER("other"),
 }
 
+/** @property wireValue DB の `time_control_kind` 列に書き込む値 */
+enum class TimeControlKind(val wireValue: String) {
+    /** 1手ごとに持ち時間が加算される（例:「5分+30秒」）。 */
+    FISCHER("fischer"),
+    /** 持ち時間を使い切った後、1手あたり一定時間の猶予が与えられる（例:「0分」＋秒読み「10秒」）。 */
+    BYOYOMI("byoyomi"),
+    /** 持ち時間を使い切ると終局する（例:「3分切れ負け」）。 */
+    SUDDEN_DEATH("sudden_death"),
+}
+
+/** 持ち時間ルール。[baseMinutes] は基本持ち時間（分）。 */
+data class TimeControl(
+    val kind: TimeControlKind,
+    val baseMinutes: Int,
+    /** フィッシャーの1手加算秒数、または秒読みの1手猶予秒数。切れ負けはnull。 */
+    val incrementSeconds: Int?,
+)
+
 /**
  * @property headers ホワイトリスト適用済みヘッダ（[KifuDecomposer.HEADER_WHITELIST] のキーのみ）
  * @property source 出典サービスの正規化値（生の「場所」ヘッダは private 側のみに残る）
@@ -79,6 +97,11 @@ object KifuDecomposer {
 
     private val DATETIME_HEADER_KEYS = setOf("開始日時", "終了日時")
 
+    private val FISCHER_HEADER = Regex("""^(\d+)分\+(\d+)秒(追加)?$""")
+    private val SUDDEN_DEATH_HEADER = Regex("""^(\d+)分切れ負け$""")
+    private val BASE_MINUTES_ONLY_HEADER = Regex("""^(\d+)分$""")
+    private val BYOYOMI_HEADER = Regex("""^(\d+)秒$""")
+
     // 末尾が「時:分:秒」の値だけを対象にする。グループ1が「時:分」までの部分。
     private val SECONDS_SUFFIX = Regex("""^(.*\d{1,2}:\d{2}):\d{2}$""")
 
@@ -141,6 +164,30 @@ object KifuDecomposer {
             rawText.lineSequence().any { KIOU_MARKER.containsMatchIn(it.trim()) } -> KifuSource.KIOU
             else -> KifuSource.OTHER
         }
+    }
+
+    /**
+     * 「持ち時間」「秒読み」ヘッダから持ち時間ルールを判定する。判定できない形式（原文の
+     * 表記ゆれ・ヘッダ欠落）は誤判定より安全側のnullを返す。
+     */
+    fun classifyTimeControl(mainTimeHeader: String?, byoyomiHeader: String?): TimeControl? {
+        val main = mainTimeHeader?.trim() ?: return null
+        FISCHER_HEADER.find(main)?.let { m ->
+            val base = m.groupValues[1].toIntOrNull() ?: return null
+            val increment = m.groupValues[2].toIntOrNull() ?: return null
+            return TimeControl(TimeControlKind.FISCHER, base, increment)
+        }
+        SUDDEN_DEATH_HEADER.find(main)?.let { m ->
+            val base = m.groupValues[1].toIntOrNull() ?: return null
+            return TimeControl(TimeControlKind.SUDDEN_DEATH, base, null)
+        }
+        BASE_MINUTES_ONLY_HEADER.find(main)?.let { m ->
+            val base = m.groupValues[1].toIntOrNull() ?: return null
+            val byoyomiSeconds = byoyomiHeader?.trim()?.let { BYOYOMI_HEADER.find(it)?.groupValues?.get(1)?.toIntOrNull() }
+                ?: return null
+            return TimeControl(TimeControlKind.BYOYOMI, base, byoyomiSeconds)
+        }
+        return null
     }
 
     /** [headers] の「先手」「後手」と、そこから分離したレート。 */

@@ -94,6 +94,7 @@ class AnalysisOrchestrator(
 
             val source = KifuDecomposer.classifySource(kifContent, game.headers["場所"], game.headers["棋戦"])
             val players = KifuDecomposer.resolvePlayers(source, game.headers)
+            val timeControl = KifuDecomposer.classifyTimeControl(game.headers["持ち時間"], game.headers["秒読み"])
 
             val opening = when (userSide) {
                 "sente" -> OpeningClassifier.classify(game.moves).black
@@ -131,6 +132,9 @@ class AnalysisOrchestrator(
                 },
                 senteRating = players.senteRating,
                 goteRating = players.goteRating,
+                timeControlKind = timeControl?.kind?.wireValue,
+                timeControlBaseMinutes = timeControl?.baseMinutes?.toLong(),
+                timeControlIncrementSeconds = timeControl?.incrementSeconds?.toLong(),
             )
 
             // 評価値はsente視点に正規化し、後からの計算に必要な第2候補も保存する。

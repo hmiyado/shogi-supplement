@@ -9,6 +9,7 @@ import dev.miyado.shogisupplement.crypto.TransferSecrets
 import dev.miyado.shogisupplement.crypto.TransferSecretStore
 import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.db.GameRecord
+import dev.miyado.shogisupplement.kifu.KifuDecomposer
 import dev.miyado.shogisupplement.kifu.KifuReconstructor
 import dev.miyado.shogisupplement.kifu.KifuSource
 import dev.miyado.shogisupplement.kifu.PublicKifuFields
@@ -92,6 +93,7 @@ class SupabaseGameSummaryService(
         } else {
             null
         }
+        val timeControl = KifuDecomposer.classifyTimeControl(headers?.get("持ち時間"), headers?.get("秒読み"))
         return GameRecord(
             id = id,
             fileName = AppStrings.restoredGameFileName(headers?.get("開始日時")),
@@ -111,6 +113,9 @@ class SupabaseGameSummaryService(
             sourcePlace = sourcePlace,
             gameWinner = kifuWinner(result, effectiveMoveCount),
             endReason = result,
+            timeControlKind = timeControl?.kind?.wireValue,
+            timeControlBaseMinutes = timeControl?.baseMinutes?.toLong(),
+            timeControlIncrementSeconds = timeControl?.incrementSeconds?.toLong(),
         )
     }
 

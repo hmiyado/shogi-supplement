@@ -52,6 +52,7 @@ fun buildWebReport(
 
     val source = KifuDecomposer.classifySource(kifText ?: "", headers["場所"], headers["棋戦"])
     val players = KifuDecomposer.resolvePlayers(source, headers)
+    val timeControl = KifuDecomposer.classifyTimeControl(headers["持ち時間"], headers["秒読み"])
     val game = GameRecord(
         id = 0L,
         fileName = fileName,
@@ -73,6 +74,9 @@ fun buildWebReport(
         endReason = endReason,
         senteRating = players.senteRating,
         goteRating = players.goteRating,
+        timeControlKind = timeControl?.kind?.wireValue,
+        timeControlBaseMinutes = timeControl?.baseMinutes?.toLong(),
+        timeControlIncrementSeconds = timeControl?.incrementSeconds?.toLong(),
     )
 
     val matchRateResult = EngineMatchRate.compute(moves, positionEvalRows, userSide)

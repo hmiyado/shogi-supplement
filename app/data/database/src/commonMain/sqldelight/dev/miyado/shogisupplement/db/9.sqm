@@ -1,0 +1,3 @@
+ALTER TABLE game ADD COLUMN time_control_kind TEXT;
+ALTER TABLE game ADD COLUMN time_control_base_minutes INTEGER;
+ALTER TABLE game ADD COLUMN time_control_increment_seconds INTEGER;

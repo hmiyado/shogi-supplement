@@ -117,4 +117,32 @@ class ReportGameInfoDialogScreenshotTest {
             roborazziOptions = screenshotRoborazziOptions,
         )
     }
+
+    @OptIn(ExperimentalRoborazziApi::class)
+    @Test
+    fun report_viewer_game_info_dialog_time_control() {
+        composeRule.setContent {
+            ShogiTheme {
+                Surface {
+                    ReportScreen(
+                        game = sampleGame().copy(
+                            timeControlKind = "fischer",
+                            timeControlBaseMinutes = 5L,
+                            timeControlIncrementSeconds = 30L,
+                        ),
+                        reports = listOf(sampleBlunder()),
+                        flip = false,
+                        strengthDisplayText = "52 ±27",
+                        onBack = {},
+                        initialShowGameInfoDialog = true,
+                    )
+                }
+            }
+        }
+        composeRule.waitForIdle()
+        captureScreenRoboImage(
+            filePath = "src/test/snapshots/report_viewer_game_info_dialog_time_control.png",
+            roborazziOptions = screenshotRoborazziOptions,
+        )
+    }
 }

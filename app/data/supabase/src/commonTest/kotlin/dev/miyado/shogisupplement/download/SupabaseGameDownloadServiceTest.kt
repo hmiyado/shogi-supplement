@@ -71,6 +71,7 @@ class SupabaseGameDownloadServiceTest {
             ratingRule: String?, sourcePlace: String?, gameWinner: String?, endReason: String?,
             openingStyle: String?, openingCastle: String?, openingTags: String?,
             senteRating: Long?, goteRating: Long?,
+            timeControlKind: String?, timeControlBaseMinutes: Long?, timeControlIncrementSeconds: Long?,
         ): Long = error("not used by SupabaseGameDownloadService")
 
         override fun seedFixtureBlunder(

@@ -646,8 +646,18 @@ object AppStrings {
     const val GAME_INFO_DIALOG_TITLE = "この棋譜について"
     const val GAME_INFO_OPENING_STYLE = "戦型"
     const val GAME_INFO_OPENING_CASTLE = "囲い"
+    const val GAME_INFO_TIME_CONTROL = "持ち時間"
     /** 対局情報ダイアログの閉じるボタン。 */
     const val GAME_INFO_CLOSE = "閉じる"
+
+    // 持ち時間行（対局情報ダイアログ）の文言断片。基本時間・加算秒はDESIGN.mdの
+    // 「数値と符号は例外なくmono」規約に従いUI側でmono化するため、断片ごとに分けて持つ。
+    const val TIME_CONTROL_FISCHER_MID = "分"
+    const val TIME_CONTROL_FISCHER_SUFFIX = "秒（フィッシャー）"
+    const val TIME_CONTROL_SUDDEN_DEATH_SUFFIX = "分切れ負け"
+    const val TIME_CONTROL_BYOYOMI_MID = "分・秒読み"
+    const val TIME_CONTROL_BYOYOMI_ONLY_PREFIX = "秒読み"
+    const val TIME_CONTROL_SECONDS_SUFFIX = "秒"
 
     // :ui commonMain の LicenseInfoScreen が唯一の実装（Android/iOSとも同じ画面を使う）。
     // 依存OSSの完全な一覧は AboutLibraries（Libs）を LibrariesContainer に渡して描画するため、

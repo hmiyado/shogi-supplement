@@ -14,13 +14,18 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.PositionEvalRow
 import dev.miyado.shogisupplement.db.openingTagList
+import dev.miyado.shogisupplement.kifu.TimeControlKind
 import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.formatDateTime
+import dev.miyado.shogisupplement.ui.theme.IbmPlexMonoFamily
 import dev.miyado.shogisupplement.ui.theme.shogiColors
 
 @Composable
@@ -68,6 +73,21 @@ internal fun GameInfoDialog(
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
+                val timeControlLine = buildTimeControlLine(
+                    game.timeControlKind,
+                    game.timeControlBaseMinutes,
+                    game.timeControlIncrementSeconds,
+                )
+                if (timeControlLine != null) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        buildAnnotatedString {
+                            append("${AppStrings.GAME_INFO_TIME_CONTROL}：")
+                            append(timeControlLine)
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
             }
         },
         confirmButton = {
@@ -76,6 +96,43 @@ internal fun GameInfoDialog(
             }
         },
     )
+}
+
+/** 対局情報ダイアログの持ち時間行。判定できない（kind・baseMinutes未確定）場合はnull。 */
+private fun buildTimeControlLine(kind: String?, baseMinutes: Long?, incrementSeconds: Long?): AnnotatedString? {
+    if (baseMinutes == null) return null
+    val timeControlKind = TimeControlKind.entries.firstOrNull { it.wireValue == kind } ?: return null
+    if (timeControlKind != TimeControlKind.SUDDEN_DEATH && incrementSeconds == null) return null
+    return buildAnnotatedString {
+        fun AnnotatedString.Builder.appendMono(value: Long) {
+            withStyle(SpanStyle(fontFamily = IbmPlexMonoFamily)) { append(value.toString()) }
+        }
+        fun AnnotatedString.Builder.appendMono(text: String) {
+            withStyle(SpanStyle(fontFamily = IbmPlexMonoFamily)) { append(text) }
+        }
+        when (timeControlKind) {
+            TimeControlKind.FISCHER -> {
+                appendMono(baseMinutes)
+                append(AppStrings.TIME_CONTROL_FISCHER_MID)
+                appendMono("+${incrementSeconds!!}")
+                append(AppStrings.TIME_CONTROL_FISCHER_SUFFIX)
+            }
+            TimeControlKind.SUDDEN_DEATH -> {
+                appendMono(baseMinutes)
+                append(AppStrings.TIME_CONTROL_SUDDEN_DEATH_SUFFIX)
+            }
+            TimeControlKind.BYOYOMI -> {
+                if (baseMinutes > 0) {
+                    appendMono(baseMinutes)
+                    append(AppStrings.TIME_CONTROL_BYOYOMI_MID)
+                } else {
+                    append(AppStrings.TIME_CONTROL_BYOYOMI_ONLY_PREFIX)
+                }
+                appendMono(incrementSeconds!!)
+                append(AppStrings.TIME_CONTROL_SECONDS_SUFFIX)
+            }
+        }
+    }
 }
 
 @Composable

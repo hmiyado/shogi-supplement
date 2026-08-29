@@ -49,6 +49,14 @@ data class GameRecord(
     /** 対局者のレート（将棋クエスト等、KIFの対局者名に付随して出典サービスが記録している値）。 */
     val senteRating: Long? = null,
     val goteRating: Long? = null,
+    /**
+     * 持ち時間ルール（[dev.miyado.shogisupplement.kifu.TimeControlKind.wireValue]。
+     * "fischer"/"byoyomi"/"sudden_death"）。KIFヘッダから判定できなければnull。
+     */
+    val timeControlKind: String? = null,
+    val timeControlBaseMinutes: Long? = null,
+    /** フィッシャーの1手加算秒数、または秒読みの1手猶予秒数。 */
+    val timeControlIncrementSeconds: Long? = null,
 )
 
 /** 悪手レポートのドメインモデル（UI用）。 */

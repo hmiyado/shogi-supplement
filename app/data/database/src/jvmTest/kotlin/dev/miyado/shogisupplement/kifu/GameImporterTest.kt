@@ -65,4 +65,30 @@ class GameImporterTest {
         assertEquals("相手A", game?.senteName)
         assertEquals(464L, game?.senteRating)
     }
+
+    @Test
+    fun `持ち時間ヘッダのあるKIFは持ち時間ルールが判定され未解析状態でも保存される`() {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        ShogiSupplementDatabase.Schema.create(driver)
+        val repository = SqlDelightGameRepository(ShogiSupplementDatabase(driver))
+        val importer = GameImporter(repository)
+        val kif = """
+            持ち時間：5分+30秒
+            手合割：平手
+            先手：miyado
+            後手：相手
+            手数----指手---------消費時間--
+            1 ７六歩(77)
+            2 ３四歩(33)
+            3 投了
+        """.trimIndent()
+
+        val outcome = assertIs<GameImporter.Outcome.Imported>(
+            importer.importGame(kif, "game.kif", "sente"),
+        )
+        val game = repository.getGameById(outcome.gameId)
+        assertEquals("fischer", game?.timeControlKind)
+        assertEquals(5L, game?.timeControlBaseMinutes)
+        assertEquals(30L, game?.timeControlIncrementSeconds)
+    }
 }

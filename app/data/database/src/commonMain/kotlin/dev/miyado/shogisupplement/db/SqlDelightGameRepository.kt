@@ -30,6 +30,9 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
         endReason: String?,
         senteRating: Long?,
         goteRating: Long?,
+        timeControlKind: String?,
+        timeControlBaseMinutes: Long?,
+        timeControlIncrementSeconds: Long?,
     ): Long = database.transactionWithResult {
         database.shogiSupplementQueries.insertGame(
             file_name = fileName,
@@ -56,6 +59,9 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
             opening_tags = null,
             sente_rating = senteRating,
             gote_rating = goteRating,
+            time_control_kind = timeControlKind,
+            time_control_base_minutes = timeControlBaseMinutes,
+            time_control_increment_seconds = timeControlIncrementSeconds,
         )
         database.shogiSupplementQueries.getLastInsertRowId().executeAsOne()
     }
@@ -83,6 +89,9 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
         openingTags: String?,
         senteRating: Long?,
         goteRating: Long?,
+        timeControlKind: String?,
+        timeControlBaseMinutes: Long?,
+        timeControlIncrementSeconds: Long?,
     ): Long {
         // 全局面の SFEN を事前計算: sfenAtPly[i] = i 手目を指す直前の局面
         val sfenAtPly = buildSfenSequence(moves)
@@ -120,6 +129,9 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
                     opening_tags = openingTags,
                     sente_rating = senteRating,
                     gote_rating = goteRating,
+                    time_control_kind = timeControlKind,
+                    time_control_base_minutes = timeControlBaseMinutes,
+                    time_control_increment_seconds = timeControlIncrementSeconds,
                 )
             } else {
                 database.shogiSupplementQueries.completePendingGame(
@@ -145,6 +157,9 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
                     opening_tags = openingTags,
                     sente_rating = senteRating,
                     gote_rating = goteRating,
+                    time_control_kind = timeControlKind,
+                    time_control_base_minutes = timeControlBaseMinutes,
+                    time_control_increment_seconds = timeControlIncrementSeconds,
                     id = pendingId,
                 )
             }
@@ -224,6 +239,9 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
                 opening_tags = null,
                 sente_rating = null,
                 gote_rating = null,
+                time_control_kind = null,
+                time_control_base_minutes = null,
+                time_control_increment_seconds = null,
             )
             val gameId = database.shogiSupplementQueries.getLastInsertRowId().executeAsOne()
 
@@ -428,6 +446,9 @@ internal fun Game.toGameRecord() = GameRecord(
     openingTags = opening_tags,
     senteRating = sente_rating,
     goteRating = gote_rating,
+    timeControlKind = time_control_kind,
+    timeControlBaseMinutes = time_control_base_minutes,
+    timeControlIncrementSeconds = time_control_increment_seconds,
 )
 
 internal fun Blunder_report.toBlunderRecord() = BlunderRecord(

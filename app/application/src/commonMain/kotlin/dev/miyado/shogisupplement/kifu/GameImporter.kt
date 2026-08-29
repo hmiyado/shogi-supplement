@@ -28,6 +28,7 @@ class GameImporter(private val repository: GameRepository) {
         val game = KifParser().parse(kifContent)
         val source = KifuDecomposer.classifySource(kifContent, game.headers["場所"], game.headers["棋戦"])
         val players = KifuDecomposer.resolvePlayers(source, game.headers)
+        val timeControl = KifuDecomposer.classifyTimeControl(game.headers["持ち時間"], game.headers["秒読み"])
         val gameId = repository.savePendingGame(
             fileName = fileName,
             contentHash = effectiveHash,
@@ -43,6 +44,9 @@ class GameImporter(private val repository: GameRepository) {
             endReason = game.endReason,
             senteRating = players.senteRating,
             goteRating = players.goteRating,
+            timeControlKind = timeControl?.kind?.wireValue,
+            timeControlBaseMinutes = timeControl?.baseMinutes?.toLong(),
+            timeControlIncrementSeconds = timeControl?.incrementSeconds?.toLong(),
         )
         Outcome.Imported(gameId, alreadyExisted = false)
     } catch (e: Exception) {
