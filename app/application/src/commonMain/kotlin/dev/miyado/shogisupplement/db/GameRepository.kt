@@ -104,6 +104,9 @@ interface GameRepository {
     /** ゲームの user_side / rating_service / rating_raw を更新する。 */
     fun updateUserSide(gameId: Long, userSide: String?, ratingService: String?, ratingRaw: Long?)
 
+    /** ゲームの対局者名を更新する。ローカルのみで、サーバーに保存済みの記録は変更しない。 */
+    fun updateGamePlayers(gameId: Long, senteName: String?, goteName: String?)
+
     /**
      * 全ゲームの uploaded_at を NULL にリセットする。
      * アカウント削除成功時に呼ぶ（サーバー側データが消えたため、

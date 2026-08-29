@@ -75,6 +75,7 @@ class ReportViewModelStudyResetTest {
         override fun getGamesWithUserSide(): List<GameRecord> = emptyList()
         override fun updateUploadedAt(gameId: Long, epochSeconds: Long) = Unit
         override fun updateUserSide(gameId: Long, userSide: String?, ratingService: String?, ratingRaw: Long?) = Unit
+        override fun updateGamePlayers(gameId: Long, senteName: String?, goteName: String?) = Unit
         override fun resetAllUploadedAt() = Unit
         override fun getReports(gameId: Long): List<BlunderRecord> = emptyList()
         override fun updateBestPv(blunderId: Long, newPv: String) = Unit

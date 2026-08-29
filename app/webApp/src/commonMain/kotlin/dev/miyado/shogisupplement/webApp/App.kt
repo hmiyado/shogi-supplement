@@ -100,6 +100,7 @@ private fun AppContent(
             positionEvals = report.positionEvals,
             matchRateDisplayText = report.matchRateText,
             blunderRateDisplayText = report.blunderRateText,
+            canEdit = false,
             onBack = onBack,
             studyState = studyState,
             onStartStudy = { baseSfen, flip, originIsBestPv, originPlyIndex, originSelectedIdx, originAbsolutePly, origin, tappedSquare, tappedHandPieceType ->

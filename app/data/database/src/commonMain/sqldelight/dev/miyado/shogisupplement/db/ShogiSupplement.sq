@@ -115,6 +115,9 @@ UPDATE game SET uploaded_at = ? WHERE id = ?;
 updateUserSide:
 UPDATE game SET user_side = ?, rating_service = ?, rating_raw = ? WHERE id = ?;
 
+updateGamePlayers:
+UPDATE game SET sente_name = ?, gote_name = ? WHERE id = ?;
+
 resetAllUploadedAt:
 UPDATE game SET uploaded_at = NULL;
 

@@ -649,6 +649,11 @@ object AppStrings {
     const val GAME_INFO_TIME_CONTROL = "持ち時間"
     /** 対局情報ダイアログの閉じるボタン。 */
     const val GAME_INFO_CLOSE = "閉じる"
+    /** 対局情報ダイアログ: 対局者名編集を開くボタン。 */
+    const val GAME_INFO_EDIT_PLAYERS = "対局者名を編集"
+    const val EDIT_PLAYERS_DIALOG_TITLE = "対局者名を編集"
+    const val EDIT_PLAYERS_SENTE_LABEL = "先手"
+    const val EDIT_PLAYERS_GOTE_LABEL = "後手"
 
     // 持ち時間行（対局情報ダイアログ）の文言断片。基本時間・加算秒はDESIGN.mdの
     // 「数値と符号は例外なくmono」規約に従いUI側でmono化するため、断片ごとに分けて持つ。

@@ -58,6 +58,9 @@ fun ReportScreen(
     analysisPending: Boolean = false,
     onAnalyze: () -> Unit = {},
     canDelete: Boolean = true,
+    /** 対局者名編集の可否。Web版はローカル保存を持たないためfalseで渡す。 */
+    canEdit: Boolean = true,
+    onUpdatePlayers: (senteName: String?, goteName: String?) -> Unit = { _, _ -> },
     onBack: () -> Unit,
     pvExtState: Map<Long, PvExtState> = emptyMap(),
     pvExtensionEnabled: Boolean = true,
@@ -187,6 +190,7 @@ fun ReportScreen(
     }
     var showGameInfoDialog by remember { mutableStateOf(initialShowGameInfoDialog) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showEditPlayersDialog by remember { mutableStateOf(false) }
 
     val navInfo = rememberReportNavInfo(
         viewerMode = viewerMode,
@@ -451,6 +455,23 @@ fun ReportScreen(
             onDismiss = { showGameInfoDialog = false },
             game = game,
             playersLine = playersLine,
+            // pending中はKIF再解析完了時にKIFヘッダの対局者名で上書きされるため、
+            // 解析完了後まで編集を持ち越させない。
+            onEditPlayers = if (canEdit && !analysisPending) {
+                { showGameInfoDialog = false; showEditPlayersDialog = true }
+            } else {
+                null
+            },
+        )
+        EditPlayersDialog(
+            show = showEditPlayersDialog,
+            senteName = game.senteName,
+            goteName = game.goteName,
+            onConfirm = { senteName, goteName ->
+                onUpdatePlayers(senteName, goteName)
+                showEditPlayersDialog = false
+            },
+            onDismiss = { showEditPlayersDialog = false },
         )
         DeleteGameConfirmDialog(
             show = showDeleteDialog,

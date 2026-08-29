@@ -176,6 +176,46 @@ class GameRepositoryTest {
     }
 
     @Test
+    fun `対局者名を更新できる`() {
+        val repo = newRepository()
+        val gameId = repo.saveAnalysis(
+            fileName = "miyado_game1.kif",
+            contentHash = "hash-players",
+            moves = listOf("7g7f"),
+            headers = mapOf("先手" to "太郎", "後手" to "花子"),
+            reports = emptyList(),
+            rating = 1750,
+            coefVersion = "hao_v1",
+        )
+
+        repo.updateGamePlayers(gameId, "次郎", "桜子")
+
+        val game = repo.getGameById(gameId)!!
+        assertEquals("次郎", game.senteName)
+        assertEquals("桜子", game.goteName)
+    }
+
+    @Test
+    fun `対局者名を空欄で更新するとnullになる`() {
+        val repo = newRepository()
+        val gameId = repo.saveAnalysis(
+            fileName = "miyado_game1.kif",
+            contentHash = "hash-players-clear",
+            moves = listOf("7g7f"),
+            headers = mapOf("先手" to "太郎", "後手" to "花子"),
+            reports = emptyList(),
+            rating = 1750,
+            coefVersion = "hao_v1",
+        )
+
+        repo.updateGamePlayers(gameId, null, null)
+
+        val game = repo.getGameById(gameId)!!
+        assertNull(game.senteName)
+        assertNull(game.goteName)
+    }
+
+    @Test
     fun `同一ハッシュはgetByHashで既存IDが返る`() {
         val repo = newRepository()
         assertNull(repo.getByHash("hash-abc"))

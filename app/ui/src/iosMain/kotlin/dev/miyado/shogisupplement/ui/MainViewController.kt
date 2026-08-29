@@ -816,6 +816,13 @@ private fun IosReportScreenHost(
                 }
             }
         },
+        onUpdatePlayers = { senteName, goteName ->
+            scope.launch {
+                controller.updateGamePlayers(g.id, senteName, goteName)
+                game = g.copy(senteName = senteName, goteName = goteName)
+                controller.reloadHome()
+            }
+        },
         justCompleted = justCompleted,
         onBack = onBack,
         pvExtState = pvExtState,

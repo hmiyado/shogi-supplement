@@ -363,6 +363,9 @@ class IosMainController(
     suspend fun deleteGame(game: GameRecord, deleteServer: Boolean): DeleteGameOutcome =
         withContext(defaultIoDispatcher) { gameDeleter.delete(game, deleteServer) }
 
+    suspend fun updateGamePlayers(gameId: Long, senteName: String?, goteName: String?) =
+        withContext(defaultIoDispatcher) { gameRepository.updateGamePlayers(gameId, senteName, goteName) }
+
     fun saveThemeMode(mode: String) = appSettings.saveThemeMode(mode)
 
     fun saveEvalDisplay(mode: String) = appSettings.saveEvalDisplay(mode)

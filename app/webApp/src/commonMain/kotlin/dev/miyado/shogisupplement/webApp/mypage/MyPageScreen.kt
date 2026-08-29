@@ -62,6 +62,7 @@ fun MyPageScreen(
             reports = state.detail.reports,
             flip = state.detail.game.userSide == "gote",
             canDelete = false,
+            canEdit = false,
             onBack = onBackFromDetail,
             onCopyKif = onCopyKif,
         )

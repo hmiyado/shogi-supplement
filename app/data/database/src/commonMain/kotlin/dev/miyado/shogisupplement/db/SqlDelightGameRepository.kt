@@ -330,6 +330,10 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
         database.shogiSupplementQueries.updateUserSide(userSide, ratingService, ratingRaw, gameId)
     }
 
+    override fun updateGamePlayers(gameId: Long, senteName: String?, goteName: String?) {
+        database.shogiSupplementQueries.updateGamePlayers(senteName, goteName, gameId)
+    }
+
     /**
      * 全ゲームの uploaded_at を NULL にリセットする。
      * アカウント削除成功時に呼ぶ（サーバー側データが消えたため、

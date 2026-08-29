@@ -51,6 +51,9 @@ fun ReportHost(vm: MainViewModel, state: MainUiState.ShowReport) {
         onDeleteGame = { deleteServer, onResult ->
             vm.deleteGame(state.game, deleteServer, onResult)
         },
+        onUpdatePlayers = { senteName, goteName ->
+            vm.updatePlayers(state.game.id, senteName, goteName)
+        },
         justCompleted = state.justCompleted,
         onBack = { vm.loadHome() },
         pvExtState = pvExtState,

@@ -34,6 +34,8 @@ internal fun GameInfoDialog(
     onDismiss: () -> Unit,
     game: GameRecord,
     playersLine: AnnotatedString,
+    /** Web版はローカル保存を持たず編集を保存できないためnullで渡し、ボタン自体を出さない。 */
+    onEditPlayers: (() -> Unit)? = null,
 ) {
     if (!show) return
     AlertDialog(
@@ -94,6 +96,15 @@ internal fun GameInfoDialog(
             TextButton(onClick = onDismiss) {
                 Text(AppStrings.GAME_INFO_CLOSE)
             }
+        },
+        dismissButton = if (onEditPlayers != null) {
+            {
+                TextButton(onClick = onEditPlayers) {
+                    Text(AppStrings.GAME_INFO_EDIT_PLAYERS)
+                }
+            }
+        } else {
+            null
         },
     )
 }

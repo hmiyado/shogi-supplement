@@ -145,4 +145,5 @@ class ReportGameInfoDialogScreenshotTest {
             roborazziOptions = screenshotRoborazziOptions,
         )
     }
+
 }

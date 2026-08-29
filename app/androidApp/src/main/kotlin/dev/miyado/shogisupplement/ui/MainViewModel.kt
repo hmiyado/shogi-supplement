@@ -247,6 +247,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun updatePlayers(gameId: Long, senteName: String?, goteName: String?) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { gameRepository.updateGamePlayers(gameId, senteName, goteName) }
+            val current = _state.value as? MainUiState.ShowReport ?: return@launch
+            if (current.game.id != gameId) return@launch
+            _state.value = current.copy(game = current.game.copy(senteName = senteName, goteName = goteName))
+        }
+    }
+
     /** 棋譜一覧画面から未アップロード局を一括アップロードする。 */
     fun uploadFromGameList() {
         val s = _state.value as? MainUiState.GameList ?: return
