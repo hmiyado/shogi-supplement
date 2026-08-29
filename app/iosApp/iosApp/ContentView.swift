@@ -170,7 +170,10 @@ struct SpikeView: View {
                 openingCastle: nil,
                 openingTags: nil,
                 senteRating: nil,
-                goteRating: nil
+                goteRating: nil,
+                timeControlKind: nil,
+                timeControlBaseMinutes: nil,
+                timeControlIncrementSeconds: nil
             )
         }
 
