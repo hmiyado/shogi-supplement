@@ -1,20 +1,15 @@
 package dev.miyado.shogisupplement.webApp
 
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.board.PieceType
@@ -67,23 +62,17 @@ fun App(
     studyActions: WebStudyActions? = null,
 ) {
     ShogiTheme {
-        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            // 画面はスマホアプリのレイアウトをそのまま流用しており広幅では
-            // 破綻するため、コンテンツ幅をモバイル相当に固定して中央寄せする。
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-                Box(modifier = Modifier.widthIn(max = 430.dp).fillMaxHeight()) {
-                    AppContent(
-                        state = state,
-                        onBack = onBack,
-                        onKifTextChange = onKifTextChange,
-                        onStart = onStart,
-                        onCancel = onCancel,
-                        onConfirmSide = onConfirmSide,
-                        onCancelSideSelection = onCancelSideSelection,
-                        studyActions = studyActions,
-                    )
-                }
-            }
+        WebMobileLayout {
+            AppContent(
+                state = state,
+                onBack = onBack,
+                onKifTextChange = onKifTextChange,
+                onStart = onStart,
+                onCancel = onCancel,
+                onConfirmSide = onConfirmSide,
+                onCancelSideSelection = onCancelSideSelection,
+                studyActions = studyActions,
+            )
         }
     }
 }
