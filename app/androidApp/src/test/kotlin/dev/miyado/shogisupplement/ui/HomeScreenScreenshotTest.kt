@@ -249,6 +249,28 @@ class HomeScreenScreenshotTest {
     }
 
     @Test
+    fun home_fewGamesWithViewAll() {
+        captureRoboImage(
+            filePath = "src/test/snapshots/home_few_games_with_view_all.png",
+            roborazziOptions = screenshotRoborazziOptions,
+        ) {
+            ShogiTheme {
+                Surface {
+                    HomeScreen(
+                        pastGames = sampleGames(),
+                        isLoggedIn = false,
+                        onOpenKif = {},
+                        onGameClick = {},
+                        onStartDrill = {},
+                        onViewAllGames = {},
+                        titleIcon = { testTitleIcon() },
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
     fun home_withAnalyzingCard() {
         captureRoboImage(
             filePath = "src/test/snapshots/home_with_analyzing_card.png",

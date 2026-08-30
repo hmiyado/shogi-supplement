@@ -201,7 +201,9 @@ fun HomeScreen(
                             AppStrings.HOME_RECENT_ANALYSES,
                             style = MaterialTheme.typography.titleLarge,
                         )
-                        if (pastGames.size > 3 && onViewAllGames != null) {
+                        // 絞り込みが棋譜一覧固有の機能のため、件数によらず棋譜が1件でもあれば導線を出す
+                        // （解析中セッションのみで保存済み棋譜が0件のときは一覧に見せるものが無いため出さない）
+                        if (pastGames.isNotEmpty() && onViewAllGames != null) {
                             TextButton(onClick = onViewAllGames) {
                                 Text(
                                     AppStrings.HOME_VIEW_ALL,
