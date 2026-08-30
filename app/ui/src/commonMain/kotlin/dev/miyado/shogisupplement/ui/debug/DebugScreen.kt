@@ -32,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.text.AppStrings
+import dev.miyado.shogisupplement.ui.common.scaffoldContentInsets
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
 import dev.miyado.shogisupplement.ui.theme.shogiColors
 import org.jetbrains.compose.ui.tooling.preview.Preview
@@ -60,6 +61,7 @@ fun DebugScreen(
     var status by remember { mutableStateOf<SaveStatus?>(null) }
 
     Scaffold(
+        contentWindowInsets = scaffoldContentInsets(),
         topBar = {
             TopAppBar(
                 title = { Text(AppStrings.DEBUG_SCREEN_TITLE) },

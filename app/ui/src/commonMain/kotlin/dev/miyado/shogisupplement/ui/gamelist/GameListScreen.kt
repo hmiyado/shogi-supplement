@@ -34,6 +34,7 @@ import dev.miyado.shogisupplement.db.filterGames
 import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.DeleteGameConfirmDialog
 import dev.miyado.shogisupplement.ui.common.GameCard
+import dev.miyado.shogisupplement.ui.common.scaffoldContentInsets
 import dev.miyado.shogisupplement.upload.DeleteGameOutcome
 
 /**
@@ -68,6 +69,7 @@ fun GameListScreen(
     val filteredGames = games.filterGames(filter)
 
     Scaffold(
+        contentWindowInsets = scaffoldContentInsets(),
         topBar = {
             TopAppBar(
                 title = { Text(AppStrings.GAME_LIST_TITLE) },

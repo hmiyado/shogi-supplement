@@ -56,6 +56,7 @@ import dev.miyado.shogisupplement.ui.common.ShogiBoardView
 import dev.miyado.shogisupplement.ui.common.ShogiSecondaryButton
 import dev.miyado.shogisupplement.ui.common.ReportBackHandler
 import dev.miyado.shogisupplement.ui.common.currentLocalDateTime
+import dev.miyado.shogisupplement.ui.common.scaffoldContentInsets
 import dev.miyado.shogisupplement.ui.theme.shogiColors
 
 /** 手動棋譜入力で保存する情報。保存時に既存のKIF取込フローへ渡す。 */
@@ -183,6 +184,7 @@ fun ManualKifuScreen(
     })
 
     Scaffold(
+        contentWindowInsets = scaffoldContentInsets(),
         topBar = {
             TopAppBar(
                 title = { Text(AppStrings.MANUAL_KIFU_TITLE) },
@@ -395,6 +397,7 @@ private fun ManualGameInfoScreen(
     onDone: () -> Unit,
 ) {
     Scaffold(
+        contentWindowInsets = scaffoldContentInsets(),
         topBar = {
             TopAppBar(
                 title = { Text(AppStrings.MANUAL_KIFU_INFO_TITLE) },

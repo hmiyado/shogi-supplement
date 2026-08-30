@@ -30,6 +30,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import dev.miyado.shogisupplement.ui.common.scaffoldContentInsets
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.text.AppStrings
@@ -89,6 +90,7 @@ fun SettingsScreen(
         )
     }
     Scaffold(
+        contentWindowInsets = scaffoldContentInsets(),
         topBar = {
             TopAppBar(
                 title = { Text(AppStrings.SETTINGS_TITLE) },

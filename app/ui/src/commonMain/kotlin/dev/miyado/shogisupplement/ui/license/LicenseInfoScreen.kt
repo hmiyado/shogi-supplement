@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import com.mikepenz.aboutlibraries.Libs
 import com.mikepenz.aboutlibraries.ui.compose.m3.LibrariesContainer
 import dev.miyado.shogisupplement.text.AppStrings
+import dev.miyado.shogisupplement.ui.common.scaffoldContentInsets
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
 import org.jetbrains.compose.ui.tooling.preview.Preview
 
@@ -36,6 +37,7 @@ fun LicenseInfoScreen(
     onOpenSourceRepo: () -> Unit,
 ) {
     Scaffold(
+        contentWindowInsets = scaffoldContentInsets(),
         topBar = {
             TopAppBar(
                 title = { Text(AppStrings.LICENSE_SCREEN_TITLE) },

@@ -38,6 +38,7 @@ import dev.miyado.shogisupplement.ui.common.DeleteGameConfirmDialog
 import dev.miyado.shogisupplement.ui.common.PvExtState
 import dev.miyado.shogisupplement.ui.common.ReportBackHandler
 import dev.miyado.shogisupplement.ui.common.SfenPosition
+import dev.miyado.shogisupplement.ui.common.scaffoldContentInsets
 import dev.miyado.shogisupplement.ui.theme.shogiColors
 import dev.miyado.shogisupplement.upload.DeleteGameOutcome
 import kotlinx.coroutines.delay
@@ -228,6 +229,7 @@ fun ReportScreen(
         )
 
         Scaffold(
+            contentWindowInsets = scaffoldContentInsets(),
             snackbarHost = { SnackbarHost(snackbarHostState) },
         ) { padding ->
             Column(

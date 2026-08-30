@@ -43,6 +43,7 @@ import dev.miyado.shogisupplement.pipeline.InProgressAnalysis
 import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.AnalyzingGameCard
 import dev.miyado.shogisupplement.ui.common.GameCard
+import dev.miyado.shogisupplement.ui.common.scaffoldContentInsets
 import dev.miyado.shogisupplement.ui.theme.IbmPlexMonoFamily
 import dev.miyado.shogisupplement.ui.theme.ShogiColors
 import dev.miyado.shogisupplement.ui.theme.TextStyleData
@@ -77,6 +78,7 @@ fun HomeScreen(
 ) {
     val shogiColors = MaterialTheme.shogiColors
     Scaffold(
+        contentWindowInsets = scaffoldContentInsets(),
         topBar = {
             TopAppBar(
                 title = {

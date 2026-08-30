@@ -81,6 +81,7 @@ import dev.miyado.shogisupplement.ui.strength.EstimatedStrengthDetailScreen
 import dev.miyado.shogisupplement.ui.strength.StrengthDetailData
 import dev.miyado.shogisupplement.ui.strength.StrengthDetailViewModel
 import dev.miyado.shogisupplement.ui.common.LocalBoardBaseHeight
+import dev.miyado.shogisupplement.ui.common.LocalScaffoldContentInsets
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
 import dev.miyado.shogisupplement.ui.transfercode.TransferCodeInputDialog
 import dev.miyado.shogisupplement.ui.transfercode.TransferCodeInputUiState
@@ -160,7 +161,10 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
             ) {
                 // 盤の基準はここで決める。safe areaを引く前のウィンドウ高さを使うと、
                 // iOSだけ盤がその分だけ大きくなり画面下が入らなくなる。
-                CompositionLocalProvider(LocalBoardBaseHeight provides maxHeight) {
+                CompositionLocalProvider(
+                    LocalBoardBaseHeight provides maxHeight,
+                    LocalScaffoldContentInsets provides WindowInsets(0, 0, 0, 0),
+                ) {
                     val decision = forceUpdateDecision
                     val services = supabaseServices
                     if (decision != null && decision.blocked) {

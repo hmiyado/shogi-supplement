@@ -43,6 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.miyado.shogisupplement.text.AppStrings
+import dev.miyado.shogisupplement.ui.common.scaffoldContentInsets
 import dev.miyado.shogisupplement.ui.theme.TextStyleData
 import dev.miyado.shogisupplement.ui.theme.TextStyleDataLarge
 import dev.miyado.shogisupplement.ui.theme.shogiColors
@@ -60,6 +61,7 @@ fun EstimatedStrengthDetailScreen(
     onEditAccounts: () -> Unit,
 ) {
     Scaffold(
+        contentWindowInsets = scaffoldContentInsets(),
         topBar = {
             TopAppBar(
                 title = { Text(AppStrings.STRENGTH_DETAIL_TITLE) },
