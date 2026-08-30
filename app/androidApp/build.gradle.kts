@@ -116,6 +116,11 @@ android {
             isReturnDefaultValues = true
             all {
                 it.systemProperty("robolectric.graphicsMode", "NATIVE")
+                // ゴールデン画像はAsia/Tokyoで生成されているため、対局日時のSimpleDateFormat
+                // （ui/ReportPlatform.android.kt）がCI実行環境のタイムゾーンに引きずられて
+                // ズレないようテストJVM自体のタイムゾーンを固定する。
+                it.systemProperty("user.timezone", "Asia/Tokyo")
+                it.environment("TZ", "Asia/Tokyo")
                 // Why not アプリ本体もJava 21へ上げる: AboutLibraries 15のテスト用成果物だけが
                 // Java 21を要求するため、アプリのJava 17互換性は維持する。
                 it.javaLauncher.set(

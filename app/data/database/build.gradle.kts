@@ -60,3 +60,10 @@ kotlin {
 tasks.named<org.gradle.language.jvm.tasks.ProcessResources>("jvmTestProcessResources") {
     from(rootProject.file("androidApp/src/main/assets/coefficients_hao_isolate_v1.json"))
 }
+
+// DrillRepositoryTestの日付境界テストがSQLiteの date(...,'localtime',...) を使う。
+// 'localtime'はJVMのTimeZone.setDefault()ではなくプロセスのOSタイムゾーンに従うため、
+// テストプロセス自体のTZをAsia/Tokyoへ固定する（CI実行環境のタイムゾーンに依存させない）。
+tasks.named<Test>("jvmTest") {
+    environment("TZ", "Asia/Tokyo")
+}

@@ -6,9 +6,6 @@ import dev.miyado.shogisupplement.judge.Judgement
 import dev.miyado.shogisupplement.judge.VerdictKind
 import dev.miyado.shogisupplement.pipeline.BlunderReport
 import java.time.ZonedDateTime
-import java.util.TimeZone
-import kotlin.test.AfterTest
-import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -20,20 +17,9 @@ import kotlin.test.assertTrue
  */
 class DrillRepositoryTest {
 
-    // date(attempted_at, 'unixepoch', 'localtime', ...) はJVMのデフォルトタイムゾーンに従うため、
-    // 日付境界のテストはタイムゾーンをAsia/Tokyoへ固定して行う（CI実行環境のタイムゾーンに依存させない）。
-    private lateinit var originalTimeZone: TimeZone
-
-    @BeforeTest
-    fun fixTimeZone() {
-        originalTimeZone = TimeZone.getDefault()
-        TimeZone.setDefault(TimeZone.getTimeZone("Asia/Tokyo"))
-    }
-
-    @AfterTest
-    fun restoreTimeZone() {
-        TimeZone.setDefault(originalTimeZone)
-    }
+    // date(attempted_at, 'unixepoch', 'localtime', ...) はJVMのTimeZone.setDefault()ではなく
+    // プロセスのOSタイムゾーンに従う（SQLiteネイティブライブラリのlocaltime_r依存）。
+    // 日付境界のテストのタイムゾーン固定はbuild.gradle.ktsのjvmTestタスク（TZ環境変数）で行う。
 
     private fun newGameRepository(database: ShogiSupplementDatabase): GameRepository = SqlDelightGameRepository(database)
     private fun newDrillRepository(database: ShogiSupplementDatabase): DrillRepository = SqlDelightDrillRepository(database)
