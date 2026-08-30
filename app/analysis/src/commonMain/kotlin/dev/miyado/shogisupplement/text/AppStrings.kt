@@ -236,13 +236,14 @@ object AppStrings {
 
 
     const val GAME_LIST_FILTER_SOURCE = "出典"
+    const val GAME_LIST_FILTER_TIME_CONTROL = "持ち時間"
     const val GAME_LIST_FILTER_OPENING_STYLE = "戦型"
     const val GAME_LIST_FILTER_SIDE = "先後"
     const val PLAYER_SIDE_SENTE = "先手"
     const val PLAYER_SIDE_GOTE = "後手"
     const val GAME_LIST_FILTER_RESULT = "勝敗"
     const val GAME_LIST_FILTER_PERIOD = "期間"
-    const val GAME_LIST_FILTER_SOURCE_OTHER = "その他"
+    const val GAME_LIST_FILTER_OTHER = "その他"
     const val GAME_LIST_FILTER_PERIOD_7D = "直近7日"
     const val GAME_LIST_FILTER_PERIOD_30D = "直近30日"
     const val GAME_LIST_FILTER_CLEAR = "絞り込みを解除"
@@ -378,7 +379,7 @@ object AppStrings {
      * フォールバック用途の表示関数とは別にする）。
      */
     fun sourceFilterLabel(sourcePlace: String): String =
-        sourcePlaceLabel(sourcePlace) ?: GAME_LIST_FILTER_SOURCE_OTHER
+        sourcePlaceLabel(sourcePlace) ?: GAME_LIST_FILTER_OTHER
 
     /** ルールIDから表示名（warsRules / kiouRules から検索）。 */
     fun ruleLabel(serviceId: String, ruleId: String): String {

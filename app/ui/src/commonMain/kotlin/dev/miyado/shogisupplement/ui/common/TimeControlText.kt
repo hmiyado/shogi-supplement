@@ -4,6 +4,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
+import dev.miyado.shogisupplement.kifu.timeControlDisplayText
 import dev.miyado.shogisupplement.ui.theme.IbmPlexMonoFamily
 
 /**
@@ -12,14 +13,12 @@ import dev.miyado.shogisupplement.ui.theme.IbmPlexMonoFamily
  * mainRawが空欄なら非表示。
  */
 fun buildTimeControlLine(sourcePlace: String?, mainRaw: String?, byoyomiRaw: String?): AnnotatedString? {
-    if (mainRaw.isNullOrBlank()) return null
-    val (label, displayText) = resolveTimeControlDisplay(sourcePlace, mainRaw, byoyomiRaw)
-    return buildAnnotatedString {
-        if (label != null) append("$label（")
-        appendWithMonoNumbers(displayText)
-        if (label != null) append("）")
-    }
+    val text = timeControlDisplayText(sourcePlace, mainRaw, byoyomiRaw) ?: return null
+    return withMonoNumbers(text)
 }
+
+/** 文中の数値と符号だけをmonoにする（DESIGN.md「数値と符号は例外なくmono」）。 */
+fun withMonoNumbers(text: String): AnnotatedString = buildAnnotatedString { appendWithMonoNumbers(text) }
 
 private fun AnnotatedString.Builder.appendWithMonoNumbers(text: String) {
     var lastIndex = 0

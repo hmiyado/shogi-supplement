@@ -10,9 +10,12 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material3.Badge
@@ -24,26 +27,38 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.db.GameListFilter
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.GameResultFilter
+import dev.miyado.shogisupplement.db.TIME_CONTROL_OTHER
+import dev.miyado.shogisupplement.db.availableTimeControls
+import dev.miyado.shogisupplement.db.clearUnavailableTimeControl
 import dev.miyado.shogisupplement.db.distinctOpeningStyles
 import dev.miyado.shogisupplement.db.distinctSources
+import dev.miyado.shogisupplement.db.distinctTimeControls
 import dev.miyado.shogisupplement.db.hasResultData
 import dev.miyado.shogisupplement.db.hasUserSideData
 import dev.miyado.shogisupplement.text.AppStrings
+import dev.miyado.shogisupplement.ui.common.withMonoNumbers
 import dev.miyado.shogisupplement.ui.theme.TextStyleData
 import dev.miyado.shogisupplement.ui.theme.shogiColors
 import dev.miyado.shogisupplement.util.currentEpochSeconds
 
 private const val SECONDS_PER_DAY = 24L * 60 * 60
+
+// 見出し・ボタン行・シート上下の余白がウィンドウに必ず残る配分。
+private const val AXES_MAX_HEIGHT_FRACTION = 0.5f
 
 /** 棋譜一覧の絞り込みヘッダー。条件の詳細を常設せず、行高を固定してno-jitterを保つ。 */
 @Composable
@@ -128,7 +143,14 @@ fun GameListFilterSheet(
     onClear: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    val maxAxesHeight = with(LocalDensity.current) {
+        LocalWindowInfo.current.containerSize.height.toDp() * AXES_MAX_HEIGHT_FRACTION
+    }
+    // 既定の半開きだと軸が5本を超えた時点でボタン行がシートの外に出る。全開で開く。
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -144,6 +166,12 @@ fun GameListFilterSheet(
                 allGames = allGames,
                 filter = filter,
                 onFilterChange = onFilterChange,
+                // 持ち時間はKIFヘッダの原文由来で項目数に上限が無い。ModalBottomSheetは
+                // 中身を高さ無制限で測りweightで配分できないため、ウィンドウ高さから
+                // 上限を出して条件側だけをスクロールさせる。
+                modifier = Modifier
+                    .heightIn(max = maxAxesHeight)
+                    .verticalScroll(rememberScrollState()),
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -181,6 +209,13 @@ fun GameListFilterBar(
 ) {
     val sources = allGames.distinctSources()
     val openingStyles = allGames.distinctOpeningStyles()
+    val timeControls = allGames.distinctTimeControls()
+    // 出典を選び直すと、その出典に無い持ち時間の指定が残りうる。どの軸を触っても
+    // 実在しない組み合わせにならないよう、変更は必ずここを通す。
+    val availableTimeControls = allGames.availableTimeControls(filter.source)
+    val onFilterChangeNormalized: (GameListFilter) -> Unit = {
+        onFilterChange(it.clearUnavailableTimeControl(allGames))
+    }
     val showSideAxis = allGames.hasUserSideData()
     val showResultAxis = allGames.hasResultData()
     val now = remember { currentEpochSeconds() }
@@ -195,11 +230,34 @@ fun GameListFilterBar(
             FilterAxisRow(AppStrings.GAME_LIST_FILTER_SOURCE) {
                 sources.forEach { source ->
                     FilterChipItem(
-                        label = AppStrings.sourceFilterLabel(source),
+                        label = AnnotatedString(AppStrings.sourceFilterLabel(source)),
                         selected = filter.source == source,
                         testTag = "filter_chip_source_$source",
                         onClick = {
-                            onFilterChange(filter.copy(source = if (filter.source == source) null else source))
+                            onFilterChangeNormalized(filter.copy(source = if (filter.source == source) null else source))
+                        },
+                    )
+                }
+            }
+        }
+        if (timeControls.isNotEmpty()) {
+            FilterAxisRow(AppStrings.GAME_LIST_FILTER_TIME_CONTROL) {
+                timeControls.forEach { timeControl ->
+                    FilterChipItem(
+                        label = if (timeControl == TIME_CONTROL_OTHER) {
+                            AnnotatedString(AppStrings.GAME_LIST_FILTER_OTHER)
+                        } else {
+                            withMonoNumbers(timeControl)
+                        },
+                        selected = filter.timeControl == timeControl,
+                        testTag = "filter_chip_time_control_$timeControl",
+                        enabled = timeControl in availableTimeControls,
+                        onClick = {
+                            onFilterChangeNormalized(
+                                filter.copy(
+                                    timeControl = if (filter.timeControl == timeControl) null else timeControl,
+                                ),
+                            )
                         },
                     )
                 }
@@ -209,11 +267,11 @@ fun GameListFilterBar(
             FilterAxisRow(AppStrings.GAME_LIST_FILTER_OPENING_STYLE) {
                 openingStyles.forEach { openingStyle ->
                     FilterChipItem(
-                        label = openingStyle,
+                        label = AnnotatedString(openingStyle),
                         selected = filter.openingStyle == openingStyle,
                         testTag = "filter_chip_opening_style_$openingStyle",
                         onClick = {
-                            onFilterChange(
+                            onFilterChangeNormalized(
                                 filter.copy(
                                     openingStyle = if (filter.openingStyle == openingStyle) null else openingStyle,
                                 ),
@@ -228,11 +286,11 @@ fun GameListFilterBar(
                 listOf("sente" to AppStrings.PLAYER_SIDE_SENTE, "gote" to AppStrings.PLAYER_SIDE_GOTE)
                     .forEach { (value, label) ->
                         FilterChipItem(
-                            label = label,
+                            label = AnnotatedString(label),
                             selected = filter.userSide == value,
                             testTag = "filter_chip_side_$value",
                             onClick = {
-                                onFilterChange(
+                                onFilterChangeNormalized(
                                     filter.copy(userSide = if (filter.userSide == value) null else value),
                                 )
                             },
@@ -247,11 +305,11 @@ fun GameListFilterBar(
                     GameResultFilter.LOSS to AppStrings.GAME_RESULT_LOSS,
                 ).forEach { (value, label) ->
                     FilterChipItem(
-                        label = label,
+                        label = AnnotatedString(label),
                         selected = filter.result == value,
                         testTag = "filter_chip_result_${value.name}",
                         onClick = {
-                            onFilterChange(filter.copy(result = if (filter.result == value) null else value))
+                            onFilterChangeNormalized(filter.copy(result = if (filter.result == value) null else value))
                         },
                     )
                 }
@@ -264,11 +322,11 @@ fun GameListFilterBar(
             ).forEach { (candidateDateFrom, label, tagSuffix) ->
                 val selected = filter.dateFrom == candidateDateFrom
                 FilterChipItem(
-                    label = label,
+                    label = AnnotatedString(label),
                     selected = selected,
                     testTag = "filter_chip_period_$tagSuffix",
                     onClick = {
-                        onFilterChange(filter.copy(dateFrom = if (selected) null else candidateDateFrom))
+                        onFilterChangeNormalized(filter.copy(dateFrom = if (selected) null else candidateDateFrom))
                     },
                 )
             }
@@ -298,15 +356,20 @@ private fun FilterAxisRow(
 
 @Composable
 private fun FilterChipItem(
-    label: String,
+    label: AnnotatedString,
     selected: Boolean,
     testTag: String,
     onClick: () -> Unit,
+    enabled: Boolean = true,
 ) {
     val shogiColors = MaterialTheme.shogiColors
     val containerColor = if (selected) shogiColors.primarySoft else MaterialTheme.colorScheme.surface
-    val contentColor = if (selected) MaterialTheme.colorScheme.primary else shogiColors.ink2
-    val borderColor = if (selected) MaterialTheme.colorScheme.primary else shogiColors.line
+    val contentColor = when {
+        !enabled -> shogiColors.ink3
+        selected -> MaterialTheme.colorScheme.primary
+        else -> shogiColors.ink2
+    }
+    val borderColor = if (selected && enabled) MaterialTheme.colorScheme.primary else shogiColors.line
     val shape = RoundedCornerShape(999.dp)
 
     Row(
@@ -316,7 +379,7 @@ private fun FilterChipItem(
             .clip(shape)
             .background(containerColor)
             .border(1.dp, borderColor, shape)
-            .clickable(onClick = onClick)
+            .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

@@ -1,8 +1,10 @@
-package dev.miyado.shogisupplement.ui.common
+package dev.miyado.shogisupplement.kifu
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class TimeControlRulesTest {
 
@@ -53,5 +55,35 @@ class TimeControlRulesTest {
         assertEquals("ショート" to "3分切れ負け", resolveTimeControlDisplay("kiou", " 3分切れ負け", null))
         assertEquals(null to "10分秒読み30秒", resolveTimeControlDisplay("lishogi", " 10分+30秒 ", null))
         assertEquals(null to "1手10秒", resolveTimeControlDisplay("wars", " 0分", " 10秒"))
+    }
+
+    @Test
+    fun `表示文字列はラベルがあれば括弧付きで合成する`() {
+        assertEquals("ショート（3分切れ負け）", timeControlDisplayText("kiou", "3分切れ負け", null))
+        assertEquals("10分+30秒", timeControlDisplayText("kiou", "10分+30秒", null))
+        assertEquals("10分秒読み30秒", timeControlDisplayText("lishogi", "10分+30秒", null))
+        assertEquals("1手30秒", timeControlDisplayText("wars", "0分", "30秒"))
+    }
+
+    @Test
+    fun `持ち時間ヘッダが無ければ表示文字列はnull`() {
+        assertNull(timeControlDisplayText("kiou", null, null))
+        assertNull(timeControlDisplayText("kiou", "  ", null))
+    }
+
+    @Test
+    fun `判定表で解決できたかどうかをisKnownTimeControlRuleが返す`() {
+        assertTrue(isKnownTimeControlRule("kiou", "3分切れ負け", null))
+        assertTrue(isKnownTimeControlRule("lishogi", "10分+30秒", null))
+        assertTrue(isKnownTimeControlRule("wars", "0分", "30秒"))
+        assertFalse(isKnownTimeControlRule("kiou", "10分+30秒", null))
+        assertFalse(isKnownTimeControlRule("wars", "3分切れ負け", null))
+        assertFalse(isKnownTimeControlRule(null, "5分+30秒", null))
+    }
+
+    @Test
+    fun `持ち時間ヘッダが無ければ判定表の対象外`() {
+        assertFalse(isKnownTimeControlRule("kiou", null, null))
+        assertFalse(isKnownTimeControlRule("kiou", "  ", null))
     }
 }

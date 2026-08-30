@@ -2,6 +2,7 @@ package dev.miyado.shogisupplement.ui
 
 import androidx.compose.material3.Surface
 import androidx.compose.ui.test.SemanticsNodeInteraction
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -54,6 +55,8 @@ class GameListScreenScreenshotTest {
             openingStyle = "角換わり",
             openingCastle = "矢倉",
             openingTags = "角換わり|棒銀",
+            timeControlRaw = "0分",
+            timeControlByoyomiRaw = "30秒",
         ),
         GameRecord(
             id = 2L,
@@ -71,6 +74,7 @@ class GameListScreenScreenshotTest {
             openingStyle = "四間飛車",
             openingCastle = "本美濃囲い",
             openingTags = "四間飛車",
+            timeControlRaw = "10分+30秒",
         ),
         GameRecord(
             id = 3L,
@@ -87,6 +91,7 @@ class GameListScreenScreenshotTest {
             gameWinner = "gote",
             senteRating = 464L,
             goteRating = 800L,
+            timeControlRaw = "5分+30秒",
         ),
     )
 
@@ -246,6 +251,113 @@ class GameListScreenScreenshotTest {
 
         topRoot().captureRoboImage(
             filePath = "src/test/snapshots/game_list_filter_sheet_only_period_axis.png",
+            roborazziOptions = screenshotRoborazziOptions,
+        )
+    }
+
+    private fun gamesWithLabeledTimeControl() = listOf(
+        GameRecord(
+            id = 1L,
+            fileName = "kiou_game1.kif",
+            contentHash = "hash1",
+            moveCount = 74L,
+            senteName = "miyado",
+            goteName = "相手A",
+            analyzedAt = 1_780_000_000L,
+            rating = 1750L,
+            coefVersion = "hao_v1",
+            sourcePlace = "kiou",
+            userSide = "sente",
+            gameWinner = "sente",
+            timeControlRaw = "3分切れ負け",
+        ),
+    )
+
+    /** 棋桜のラベル付き持ち時間（「ショート（3分切れ負け）」）がチップでもmono数値で出ることを保証する。 */
+    @Test
+    fun gameList_filterSheetTimeControlSelected() {
+        composeRule.setContent {
+            ShogiTheme {
+                Surface {
+                    GameListScreen(
+                        games = gamesWithLabeledTimeControl(),
+                        onBack = {},
+                        onGameClick = {},
+                    )
+                }
+            }
+        }
+        composeRule.onNodeWithTag("filter_open_button").performClick()
+        composeRule.onNodeWithTag("filter_chip_time_control_ショート（3分切れ負け）").performClick()
+
+        topRoot().captureRoboImage(
+            filePath = "src/test/snapshots/game_list_filter_sheet_time_control_selected.png",
+            roborazziOptions = screenshotRoborazziOptions,
+        )
+    }
+
+    private fun gamesWithManyTimeControls() = List(10) { i ->
+        GameRecord(
+            id = i + 1L,
+            fileName = "lishogi_game$i.kif",
+            contentHash = "hash$i",
+            moveCount = 60L,
+            senteName = "miyado",
+            goteName = "相手A",
+            analyzedAt = 1_780_000_000L - i * 1_000L,
+            rating = 1750L,
+            coefVersion = "hao_v1",
+            sourcePlace = "lishogi",
+            userSide = "sente",
+            gameWinner = "sente",
+            timeControlRaw = "${i + 1}分+${i + 1}秒",
+        )
+    }
+
+    /** 軸が伸びても「検索」「絞り込みを解除」がシートの外へ押し出されないことを保証する。 */
+    @Test
+    fun gameList_filterSheetManyTimeControlsKeepsActionsVisible() {
+        composeRule.setContent {
+            ShogiTheme {
+                Surface {
+                    GameListScreen(
+                        games = gamesWithManyTimeControls(),
+                        onBack = {},
+                        onGameClick = {},
+                    )
+                }
+            }
+        }
+        composeRule.onNodeWithTag("filter_open_button").performClick()
+        composeRule.onNodeWithTag("filter_apply_button").assertIsDisplayed()
+        composeRule.onNodeWithTag("filter_clear_button").assertIsDisplayed()
+
+        topRoot().captureRoboImage(
+            filePath = "src/test/snapshots/game_list_filter_sheet_many_time_controls.png",
+            roborazziOptions = screenshotRoborazziOptions,
+        )
+    }
+
+    /** 出典を選ぶと、その出典に無い持ち時間のチップが無効になり、選択済みなら外れることを保証する。 */
+    @Test
+    fun gameList_filterSheetSourceDisablesOtherTimeControls() {
+        composeRule.setContent {
+            ShogiTheme {
+                Surface {
+                    GameListScreen(
+                        games = gamesWithFullData(),
+                        onBack = {},
+                        onGameClick = {},
+                    )
+                }
+            }
+        }
+        composeRule.onNodeWithTag("filter_open_button").performClick()
+        composeRule.onNodeWithTag("filter_chip_time_control_10分秒読み30秒").performClick()
+        composeRule.onNodeWithTag("filter_chip_source_wars").performClick()
+
+        topRoot().captureRoboImage(
+            filePath = "src/test/snapshots/game_list_filter_sheet_source_disables_time_controls.png",
             roborazziOptions = screenshotRoborazziOptions,
         )
     }

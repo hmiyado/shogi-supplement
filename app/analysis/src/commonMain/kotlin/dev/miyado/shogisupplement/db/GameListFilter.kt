@@ -1,7 +1,12 @@
 package dev.miyado.shogisupplement.db
 
 import dev.miyado.shogisupplement.kifu.KifuSource
+import dev.miyado.shogisupplement.kifu.isKnownTimeControlRule
+import dev.miyado.shogisupplement.kifu.timeControlDisplayText
 import dev.miyado.shogisupplement.opening.OpeningClassifier
+
+/** 判定表に無い持ち時間をまとめる絞り込み値。表示ラベルはAppStringsが持つ。 */
+const val TIME_CONTROL_OTHER = "other"
 
 enum class GameResultFilter {
     WIN,
@@ -20,10 +25,12 @@ data class GameListFilter(
     /** 解析日時の下限（epoch秒・含む）。 */
     val dateFrom: Long? = null,
     val openingStyle: String? = null,
+    /** 持ち時間の表示文字列（[timeControlDisplayText]の値）。[TIME_CONTROL_OTHER]なら判定表に無いものすべて。 */
+    val timeControl: String? = null,
 ) {
     /** 指定された絞り込み軸の数を返す。 */
     val activeCount: Int
-        get() = listOfNotNull(source, userSide, openingStyle, result, dateFrom).size
+        get() = listOfNotNull(source, userSide, openingStyle, timeControl, result, dateFrom).size
 
     val isActive: Boolean
         get() = activeCount > 0
@@ -36,6 +43,7 @@ fun List<GameRecord>.filterGames(filter: GameListFilter): List<GameRecord> {
         matchesSource(game, filter.source) &&
             matchesUserSide(game, filter.userSide) &&
             matchesOpeningStyle(game, filter.openingStyle) &&
+            matchesTimeControl(game, filter.timeControl) &&
             matchesResult(game, filter.result) &&
             matchesDateFrom(game, filter.dateFrom)
     }
@@ -49,6 +57,15 @@ private fun matchesUserSide(game: GameRecord, userSide: String?): Boolean =
 
 private fun matchesOpeningStyle(game: GameRecord, openingStyle: String?): Boolean =
     openingStyle == null || openingStyle in game.openingTagList()
+
+private fun matchesTimeControl(game: GameRecord, timeControl: String?): Boolean =
+    timeControl == null || game.timeControlFilterValue() == timeControl
+
+private fun GameRecord.timeControlFilterValue(): String? {
+    val display = timeControlDisplayText(sourcePlace, timeControlRaw, timeControlByoyomiRaw) ?: return null
+    val known = isKnownTimeControlRule(sourcePlace, timeControlRaw, timeControlByoyomiRaw)
+    return if (known) display else TIME_CONTROL_OTHER
+}
 
 private fun matchesResult(game: GameRecord, result: GameResultFilter?): Boolean {
     if (result == null) return true
@@ -82,3 +99,25 @@ fun List<GameRecord>.distinctOpeningStyles(): List<String> {
     val ordered = OpeningClassifier.PRIMARY_STYLE_PRIORITY.filter { it in found }
     return ordered + (found - ordered.toSet()).sorted()
 }
+
+/**
+ * 保存済みの棋譜に現れる持ち時間。ヘッダを持たない棋譜は含まず、判定表に無いものは
+ * [TIME_CONTROL_OTHER] 1件へまとめて末尾に置く。ルールの並びは表示文字列の昇順。
+ */
+fun List<GameRecord>.distinctTimeControls(): List<String> {
+    val values = mapNotNull { it.timeControlFilterValue() }.distinct()
+    val rules = values.filterNot { it == TIME_CONTROL_OTHER }.sorted()
+    return if (TIME_CONTROL_OTHER in values) rules + TIME_CONTROL_OTHER else rules
+}
+
+/** [source]の棋譜に現れる持ち時間。[source]がnullなら全棋譜から返す。 */
+fun List<GameRecord>.availableTimeControls(source: String?): List<String> =
+    filter { matchesSource(it, source) }.distinctTimeControls()
+
+/** 出典に実在しない持ち時間が指定されていれば外した条件を返す。 */
+fun GameListFilter.clearUnavailableTimeControl(games: List<GameRecord>): GameListFilter =
+    if (timeControl != null && timeControl !in games.availableTimeControls(source)) {
+        copy(timeControl = null)
+    } else {
+        this
+    }
