@@ -64,6 +64,8 @@
  * このWorkerが送るメッセージ（`post`関数経由）。
  */
 
+importScripts("wasm-asset-cache.js");
+
 /** @param {MessageEvent<HostToWorkerMessage>} ev */
 self.onmessage = async (ev) => {
   const msg = ev.data;
@@ -150,11 +152,7 @@ async function prepareEngine(variant, assetDirUrl) {
     },
   });
 
-  const resp = await fetch(nnUrl);
-  if (!resp.ok) {
-    throw new Error(`nn.binの取得に失敗しました: HTTP ${resp.status} (${nnUrl})`);
-  }
-  const nnBuf = await resp.arrayBuffer();
+  const nnBuf = await self.kentoWasmAssetCache.fetchCachedArrayBuffer(nnUrl);
   Module.FS.mkdir("/eval");
   Module.FS.writeFile("/eval/nn.bin", new Uint8Array(nnBuf));
 

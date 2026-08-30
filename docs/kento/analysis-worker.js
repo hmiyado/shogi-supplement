@@ -6,6 +6,8 @@
 // 呼び出しのため、Worker内部から解析を安全に中断する手段はないが、Worker.terminate()は
 // JSが同期実行中でも即座に効く(ブラウザ実装の保証)ので、局面の区切りを待たずに止められる。
 
+importScripts("wasm-asset-cache.js");
+
 self.onmessage = async (ev) => {
   const { workerLabel, variant, baseSfenArg, jobs, assetDirUrl } = ev.data;
   try {
@@ -143,11 +145,7 @@ async function runSequential(workerLabel, variant, baseSfenArg, jobs, assetDirUr
 
   post({ type: "stage", workerLabel, stage: "fetching-nn" });
   const tFetch0 = now();
-  const resp = await fetch(nnUrl);
-  if (!resp.ok) {
-    throw new Error(`nn.binの取得に失敗しました: HTTP ${resp.status} (${nnUrl})`);
-  }
-  const nnBuf = await resp.arrayBuffer();
+  const nnBuf = await self.kentoWasmAssetCache.fetchCachedArrayBuffer(nnUrl);
   const tFetch1 = now();
 
   Module.FS.mkdir("/eval");

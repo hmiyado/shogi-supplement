@@ -337,7 +337,7 @@ final class KentoAssetCache {
     /// エンジンVERSIONの切替と同じタイミングでまとめて再取得する簡略化）。
     private static let kentoFiles = [
         "wasm-analysis-host.html", "wasm-analysis-host.js", "webapp-bridge.js", "analysis-worker.js",
-        "study-worker.js",
+        "study-worker.js", "wasm-asset-cache.js",
     ]
 
     /// docs/kento-assets/<VERSION>/ 配下のエンジンWASMバイナリ（docs/copy-kento-assets.sh参照）。
