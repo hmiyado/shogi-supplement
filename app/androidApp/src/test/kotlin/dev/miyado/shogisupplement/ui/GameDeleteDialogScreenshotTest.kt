@@ -68,4 +68,28 @@ class GameDeleteDialogScreenshotTest {
             roborazziOptions = screenshotRoborazziOptions,
         )
     }
+
+    /** 複数選択削除: N件の見出しに切り替わることを保証する。 */
+    @OptIn(ExperimentalRoborazziApi::class)
+    @Test
+    fun game_deleteConfirmDialog_multipleCount() {
+        composeRule.setContent {
+            ShogiTheme {
+                Surface {
+                    DeleteGameConfirmDialog(
+                        show = true,
+                        canDeleteServer = true,
+                        count = 3,
+                        onConfirm = { _, _ -> },
+                        onDismiss = {},
+                    )
+                }
+            }
+        }
+        composeRule.waitForIdle()
+        captureScreenRoboImage(
+            filePath = "src/test/snapshots/game_delete_dialog_multiple_count.png",
+            roborazziOptions = screenshotRoborazziOptions,
+        )
+    }
 }

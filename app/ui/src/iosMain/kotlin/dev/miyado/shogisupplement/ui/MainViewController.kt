@@ -608,12 +608,14 @@ private fun IosGameListScreenHost(
         onDeleteGame = { game, deleteServer, onResult ->
             scope.launch {
                 val outcome = controller.deleteGame(game, deleteServer)
-                onResult(outcome)
                 if (outcome == DeleteGameOutcome.Success) {
+                    // ホーム側の再読込完了を待ってからonResultを返す（連続削除時、投げっぱなしだと
+                    // 完了順序が保証されず、削除済みの棋譜がホームに残って見えることがある）。
                     games = repository.getAllGames()
                     pendingUploadCount = if (isLoggedIn) repository.getNotUploadedGames().size else 0
-                    controller.reloadHome()
+                    controller.reloadHomeAndWait()
                 }
+                onResult(outcome)
             }
         },
         onUpload = {

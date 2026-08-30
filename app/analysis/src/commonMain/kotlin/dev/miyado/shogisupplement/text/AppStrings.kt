@@ -255,6 +255,11 @@ object AppStrings {
     /** 絞り込み条件ボトムシートの適用ボタン（条件を確定して一覧に反映する）。 */
     const val GAME_LIST_FILTER_APPLY = "検索"
 
+    /** 選択して削除モードへ入るトップバーのアイコン。 */
+    const val GAME_LIST_SELECT_TO_DELETE_ICON_DESC = "選択して削除"
+    /** 選択して削除モードを抜けるトップバーのアイコン。 */
+    const val GAME_LIST_EXIT_SELECTION_ICON_DESC = "選択を解除"
+    fun gameListSelectedCount(count: Int): String = "${count}件選択中"
 
     /** ドリル結果 KifuLineViewer のタブ: ユーザーの手筋。 */
     const val DRILL_VIEWER_TAB_YOUR = "あなたの手"
@@ -323,6 +328,9 @@ object AppStrings {
     const val ACCOUNT_DELETE_CONFIRM = "削除する"
     const val GAME_DELETE_ICON_DESC = "棋譜を削除"
     const val GAME_DELETE_DIALOG_TITLE = "この棋譜を削除しますか？"
+    // 1件のときは「1件の棋譜」という不自然な言い回しを避け、単数形をそのまま返す。
+    fun gameDeleteDialogTitle(count: Int): String =
+        if (count <= 1) GAME_DELETE_DIALOG_TITLE else "${count}件の棋譜を削除しますか？"
     const val GAME_DELETE_DIALOG_TEXT_DEVICE_ONLY =
         "解析結果も含め、端末から削除されます。この操作は取り消せません。"
     const val GAME_DELETE_DIALOG_TEXT_WITH_SERVER =

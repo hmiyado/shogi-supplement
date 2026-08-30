@@ -361,4 +361,27 @@ class GameListScreenScreenshotTest {
             roborazziOptions = screenshotRoborazziOptions,
         )
     }
+
+    /** 削除アイコンで選択モードへ入り、1件チェックすると見出しと削除アイコンの状態が変わる。 */
+    @Test
+    fun gameList_selectionModeWithOneChecked() {
+        composeRule.setContent {
+            ShogiTheme {
+                Surface {
+                    GameListScreen(
+                        games = gamesWithFullData(),
+                        onBack = {},
+                        onGameClick = {},
+                    )
+                }
+            }
+        }
+        composeRule.onNodeWithTag("game_list_select_mode_button").performClick()
+        composeRule.onNodeWithTag("game_card_checkbox_1").performClick()
+
+        topRoot().captureRoboImage(
+            filePath = "src/test/snapshots/game_list_selection_mode_one_checked.png",
+            roborazziOptions = screenshotRoborazziOptions,
+        )
+    }
 }

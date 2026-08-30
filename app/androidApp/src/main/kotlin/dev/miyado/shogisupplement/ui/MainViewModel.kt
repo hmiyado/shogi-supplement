@@ -221,16 +221,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     /** 棋譜一覧画面に遷移する。 */
     fun openGameList() {
         viewModelScope.launch {
-            val games = withContext(Dispatchers.IO) { gameRepository.getAllGames() }
-            val isLoggedIn = app.authRepository.currentUser.value != null
-            val pendingCount = if (isLoggedIn) {
-                withContext(Dispatchers.IO) { gameRepository.getNotUploadedGames().size }
-            } else 0
-            _state.value = MainUiState.GameList(games, pendingUploadCount = pendingCount)
+            reloadGameList()
         }
     }
 
-    /** 棋譜1局を削除する。棋譜一覧から呼ばれたときは一覧を再読込し、それ以外（レポート画面）はホームへ戻る。 */
+    private suspend fun reloadGameList() {
+        val games = withContext(Dispatchers.IO) { gameRepository.getAllGames() }
+        val isLoggedIn = app.authRepository.currentUser.value != null
+        val pendingCount = if (isLoggedIn) {
+            withContext(Dispatchers.IO) { gameRepository.getNotUploadedGames().size }
+        } else 0
+        _state.value = MainUiState.GameList(games, pendingUploadCount = pendingCount)
+    }
+
+    /**
+     * 棋譜1局を削除する。棋譜一覧から呼ばれたときは一覧を再読込し、それ以外（レポート画面）はホームへ戻る。
+     * 再読込は完了を待ってから返す（投げっぱなしだと連続呼び出し時に完了順が入れ替わり、
+     * 削除済みの棋譜が一覧に残って見えることがある）。
+     */
     fun deleteGame(
         game: GameRecord,
         deleteServer: Boolean,
@@ -241,7 +249,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 GameDeleter(gameRepository, app.uploadOrchestrator).delete(game, deleteServer)
             }
             if (outcome == DeleteGameOutcome.Success) {
-                if (_state.value is MainUiState.GameList) openGameList() else loadHome()
+                if (_state.value is MainUiState.GameList) reloadGameList() else loadHome()
             }
             onResult(outcome)
         }

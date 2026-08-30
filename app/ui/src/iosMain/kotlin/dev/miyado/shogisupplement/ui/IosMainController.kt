@@ -323,7 +323,12 @@ class IosMainController(
     }
 
     fun reloadHome() {
-        scope.launch { _homeData.value = homeViewModel.loadHomeData() }
+        scope.launch { reloadHomeAndWait() }
+    }
+
+    /** 完了を待ってから返す（reloadHomeは投げっぱなしのため、完了順序を保証したい場面では使えない）。 */
+    suspend fun reloadHomeAndWait() {
+        _homeData.value = homeViewModel.loadHomeData()
     }
 
     /**

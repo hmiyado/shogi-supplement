@@ -53,4 +53,65 @@ class GameCardScreenshotTest {
             }
         }
     }
+
+    @Test
+    fun gameCard_selectableUnselected() {
+        captureRoboImage(
+            filePath = "src/test/snapshots/game_card_selectable_unselected.png",
+            roborazziOptions = screenshotRoborazziOptions,
+        ) {
+            ShogiTheme {
+                Surface {
+                    GameCard(
+                        game = GameRecord(
+                            id = 1L,
+                            fileName = "kiou_game1.kif",
+                            contentHash = "hash1",
+                            moveCount = 74L,
+                            senteName = "miyado",
+                            goteName = "相手",
+                            analyzedAt = 1_780_000_000L,
+                            rating = 1750L,
+                            coefVersion = "hao_v1",
+                            sourcePlace = "kiou",
+                            timeControlRaw = "5分+5秒追加",
+                        ),
+                        onClick = {},
+                        selectable = true,
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun gameCard_selectableSelected() {
+        captureRoboImage(
+            filePath = "src/test/snapshots/game_card_selectable_selected.png",
+            roborazziOptions = screenshotRoborazziOptions,
+        ) {
+            ShogiTheme {
+                Surface {
+                    GameCard(
+                        game = GameRecord(
+                            id = 1L,
+                            fileName = "kiou_game1.kif",
+                            contentHash = "hash1",
+                            moveCount = 74L,
+                            senteName = "miyado",
+                            goteName = "相手",
+                            analyzedAt = 1_780_000_000L,
+                            rating = 1750L,
+                            coefVersion = "hao_v1",
+                            sourcePlace = "kiou",
+                            timeControlRaw = "5分+5秒追加",
+                        ),
+                        onClick = {},
+                        selectable = true,
+                        selected = true,
+                    )
+                }
+            }
+        }
+    }
 }
