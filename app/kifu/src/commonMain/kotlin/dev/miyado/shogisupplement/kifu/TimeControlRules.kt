@@ -1,16 +1,23 @@
 package dev.miyado.shogisupplement.kifu
 
-// KIF「持ち時間」ヘッダの表記は対局サービスごとに固有の呼び名と対応する
-// （例: 棋桜の「10分+30秒」はカジュアルと真剣勝負の両方に使われ数値だけでは
-// 区別できないため意図的にラベルを付けない）。ここに無い組み合わせは
-// ヘッダの原文をそのまま表示する。
-private val KIOU_LABELS: Map<String, String> = mapOf(
-    "3分切れ負け" to "ショート",
-    "5分+5秒追加" to "フィッシャー",
+// 対局サービスごとの持ち時間（KIF「持ち時間」ヘッダの原文）と呼び名。呼び名がnullなのは、
+// ヘッダの表記がそのまま呼び名のもの（切れ負け各種）と、棋桜の「10分+30秒」のように
+// カジュアルと真剣勝負の両方に使われて区別できないもの。ここに無い組み合わせは判定しない
+// ——将棋ウォーズの「10秒将棋」は0分＋秒読み10秒で共通判定に当たるため、将棋クエストは
+// KIFのメタデータから判定できるルールが無いため、それぞれ載せていない。
+private val SERVICE_TIME_CONTROLS: Map<String, Map<String, String?>> = mapOf(
+    KifuSource.KIOU.wireValue to mapOf(
+        "3分切れ負け" to "ショート",
+        "5分+5秒追加" to "フィッシャー",
+        "10分+30秒" to null,
+    ),
+    KifuSource.WARS.wireValue to mapOf(
+        "10分切れ負け" to null,
+        "3分切れ負け" to null,
+    ),
 )
 
-// lishogiの「N分+M秒」はフィッシャー（1手ごとの加算）ではなく秒読みとして扱う
-// （フィッシャールールは棋桜のみが持つ概念）。
+// lishogiの「N分+M秒」は加算（フィッシャー）ではなく秒読みとして表示する決まり。
 private val LISHOGI_INCREMENT_HEADER = Regex("""^(\d+分)\+(\d+秒)$""")
 
 private val BYOYOMI_ONLY_HEADER = Regex("""^\d+秒$""")
@@ -24,12 +31,13 @@ private fun matchTimeControlRule(sourcePlace: String?, main: String, byoyomi: St
     if (trimmedMain == "0分" && trimmedByoyomi != null && BYOYOMI_ONLY_HEADER.matches(trimmedByoyomi)) {
         return null to "1手$trimmedByoyomi"
     }
-    return when (sourcePlace) {
-        "kiou" -> KIOU_LABELS[trimmedMain]?.let { it to trimmedMain }
-        "lishogi" -> LISHOGI_INCREMENT_HEADER.find(trimmedMain)
+    val table = SERVICE_TIME_CONTROLS[sourcePlace]
+    if (table != null && trimmedMain in table) return table[trimmedMain] to trimmedMain
+    if (sourcePlace == KifuSource.LISHOGI.wireValue) {
+        return LISHOGI_INCREMENT_HEADER.find(trimmedMain)
             ?.let { null to "${it.groupValues[1]}秒読み${it.groupValues[2]}" }
-        else -> null
     }
+    return null
 }
 
 /**

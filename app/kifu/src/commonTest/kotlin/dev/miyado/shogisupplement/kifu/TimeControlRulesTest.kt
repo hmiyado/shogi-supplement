@@ -17,6 +17,14 @@ class TimeControlRulesTest {
     @Test
     fun `棋桜のカジュアルと真剣勝負は同じ持ち時間で区別できないためラベルを付けない`() {
         assertEquals(null to "10分+30秒", resolveTimeControlDisplay("kiou", "10分+30秒", null))
+        // ラベルは付けないが棋桜の持ち時間としては判定できている（「その他」へ落とさない）。
+        assertTrue(isKnownTimeControlRule("kiou", "10分+30秒", null))
+    }
+
+    @Test
+    fun `棋桜の表に無い持ち時間は棋桜の持ち時間として判定しない`() {
+        assertFalse(isKnownTimeControlRule("kiou", "7分+15秒", null))
+        assertEquals(null to "7分+15秒", resolveTimeControlDisplay("kiou", "7分+15秒", null))
     }
 
     @Test
@@ -76,8 +84,10 @@ class TimeControlRulesTest {
         assertTrue(isKnownTimeControlRule("kiou", "3分切れ負け", null))
         assertTrue(isKnownTimeControlRule("lishogi", "10分+30秒", null))
         assertTrue(isKnownTimeControlRule("wars", "0分", "30秒"))
-        assertFalse(isKnownTimeControlRule("kiou", "10分+30秒", null))
-        assertFalse(isKnownTimeControlRule("wars", "3分切れ負け", null))
+        assertTrue(isKnownTimeControlRule("kiou", "10分+30秒", null))
+        assertTrue(isKnownTimeControlRule("wars", "3分切れ負け", null))
+        assertTrue(isKnownTimeControlRule("wars", "10分切れ負け", null))
+        assertFalse(isKnownTimeControlRule("wars", "5分+30秒", null))
         assertFalse(isKnownTimeControlRule(null, "5分+30秒", null))
     }
 
@@ -85,5 +95,27 @@ class TimeControlRulesTest {
     fun `持ち時間ヘッダが無ければ判定表の対象外`() {
         assertFalse(isKnownTimeControlRule("kiou", null, null))
         assertFalse(isKnownTimeControlRule("kiou", "  ", null))
+    }
+
+    @Test
+    fun `将棋クエストはKIFのメタデータから判定できるルールが無いので表に載せない`() {
+        assertFalse(isKnownTimeControlRule("shogi_quest", "2分切れ負け", null))
+        assertFalse(isKnownTimeControlRule("shogi_quest", "5分切れ負け", null))
+        assertFalse(isKnownTimeControlRule("shogi_quest", "10分切れ負け", null))
+        assertFalse(isKnownTimeControlRule("shogi_quest", "5分+5秒", null))
+        assertEquals(null to "2分切れ負け", resolveTimeControlDisplay("shogi_quest", "2分切れ負け", null))
+    }
+
+    @Test
+    fun `フィッシャーの呼び名が付くのは棋桜の表記だけ`() {
+        assertEquals("フィッシャー" to "5分+5秒追加", resolveTimeControlDisplay("kiou", "5分+5秒追加", null))
+        assertFalse(isKnownTimeControlRule("shogi_quest", "5分+5秒追加", null))
+        assertFalse(isKnownTimeControlRule("kiou", "5分+5秒", null))
+    }
+
+    @Test
+    fun `将棋ウォーズの切れ負けはヘッダの表記がそのまま呼び名になる`() {
+        assertEquals(null to "3分切れ負け", resolveTimeControlDisplay("wars", "3分切れ負け", null))
+        assertEquals(null to "10分切れ負け", resolveTimeControlDisplay("wars", "10分切れ負け", null))
     }
 }

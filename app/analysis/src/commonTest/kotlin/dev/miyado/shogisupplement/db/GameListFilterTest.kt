@@ -267,8 +267,8 @@ class GameListFilterTest {
     @Test
     fun `判定表に無い持ち時間はサービスや値が違ってもその他へまとまる`() {
         val games = listOf(
-            game(1, sourcePlace = "wars", timeControlRaw = "3分切れ負け"),
-            game(2, sourcePlace = "kiou", timeControlRaw = "10分+30秒"),
+            game(1, sourcePlace = "wars", timeControlRaw = "7分+15秒"),
+            game(2, sourcePlace = "kiou", timeControlRaw = "7分+15秒"),
             game(3, sourcePlace = null, timeControlRaw = "5分+30秒"),
         )
         assertEquals(
@@ -278,7 +278,7 @@ class GameListFilterTest {
     }
 
     @Test
-    fun `同じヘッダでも判定表にあるサービスならその他に落ちない`() {
+    fun `同じヘッダでもサービスごとの呼び名が違えば別の持ち時間として扱う`() {
         val games = listOf(
             game(1, sourcePlace = "kiou", timeControlRaw = "3分切れ負け"),
             game(2, sourcePlace = "wars", timeControlRaw = "3分切れ負け"),
@@ -289,14 +289,14 @@ class GameListFilterTest {
         )
         assertEquals(
             listOf(2L),
-            games.filterGames(GameListFilter(timeControl = TIME_CONTROL_OTHER)).map { it.id },
+            games.filterGames(GameListFilter(timeControl = "3分切れ負け")).map { it.id },
         )
     }
 
     @Test
     fun `持ち時間ヘッダを持たないレコードはその他にも含まれない`() {
         val games = listOf(
-            game(1, sourcePlace = "wars", timeControlRaw = "3分切れ負け"),
+            game(1, sourcePlace = "wars", timeControlRaw = "7分+15秒"),
             game(2, sourcePlace = "wars"),
         )
         assertEquals(
@@ -315,7 +315,7 @@ class GameListFilterTest {
             game(5, sourcePlace = "wars"),
         )
         assertEquals(
-            listOf("1手30秒", "ショート（3分切れ負け）", TIME_CONTROL_OTHER),
+            listOf("1手30秒", "3分切れ負け", "ショート（3分切れ負け）", TIME_CONTROL_OTHER),
             games.distinctTimeControls(),
         )
     }
@@ -330,7 +330,7 @@ class GameListFilterTest {
     private fun gamesWithSourcesAndTimeControls() = listOf(
         game(1, sourcePlace = "wars", timeControlRaw = "0分", timeControlByoyomiRaw = "30秒"),
         game(2, sourcePlace = "lishogi", timeControlRaw = "10分+30秒"),
-        game(3, sourcePlace = "kiou", timeControlRaw = "10分+30秒"),
+        game(3, sourcePlace = "kiou", timeControlRaw = "7分+15秒"),
     )
 
     @Test
@@ -339,6 +339,19 @@ class GameListFilterTest {
         assertEquals(listOf("1手30秒"), games.availableTimeControls("wars"))
         assertEquals(listOf("10分秒読み30秒"), games.availableTimeControls("lishogi"))
         assertEquals(listOf(TIME_CONTROL_OTHER), games.availableTimeControls("kiou"))
+    }
+
+    @Test
+    fun `棋桜の10分30秒はラベルが無くても棋桜の持ち時間としてその他と別に扱う`() {
+        val games = listOf(
+            game(1, sourcePlace = "kiou", timeControlRaw = "10分+30秒"),
+            game(2, sourcePlace = "kiou", timeControlRaw = "7分+15秒"),
+        )
+        assertEquals(listOf("10分+30秒", TIME_CONTROL_OTHER), games.distinctTimeControls())
+        assertEquals(
+            listOf(1L),
+            games.filterGames(GameListFilter(timeControl = "10分+30秒")).map { it.id },
+        )
     }
 
     @Test
