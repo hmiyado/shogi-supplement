@@ -8,6 +8,7 @@ __pycache__/
 
 # Claude Code ローカル設定
 .claude/settings.local.json
+.claude/launch.json
 
 # 作業ログ置き場（セッション引き継ぎ・実装計画の進行管理。設計資料は docs/ でコミットする）
 tmp/
