@@ -25,12 +25,12 @@ import dev.miyado.shogisupplement.engine.RemoteAnalysisRunner
 import dev.miyado.shogisupplement.engine.WasmAnalysisRunner
 import dev.miyado.shogisupplement.engine.WasmStudyBridge
 import dev.miyado.shogisupplement.engine.WasmStudyEngine
-import dev.miyado.shogisupplement.kifu.ClipboardKifValidator
 import dev.miyado.shogisupplement.kifu.KifParser
-import dev.miyado.shogisupplement.kifu.KifuDecomposer
+import dev.miyado.shogisupplement.db.saveRatingSettingsBundle
 import dev.miyado.shogisupplement.kifu.GameImportFlow
+import dev.miyado.shogisupplement.kifu.KifImportController
+import dev.miyado.shogisupplement.kifu.KifImportRequest
 import dev.miyado.shogisupplement.kifu.GameImporter
-import dev.miyado.shogisupplement.kifu.UserSideSuggester
 import dev.miyado.shogisupplement.pipeline.InProgressAnalysisRegistry
 import dev.miyado.shogisupplement.pipeline.ProgressiveReportState
 import dev.miyado.shogisupplement.policy.ForceUpdateJudge
@@ -90,49 +90,9 @@ class IosMainController(
     private val forceUpdatePolicyChecker: ForceUpdatePolicyChecker? = null,
 ) {
 
-    /** クリップボード取込フローの状態。 */
+    /** 保存後の状態。保存までの手順は [kifImport] が持つ。 */
     sealed class ImportState {
-        /** 取込フロー未実行。 */
         object Idle : ImportState()
-
-        /**
-         * 匿名アカウント作成の事前確認ダイアログ。未ログインで棋譜を追加したとき
-         * （アカウント削除後の再追加など）に、解析時のアカウント新規作成を伝える。
-         */
-        data class AccountCreationConfirm(
-            val kifText: String,
-            val senteName: String?,
-            val goteName: String?,
-            val sourceFileName: String?,
-            val skipRatingSetup: Boolean = false,
-        ) : ImportState()
-
-        /**
-         * KIF検証OKだがアカウント名が未設定。先に棋力設定ダイアログを出す
-         * （androidApp の KifImportFlow と同じ初回導線。保存後に先後選択へ進む）。
-         */
-        data class RatingSetup(
-            val kifText: String,
-            val senteName: String?,
-            val goteName: String?,
-            val sourceFileName: String? = null,
-        ) : ImportState()
-
-        /** KIF検証OK。先後選択待ち。 */
-        data class SideConfirm(
-            val kifText: String,
-            val senteName: String?,
-            val goteName: String?,
-            /**
-             * ファイル取込の場合の実ファイル名（DocumentPickerで選んだファイル名）。
-             * null = クリップボード取込（[AppStrings.clipboardFileName] で生成する）。
-             */
-            val sourceFileName: String? = null,
-            /** アカウント名一致 or 前回選択からの先後の推定（ダイアログの初期選択）。 */
-            val suggestedSide: String? = null,
-            /** 推定がアカウント名一致によるものか（一致時のみ省略チェックボックスを出す）。 */
-            val suggestedByAccount: Boolean = false,
-        ) : ImportState()
 
         /**
          * 解析中。手順（moves）はKIF原文パース直後に確定するため解析開始と同時に持ち、
@@ -145,11 +105,8 @@ class IosMainController(
             val progressive: ProgressiveReportState,
         ) : ImportState()
 
-        /**
-         * クリップボード/ファイルが空・不正、または解析失敗。
-         * [fromFile] でエラーダイアログのタイトルを取込元別に出し分ける。
-         */
-        data class Error(val message: String, val fromFile: Boolean = false) : ImportState()
+        /** 保存または解析の失敗。 */
+        data class Error(val message: String) : ImportState()
     }
 
     private val scope = CoroutineScope(SupervisorJob() + defaultIoDispatcher)
@@ -259,6 +216,18 @@ class IosMainController(
 
     private val _importState = MutableStateFlow<ImportState>(ImportState.Idle)
     val importState: StateFlow<ImportState> = _importState.asStateFlow()
+
+    /** KIFを受け取ってから保存を依頼するまでの手順。 */
+    val kifImport = KifImportController(
+        settingsRepository = settingsRepository,
+        scope = scope,
+        // 未ログインのまま解析へ進むと匿名アカウントが新規に作られる。
+        analysisWouldCreateAccount = {
+            authRepository != null && analysisBaseUrl != null && authRepository.currentUser.value == null
+        },
+        dateTimeLabel = { currentDateTimeLabel() },
+        onImport = { request -> importConfirmedKif(request) },
+    )
 
     /** 現在進行中の解析コルーチン（再開時に前回分をキャンセルするため保持する）。 */
     private var currentAnalysisJob: Job? = null
@@ -387,72 +356,10 @@ class IosMainController(
         }
     }
 
-    /**
-     * クリップボードから取得した生テキストを検証する。
-     * 有効なKIFなら先後選択（[ImportState.SideConfirm]）へ、無効/空なら [ImportState.Error] へ。
-     */
-    fun handlePastedText(text: String?) {
-        when {
-            text.isNullOrBlank() -> _importState.value = ImportState.Error(AppStrings.KIF_CLIPBOARD_EMPTY)
-            !ClipboardKifValidator.isValidKif(text) ->
-                _importState.value = ImportState.Error(AppStrings.KIF_CLIPBOARD_INVALID)
-            else -> {
-                val headers = runCatching { KifParser().parse(text).headers }.getOrElse { emptyMap() }
-                val (senteName, goteName) = KifuDecomposer.resolvePlayerNames(text, headers)
-                proceedAfterKifValidated(
-                    kifText = text,
-                    senteName = senteName,
-                    goteName = goteName,
-                    sourceFileName = null,
-                )
-            }
-        }
-    }
+    fun handlePastedText(text: String?) = kifImport.beginFromClipboard(text)
 
-    fun beginManualImport(kifText: String, fileName: String = "manual.kif") {
-        val game = runCatching { KifParser().parse(kifText) }.getOrNull()
-        if (game == null) {
-            _importState.value = ImportState.Error(AppStrings.KIF_FILE_INVALID)
-            return
-        }
-        val (senteName, goteName) = KifuDecomposer.resolvePlayerNames(kifText, game.headers)
-        proceedAfterKifValidated(
-            kifText = kifText,
-            senteName = senteName,
-            goteName = goteName,
-            sourceFileName = fileName,
-            skipRatingSetup = true,
-        )
-    }
-
-    /**
-     * 1. アカウント名が全サービス未設定 → 先に棋力設定（[ImportState.RatingSetup]）
-     * 2. アカウント名一致＋省略設定ON → 確認なしで即保存
-     * 3. それ以外 → 先後選択ダイアログ（推定側を初期選択に）
-     */
-    private fun proceedAfterKifValidated(
-        kifText: String,
-        senteName: String?,
-        goteName: String?,
-        sourceFileName: String?,
-        skipRatingSetup: Boolean = false,
-    ) {
-        // 未ログインのまま進むと解析時（launchAnalysis）に匿名アカウントが
-        // 新規作成される。黙って作らず、追加の入口で確認を取る
-        if (authRepository != null && analysisBaseUrl != null &&
-            authRepository.currentUser.value == null && !settingsRepository.isAccountDeclined()
-        ) {
-            _importState.value = ImportState.AccountCreationConfirm(
-                kifText,
-                senteName,
-                goteName,
-                sourceFileName,
-                skipRatingSetup,
-            )
-            return
-        }
-        continueImportAfterAccountNotice(kifText, senteName, goteName, sourceFileName, skipRatingSetup)
-    }
+    fun beginManualImport(kifText: String, fileName: String = "manual.kif") =
+        kifImport.beginManual(kifText, fileName)
 
     /** 引き継ぎ復元の成功時に、作らない判断を戻すために渡す。 */
     val settings: SettingsRepository get() = settingsRepository
@@ -468,108 +375,14 @@ class IosMainController(
         settingsRepository.saveAccountDeclined(false)
     }
 
-    /**
-     * [ImportState.AccountCreationConfirm] の「作らずに解析する」。
-     * 以後は端末内だけで解析し、確認も出さない（設定から作れば元に戻る）。
-     */
-    fun declineAccountAndContinueImport() {
-        val s = _importState.value as? ImportState.AccountCreationConfirm ?: return
-        settingsRepository.saveAccountDeclined(true)
-        continueImportAfterAccountNotice(s.kifText, s.senteName, s.goteName, s.sourceFileName, s.skipRatingSetup)
-    }
-
-    /** [ImportState.AccountCreationConfirm] の「続ける」。取込フローを続行する。 */
-    fun confirmAccountCreation() {
-        val s = _importState.value as? ImportState.AccountCreationConfirm ?: return
-        continueImportAfterAccountNotice(s.kifText, s.senteName, s.goteName, s.sourceFileName, s.skipRatingSetup)
-    }
-
-    private fun continueImportAfterAccountNotice(
-        kifText: String,
-        senteName: String?,
-        goteName: String?,
-        sourceFileName: String?,
-        skipRatingSetup: Boolean = false,
-    ) {
-        if (!skipRatingSetup && !settingsRepository.hasAnyServiceAccount()) {
-            _importState.value = ImportState.RatingSetup(kifText, senteName, goteName, sourceFileName)
-            return
-        }
-        proceedToSideConfirm(kifText, senteName, goteName, sourceFileName)
-    }
-
-    private fun proceedToSideConfirm(
-        kifText: String,
-        senteName: String?,
-        goteName: String?,
-        sourceFileName: String?,
-    ) {
-        val suggestion = UserSideSuggester.suggest(
-            senteName = senteName,
-            goteName = goteName,
-            accountNames = settingsRepository.getAllServiceAccounts().values.toSet(),
-            lastUserSide = settingsRepository.getLastUserSide(),
-        )
-        val skip = UserSideSuggester.shouldSkipConfirm(suggestion, settingsRepository.getSkipSideConfirm())
-        _importState.value = ImportState.SideConfirm(
-            kifText = kifText,
-            senteName = senteName,
-            goteName = goteName,
-            sourceFileName = sourceFileName,
-            suggestedSide = suggestion.side,
-            suggestedByAccount = suggestion.matchedByAccount,
-        )
-        // suggestion.side は別モジュールの公開プロパティのためsmart castできない（K/N制約）。
-        val confirmedSide = suggestion.side
-        if (skip && confirmedSide != null) {
-            confirmSideAndImport(confirmedSide)
-        }
-    }
-
-    /**
-     * 取込フロー中の棋力設定を保存して先後選択へ進む（[ImportState.RatingSetup] の確定）。
-     * 保存内容は androidApp の MainViewModel.saveRatingSettings と同じ分解で
-     * user_settings / service_account / service_rank へ書き込む。
-     */
-    fun completeRatingSetup(
-        service: String?,
-        ratingRaw: Int?,
-        ratingRule: String?,
-        serviceAccounts: Map<String, String>,
-        serviceRanks: Map<String, Map<String, Int>>,
-    ) {
-        val current = _importState.value as? ImportState.RatingSetup ?: return
-        saveRatingSettings(service, ratingRaw, ratingRule, serviceAccounts, serviceRanks)
-        // 先後選択へ直行する（androidApp の KifImportFlow と同じ）。
-        // Why not proceedAfterKifValidated: あちらはアカウント名の有無を再判定するため、
-        // 任意入力のアカウント名を空のまま保存すると棋力設定が無限に再表示される。
-        proceedToSideConfirm(
-            kifText = current.kifText,
-            senteName = current.senteName,
-            goteName = current.goteName,
-            sourceFileName = current.sourceFileName,
-        )
-    }
-
-    /** 棋力設定の一括保存（設定画面・取込フロー共用）。 */
+    /** 棋力設定の一括保存（設定画面から。取込フロー中は [kifImport] が保存する）。 */
     fun saveRatingSettings(
         service: String?,
         ratingRaw: Int?,
         ratingRule: String?,
         serviceAccounts: Map<String, String>,
         serviceRanks: Map<String, Map<String, Int>>,
-    ) {
-        val currentServiceAccount = service?.let { serviceAccounts[it] }
-        settingsRepository.saveRatingSettings(service, ratingRaw, ratingRule, currentServiceAccount)
-        for ((svc, name) in serviceAccounts) {
-            settingsRepository.upsertServiceAccount(svc, name)
-        }
-        for ((svc, rules) in serviceRanks) {
-            for ((rule, rankRaw) in rules) {
-                settingsRepository.saveServiceRank(svc, rule, rankRaw)
-            }
-        }
-    }
+    ) = settingsRepository.saveRatingSettingsBundle(service, ratingRaw, ratingRule, serviceAccounts, serviceRanks)
 
     /** 棋力設定ダイアログの初期値（設定画面・取込フロー共用）。 */
     fun getRatingSettings(): RatingSettings = settingsRepository.getRatingSettings()
@@ -592,64 +405,40 @@ class IosMainController(
         )
     }
 
-    /** 取込フローを閉じる（ダイアログの「キャンセル」/エラーダイアログの確認）。 */
-    fun dismissImport() {
-        // Why not 全ケースでpendingを消す: SideConfirm等のキャンセルはpending保存より前の状態で
-        // 実害はないが、Error限定にすることで「何を破棄したか」をここで明確にする。
-        if (_importState.value is ImportState.Error) {
-            PendingAnalysisStore.clear()
-        }
+    /** 保存・解析の失敗ダイアログを閉じる。中断した解析の再開情報も破棄する。 */
+    fun dismissAnalysisError() {
+        PendingAnalysisStore.clear()
+        _importState.value = ImportState.Idle
+    }
+
+    /** 解析中の画面から離れる。解析自体は続くため再開情報は残す。 */
+    fun leaveAnalyzingView() {
         _importState.value = ImportState.Idle
     }
 
     /**
      * @param text nullはUTF-8/Shift_JISのデコード失敗で、空・不正と同じエラーにする。
      */
-    fun handleFileImport(fileName: String, text: String?) {
-        when {
-            text.isNullOrBlank() ->
-                _importState.value = ImportState.Error(AppStrings.KIF_FILE_EMPTY, fromFile = true)
-            !ClipboardKifValidator.isValidKif(text) ->
-                _importState.value = ImportState.Error(AppStrings.KIF_FILE_INVALID, fromFile = true)
-            else -> {
-                val headers = runCatching { KifParser().parse(text).headers }.getOrElse { emptyMap() }
-                val (senteName, goteName) = KifuDecomposer.resolvePlayerNames(text, headers)
-                proceedAfterKifValidated(
-                    kifText = text,
-                    senteName = senteName,
-                    goteName = goteName,
-                    sourceFileName = fileName,
-                )
-            }
-        }
-    }
+    fun handleFileImport(fileName: String, text: String?) = kifImport.beginFromFile(fileName, text)
 
-    /** 先後を確定して棋譜を保存する。新規なら解析を即開始し、既存棋譜と同一ハッシュなら再解析しない。 */
-    fun confirmSideAndImport(userSide: String) {
-        val current = _importState.value
-        if (current !is ImportState.SideConfirm) return
-        settingsRepository.saveLastUserSide(userSide)
-
-        val fileName = current.sourceFileName ?: AppStrings.clipboardFileName(currentDateTimeLabel())
-        val declared = settingsRepository.getRatingSettings()
-        scope.launch {
-            val next = GameImportFlow(gameRepository).import(
-                kifContent = current.kifText,
-                fileName = fileName,
-                userSide = userSide,
-                ratingService = declared.service,
-                ratingRaw = declared.ratingRaw.toLong(),
-                ratingRule = declared.ratingRule,
-            )
-            when (next) {
-                is GameImportFlow.Next.Analyze -> analyzeStoredGame(next.game)
-                is GameImportFlow.Next.OpenReport -> {
-                    _importState.value = ImportState.Idle
-                    reloadHome()
-                    _completedAnalysis.value = CompletedAnalysis(next.gameId, justCompleted = false)
-                }
-                is GameImportFlow.Next.Failed -> _importState.value = ImportState.Error(next.message)
+    /** 新規なら解析を即開始し、既存棋譜と同一ハッシュなら再解析しない。 */
+    private suspend fun importConfirmedKif(request: KifImportRequest) {
+        val next = GameImportFlow(gameRepository).import(
+            kifContent = request.kifText,
+            fileName = request.fileName,
+            userSide = request.userSide,
+            ratingService = request.ratingService,
+            ratingRaw = request.ratingRaw,
+            ratingRule = request.ratingRule,
+        )
+        when (next) {
+            is GameImportFlow.Next.Analyze -> analyzeStoredGame(next.game)
+            is GameImportFlow.Next.OpenReport -> {
+                _importState.value = ImportState.Idle
+                reloadHome()
+                _completedAnalysis.value = CompletedAnalysis(next.gameId, justCompleted = false)
             }
+            is GameImportFlow.Next.Failed -> _importState.value = ImportState.Error(next.message)
         }
     }
 
@@ -666,7 +455,7 @@ class IosMainController(
         val moves = runCatching { KifParser().parse(pending.kifText).moves }.getOrElse { emptyList() }
         // idは保存時のcontent_hashと同一。
         // レジストリはIosMainController（プロセス生存期間のシングルトン）だけが書く
-        // ——importStateはdismissImportで破棄されるがレジストリ側は生き続ける。
+        // ——画面を離れてimportStateが畳まれてもレジストリ側は生き続ける。
         val id = pending.contentHash ?: sha256Hex(pending.kifText)
         InProgressAnalysisRegistry.shared.start(id, pending.fileName, moves, pending.userSide)
         _importState.value = ImportState.Analyzing(
@@ -702,8 +491,8 @@ class IosMainController(
                     }
                 }
                 is AnalysisOrchestrator.Outcome.Failed -> {
-                    // Why not pendingをここで消す: dismissImportまで「再開すべき解析」として
-                    // 残しておくことで、切断が実は継続中でも後で再問い合わせできる。
+                    // Why not pendingをここで消す: 失敗ダイアログを閉じるまで「再開すべき解析」
+                    // として残しておくことで、切断が実は継続中でも後で再問い合わせできる。
                     if (wasWatching) {
                         _importState.value = ImportState.Error(outcome.message)
                     } else {

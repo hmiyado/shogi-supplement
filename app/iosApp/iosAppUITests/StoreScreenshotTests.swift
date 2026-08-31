@@ -85,13 +85,10 @@ final class StoreScreenshotTests: XCTestCase {
 
         handlePastePermissionAlertIfNeeded()
 
-        // フレッシュな端末（アカウント名未設定）では先後選択の前に棋力設定ダイアログ
-        // （ImportState.RatingSetup → RatingSettingsDialog）が先に表示される。
-        // 重要: アカウント名を空のまま「保存」すると hasAnyServiceAccount() が false のままで
-        // completeRatingSetup → proceedAfterKifValidated が RatingSetup を再表示し、
-        // ダイアログが閉じないように見える（IosMainController.kt:235）。フィクスチャの
-        // 後手名 "miyado" をアカウント名として入力してから保存する（先後自動サジェストも
-        // 後手側に効く）。設定済みの端末（再実行時）では表示されないため、出現は条件付き。
+        // フレッシュな端末（アカウント名未設定）では先後選択の前に棋力設定ダイアログが
+        // 先に表示される。フィクスチャの後手名 "miyado" をアカウント名として入力してから
+        // 保存する（先後の自動サジェストも後手側に効く）。設定済みの端末（再実行時）では
+        // 表示されないため、出現は条件付き。
         let ratingDialogTitle = element(labeled: "棋力設定", timeout: 8)
         if ratingDialogTitle.exists {
             // アカウント名フィールド: ラベル「アカウント名（…）」のStaticTextを内包するTextView

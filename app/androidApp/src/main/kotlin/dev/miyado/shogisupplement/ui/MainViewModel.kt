@@ -19,11 +19,13 @@ import dev.miyado.shogisupplement.db.SettingsRepository
 import dev.miyado.shogisupplement.engine.Engine
 import dev.miyado.shogisupplement.engine.PvInfo
 import dev.miyado.shogisupplement.engine.UsiEngineProcess
-import dev.miyado.shogisupplement.kifu.KifParser
-import dev.miyado.shogisupplement.kifu.KifuDecomposer
+import dev.miyado.shogisupplement.db.saveRatingSettingsBundle
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import dev.miyado.shogisupplement.kifu.GameImportFlow
-import dev.miyado.shogisupplement.kifu.SideSuggestion
-import dev.miyado.shogisupplement.kifu.UserSideSuggester
+import dev.miyado.shogisupplement.kifu.KifImportController
+import dev.miyado.shogisupplement.kifu.KifImportRequest
 import dev.miyado.shogisupplement.pipeline.InProgressAnalysisRegistry
 import dev.miyado.shogisupplement.pipeline.ProgressiveReportState
 import dev.miyado.shogisupplement.service.AnalysisService
@@ -283,47 +285,38 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /** KIFを受け取ってから保存を依頼するまでの手順。 */
+    val kifImport = KifImportController(
+        settingsRepository = settingsRepository,
+        scope = viewModelScope,
+        dateTimeLabel = { SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date()) },
+        onImport = { request -> importConfirmedKif(request) },
+    )
+
     /**
-     * KIFを取り込み、新規なら解析を即開始する（単発の取り込みは「即解析」体験を保つ）。
+     * 選ばれたURIのKIFを読む。表示名と本文を1回の読み取りで返す
+     * （本文はUTF-8で読めなければnull）。
      */
-    fun importKif(
-        uri: Uri,
-        service: String? = null,
-        ratingRaw: Int? = null,
-        userSide: String? = null,
-        ratingRule: String? = null,
-    ) {
-        viewModelScope.launch {
-            val kifContent = withContext(Dispatchers.IO) { readKifContentFromUri(uri) }
-            importKifText(kifContent, resolveKifFileName(uri), service, ratingRaw, userSide, ratingRule)
-        }
+    suspend fun readKifFromUri(uri: Uri): Pair<String, String?> = withContext(Dispatchers.IO) {
+        resolveKifFileName(uri) to runCatching { readKifContentFromUri(uri) }.getOrNull()
     }
 
-    fun importKifText(
-        kifContent: String,
-        fileName: String,
-        service: String? = null,
-        ratingRaw: Int? = null,
-        userSide: String? = null,
-        ratingRule: String? = null,
-    ) {
-        if (userSide != null) settingsRepository.saveLastUserSide(userSide)
-        viewModelScope.launch {
-            val next = withContext(Dispatchers.IO) {
-                GameImportFlow(gameRepository).import(
-                    kifContent = kifContent,
-                    fileName = fileName,
-                    userSide = userSide,
-                    ratingService = service,
-                    ratingRaw = ratingRaw?.toLong(),
-                    ratingRule = ratingRule,
-                )
-            }
-            when (next) {
-                is GameImportFlow.Next.Analyze -> analyzeStoredGame(next.game)
-                is GameImportFlow.Next.OpenReport -> showReport(next.gameId)
-                is GameImportFlow.Next.Failed -> _state.value = MainUiState.Error(next.message)
-            }
+    /** KIFを取り込み、新規なら解析を即開始する（単発の取り込みは「即解析」体験を保つ）。 */
+    private suspend fun importConfirmedKif(request: KifImportRequest) {
+        val next = withContext(Dispatchers.IO) {
+            GameImportFlow(gameRepository).import(
+                kifContent = request.kifText,
+                fileName = request.fileName,
+                userSide = request.userSide,
+                ratingService = request.ratingService,
+                ratingRaw = request.ratingRaw,
+                ratingRule = request.ratingRule,
+            )
+        }
+        when (next) {
+            is GameImportFlow.Next.Analyze -> analyzeStoredGame(next.game)
+            is GameImportFlow.Next.OpenReport -> showReport(next.gameId)
+            is GameImportFlow.Next.Failed -> _state.value = MainUiState.Error(next.message)
         }
     }
 
@@ -389,14 +382,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      * KIF ファイルの対局者名（先手・後手）をパースして返す。
      * 読み込み・パースに失敗した場合は (null, null)。
      */
-    suspend fun parseKifPlayers(uri: Uri): Pair<String?, String?> = withContext(Dispatchers.IO) {
-        runCatching {
-            val kifText = readKifContentFromUri(uri)
-            val headers = KifParser().parse(kifText).headers
-            KifuDecomposer.resolvePlayerNames(kifText, headers)
-        }.getOrElse { null to null }
-    }
-
     /** KIF原文を読む（ファイルURI/コンテンツURIの両対応）。 */
     private fun readKifContentFromUri(uri: Uri): String =
         if (uri.scheme == "file") {
@@ -427,29 +412,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         return displayName ?: uri.lastPathSegment ?: "unknown.kif"
     }
 
-    /** アカウント名に一致しなければ最後に選んだ側を返す。 */
-    suspend fun suggestUserSide(senteName: String?, goteName: String?): String? =
-        suggestUserSideWithMatch(senteName, goteName).side
-
-    suspend fun suggestUserSideWithMatch(senteName: String?, goteName: String?): SideSuggestion =
-        withContext(Dispatchers.IO) {
-            UserSideSuggester.suggest(
-                senteName = senteName,
-                goteName = goteName,
-                accountNames = settingsRepository.getAllServiceAccounts().values.toSet(),
-                lastUserSide = settingsRepository.getLastUserSide(),
-            )
-        }
-
-    /**
-     * 側選択ダイアログを省略できるか。
-     * skip_side_confirm が ON かつアカウント名一致で側が確定した場合のみ true。
-     */
-    suspend fun shouldSkipSideConfirm(suggestion: SideSuggestion): Boolean =
-        withContext(Dispatchers.IO) {
-            UserSideSuggester.shouldSkipConfirm(suggestion, settingsRepository.getSkipSideConfirm())
-        }
-
     fun saveSkipSideConfirm(skip: Boolean) = appSettings.saveSkipSideConfirm(skip)
 
     /** 保存済みレートを取得する（ダイアログのデフォルト値として使用）。 */
@@ -464,9 +426,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     /** 保存済みのサービスアカウント名を返す（未設定なら null）。旧API（後方互換）。 */
     fun getSavedServiceAccountName(): String? = settingsRepository.getServiceAccountName()
 
-    /** いずれかのサービスにアカウント名が設定されているかどうか。 */
-    fun hasAnyServiceAccount(): Boolean = settingsRepository.hasAnyServiceAccount()
-
     /** 全サービスのアカウント名を取得する（棋力設定ダイアログ用）。 */
     fun getAllServiceAccounts(): Map<String, String> = settingsRepository.getAllServiceAccounts()
 
@@ -477,19 +436,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         ratingRule: String?,
         serviceAccounts: Map<String, String>,
         serviceRanks: Map<String, Map<String, Int>> = emptyMap(),
-    ) {
-        // 旧 user_settings.service_account_name には現在選択中サービスの名前を残す（後方互換）
-        val currentServiceAccount = service?.let { serviceAccounts[it] }
-        settingsRepository.saveRatingSettings(service, ratingRaw, ratingRule, currentServiceAccount)
-        for ((svc, name) in serviceAccounts) {
-            settingsRepository.upsertServiceAccount(svc, name)
-        }
-        for ((svc, rules) in serviceRanks) {
-            for ((rule, rankRaw) in rules) {
-                settingsRepository.saveServiceRank(svc, rule, rankRaw)
-            }
-        }
-    }
+    ) = settingsRepository.saveRatingSettingsBundle(service, ratingRaw, ratingRule, serviceAccounts, serviceRanks)
 
     /** 最後に選んだ user_side を取得する。 */
     fun getSavedUserSide(): String? = settingsRepository.getLastUserSide()

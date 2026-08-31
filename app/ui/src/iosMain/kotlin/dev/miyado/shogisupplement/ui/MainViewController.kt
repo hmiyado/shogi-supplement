@@ -54,6 +54,8 @@ import dev.miyado.shogisupplement.pipeline.InProgressAnalysisRegistry
 import dev.miyado.shogisupplement.policy.currentBuildNumber
 import dev.miyado.shogisupplement.policy.resolvePolicyPlatform
 import dev.miyado.shogisupplement.supabase.SupabaseServices
+import dev.miyado.shogisupplement.kifu.KifImportController
+import dev.miyado.shogisupplement.kifu.KifOrigin
 import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.transfer.RemoteTransferRestoreService
 import dev.miyado.shogisupplement.ui.account.AccountScreen
@@ -279,6 +281,7 @@ private fun DemoApp(
 
     val homeData by controller.homeData.collectAsState()
     val importState by controller.importState.collectAsState()
+    val importStep by controller.kifImport.step.collectAsState()
     // ホームの解析中カード用。importStateとは別軸（dismissでImportStateが消えても
     // レジストリ側は生き続ける）ため、ここは直接購読する。
     val analyzingSessions by InProgressAnalysisRegistry.shared.sessions.collectAsState()
@@ -295,10 +298,9 @@ private fun DemoApp(
     // 取込フローが完了(Idle)に戻ったタイミングでホームへ復帰する
     // （Analyzing/SideConfirm/Error 中は現在のルートを維持し、ダイアログ/進捗画面を重ねて出す）。
 
-    when (val state = importState) {
-        is IosMainController.ImportState.RatingSetup -> {
-            // アカウント名未設定の初回取込: 先に棋力設定（androidApp と同じ導線）。
-            // キャンセルは取込フローごと中止する。
+    when (val step = importStep) {
+        is KifImportController.Step.RatingSetup -> {
+            // アカウント名未設定の初回取込: 先に棋力設定。キャンセルは取込フローごと中止する。
             RatingSettingsDialog(
                 savedService = controller.getRatingSettings().service,
                 savedRatingRaw = controller.getRatingSettings().ratingRaw,
@@ -306,58 +308,60 @@ private fun DemoApp(
                 savedServiceAccounts = controller.getAllServiceAccounts(),
                 savedServiceRanks = controller.getAllServiceRanks(),
                 onConfirm = { service, ratingRaw, ratingRule, serviceAccountsNew, ranks ->
-                    controller.completeRatingSetup(service, ratingRaw, ratingRule, serviceAccountsNew, ranks)
+                    controller.kifImport.completeRatingSetup(
+                        service,
+                        ratingRaw,
+                        ratingRule,
+                        serviceAccountsNew,
+                        ranks,
+                    )
                 },
-                onDismiss = { controller.dismissImport() },
+                onDismiss = { controller.kifImport.dismiss() },
             )
         }
-        is IosMainController.ImportState.SideConfirm -> {
+        is KifImportController.Step.SideConfirm -> {
             UserSideSimpleDialog(
-                senteName = state.senteName,
-                goteName = state.goteName,
-                suggestedSide = state.suggestedSide,
-                showSkipOption = state.suggestedByAccount,
-                onConfirm = { side, skipNext ->
-                    if (state.suggestedByAccount) controller.saveSkipSideConfirm(skipNext)
-                    controller.confirmSideAndImport(side)
-                },
-                onDismiss = { controller.dismissImport() },
+                senteName = step.kif.senteName,
+                goteName = step.kif.goteName,
+                suggestedSide = step.suggestion.side,
+                showSkipOption = step.suggestion.matchedByAccount,
+                onConfirm = { side, skipNext -> controller.kifImport.confirmSide(side, skipNext) },
+                onDismiss = { controller.kifImport.dismiss() },
             )
         }
-        is IosMainController.ImportState.AccountCreationConfirm -> {
+        is KifImportController.Step.AccountCreationConfirm -> {
             AlertDialog(
-                onDismissRequest = { controller.dismissImport() },
+                onDismissRequest = { controller.kifImport.dismiss() },
                 title = { Text(AppStrings.IMPORT_ACCOUNT_NOTICE_TITLE) },
                 text = { Text(AppStrings.IMPORT_ACCOUNT_NOTICE_BODY) },
                 confirmButton = {
-                    TextButton(onClick = { controller.confirmAccountCreation() }) {
+                    TextButton(onClick = { controller.kifImport.confirmAccountCreation() }) {
                         Text(AppStrings.IMPORT_ACCOUNT_NOTICE_CONTINUE)
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { controller.declineAccountAndContinueImport() }) {
+                    TextButton(onClick = { controller.kifImport.declineAccount() }) {
                         Text(AppStrings.IMPORT_ACCOUNT_NOTICE_DECLINE)
                     }
                 },
             )
         }
-        is IosMainController.ImportState.Error -> {
-            AlertDialog(
-                onDismissRequest = { controller.dismissImport() },
-                title = {
-                    Text(
-                        if (state.fromFile) AppStrings.KIF_SOURCE_FILE else AppStrings.KIF_SOURCE_CLIPBOARD,
-                    )
-                },
-                text = { Text(state.message) },
-                confirmButton = {
-                    TextButton(onClick = { controller.dismissImport() }) {
-                        Text(AppStrings.CANCEL)
-                    }
-                },
+        is KifImportController.Step.Failed -> {
+            ImportErrorDialog(
+                title = if (step.origin == KifOrigin.FILE) AppStrings.KIF_SOURCE_FILE else AppStrings.KIF_SOURCE_CLIPBOARD,
+                message = step.message,
+                onDismiss = { controller.kifImport.dismiss() },
             )
         }
         else -> {}
+    }
+
+    (importState as? IosMainController.ImportState.Error)?.let { error ->
+        ImportErrorDialog(
+            title = AppStrings.KIF_SOURCE_CLIPBOARD,
+            message = error.message,
+            onDismiss = { controller.dismissAnalysisError() },
+        )
     }
 
     // 「棋譜を追加する」タップ後、ファイル/クリップボードの選択ダイアログ。
@@ -390,7 +394,7 @@ private fun DemoApp(
             // 手動棋譜入力から解析中に入った場合、routeがDemoRoute.ManualKifuのまま
             // 更新されていないため、ここで明示的にHomeへ戻す（route=Homeからの入場では無害）。
             onBack = {
-                controller.dismissImport()
+                controller.leaveAnalyzingView()
                 route = DemoRoute.Home
             },
         )
@@ -1191,3 +1195,15 @@ private fun loadBundledLibraries(): Libs? = runCatching {
     val json = runBlocking { Res.readBytes("files/aboutlibraries.json") }.decodeToString()
     Libs.Builder().withJson(json).build()
 }.getOrNull()
+
+@Composable
+private fun ImportErrorDialog(title: String, message: String, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = { Text(message) },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(AppStrings.CANCEL) }
+        },
+    )
+}

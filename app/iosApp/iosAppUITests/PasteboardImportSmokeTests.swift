@@ -79,8 +79,8 @@ final class PasteboardImportSmokeTests: XCTestCase {
         handlePastePermissionAlertIfNeeded()
         attachScreenshot(named: "02_after_paste_permission")
 
-        // 4b. 初回取込（アカウント名未設定）は棋力設定ダイアログが先に出る
-        //     （ImportState.RatingSetup）。既定選択のまま「保存」で先へ進む。
+        // 4b. 初回取込（アカウント名未設定）は棋力設定ダイアログが先に出る。
+        //     既定選択のまま「保存」で先へ進む。
         //     Why not キャンセル: キャンセルは取込フローごと中止する仕様のため。
         let ratingDialog = element(labeled: "棋力設定", timeout: 5)
         if ratingDialog.exists {
