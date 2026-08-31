@@ -631,11 +631,15 @@ class IosMainController(
         settingsRepository.saveLastUserSide(userSide)
 
         val fileName = current.sourceFileName ?: AppStrings.clipboardFileName(currentDateTimeLabel())
+        val declared = settingsRepository.getRatingSettings()
         scope.launch {
             val next = GameImportFlow(gameRepository).import(
                 kifContent = current.kifText,
                 fileName = fileName,
                 userSide = userSide,
+                ratingService = declared.service,
+                ratingRaw = declared.ratingRaw.toLong(),
+                ratingRule = declared.ratingRule,
             )
             when (next) {
                 is GameImportFlow.Next.Analyze -> analyzeStoredGame(next.game)
