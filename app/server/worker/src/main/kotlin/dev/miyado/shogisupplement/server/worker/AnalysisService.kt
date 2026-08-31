@@ -3,7 +3,6 @@ package dev.miyado.shogisupplement.server.worker
 import dev.miyado.shogisupplement.api.analysis.AnalysisRequest
 import dev.miyado.shogisupplement.api.analysis.AnalysisResultJson
 import dev.miyado.shogisupplement.api.analysis.EngineMetaJson
-import dev.miyado.shogisupplement.api.analysis.ErrorJson
 import dev.miyado.shogisupplement.api.analysis.PositionPayloadJson
 import dev.miyado.shogisupplement.api.analysis.PositionResultJson
 import dev.miyado.shogisupplement.api.analysis.PvInfoJson
@@ -44,9 +43,12 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
 import kotlinx.serialization.json.put
+import org.slf4j.LoggerFactory
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
+
+private val log = LoggerFactory.getLogger(AnalysisService::class.java)
 
 sealed class AnalysisRequestOutcome {
     data class Unauthorized(val reason: String) : AnalysisRequestOutcome()
@@ -202,7 +204,7 @@ class AnalysisService(
                 val finished = waitForCompletion(userId, movesHash)
                 when (finished.status) {
                     AnalysisJobStatus.DONE -> AnalysisRequestOutcome.Stream(cachedEmitter(finished))
-                    else -> AnalysisRequestOutcome.Stream(errorEmitter(finished.error ?: "analysis failed"))
+                    else -> AnalysisRequestOutcome.Stream(errorEmitter(finished.id, finished.error))
                 }
             }
         }
@@ -256,9 +258,9 @@ class AnalysisService(
                     )
                     json.encodeToString(resultDto) + "\n"
                 } catch (e: Exception) {
-                    val message = e.message ?: e::class.simpleName ?: "engine error"
-                    analysisJobRepository.markError(jobId, message)
-                    json.encodeToString(ErrorJson(message)) + "\n"
+                    // 詳細はservice_roleしか読めないanalysis_jobs.errorとログに残し、応答は伏せる。
+                    analysisJobRepository.markError(jobId, e.message ?: e::class.simpleName ?: "engine error")
+                    json.encodeToString(maskedError(log, "analysis failed (job=$jobId)", e)) + "\n"
                 } finally {
                     progressChannel.close()
                 }
@@ -267,8 +269,8 @@ class AnalysisService(
             for (line in progressChannel) {
                 runCatching { write(line) }
             }
-            // write失敗時は握りつぶす（切断後なので届け先がない）。resultDto/ErrorJsonは
-            // analysisJob内で既にmarkDone/markErrorへ反映済みのため、ここで失っても実害はない。
+            // write失敗時は握りつぶす（切断後なので届け先がない）。結果とエラーはanalysisJob内で
+            // 既にmarkDone/markErrorへ反映済みのため、ここで失っても実害はない。
             runCatching { write(analysisJob.await()) }
         }
 
@@ -336,8 +338,8 @@ class AnalysisService(
         write(json.encodeToString(dto) + "\n")
     }
 
-    private fun errorEmitter(message: String): suspend (suspend (String) -> Unit) -> Unit = { write ->
-        write(json.encodeToString(ErrorJson(message)) + "\n")
+    private fun errorEmitter(jobId: String, detail: String?): suspend (suspend (String) -> Unit) -> Unit = { write ->
+        write(json.encodeToString(maskedError(log, "analysis job failed (job=$jobId): $detail")) + "\n")
     }
 
     private fun nextQuotaResetInstant(): Instant =

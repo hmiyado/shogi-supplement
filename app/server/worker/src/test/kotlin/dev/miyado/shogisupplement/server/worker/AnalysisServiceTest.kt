@@ -34,6 +34,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
@@ -854,6 +855,55 @@ class AnalysisServiceTest {
         val error = json.decodeFromString(ErrorJson.serializer(), lines.single())
         assertTrue(error.error.isNotBlank())
         assertTrue(engine.quitCalled)
+    }
+
+    @Test
+    fun `エンジン失敗の原因は応答に出さずDBにだけ残す`() = runTest {
+        val movesUsi = listOf("7g7f")
+        val jobs = FakeAnalysisJobRepository()
+        val service = buildService(analysisJobRepository = jobs, engine = FakeEngine(fail = true))
+
+        val outcome = service.handle("Bearer valid-token", AnalysisRequest(movesUsi = movesUsi))
+        assertIs<AnalysisRequestOutcome.Stream>(outcome)
+        val error = json.decodeFromString(ErrorJson.serializer(), outcome.collectLines().single())
+
+        assertFalse(error.error.contains("fake engine failure"), "エンジン由来の文言を応答へ出さないはず")
+        val record = jobs.find("user-1", sha256Hex(movesUsi.joinToString(" ")))
+        assertTrue(
+            record?.error?.contains("fake engine failure") == true,
+            "原因は追跡できるようDBには残すはず",
+        )
+    }
+
+    @Test
+    fun `待っていたジョブが失敗で終わってもDBのエラー文言は応答に出さない`() = runTest {
+        val movesUsi = listOf("7g7f")
+        val movesHash = sha256Hex(movesUsi.joinToString(" "))
+        val jobs = FakeAnalysisJobRepository()
+        val running = AnalysisJobRecord(
+            id = "job-running",
+            userId = "user-1",
+            movesHash = movesHash,
+            status = AnalysisJobStatus.RUNNING,
+            resultJson = null,
+            engineMeta = null,
+            error = null,
+            createdAt = fixedInstant,
+        )
+        jobs.seed(running)
+        jobs.completeAfter(
+            "user-1",
+            movesHash,
+            calls = 2,
+            result = running.copy(status = AnalysisJobStatus.ERROR, error = "connection to db-internal refused"),
+        )
+        val service = buildService(analysisJobRepository = jobs, clock = Clock.fixed(fixedInstant, ZoneOffset.UTC))
+
+        val outcome = service.handle("Bearer valid-token", AnalysisRequest(movesUsi = movesUsi))
+        assertIs<AnalysisRequestOutcome.Stream>(outcome)
+        val error = json.decodeFromString(ErrorJson.serializer(), outcome.collectLines().single())
+
+        assertFalse(error.error.contains("db-internal"), "DBに記録された原因を応答へ転記しないはず")
     }
 
     // ── 切断耐性: writeが失敗しても解析はリクエストと独立して完走する ─────────

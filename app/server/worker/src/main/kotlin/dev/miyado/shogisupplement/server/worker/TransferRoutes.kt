@@ -28,7 +28,7 @@ fun Routing.registerTransferRoutes(service: TransferService) {
         val request = try {
             call.receive<TransferRequest>()
         } catch (e: Exception) {
-            call.respond(HttpStatusCode.BadRequest, ErrorJson("invalid request body: ${e.message}"))
+            call.respond(HttpStatusCode.BadRequest, ErrorJson("invalid request body"))
             return@post
         }
 

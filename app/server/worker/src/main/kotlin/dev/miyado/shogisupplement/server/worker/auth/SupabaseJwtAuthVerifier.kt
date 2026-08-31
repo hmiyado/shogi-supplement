@@ -9,9 +9,12 @@ import com.nimbusds.jose.jwk.RSAKey
 import com.nimbusds.jwt.SignedJWT
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.slf4j.LoggerFactory
 import java.text.ParseException
 import java.time.Clock
 import java.util.Date
+
+private val log = LoggerFactory.getLogger(SupabaseJwtAuthVerifier::class.java)
 
 /**
  * Supabase Auth が発行するJWT（RS256/ES256・JWKS署名）を検証する。
@@ -77,7 +80,8 @@ class SupabaseJwtAuthVerifier(
         } catch (e: ParseException) {
             AuthResult.Invalid("malformed token")
         } catch (e: Exception) {
-            AuthResult.Invalid(e.message ?: "token verification error")
+            log.warn("token verification failed", e)
+            AuthResult.Invalid("token verification error")
         }
     }
 }

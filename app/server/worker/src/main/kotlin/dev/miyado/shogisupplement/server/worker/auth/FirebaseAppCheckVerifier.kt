@@ -6,9 +6,12 @@ import com.nimbusds.jose.jwk.RSAKey
 import com.nimbusds.jwt.SignedJWT
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.slf4j.LoggerFactory
 import java.text.ParseException
 import java.time.Clock
 import java.util.Date
+
+private val log = LoggerFactory.getLogger(FirebaseAppCheckVerifier::class.java)
 
 /**
  * Firebase App CheckのRS256/JWKSトークンを検証する。
@@ -64,7 +67,8 @@ class FirebaseAppCheckVerifier(
         } catch (e: ParseException) {
             AppCheckResult.Invalid("malformed token")
         } catch (e: Exception) {
-            AppCheckResult.Invalid(e.message ?: "token verification error")
+            log.warn("token verification failed", e)
+            AppCheckResult.Invalid("token verification error")
         }
     }
 

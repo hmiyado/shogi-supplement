@@ -2,7 +2,6 @@ package dev.miyado.shogisupplement.server.worker
 
 import dev.miyado.shogisupplement.api.ApiHeaders
 import dev.miyado.shogisupplement.api.analysis.EngineMetaJson
-import dev.miyado.shogisupplement.api.analysis.ErrorJson
 import dev.miyado.shogisupplement.engine.EngineInvariants
 import dev.miyado.shogisupplement.engine.IsolatedEngine
 import dev.miyado.shogisupplement.engine.UsiEngineSubprocess
@@ -38,6 +37,7 @@ import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
 
 private val engineLog = LoggerFactory.getLogger(UsiEngineSubprocess::class.java)
+private val applicationLog = LoggerFactory.getLogger("dev.miyado.shogisupplement.server.worker.Application")
 
 fun main() {
     val config = WorkerConfig.fromEnv()
@@ -66,7 +66,7 @@ fun Application.module(config: WorkerConfig) {
     install(CallLogging)
     install(StatusPages) {
         exception<Throwable> { call, cause ->
-            call.respond(HttpStatusCode.InternalServerError, ErrorJson(cause.message ?: "internal error"))
+            call.respond(HttpStatusCode.InternalServerError, maskedError(applicationLog, "unhandled exception", cause))
         }
     }
 

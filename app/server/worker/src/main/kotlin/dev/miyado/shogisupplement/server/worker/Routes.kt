@@ -58,7 +58,8 @@ fun Routing.registerAnalysisRoutes(service: AnalysisService) {
         val request = try {
             requestJson.decodeFromString(AnalysisRequest.serializer(), body)
         } catch (e: Exception) {
-            call.respond(HttpStatusCode.BadRequest, ErrorJson("invalid request body: ${e.message}"))
+            log.debug("invalid request body", e)
+            call.respond(HttpStatusCode.BadRequest, ErrorJson("invalid request body"))
             return@post
         }
 
@@ -93,8 +94,8 @@ fun Routing.registerAnalysisRoutes(service: AnalysisService) {
                             flush()
                         }
                     } catch (e: Exception) {
-                        log.error("streaming analysis failed", e)
-                        write(Json.encodeToString(ErrorJson.serializer(), ErrorJson(e.message ?: "internal error")))
+                        val masked = maskedError(log, "streaming analysis failed", e)
+                        write(Json.encodeToString(ErrorJson.serializer(), masked))
                         write("\n")
                         flush()
                     }
