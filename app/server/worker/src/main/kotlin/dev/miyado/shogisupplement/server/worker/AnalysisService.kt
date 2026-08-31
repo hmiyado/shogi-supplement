@@ -67,7 +67,8 @@ class AnalysisWaitTimeoutException(message: String) : Exception(message)
 // 認可の順序（不変条件・変更しないこと）: 強制アップデート検証（プラットフォームとbuildが
 // 両方揃った場合のみ。片方でも欠如・build不正・ポリシー取得失敗はfail-openでスキップ。
 // 1.0クライアント互換のため認証より前段に置く）→
-// App Check検証（有効時のみ。ヘッダ欠如/検証失敗は401）→ JWT検証 → user_bans照合（BAN即403）→
+// App Check検証（有効時のみ。ヘッダ欠如/検証失敗は401）→ JWT検証 → 入力検証（400。DBへ
+// 触れる前に上限と形式で弾く）→ user_bans照合（BAN即403）→
 // クォータ判定（超過は429＋翌日リセット時刻）→ moves_hash冪等チェック（解析済みなら即返却／
 // 実行中なら完了を待って返却）→ 解析。
 class AnalysisService(
@@ -140,14 +141,17 @@ class AnalysisService(
             is AuthResult.Valid -> auth.userId
         }
 
+        val input = when (val parsed = request.toEngineInput()) {
+            is EngineInputResult.Invalid -> return AnalysisRequestOutcome.BadRequest(parsed.reason)
+            is EngineInputResult.Valid -> parsed.input
+        }
+
         if (banRepository.isBanned(userId)) {
             return AnalysisRequestOutcome.Banned
         }
 
         recordAppUsage(userId, platformHeader, buildHeader)
 
-        val input = request.toEngineInput()
-            ?: return AnalysisRequestOutcome.BadRequest("moves_usi または sfen のいずれかが必要です")
         val movesHash = sha256Hex(input.hashSeed)
 
         // Why not クォータ判定を先に: 既存ジョブの再取得は新規消費ではないため、
@@ -234,6 +238,8 @@ class AnalysisService(
 
     private fun runEmitter(jobId: String, input: EngineInput): suspend (suspend (String) -> Unit) -> Unit =
         { write ->
+            // Why not 容量上限＋古い行の破棄: 局面行が1つ欠けるとクライアントのin-order watermarkが
+            // そこで止まり、以降の途中経過を最終行まで出せなくなる。総量は入力の手数上限で抑える。
             val progressChannel = Channel<String>(Channel.UNLIMITED)
             val analysisJob = analysisScope.async {
                 try {

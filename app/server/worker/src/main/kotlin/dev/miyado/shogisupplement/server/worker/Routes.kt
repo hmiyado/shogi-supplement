@@ -7,18 +7,35 @@ import dev.miyado.shogisupplement.api.analysis.QuotaExceededJson
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.call
-import io.ktor.server.request.receive
+import io.ktor.server.request.contentLength
+import io.ktor.server.request.receiveChannel
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondTextWriter
 import io.ktor.server.routing.Routing
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
+import io.ktor.utils.io.readRemaining
+import kotlinx.io.readByteArray
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
 
 private val log = LoggerFactory.getLogger("dev.miyado.shogisupplement.server.worker.Routes")
 private val NDJSON = ContentType.parse("application/x-ndjson")
+private val requestJson = Json { ignoreUnknownKeys = true }
+
+/**
+ * ボディを[maxBytes]まで読み、超えていればnullを返す。
+ * Why not Content-Lengthだけで判定: chunked転送ではヘッダが無く、上限を素通りするため。
+ */
+private suspend fun ApplicationCall.receiveBodyWithin(maxBytes: Long): String? {
+    val declaredLength = request.contentLength()
+    if (declaredLength != null && declaredLength > maxBytes) return null
+    val bytes = receiveChannel().readRemaining(maxBytes + 1).readByteArray()
+    if (bytes.size > maxBytes) return null
+    return bytes.decodeToString()
+}
 
 // HTTP変換の薄い層のみを担い、認可・冪等・解析の実処理は[AnalysisService]に委譲する。
 fun Routing.registerAnalysisRoutes(service: AnalysisService) {
@@ -32,8 +49,14 @@ fun Routing.registerAnalysisRoutes(service: AnalysisService) {
         val platformHeader = call.request.headers[ApiHeaders.APP_PLATFORM]
         val buildHeader = call.request.headers[ApiHeaders.APP_BUILD]
 
+        val body = call.receiveBodyWithin(AnalysisInputLimits.MAX_BODY_BYTES)
+        if (body == null) {
+            call.respond(HttpStatusCode.PayloadTooLarge, ErrorJson("request body too large"))
+            return@post
+        }
+
         val request = try {
-            call.receive<AnalysisRequest>()
+            requestJson.decodeFromString(AnalysisRequest.serializer(), body)
         } catch (e: Exception) {
             call.respond(HttpStatusCode.BadRequest, ErrorJson("invalid request body: ${e.message}"))
             return@post

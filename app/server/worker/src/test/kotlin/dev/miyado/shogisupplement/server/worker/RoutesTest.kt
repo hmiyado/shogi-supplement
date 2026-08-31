@@ -206,6 +206,40 @@ class RoutesTest {
     }
 
     @Test
+    fun `body over the size limit returns 413 without reaching the service`() = testApplication {
+        application {
+            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
+            routing { registerAnalysisRoutes(buildService()) }
+        }
+        val moves = List(10_000) { "\"7g7f\"" }.joinToString(",")
+        val response = client.post("/v1/analyses") {
+            header("Authorization", "Bearer valid-token")
+            contentType(ContentType.Application.Json)
+            setBody("""{"moves_usi":[$moves]}""")
+        }
+        assertTrue(
+            response.bodyAsText().length < AnalysisInputLimits.MAX_BODY_BYTES,
+            "上限超過のボディをそのまま返さないはず",
+        )
+        assertEquals(HttpStatusCode.PayloadTooLarge, response.status)
+    }
+
+    @Test
+    fun `too many moves returns 400`() = testApplication {
+        application {
+            install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }
+            routing { registerAnalysisRoutes(buildService()) }
+        }
+        val moves = List(AnalysisInputLimits.MAX_MOVES + 1) { "\"7g7f\"" }.joinToString(",")
+        val response = client.post("/v1/analyses") {
+            header("Authorization", "Bearer valid-token")
+            contentType(ContentType.Application.Json)
+            setBody("""{"moves_usi":[$moves]}""")
+        }
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+    }
+
+    @Test
     fun `missing app version headers skips the check (1_0 client compatibility)`() = testApplication {
         application {
             install(ContentNegotiation) { json(Json { ignoreUnknownKeys = true }) }

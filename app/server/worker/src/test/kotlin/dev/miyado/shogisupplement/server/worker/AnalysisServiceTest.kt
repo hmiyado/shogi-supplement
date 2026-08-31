@@ -388,7 +388,7 @@ class AnalysisServiceTest {
             quotaLimitRepository = FakeQuotaLimitRepository(mapOf("user-1" to 3)),
             analysisJobRepository = jobs,
         )
-        val outcome = service.handle("Bearer valid-token", AnalysisRequest(movesUsi = listOf("brand-new-move")))
+        val outcome = service.handle("Bearer valid-token", AnalysisRequest(movesUsi = listOf("2g2f")))
         assertIs<AnalysisRequestOutcome.QuotaExceeded>(outcome)
     }
 
@@ -490,6 +490,18 @@ class AnalysisServiceTest {
         val service = buildService()
         val outcome = service.handle("Bearer valid-token", AnalysisRequest())
         assertIs<AnalysisRequestOutcome.BadRequest>(outcome)
+    }
+
+    @Test
+    fun `上限を超える手数はDBに触れる前にBadRequestで弾く`() = runTest {
+        val repository = FakeAnalysisJobRepository()
+        val service = buildService(analysisJobRepository = repository)
+        val request = AnalysisRequest(movesUsi = List(AnalysisInputLimits.MAX_MOVES + 1) { "7g7f" })
+
+        val outcome = service.handle("Bearer valid-token", request)
+
+        assertIs<AnalysisRequestOutcome.BadRequest>(outcome)
+        assertEquals(0, repository.findCallCount.get(), "冪等チェックのDBアクセスまで進まないはず")
     }
 
     // ── 冪等: 解析済み(done)は再解析せず即返却 ────────────────────────────

@@ -321,6 +321,24 @@ class RemoteAnalysisRunnerTest {
     }
 
     @Test
+    fun `413 is reported as BadRequest and is not retried`() = runTest {
+        var attempts = 0
+        val engine = MockEngine { _ ->
+            attempts += 1
+            respond(
+                content = ByteReadChannel("""{"error":"request body too large"}"""),
+                status = HttpStatusCode.PayloadTooLarge,
+                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+            )
+        }
+
+        assertFailsWith<RemoteAnalysisException.BadRequest> {
+            runner(HttpClient(engine)).analyzeGame(listOf("7g7f"))
+        }
+        assertEquals(1, attempts, "入力が大きすぎる応答は再送しても直らないため1回で諦めるはず")
+    }
+
+    @Test
     fun `426 is reported as UpgradeRequired`() = runTest {
         val engine = MockEngine { _ ->
             respond(

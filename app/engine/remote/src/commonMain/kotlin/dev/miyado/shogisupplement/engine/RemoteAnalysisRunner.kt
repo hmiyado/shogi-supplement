@@ -126,7 +126,7 @@ class RemoteAnalysisRunner(
                     throw RemoteAnalysisException.Banned
                 HttpStatusCode.TooManyRequests ->
                     throw RemoteAnalysisException.QuotaExceeded(readResetAt(response))
-                HttpStatusCode.BadRequest ->
+                HttpStatusCode.BadRequest, HttpStatusCode.PayloadTooLarge ->
                     throw RemoteAnalysisException.BadRequest(readErrorMessage(response))
                 HttpStatusCode.UpgradeRequired ->
                     throw RemoteAnalysisException.UpgradeRequired(readErrorMessage(response))
