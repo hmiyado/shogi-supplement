@@ -10,10 +10,8 @@ import kotlin.test.assertTrue
 /**
  * AnalysisRunner + IsolatedEngine の組み合わせで、局面ごとに newGame が呼ばれることを検証する。
  *
- * AnalysisRunner はプールが空のときだけ engineFactory を呼ぶため、workers=1 なら1局につき
- * 最初の1回しか engineFactory は呼ばれず、以降の局面は同じ Engine インスタンスを使い回す。
- * IsolatedEngine で包んでいれば analyze のたびに delegate.newGame() が挟まるので、
- * インスタンスの使い回しに関係なく局面ごとにクリアされることを確認する。
+ * ワーカーは1本のエンジンを複数の局面で使い回すため、局面ごとのクリアは IsolatedEngine の
+ * 責務になる。インスタンスの使い回しに関係なく analyze の直前に newGame が挟まることを確認する。
  */
 class IsolatedEngineAnalysisRunnerTest {
 

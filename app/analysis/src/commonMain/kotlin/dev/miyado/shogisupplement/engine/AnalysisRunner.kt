@@ -7,15 +7,12 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.sync.withPermit
-import kotlinx.coroutines.withContext
 
 /**
  * 局面リストをworkers並列で解析するオーケストレーター。
- * Mutexでエンジンを排他し、局の終了時にdisposeEngineを実行する。異常終了は記録して再送出する。
- * iOSの常駐エンジンはdisposeをno-opにし、Engine.newGameで局を区切る。
+ * ワーカーは固定数で、1本が1エンジンを持ち、キューから局面を取り出して解析する。
+ * 生成したエンジンは正常終了・失敗・キャンセルのいずれでも必ず破棄する。異常終了は記録して再送出する。
  */
 class AnalysisRunner(
     private val workers: Int = 4,
@@ -29,73 +26,58 @@ class AnalysisRunner(
         onPositionResult: ((ply: Int, pvs: List<PvInfo>) -> Unit)?,
         onProgress: ((done: Int, total: Int) -> Unit)?,
     ): List<List<PvInfo>> = coroutineScope {
-        val positions = (0..moves.size).toList()
-        val total = positions.size
+        val total = moves.size + 1
         val results = arrayOfNulls<List<PvInfo>>(total)
         var doneCount = 0
         val counterMutex = Mutex()
 
-        val semaphore = Semaphore(workers)
-        // エンジンプールを Mutex で排他するキューとして管理
-        val enginePool = ArrayDeque<Engine>()
-        val poolMutex = Mutex()
-
-        suspend fun acquireEngine(): Engine = poolMutex.withLock {
-            if (enginePool.isNotEmpty()) enginePool.removeLast()
-            else engineFactory()
+        var nextPly = 0
+        val queueMutex = Mutex()
+        suspend fun takeNextPly(): Int? = queueMutex.withLock {
+            if (nextPly < total) nextPly++ else null
         }
 
-        suspend fun releaseEngine(engine: Engine) = poolMutex.withLock {
-            enginePool.addLast(engine)
-        }
-
-        val jobs = positions.map { posIdx ->
+        val jobs = List(minOf(workers, total)) {
             async(analysisIoDispatcher) {
-                semaphore.withPermit {
-                    val engine = acquireEngine()
-                    try {
-                        val prefix = moves.take(posIdx)
-                        val pvList = engine.analyze(prefix)
-                        results[posIdx] = pvList
-                        onPositionResult?.invoke(posIdx, pvList)
+                val engine = engineFactory()
+                var currentPly = 0
+                try {
+                    while (true) {
+                        val ply = takeNextPly() ?: break
+                        currentPly = ply
+                        // Why not moves.take(ply): 局面数に対して二乗のコピーになる。
+                        val pvList = engine.analyze(moves.subList(0, ply))
+                        results[ply] = pvList
+                        onPositionResult?.invoke(ply, pvList)
                         val done = counterMutex.withLock { doneCount += 1; doneCount }
                         onProgress?.invoke(done, total)
-                        releaseEngine(engine)
-                    } catch (e: CancellationException) {
-                        // 親スコープのキャンセルによる正常な停止。CrashReporter には送らない
-                        try { disposeEngine(engine) } catch (_: Exception) {}
-                        throw e
-                    } catch (e: Exception) {
-                        // エンジン異常終了：プールに戻さずクラッシュレポートを送信
-                        try { disposeEngine(engine) } catch (_: Exception) {}
-                        val done = counterMutex.withLock { doneCount }
-                        val extras = buildMap {
-                            put("done", done.toString())
-                            put("total", total.toString())
-                            put("workerId", posIdx.toString())
-                            if (e is EngineAbnormalExitException) {
-                                put("lastCommandName", e.lastCommandName)
-                                e.exitCode?.let { code -> put("exitCode", code.toString()) }
-                            }
-                        }
-                        crashReporter.captureException(e, extras)
-                        // 送信済みマーカーで包む（上位のAnalysisService/AnalysisOrchestratorが
-                        // 二重送信しないため）
-                        throw AlreadyReportedException(e)
                     }
+                } catch (e: CancellationException) {
+                    // 親スコープのキャンセルによる正常な停止。CrashReporter には送らない
+                    throw e
+                } catch (e: Exception) {
+                    val done = counterMutex.withLock { doneCount }
+                    val extras = buildMap {
+                        put("done", done.toString())
+                        put("total", total.toString())
+                        put("workerId", currentPly.toString())
+                        if (e is EngineAbnormalExitException) {
+                            put("lastCommandName", e.lastCommandName)
+                            e.exitCode?.let { code -> put("exitCode", code.toString()) }
+                        }
+                    }
+                    crashReporter.captureException(e, extras)
+                    // 送信済みマーカーで包む（上位のAnalysisService/AnalysisOrchestratorが
+                    // 二重送信しないため）
+                    throw AlreadyReportedException(e)
+                } finally {
+                    // 兄弟ワーカーの失敗でキャンセルされた場合もここを通り、エンジンが残らない。
+                    try { disposeEngine(engine) } catch (_: Exception) {}
                 }
             }
         }
 
         jobs.awaitAll()
-
-        // プールに残っている（=異常終了せず正常に返却された）エンジンを全て解放
-        withContext(analysisIoDispatcher) {
-            poolMutex.withLock {
-                enginePool.forEach { disposeEngine(it) }
-                enginePool.clear()
-            }
-        }
 
         results.map { it ?: emptyList() }
     }
