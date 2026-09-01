@@ -75,6 +75,8 @@ import dev.miyado.shogisupplement.ui.manual.ManualKifuScreen
 import dev.miyado.shogisupplement.ui.report.StudyOrigin
 import dev.miyado.shogisupplement.ui.report.AnalyzingReportScreen
 import dev.miyado.shogisupplement.ui.report.ReportScreen
+import dev.miyado.shogisupplement.ui.report.ReportScreenState
+import dev.miyado.shogisupplement.ui.report.toScreenState
 import dev.miyado.shogisupplement.ui.restore.GameRestoreScreen
 import dev.miyado.shogisupplement.ui.restore.GameRestoreViewModel
 import dev.miyado.shogisupplement.ui.settings.RatingSettingsDialog
@@ -767,29 +769,17 @@ private fun IosReportScreenHost(
     justCompleted: Boolean = false,
 ) {
     val scope = rememberCoroutineScope()
-    var game by remember(gameId) { mutableStateOf<GameRecord?>(null) }
-    var reports by remember(gameId) { mutableStateOf<List<BlunderRecord>>(emptyList()) }
-    var flip by remember(gameId) { mutableStateOf(false) }
-    var strengthText by remember(gameId) { mutableStateOf<String?>(null) }
-    var positionEvals by remember(gameId) { mutableStateOf<List<dev.miyado.shogisupplement.db.PositionEvalRow>>(emptyList()) }
-    var matchRateText by remember(gameId) { mutableStateOf<String?>(null) }
-    var blunderRateText by remember(gameId) { mutableStateOf<String?>(null) }
+    var report by remember(gameId) { mutableStateOf<ReportScreenState?>(null) }
     var loaded by remember(gameId) { mutableStateOf(false) }
 
     LaunchedEffect(gameId) {
-        val result = controller.loadReport(gameId)
-        game = result.game
-        reports = result.reports
-        flip = result.flip
-        strengthText = result.strengthText
-        positionEvals = result.positionEvals
-        matchRateText = result.matchRateText
-        blunderRateText = result.blunderRateText
+        report = controller.loadReport(gameId).toScreenState()
         loaded = true
     }
 
-    val g = game
-    if (!loaded || g == null) {
+    val current = report
+    val g = current?.game
+    if (!loaded || current == null || g == null) {
         // 削除直後の一覧再訪等でgameIdがDBに存在しない場合、g==nullのまま固定されスピナーが
         // 永久に残るためここで離脱する。
         if (loaded && g == null) {
@@ -807,13 +797,13 @@ private fun IosReportScreenHost(
 
     ReportScreen(
         game = g,
-        reports = reports,
-        flip = flip,
-        strengthDisplayText = strengthText,
+        reports = current.reports,
+        flip = current.flip,
+        strengthDisplayText = current.strengthDisplayText,
         evalDisplay = evalDisplay,
-        positionEvals = positionEvals,
-        matchRateDisplayText = matchRateText,
-        blunderRateDisplayText = blunderRateText,
+        positionEvals = current.positionEvals,
+        matchRateDisplayText = current.matchRateDisplayText,
+        blunderRateDisplayText = current.blunderRateDisplayText,
         analysisPending = g.analysisStatus == GameAnalysisStatus.PENDING,
         onAnalyze = { controller.analyzeStoredGame(g) },
         onDeleteGame = { deleteServer, onResult ->
@@ -829,7 +819,8 @@ private fun IosReportScreenHost(
         onUpdatePlayers = { senteName, goteName ->
             scope.launch {
                 controller.updateGamePlayers(g.id, senteName, goteName)
-                game = g.copy(senteName = senteName, goteName = goteName)
+                // 反映時点の状態から作る。合成時の値を握ると、別の更新と重なって巻き戻る。
+                report = report?.let { it.copy(game = it.game.copy(senteName = senteName, goteName = goteName)) }
                 controller.reloadHome()
             }
         },
@@ -840,7 +831,9 @@ private fun IosReportScreenHost(
         pvExtensionEnabled = false,
         onExtendBestPv = { blunderId, sfenAtEnd, currentPv ->
             controller.extendBestPv(blunderId, sfenAtEnd, currentPv) { id, newPv ->
-                reports = reports.map { r -> if (r.id == id) r.copy(bestPv = newPv) else r }
+                report = report?.let {
+                    it.copy(reports = it.reports.map { r -> if (r.id == id) r.copy(bestPv = newPv) else r })
+                }
             }
         },
         studyState = studyState,

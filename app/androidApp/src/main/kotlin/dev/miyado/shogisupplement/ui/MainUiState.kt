@@ -5,6 +5,7 @@ import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.PositionEvalRow
 import dev.miyado.shogisupplement.pipeline.InProgressAnalysis
 import dev.miyado.shogisupplement.pipeline.ProgressiveReportState
+import dev.miyado.shogisupplement.ui.report.ReportScreenState
 import dev.miyado.shogisupplement.ui.home.DrillRecordCardData
 import dev.miyado.shogisupplement.ui.home.StrengthCardData
 import dev.miyado.shogisupplement.ui.home.TodaysDrillHint
@@ -42,18 +43,9 @@ sealed class MainUiState {
         val progressive: ProgressiveReportState,
     ) : MainUiState()
     data class ShowReport(
-        val game: GameRecord,
-        val reports: List<BlunderRecord>,
-        val flip: Boolean = false,
-        val strengthDisplayText: String? = null,
+        val report: ReportScreenState,
         /** 形勢の表示単位（'cp' = 評価値 / 'wp' = 勝率）。 */
         val evalDisplay: String = "cp",
-        /** 全局面評価値（手送り時の形勢表示。空 = 非表示）。 */
-        val positionEvals: List<PositionEvalRow> = emptyList(),
-        /** エンジン一致率の値表示（例:「62%(31/50)」）。null = 非表示。 */
-        val matchRateDisplayText: String? = null,
-        /** 悪手率の値表示（例:「12%(3/25)」）。一致率と同じ分母nを使う。null = 非表示。 */
-        val blunderRateDisplayText: String? = null,
         /**
          * この画面遷移が[AnalyzingReport]からの解析完了直後かどうか。trueのときだけ
          * 完了通知バナーを一度出す（通知タップ・棋譜一覧経由の表示ではfalseのまま）。

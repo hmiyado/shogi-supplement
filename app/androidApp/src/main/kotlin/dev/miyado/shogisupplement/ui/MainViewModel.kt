@@ -25,6 +25,7 @@ import java.util.Date
 import java.util.Locale
 import dev.miyado.shogisupplement.kifu.GameImportFlow
 import dev.miyado.shogisupplement.kifu.KifImportController
+import dev.miyado.shogisupplement.ui.report.toScreenState
 import dev.miyado.shogisupplement.kifu.KifImportRequest
 import dev.miyado.shogisupplement.pipeline.InProgressAnalysisRegistry
 import dev.miyado.shogisupplement.pipeline.ProgressiveReportState
@@ -261,8 +262,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             withContext(Dispatchers.IO) { gameRepository.updateGamePlayers(gameId, senteName, goteName) }
             val current = _state.value as? MainUiState.ShowReport ?: return@launch
-            if (current.game.id != gameId) return@launch
-            _state.value = current.copy(game = current.game.copy(senteName = senteName, goteName = goteName))
+            if (current.report.game.id != gameId) return@launch
+            val renamed = current.report.game.copy(senteName = senteName, goteName = goteName)
+            _state.value = current.copy(report = current.report.copy(game = renamed))
         }
     }
 
@@ -342,25 +344,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     /** @param justCompleted trueなら完了通知バナーを一度だけ表示する。 */
     fun showReport(gameId: Long, justCompleted: Boolean = false) {
         viewModelScope.launch {
-            val result = reportViewModel.loadReport(gameId)
+            val report = reportViewModel.loadReport(gameId).toScreenState()
             pendingNotificationGameId = null
-            if (result.game != null) {
-                // 別モジュール（:ui）宣言のプロパティのためスマートキャスト不可
-                // （DrillViewModel.kt の同種コメント参照）。直前の != null 判定で保証済み。
-                val game = result.game!!
-                _state.value = MainUiState.ShowReport(
-                    game = game,
-                    reports = result.reports,
-                    flip = result.flip,
-                    strengthDisplayText = result.strengthText,
-                    evalDisplay = appSettings.evalDisplay.value,
-                    positionEvals = result.positionEvals,
-                    matchRateDisplayText = result.matchRateText,
-                    blunderRateDisplayText = result.blunderRateText,
-                    justCompleted = justCompleted,
-                )
+            _state.value = if (report != null) {
+                MainUiState.ShowReport(report, appSettings.evalDisplay.value, justCompleted)
             } else {
-                _state.value = MainUiState.Error(AppStrings.gameNotFound(gameId))
+                MainUiState.Error(AppStrings.gameNotFound(gameId))
             }
         }
     }
@@ -508,7 +497,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val s = _state.value
             if (s is MainUiState.ShowReport) {
                 _state.value = s.copy(
-                    reports = s.reports.map { r -> if (r.id == id) r.copy(bestPv = newPv) else r },
+                    report = s.report.copy(
+                        reports = s.report.reports.map { r -> if (r.id == id) r.copy(bestPv = newPv) else r },
+                    ),
                 )
             }
         }

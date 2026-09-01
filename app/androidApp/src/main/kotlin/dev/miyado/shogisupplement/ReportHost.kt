@@ -25,7 +25,7 @@ fun ReportHost(vm: MainViewModel, state: MainUiState.ShowReport) {
     val studyState by vm.studyState.collectAsState()
     val context = LocalContext.current
     val analyzeLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
-        vm.analyzeStoredGame(state.game)
+        vm.analyzeStoredGame(state.report.game)
     }
     val analyze: () -> Unit = {
         val needsPermission = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
@@ -34,25 +34,25 @@ fun ReportHost(vm: MainViewModel, state: MainUiState.ShowReport) {
         if (needsPermission) {
             analyzeLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         } else {
-            vm.analyzeStoredGame(state.game)
+            vm.analyzeStoredGame(state.report.game)
         }
     }
     ReportScreen(
-        game = state.game,
-        reports = state.reports,
-        flip = state.flip,
-        strengthDisplayText = state.strengthDisplayText,
+        game = state.report.game,
+        reports = state.report.reports,
+        flip = state.report.flip,
+        strengthDisplayText = state.report.strengthDisplayText,
         evalDisplay = state.evalDisplay,
-        positionEvals = state.positionEvals,
-        matchRateDisplayText = state.matchRateDisplayText,
-        blunderRateDisplayText = state.blunderRateDisplayText,
-        analysisPending = state.game.analysisStatus == GameAnalysisStatus.PENDING,
+        positionEvals = state.report.positionEvals,
+        matchRateDisplayText = state.report.matchRateDisplayText,
+        blunderRateDisplayText = state.report.blunderRateDisplayText,
+        analysisPending = state.report.game.analysisStatus == GameAnalysisStatus.PENDING,
         onAnalyze = analyze,
         onDeleteGame = { deleteServer, onResult ->
-            vm.deleteGame(state.game, deleteServer, onResult)
+            vm.deleteGame(state.report.game, deleteServer, onResult)
         },
         onUpdatePlayers = { senteName, goteName ->
-            vm.updatePlayers(state.game.id, senteName, goteName)
+            vm.updatePlayers(state.report.game.id, senteName, goteName)
         },
         justCompleted = state.justCompleted,
         onBack = { vm.loadHome() },
