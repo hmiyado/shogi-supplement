@@ -218,7 +218,7 @@ class UploadOrchestratorTest {
 
         assertEquals(2, result.gameSuccess)
         assertEquals(0, result.gameFailed)
-        assertEquals(0, result.drillFailed)
+        assertEquals(0, result.drillProblemSyncFailed)
         assertEquals(0, result.drillPendingRemaining)
         assertEquals(2, upload.calls.size)
         // uploadGame自体が棋譜ごとに問題同期を済ませ、再同期ステップは今回アップロードした
@@ -242,7 +242,7 @@ class UploadOrchestratorTest {
 
         assertEquals(1, result.gameSuccess)
         assertEquals(0, result.gameFailed)
-        assertEquals(0, result.drillFailed)
+        assertEquals(0, result.drillProblemSyncFailed)
         assertEquals(0, result.drillPendingRemaining)
         assertEquals(1, upload.calls.size)
         // newGameIdはuploadGame自体の問題同期のみ（再同期ステップは今回アップロードした
@@ -276,7 +276,7 @@ class UploadOrchestratorTest {
 
         assertEquals(0, result.gameSuccess)
         assertEquals(0, result.gameFailed)
-        assertEquals(0, result.drillFailed)
+        assertEquals(0, result.drillProblemSyncFailed)
         assertEquals(0, result.drillPendingRemaining)
         assertTrue(upload.calls.isEmpty())
     }
@@ -394,10 +394,10 @@ class UploadOrchestratorTest {
         assertNull(drill.getDrillAttempts(blunderId).single().uploadedAt)
     }
 
-    // ─── 失敗の集計（drillFailed） ───────────────────────────────────────────
+    // ─── 失敗の集計 ─────────────────────────────────────────────────────────
 
     @Test
-    fun uploadAll_drillProblemSyncFails_countsDrillFailed() = runTest {
+    fun uploadAll_drillProblemSyncFails_countsProblemSyncFailed() = runTest {
         val upload = FakeUploadRepository(drillProblemsResult = UploadResult.Failure("sync error"))
         val (orch, _, db, _, _) = buildOrchestrator(upload = upload)
         val gameId = saveGame(db)
@@ -405,11 +405,13 @@ class UploadOrchestratorTest {
 
         val result = orch.uploadAll()
 
-        assertEquals(1, result.drillFailed)
+        assertEquals(1, result.drillProblemSyncFailed)
+        assertEquals(0, result.drillPendingRemaining)
+        assertEquals("アップロード完了: 成功0局／次の一手の成績は1件送信できませんでした", result.resultMessage())
     }
 
     @Test
-    fun uploadAll_drillAttemptUploadFails_countsDrillFailedAndKeepsPending() = runTest {
+    fun uploadAll_drillAttemptUploadFails_staysPendingWithoutDoubleCounting() = runTest {
         val upload = FakeUploadRepository(drillAttemptResult = UploadResult.Failure("attempt error"))
         val (orch, _, db, drill, _) = buildOrchestrator(upload = upload)
         val gameId = saveGame(db)
@@ -419,8 +421,29 @@ class UploadOrchestratorTest {
 
         val result = orch.uploadAll()
 
-        assertEquals(1, result.drillFailed)
+        // 送信に失敗した解答は未送信のまま残る。問題同期の失敗数には数えない。
+        assertEquals(0, result.drillProblemSyncFailed)
         assertEquals(1, result.drillPendingRemaining)
         assertNull(drill.getDrillAttempts(blunderId).single().uploadedAt)
+        // 同じ1件を2件として見せない。
+        assertEquals("アップロード完了: 成功0局／次の一手の成績は1件送信できませんでした", result.resultMessage())
+    }
+
+    @Test
+    fun uploadAll_problemSyncAndAttemptBothFail_countsEachOnce() = runTest {
+        val upload = FakeUploadRepository(
+            drillProblemsResult = UploadResult.Failure("sync error"),
+            drillAttemptResult = UploadResult.Failure("attempt error"),
+        )
+        val (orch, _, db, drill, _) = buildOrchestrator(upload = upload)
+        val gameId = saveGame(db)
+        db.updateUploadedAt(gameId, 1_780_000_000L)
+        saveAttempt(drill, db, gameId, attemptedAt = 100L)
+
+        val result = orch.uploadAll()
+
+        assertEquals(1, result.drillProblemSyncFailed)
+        assertEquals(1, result.drillPendingRemaining)
+        assertEquals("アップロード完了: 成功0局／次の一手の成績は2件送信できませんでした", result.resultMessage())
     }
 }

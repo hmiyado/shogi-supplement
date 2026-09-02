@@ -14,16 +14,19 @@ import kotlin.uuid.Uuid
 data class UploadAllResult(
     val gameSuccess: Int,
     val gameFailed: Int,
-    val drillFailed: Int,
+    /** 問題の同期に失敗した棋譜の数。解答とは別の軸で、未送信解答には現れない。 */
+    val drillProblemSyncFailed: Int,
+    /** 送信できずに残っている解答の数。送信に失敗した解答もここに含まれる。 */
     val drillPendingRemaining: Int,
 )
 
 /**
- * 一括アップロードの結果メッセージ。送れなかった成績は、失敗した分と未送信のまま
- * 残った分を足して1つの件数で見せる（docs/wording.md）。
+ * 問題登録と解答送信の別はユーザーへ出さず、1つの件数に合算する（docs/wording.md）。
+ * Why not 解答送信の失敗数も足す: 失敗した解答は未送信のまま残り
+ * [drillPendingRemaining] に既に入っているため、同じ1件を2件として見せてしまう。
  */
 fun UploadAllResult.resultMessage(): String =
-    AppStrings.accountUploadResult(gameSuccess, gameFailed, drillPendingRemaining + drillFailed)
+    AppStrings.accountUploadResult(gameSuccess, gameFailed, drillPendingRemaining + drillProblemSyncFailed)
 
 /** アップロードのオーケストレーター。constructor injectionでテスト可能（fakeを注入できる）。 */
 class UploadOrchestrator(
@@ -84,7 +87,7 @@ class UploadOrchestrator(
             ?: return UploadAllResult(
                 gameSuccess = 0,
                 gameFailed = 0,
-                drillFailed = 0,
+                drillProblemSyncFailed = 0,
                 drillPendingRemaining = drillRepository.getDrillAttemptsNotUploaded(Int.MAX_VALUE).size,
             )
 
@@ -109,7 +112,7 @@ class UploadOrchestrator(
             }
         }
 
-        var drillFailed = 0
+        var drillProblemSyncFailed = 0
         dbRepository.getAllGames()
             .filter { it.uploadedAt != null && it.id !in justUploadedGameIds }
             .forEach { game ->
@@ -121,24 +124,24 @@ class UploadOrchestrator(
                 } catch (_: Exception) {
                     UploadResult.Failure("次の一手の問題同期に失敗")
                 }
-                if (result is UploadResult.Failure) drillFailed++
+                if (result is UploadResult.Failure) drillProblemSyncFailed++
             }
 
         drillRepository.getDrillAttemptsNotUploaded(Int.MAX_VALUE).forEach { attempt ->
-            val result = try {
+            try {
                 syncOneDrillAttempt(user.id, attempt)
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
-                UploadResult.Failure("次の一手の成績送信に失敗")
+                // 1件の失敗で残りを止めない。送れなかった解答は未送信のまま残り、
+                // 下のdrillPendingRemainingで数える。
             }
-            if (result is UploadResult.Failure) drillFailed++
         }
 
         return UploadAllResult(
             gameSuccess = gameSuccess,
             gameFailed = gameFailed,
-            drillFailed = drillFailed,
+            drillProblemSyncFailed = drillProblemSyncFailed,
             drillPendingRemaining = drillRepository.getDrillAttemptsNotUploaded(Int.MAX_VALUE).size,
         )
     }
