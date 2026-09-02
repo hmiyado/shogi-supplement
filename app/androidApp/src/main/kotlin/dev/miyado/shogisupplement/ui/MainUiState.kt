@@ -9,6 +9,7 @@ import dev.miyado.shogisupplement.ui.report.ReportScreenState
 import dev.miyado.shogisupplement.ui.home.DrillRecordCardData
 import dev.miyado.shogisupplement.ui.home.StrengthCardData
 import dev.miyado.shogisupplement.ui.home.TodaysDrillHint
+import dev.miyado.shogisupplement.ui.drillrecord.DrillRecordDetailData
 import dev.miyado.shogisupplement.ui.strength.StrengthDetailData
 
 /** メイン画面のUI状態。 */
@@ -63,6 +64,9 @@ sealed class MainUiState {
     object Settings : MainUiState()
     /** 推定棋力詳細画面（ホーム画面の推定棋力カードタップで遷移）。 */
     data class StrengthDetail(val data: StrengthDetailData) : MainUiState()
+
+    /** 学習の記録の詳細画面。 */
+    data class DrillRecordDetail(val data: DrillRecordDetailData) : MainUiState()
     /** デバッグ画面（BuildConfig.DEBUG のみ表示）。 */
     object Debug : MainUiState()
     /** 棋譜一覧画面。 */

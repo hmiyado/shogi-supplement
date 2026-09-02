@@ -1,6 +1,7 @@
 package dev.miyado.shogisupplement.ui.home
 
 import dev.miyado.shogisupplement.db.DrillRepository
+import dev.miyado.shogisupplement.ui.drillrecord.DRILL_RECORD_WINDOW_DAYS
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.GameRepository
 import dev.miyado.shogisupplement.db.RatingSettings
@@ -18,7 +19,6 @@ private val RATING_SERVICES = setOf("lishogi", "shogi_quest")
 
 /** 学習の記録カードの移動窓（直近30日）。ストリークのような単一日数指標にせず、1日抜けても
  *  大きく動かない指標にすることで、猶予のない一発リセット的な体験を避ける。 */
-private const val DRILL_RECORD_WINDOW_DAYS = 30
 
 /** ホームのゲーム一覧、推定棋力カード、今日の問題に必要な表示データを計算する。 */
 class HomeViewModel(

@@ -305,6 +305,68 @@ class DrillRepositoryTest {
     }
 
     @Test
+    fun `日別解答数は古い順に窓の日数ぶん返し、解答が無い日は0で埋める`() {
+        val db = newDatabase()
+        val drillRepo = newDrillRepository(db)
+        val target = saveDrillFixture(newGameRepository(db)).first()
+
+        // 6/5に2問、6/7に1問。6/7を当日として直近5日を見る。
+        saveAttemptsOnDates(drillRepo, target.id, "2025-06-05", "2025-06-05", "2025-06-07")
+
+        val counts = drillRepo.getDrillAttemptDailyCounts(5, epochSecondsAt("2025-06-07T10:00:00"))
+
+        // 6/3, 6/4, 6/5, 6/6, 6/7
+        assertEquals(listOf(0, 0, 2, 0, 1), counts)
+    }
+
+    @Test
+    fun `日別解答数は窓より前の解答を含めない`() {
+        val db = newDatabase()
+        val drillRepo = newDrillRepository(db)
+        val target = saveDrillFixture(newGameRepository(db)).first()
+
+        saveAttemptsOnDates(drillRepo, target.id, "2025-06-01", "2025-06-07")
+
+        val counts = drillRepo.getDrillAttemptDailyCounts(3, epochSecondsAt("2025-06-07T10:00:00"))
+
+        assertEquals(listOf(0, 0, 1), counts)
+    }
+
+    @Test
+    fun `正答数は正解した解答だけを数える`() {
+        val db = newDatabase()
+        val drillRepo = newDrillRepository(db)
+        val target = saveDrillFixture(newGameRepository(db)).first()
+
+        drillRepo.saveDrillAttempt(target.id, "7g7f", true, 0.0)
+        drillRepo.saveDrillAttempt(target.id, "2g2f", false, 0.3)
+        drillRepo.saveDrillAttempt(target.id, "7g7f", true, 0.0)
+
+        assertEquals(3, drillRepo.getDrillAttemptCountTotal())
+        assertEquals(2, drillRepo.getDrillAttemptCorrectCount())
+    }
+
+    @Test
+    fun `7日間連続の達成は開始日と最終日つきで返る`() {
+        val db = newDatabase()
+        val drillRepo = newDrillRepository(db)
+        val target = saveDrillFixture(newGameRepository(db)).first()
+
+        saveAttemptsOnDates(
+            drillRepo, target.id,
+            "2025-06-01", "2025-06-02", "2025-06-03", "2025-06-04", "2025-06-05", "2025-06-06", "2025-06-07",
+            "2025-06-08", "2025-06-09", "2025-06-10", "2025-06-11", "2025-06-12", "2025-06-13", "2025-06-14",
+        )
+
+        val streaks = drillRepo.getDrillAttemptWeekStreakDays()
+
+        assertEquals(2, streaks.size)
+        assertEquals(WeekStreakDays(1, "2025-06-01", "2025-06-07"), streaks[0])
+        assertEquals(WeekStreakDays(2, "2025-06-08", "2025-06-14"), streaks[1])
+        assertEquals(streaks.size, drillRepo.getDrillAttemptWeekStreakCount())
+    }
+
+    @Test
     fun `7日未満の連続取組は7日ストリークとして数えない`() {
         val db = newDatabase()
         val gameRepo = newGameRepository(db)

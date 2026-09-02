@@ -31,6 +31,7 @@ import dev.miyado.shogisupplement.ui.DebugScreen
 import dev.miyado.shogisupplement.ui.LegalLinks
 import dev.miyado.shogisupplement.ui.LicensesScreen
 import dev.miyado.shogisupplement.ui.MainUiState
+import dev.miyado.shogisupplement.ui.drillrecord.DrillRecordDetailScreen
 import dev.miyado.shogisupplement.ui.MainViewModel
 import dev.miyado.shogisupplement.ui.common.ErrorScreen
 import dev.miyado.shogisupplement.ui.gamelist.GameListScreen
@@ -179,6 +180,10 @@ fun MainApp(vm: MainViewModel, state: MainUiState) {
         }
         is MainUiState.StrengthDetail -> {
             StrengthDetailHost(vm, state, onEditAccounts = { showRatingSettingsDialog = true })
+        }
+        is MainUiState.DrillRecordDetail -> {
+            BackHandler { vm.loadHome() }
+            DrillRecordDetailScreen(data = state.data, onBack = { vm.loadHome() })
         }
         is MainUiState.GameList -> {
             BackHandler { vm.loadHome() }

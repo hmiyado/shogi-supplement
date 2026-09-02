@@ -1,5 +1,6 @@
 package dev.miyado.shogisupplement.db
 
+import dev.miyado.shogisupplement.drill.WeekStreaks
 import dev.miyado.shogisupplement.util.currentEpochSeconds
 
 /** ドリル出題・解答履歴のDB永続化リポジトリ（[DrillRepository]のSQLDelight実装）。 */
@@ -102,17 +103,29 @@ class SqlDelightDrillRepository(private val database: ShogiSupplementDatabase) :
             .toInt()
     }
 
-    override fun getDrillAttemptWeekStreakCount(): Int {
-        val dayNumbers = database.shogiSupplementQueries
-            .getDrillAttemptDayNumbers()
+    override fun getDrillAttemptWeekStreakCount(): Int =
+        WeekStreaks.count(database.shogiSupplementQueries.getDrillAttemptDayNumbers().executeAsList())
+
+    override fun getDrillAttemptDailyCounts(windowDays: Int, asOfEpochSeconds: Long): List<Int> {
+        val byDaysAgo = database.shogiSupplementQueries
+            .getDrillAttemptDailyCountsSince(asOfEpochSeconds.toString(), (windowDays - 1).toLong())
             .executeAsList()
-        var weekStreakCount = 0
-        var runLength = 0
-        for (i in dayNumbers.indices) {
-            runLength = if (i > 0 && dayNumbers[i] == dayNumbers[i - 1] + 1L) runLength + 1 else 1
-            if (runLength % 7 == 0) weekStreakCount++
+            .associate { it.daysAgo to it.attempts.toInt() }
+        return List(windowDays) { index -> byDaysAgo[(windowDays - 1 - index).toLong()] ?: 0 }
+    }
+
+    override fun getDrillAttemptCorrectCount(): Int =
+        database.shogiSupplementQueries.getDrillAttemptCorrectCount().executeAsOne().toInt()
+
+    override fun getDrillAttemptWeekStreakDays(): List<WeekStreakDays> {
+        val days = database.shogiSupplementQueries.getDrillAttemptDays().executeAsList()
+        return WeekStreaks.find(days.map { it.dayNumber }).map {
+            WeekStreakDays(
+                ordinal = it.ordinal,
+                startDay = days[it.startDayIndex].day,
+                endDay = days[it.endDayIndex].day,
+            )
         }
-        return weekStreakCount
     }
 
     private fun dev.miyado.shogisupplement.db.Drill_attempt.toDrillAttemptRecord() =

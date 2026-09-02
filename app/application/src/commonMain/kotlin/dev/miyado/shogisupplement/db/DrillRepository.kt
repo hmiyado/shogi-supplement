@@ -50,4 +50,19 @@ interface DrillRepository {
 
     /** 連続取組が7日進むごとに1回加算する累計回数（14日連続なら2回）。判定境界は深夜0時から4時間の猶予つき。 */
     fun getDrillAttemptWeekStreakCount(): Int
+
+    /**
+     * asOfEpochSeconds時点を基準に、直近windowDays暦日の1日あたり解答数。
+     * 古い順にwindowDays件返し、解答が無い日は0で埋める（末尾が当日）。
+     */
+    fun getDrillAttemptDailyCounts(windowDays: Int, asOfEpochSeconds: Long = currentEpochSeconds()): List<Int>
+
+    /** 正解した解答の累計。 */
+    fun getDrillAttemptCorrectCount(): Int
+
+    /** 7日間連続をやり切った回分を達成順に返す。 */
+    fun getDrillAttemptWeekStreakDays(): List<WeekStreakDays>
 }
+
+/** 7日間連続の達成1回分。日付は "YYYY-MM-DD"。 */
+data class WeekStreakDays(val ordinal: Int, val startDay: String, val endDay: String)

@@ -1,5 +1,7 @@
 package dev.miyado.shogisupplement.text
 
+import kotlin.math.roundToInt
+
 /**
  * 動的な値はテンプレート関数の引数で受け取る。
  */
@@ -90,6 +92,26 @@ object AppStrings {
     const val DRILL_RECORD_TOTAL_SUFFIX = "問"
     const val DRILL_RECORD_WEEK_STREAK_PREFIX = "7日間連続 "
     const val DRILL_RECORD_WEEK_STREAK_SUFFIX = "回"
+
+    // 学習の記録の詳細画面
+    const val DRILL_RECORD_DETAIL_TITLE = "学習の記録"
+    const val DRILL_RECORD_DETAIL_ACTIVE_DAYS_LABEL = "直近30日の取組日数"
+    const val DRILL_RECORD_DETAIL_GRID_TITLE = "この30日"
+    const val DRILL_RECORD_DETAIL_GRID_LESS = "少"
+    const val DRILL_RECORD_DETAIL_GRID_MORE = "多"
+    const val DRILL_RECORD_DETAIL_GRID_TODAY = "右下が今日"
+    const val DRILL_RECORD_DETAIL_STREAK_TITLE = "7日間連続の達成"
+    const val DRILL_RECORD_DETAIL_STREAK_EMPTY = "まだありません"
+    const val DRILL_RECORD_CORRECT_PREFIX = "正答率 "
+
+    /** Why not 割合だけを出す: 点数に見えてしまうため、内訳を添えて測った値の顔にする。 */
+    fun drillRecordAccuracy(correct: Int, total: Int): String =
+        "${(correct * 100.0 / total).roundToInt()}%（$correct/$total）"
+
+    /** 7日間連続の達成1回分。 */
+    fun drillRecordStreakOrdinal(ordinal: Int): String = "${ordinal}回目"
+
+    fun drillRecordStreakRange(start: String, end: String): String = "$start – $end"
 
     fun gameMoveCount(count: Long): String = "${count}手"
     fun playersLine(senteName: String?, goteName: String?): String =

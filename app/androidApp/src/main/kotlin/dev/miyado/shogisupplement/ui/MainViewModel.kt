@@ -25,6 +25,7 @@ import java.util.Date
 import java.util.Locale
 import dev.miyado.shogisupplement.kifu.GameImportFlow
 import dev.miyado.shogisupplement.kifu.KifImportController
+import dev.miyado.shogisupplement.ui.drillrecord.DrillRecordDetailViewModel
 import dev.miyado.shogisupplement.ui.report.toScreenState
 import dev.miyado.shogisupplement.kifu.KifImportRequest
 import dev.miyado.shogisupplement.pipeline.InProgressAnalysisRegistry
@@ -102,6 +103,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     /** 推定棋力詳細画面のロードを担う協力オブジェクト。 */
     private val strengthDetailViewModel: StrengthDetailViewModel by lazy {
         StrengthDetailViewModel(gameRepository = gameRepository, settingsRepository = settingsRepository)
+    }
+
+    /** 学習の記録の詳細画面のロードを担う協力オブジェクト。 */
+    private val drillRecordDetailViewModel: DrillRecordDetailViewModel by lazy {
+        DrillRecordDetailViewModel(drillRepository = drillRepository)
     }
 
     /** レポート表示状態・読み筋延長・検討モードを担う協力オブジェクト。 */
@@ -213,6 +219,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val data = strengthDetailViewModel.loadStrengthDetail() ?: return@launch
             _state.value = MainUiState.StrengthDetail(data)
+        }
+    }
+
+    /**
+     * 学習の記録の詳細画面に遷移する（ホーム画面の学習の記録カードタップ）。
+     * ロード結果が null（1問も解いていない）の場合は何もしない
+     * （カード自体がその場合は表示されないため、通常到達しない）。
+     */
+    fun openDrillRecordDetail() {
+        viewModelScope.launch {
+            val data = drillRecordDetailViewModel.loadDrillRecordDetail() ?: return@launch
+            _state.value = MainUiState.DrillRecordDetail(data)
         }
     }
 

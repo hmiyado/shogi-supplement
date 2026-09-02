@@ -43,6 +43,7 @@ fun HomeHost(
             )
         },
         onOpenStrengthDetail = { vm.openStrengthDetail() },
+        onOpenDrillRecordDetail = { vm.openDrillRecordDetail() },
         // Android専用リソース（R.drawable.ic_app_title_icon）のためホイストしている。
         titleIcon = {
             Image(

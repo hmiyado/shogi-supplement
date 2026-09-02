@@ -265,6 +265,29 @@ WHERE date(attempted_at, 'unixepoch', 'localtime', '-4 hours')
 getDrillAttemptCountTotal:
 SELECT COUNT(*) FROM drill_attempt;
 
+-- 直近N暦日の解答数を「何日前か」で返す（0=当日）。解答が無い日は行自体が返らないため、
+-- 呼び出し側で0を埋める。日付文字列ではなく日数差で返すのは、窓の各日を作るのに
+-- 日付演算を要らなくするため。
+getDrillAttemptDailyCountsSince:
+SELECT CAST(julianday(date(:asOfEpochSeconds, 'unixepoch', 'localtime', '-4 hours'))
+    - julianday(date(attempted_at, 'unixepoch', 'localtime', '-4 hours')) AS INTEGER) AS daysAgo,
+    COUNT(*) AS attempts
+FROM drill_attempt
+WHERE date(attempted_at, 'unixepoch', 'localtime', '-4 hours')
+    BETWEEN date(:asOfEpochSeconds, 'unixepoch', 'localtime', '-4 hours', (0 - :windowDaysNegativeOffset) || ' days')
+    AND date(:asOfEpochSeconds, 'unixepoch', 'localtime', '-4 hours')
+GROUP BY daysAgo;
+
+getDrillAttemptCorrectCount:
+SELECT COUNT(*) FROM drill_attempt WHERE is_correct != 0;
+
+-- 取組日をJulian day numberと表示用の日付の組で返す。連続区間の判定は WeekStreaks が行う。
+getDrillAttemptDays:
+SELECT DISTINCT CAST(julianday(date(attempted_at, 'unixepoch', 'localtime', '-4 hours')) AS INTEGER) AS dayNumber,
+    date(attempted_at, 'unixepoch', 'localtime', '-4 hours') AS day
+FROM drill_attempt
+ORDER BY dayNumber ASC;
+
 -- 取組日（グレース込み）をJulian day number（連続する整数）に変換して昇順で返す。
 -- 連続区間の判定（隣接値の差が1かどうか）はここでは行わない
 -- （SQLDelightのSQLiteダイアレクトがROW_NUMBER等のウィンドウ関数[3.25+]に未対応のため）。

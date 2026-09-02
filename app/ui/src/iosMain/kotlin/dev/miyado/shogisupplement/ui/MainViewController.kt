@@ -48,6 +48,7 @@ import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.db.DatabaseFactory
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.GameAnalysisStatus
+import dev.miyado.shogisupplement.db.DrillRepository
 import dev.miyado.shogisupplement.db.GameRepository
 import dev.miyado.shogisupplement.db.SettingsRepository
 import dev.miyado.shogisupplement.pipeline.InProgressAnalysisRegistry
@@ -81,6 +82,9 @@ import dev.miyado.shogisupplement.ui.restore.GameRestoreScreen
 import dev.miyado.shogisupplement.ui.restore.GameRestoreViewModel
 import dev.miyado.shogisupplement.ui.settings.RatingSettingsDialog
 import dev.miyado.shogisupplement.ui.settings.SettingsScreen
+import dev.miyado.shogisupplement.ui.drillrecord.DrillRecordDetailData
+import dev.miyado.shogisupplement.ui.drillrecord.DrillRecordDetailScreen
+import dev.miyado.shogisupplement.ui.drillrecord.DrillRecordDetailViewModel
 import dev.miyado.shogisupplement.ui.strength.EstimatedStrengthDetailScreen
 import dev.miyado.shogisupplement.ui.strength.StrengthDetailData
 import dev.miyado.shogisupplement.ui.strength.StrengthDetailViewModel
@@ -188,7 +192,14 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
                             onAccepted = { showConsent = false },
                         )
                     } else {
-                        DemoApp(gameRepository, settingsRepository, supabaseServices, controller, analysisBaseUrl)
+                        DemoApp(
+                            gameRepository,
+                            drillRepository,
+                            settingsRepository,
+                            supabaseServices,
+                            controller,
+                            analysisBaseUrl,
+                        )
                     }
                 }
             }
@@ -243,6 +254,8 @@ private sealed class DemoRoute {
     /** 推定棋力詳細画面（ホーム画面の推定棋力カードタップで遷移）。 */
     data class StrengthDetail(val data: StrengthDetailData) : DemoRoute()
 
+    data class DrillRecordDetail(val data: DrillRecordDetailData) : DemoRoute()
+
     /** 引き継ぎコード復元成功後の遷移先（サーバー上の自分の棋譜をダウンロード復元する画面）。 */
     object GameRestore : DemoRoute()
 }
@@ -251,6 +264,7 @@ private sealed class DemoRoute {
 @Composable
 private fun DemoApp(
     gameRepository: GameRepository,
+    drillRepository: DrillRepository,
     settingsRepository: SettingsRepository,
     supabaseServices: SupabaseServices?,
     controller: IosMainController,
@@ -261,6 +275,7 @@ private fun DemoApp(
     var showKifSourceDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val strengthDetailViewModel = remember { StrengthDetailViewModel(gameRepository, settingsRepository) }
+    val drillRecordDetailViewModel = remember { DrillRecordDetailViewModel(drillRepository) }
 
     // リーク厳禁: 画面（ComposeUIViewController）が破棄されるタイミングで検討エンジンを解放する。
     DisposableEffect(controller) {
@@ -424,6 +439,13 @@ private fun DemoApp(
                     onOpenSettings = { route = DemoRoute.Settings },
                     onViewAllGames = { route = DemoRoute.GameList },
                     onOpenStrengthHelp = { openUrl(IOS_HELP_STRENGTH_URL) },
+                    onOpenDrillRecordDetail = {
+                        scope.launch {
+                            drillRecordDetailViewModel.loadDrillRecordDetail()?.let {
+                                route = DemoRoute.DrillRecordDetail(it)
+                            }
+                        }
+                    },
                     onOpenStrengthDetail = {
                         scope.launch {
                             strengthDetailViewModel.loadStrengthDetail()?.let { route = DemoRoute.StrengthDetail(it) }
@@ -441,6 +463,9 @@ private fun DemoApp(
                     controller.beginManualImport(draft.toKifText())
                 },
             )
+        }
+        is DemoRoute.DrillRecordDetail -> {
+            DrillRecordDetailScreen(data = r.data, onBack = { route = DemoRoute.Home })
         }
         is DemoRoute.StrengthDetail -> {
             // 対局サービスの編集ダイアログはこの画面専用（Settings画面の棋力入力は廃止済み）。

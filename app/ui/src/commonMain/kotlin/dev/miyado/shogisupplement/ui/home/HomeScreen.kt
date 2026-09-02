@@ -73,6 +73,7 @@ fun HomeScreen(
     onOpenStrengthHelp: () -> Unit = {},
     /** 推定棋力カードのタップ（「?」アイコン部分を除く）。推定棋力詳細画面へ遷移する。 */
     onOpenStrengthDetail: () -> Unit = {},
+    onOpenDrillRecordDetail: () -> Unit = {},
     /** タイトル左の小さなアプリアイコン（Android専用リソースのためホイスト。既定は非表示）。 */
     titleIcon: @Composable () -> Unit = {},
 ) {
@@ -142,6 +143,7 @@ fun HomeScreen(
                 item {
                     DrillRecordCard(
                         drillRecordCard = drillRecordCard,
+                        onCardClick = onOpenDrillRecordDetail,
                         shogiColors = shogiColors,
                     )
                 }
@@ -330,9 +332,10 @@ fun StrengthCard(
 fun DrillRecordCard(
     drillRecordCard: DrillRecordCardData,
     shogiColors: ShogiColors,
+    onCardClick: () -> Unit = {},
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onCardClick),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface,
         ),
