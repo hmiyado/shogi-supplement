@@ -38,4 +38,6 @@ env:
     text: "Allow|許可"
     optional: true
 - runFlow: ../common/wait_for_analysis_report.yaml
+- runFlow: ../common/edit_game_players.yaml
 - runFlow: ../common/open_estimated_strength_detail.yaml
+- runFlow: ../common/open_drill_record_detail.yaml

@@ -13,6 +13,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.text.AppStrings
 
@@ -35,11 +36,14 @@ internal fun EditPlayersDialog(
         title = { Text(AppStrings.EDIT_PLAYERS_DIALOG_TITLE) },
         text = {
             Column {
+                // 値が入るとラベルが枠線へ浮き、ラベルの文字をタップしても入力欄へ
+                // フォーカスできない。識別子でしか指せないためtestTagを置く。
                 OutlinedTextField(
                     value = sente,
                     onValueChange = { sente = it },
                     label = { Text(AppStrings.EDIT_PLAYERS_SENTE_LABEL) },
                     singleLine = true,
+                    modifier = Modifier.testTag("edit_players_sente"),
                 )
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
@@ -47,6 +51,7 @@ internal fun EditPlayersDialog(
                     onValueChange = { gote = it },
                     label = { Text(AppStrings.EDIT_PLAYERS_GOTE_LABEL) },
                     singleLine = true,
+                    modifier = Modifier.testTag("edit_players_gote"),
                 )
             }
         },

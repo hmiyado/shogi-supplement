@@ -28,7 +28,9 @@ Maestro による実機（シミュレータ/エミュレータ）E2E。フロ�
 
 ### iOS
 
-1. Xcode・iOS Simulatorが利用可能なこと
+1. Xcode・iOS Simulatorが利用可能なこと。**シミュレータのOSはXcodeのSDKと合わせる**
+   （古いランタイムだと起動直後に `libswiftWebKit.dylib` が見つからずdyldで落ち、
+   Maestroからはホーム画面のまま進まないように見える）
 2. `app/iosApp/vendor/`（Sentry・Firebase XCFramework）と `app/iosApp/engine/build/`
    （エンジンのシミュレータ向け静的ライブラリ）を用意する
    （`app/iosApp/scripts/fetch-sentry.sh` / `fetch-firebase.sh`、`app/iosApp/engine/build_ios.sh`）

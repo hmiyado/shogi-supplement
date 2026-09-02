@@ -1,0 +1,40 @@
+# 手入力の先後選択をキャンセルしたとき、入力画面が閉じずに残ることを確認するフロー。
+#
+# キャンセルで入力画面まで閉じると、指し手を最初から入れ直すしかなくなる。
+# 取込フローの共通化でここは壊しやすく、いまはコード上のコメントでしか守られていない。
+#
+# 盤面タップは 04_manual_kif_input.yaml と同じく testTag（board_sq_<筋>_<段>）を狙い、
+# 成り確認ダイアログが出ない一歩前進だけを選ぶ。
+appId: dev.miyado.shogisupplement.ios.debug
+env:
+  APP_ID: dev.miyado.shogisupplement.ios.debug
+---
+- launchApp:
+    clearState: false
+- runFlow: subflows/handle_consent_onboarding.yaml
+- tapOn: "棋譜を追加する"
+- tapOn: "盤で入力する"
+- tapOn:
+    id: "board_sq_7_7"
+- tapOn:
+    id: "board_sq_7_6"
+- tapOn:
+    id: "board_sq_3_3"
+- tapOn:
+    id: "board_sq_3_4"
+- tapOn: "投了"
+- extendedWaitUntil:
+    visible: "自分の側"
+    timeout: 15000
+- tapOn: "キャンセル"
+# ダイアログだけが閉じ、入力画面は残る。
+- assertNotVisible: "自分の側"
+- assertVisible: "盤で棋譜を入力"
+# 入力した手も残っているので、そのまま投了し直して先へ進める。
+- tapOn: "投了"
+- extendedWaitUntil:
+    visible: "自分の側"
+    timeout: 15000
+- tapOn: "後手"
+- tapOn: "解析開始"
+- runFlow: ../common/wait_for_analysis_report.yaml

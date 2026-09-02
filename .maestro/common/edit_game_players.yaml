@@ -1,0 +1,45 @@
+# レポート画面の対局情報ダイアログから対局者名を編集し、保存が反映されることを確認する。
+#
+# 反映は「保存後にもう一度ダイアログを開き、入力欄に新しい名前が入っていること」で見る。
+# レポート画面のトップバーは対局者名を出さない（対局情報ダイアログと重複するため）。
+#
+# 前提: レポート画面へ向かっていること。
+# wait_for_analysis_report.yaml の完了条件（推定棋力の行）は解析中の暫定表示にもマッチし、
+# その時点ではまだ解析中画面で対局情報アイコンが無い。解析完了まで待ってから始める。
+#
+# 呼び出し元フローのenvで指定（iOS/Android両方から使うため固定しない）
+appId: ${APP_ID}
+---
+- extendedWaitUntil:
+    visible: "対局情報"
+    timeout: 180000
+- tapOn: "対局情報"
+- extendedWaitUntil:
+    visible: "この棋譜について"
+    timeout: 15000
+- tapOn: "対局者名を編集"
+- extendedWaitUntil:
+    visible: "対局者名を編集"
+    timeout: 15000
+# ラベルの文字（先手）はタップしても入力欄にフォーカスできない。値が入ると
+# ラベルが枠線へ浮くため、testTagで入力欄そのものを狙う。
+- tapOn:
+    id: "edit_players_sente"
+# 取込元のKIFに対局者名が入っていると追記になるため、消してから入力する。
+- eraseText
+- inputText: "テスト先手"
+- tapOn: "保存"
+# 「対局者名を編集」を開く時点で対局情報ダイアログは閉じ、保存するとレポート画面へ戻る。
+# 開き直して入力欄の値で反映を確かめる。
+- extendedWaitUntil:
+    visible: "対局情報"
+    timeout: 15000
+- tapOn: "対局情報"
+- extendedWaitUntil:
+    visible: "この棋譜について"
+    timeout: 15000
+- tapOn: "対局者名を編集"
+- extendedWaitUntil:
+    visible: "テスト先手"
+    timeout: 15000
+- tapOn: "キャンセル"

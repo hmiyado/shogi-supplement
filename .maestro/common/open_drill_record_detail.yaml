@@ -1,0 +1,54 @@
+# ドリルを1問通してから、ホームの学習の記録カード→詳細画面への遷移と復帰を確認する。
+#
+# 学習の記録カードは1問も解いていないと出ない（HomeViewModel.computeDrillRecordCard が
+# 累計0件でnullを返す）。そのため先にドリルを1問通す必要がある。
+#
+# 盤の座標タップはしない。「正解を見る」（DrillViewModel.onSurrender）が
+# saveDrillAttempt を呼ぶため、どの局面が出題されてもボタン1つで解答が記録できる。
+# 盤を操作しようとすると、出題される局面によって指せる手が変わり再現しない。
+#
+# 前提: ホーム画面から始めること（open_estimated_strength_detail.yaml の直後など）。
+# 解析した棋譜に出題対象の悪手が1つ以上あること（無いと「今日の1問」が出ない）。
+#
+# 呼び出し元フローのenvで指定（iOS/Android両方から使うため固定しない）
+appId: ${APP_ID}
+---
+- extendedWaitUntil:
+    visible: "今日の1問"
+    timeout: 120000
+- tapOn: "今日の1問"
+# 出題画面のボタンは盤と読み筋入力の下にあり画面外。assertVisibleは階層にあれば通り、
+# 画面外のままタップすると空振りするため、スクロールして見える位置へ出す。
+- scrollUntilVisible:
+    element:
+      text: "正解を見る"
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+# スクロール直後は慣性で位置がずれ、タップが空振りする（成功扱いのまま画面が変わらない）。
+- waitForAnimationToEnd
+- tapOn: "正解を見る"
+# 「正解を見る」は不正解として解答が保存され、結果画面へ切り替わる。
+- extendedWaitUntil:
+    visible: "あなたの手"
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      text: "ホームへ"
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- waitForAnimationToEnd
+- tapOn: "ホームへ"
+# 解答が1件入ったので学習の記録カードが出る。
+- extendedWaitUntil:
+    visible: "学習の記録"
+    timeout: 30000
+- tapOn: "学習の記録"
+- extendedWaitUntil:
+    visible: "直近30日の取組日数"
+    timeout: 15000
+- assertVisible: "この30日"
+- assertVisible: "7日間連続の達成"
+- tapOn: "戻る"
+- assertVisible: "学習の記録"
