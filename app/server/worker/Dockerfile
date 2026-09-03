@@ -48,7 +48,7 @@ ARG ENGINE_EVAL_SHA256
 RUN /src/fetch_hao_eval.sh "${ENGINE_EVAL_SHA256}" /out
 
 # ── worker jar build stage ───────────────────────────────────────────────
-FROM eclipse-temurin:17-jdk AS build
+FROM eclipse-temurin:25-jdk AS build
 WORKDIR /workspace
 
 # :server:worker は :contracts / :analysis / :engine:subprocess のjvmターゲットに依存するため
@@ -58,7 +58,7 @@ COPY . .
 RUN ./gradlew :server:worker:installDist --no-daemon
 
 # ── runtime stage ────────────────────────────────────────────────────────
-FROM eclipse-temurin:17-jre AS runtime
+FROM eclipse-temurin:25-jre AS runtime
 WORKDIR /app
 
 COPY --from=build /workspace/server/worker/build/install/worker /app
