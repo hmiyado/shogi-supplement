@@ -14,5 +14,14 @@
       "datasourceTemplate": "github-releases",
       "extractVersionTemplate": "^v(?<version>.*)$"
     }
+  ],
+  "packageRules": [
+    {
+      "description": "workerのビルドステージのJDKはlibs.versions.tomlのjvm-toolchainに合わせる。ここだけ上げるとGradleがtoolchainを見つけられずDockerビルドが落ちる",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["eclipse-temurin"],
+      "matchCurrentValue": "/^17/",
+      "enabled": false
+    }
   ]
 }

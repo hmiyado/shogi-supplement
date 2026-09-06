@@ -44,4 +44,11 @@ dependencies {
 
 tasks.test {
     useJUnitPlatform()
+
+    // テストが読むこの2ファイルは、宣言しないと入力に数えられない。版を書き換えても
+    // up-to-dateと判定され、検査が素通りする。
+    inputs.file(layout.projectDirectory.file("Dockerfile"))
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.file(rootProject.layout.projectDirectory.file("gradle/libs.versions.toml"))
+        .withPathSensitivity(PathSensitivity.RELATIVE)
 }
