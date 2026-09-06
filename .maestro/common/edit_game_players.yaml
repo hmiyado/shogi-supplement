@@ -9,6 +9,10 @@
 #
 # 呼び出し元フローのenvで指定（iOS/Android両方から使うため固定しない）
 appId: ${APP_ID}
+env:
+  # 取り込んだKIFの先手名。既定はwars_game3.kifの値で、別のKIFで回すときは
+  # 呼び出し元のenvで上書きする。
+  SENTE_NAME: 匿名
 ---
 - extendedWaitUntil:
     visible: "対局情報"
@@ -21,10 +25,22 @@ appId: ${APP_ID}
 - extendedWaitUntil:
     visible: "対局者名を編集"
     timeout: 15000
-# ラベルの文字（先手）はタップしても入力欄にフォーカスできない。値が入ると
+# ラベルの文字（先手）はiOSではタップしても入力欄にフォーカスできない。値が入ると
 # ラベルが枠線へ浮くため、testTagで入力欄そのものを狙う。
-- tapOn:
-    id: "edit_players_sente"
+# Androidはダイアログが別ウィンドウ＝別のセマンティクスツリーになり、ルートで有効に
+# したtestTagのresource-id露出が中まで届かないため識別子で指せない。値のテキストが
+# 同じノード（枠全体がbounds）を指すので、そちらで狙う。
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - tapOn:
+          id: "edit_players_sente"
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - tapOn: "${SENTE_NAME}"
 # 取込元のKIFに対局者名が入っていると追記になるため、消してから入力する。
 - eraseText
 - inputText: "テスト先手"
