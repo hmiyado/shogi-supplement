@@ -80,8 +80,12 @@ resource "google_cloud_run_v2_service" "analysis_worker" {
     # 実運用イメージはGitHub ActionsのCIデプロイが更新する（variables.tfのworker_image参照）。
     # ここで追随させるとterraform applyのたびに本番イメージがブートストラップ用イメージへ
     # 巻き戻ってしまうため、image属性はTerraformの管理対象から外す。
+    # client・client_versionはgcloudデプロイが刻む属性で、Terraform側で持たないと
+    # CIデプロイのたびにplanへ差分として現れる。
     ignore_changes = [
       template[0].containers[0].image,
+      client,
+      client_version,
     ]
   }
 
