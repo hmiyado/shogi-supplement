@@ -27,30 +27,25 @@ permissions:
   contents: read
 
 jobs:
-  # 追加された画面がどのshardにも含まれないまま、検証されずに緑になるのを防ぐ。
-  coverage:
+  shards:
     runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.build.outputs.matrix }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Check every screenshot test belongs to a shard
-        run: python3 .github/scripts/check_vrt_shards.py
+      - name: Build shard matrix
+        id: build
+        run: python3 .github/scripts/build_vrt_shards.py
 
   verify:
-    needs: coverage
+    needs: shards
     runs-on: ubuntu-latest
     timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        # 撮影枚数で釣り合いを取る（ReportViewerだけで22枚あるため単独）。
-        shard:
-          - name: report-viewer
-            tests: --tests "*ReportViewerScreenshotTest"
-          - name: board-and-drill
-            tests: --tests "*ShogiBoardViewScreenshotTest" --tests "*DrillScreenScreenshotTest" --tests "*GameListScreenScreenshotTest" --tests "*HomeScreenScreenshotTest" --tests "*PendingAnalysisScreenScreenshotTest"
-          - name: rest
-            tests: --tests "*ForceUpdateScreenScreenshotTest" --tests "*AccountScreenScreenshotTest" --tests "*AccountDeleteDialogScreenshotTest" --tests "*GameDeleteDialogScreenshotTest" --tests "*TransferCodeScreenScreenshotTest" --tests "*SettingsScreenScreenshotTest" --tests "*LicensesScreenScreenshotTest" --tests "*AnalyzingReportScreenScreenshotTest" --tests "*GameRestoreScreenScreenshotTest" --tests "*ReportGameInfoDialogScreenshotTest" --tests "*ConsentScreenScreenshotTest" --tests "*EstimatedStrengthDetailScreenScreenshotTest" --tests "*GameCardScreenshotTest"
+        shard: ${{ fromJson(needs.shards.outputs.matrix) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
