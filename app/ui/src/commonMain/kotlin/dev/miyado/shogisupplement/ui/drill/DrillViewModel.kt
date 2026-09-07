@@ -272,7 +272,7 @@ class DrillViewModel(
         val readPv = state.moves.drop(1).takeIf { it.isNotEmpty() }?.joinToString(" ")
         val flip = state.flip
 
-        _state.value = DrillUiState.Judging
+        _state.value = state.copy(isJudging = true)
 
         viewModelScope.launch {
             val result = withContext(ioDispatcher) {

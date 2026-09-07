@@ -935,11 +935,6 @@ private fun IosDrillScreen(
                         onSubmitAnswer = vm::submitAnswer,
                     )
                 }
-                is DrillUiState.Judging -> {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
-                    }
-                }
                 is DrillUiState.Result -> {
                     DrillResultContent(
                         result = s.drillResult,

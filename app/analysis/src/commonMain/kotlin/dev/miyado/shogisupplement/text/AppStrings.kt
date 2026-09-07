@@ -225,7 +225,6 @@ object AppStrings {
     const val DRILL_EMPTY_TITLE = "次の一手問題がありません"
     const val DRILL_EMPTY_BODY = "棋譜を解析すると悪手が出題対象になります。"
     const val DRILL_BACK_HOME = "ホームに戻る"
-    const val DRILL_JUDGING = "判定中..."
     const val DRILL_PROMOTE_TITLE = "成りますか？"
     const val DRILL_PROMOTE_YES = "成る"
     const val DRILL_PROMOTE_NO = "成らない"

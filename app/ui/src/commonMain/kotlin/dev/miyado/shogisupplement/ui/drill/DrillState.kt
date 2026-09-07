@@ -41,10 +41,13 @@ sealed class DrillUiState {
         val flip: Boolean = false,
         /** ここまでに盤へ入力した手（USI）。先頭が予測手、以降は任意で続けた読み筋。 */
         val moves: List<String> = emptyList(),
+        /**
+         * エンジン判定の待ち。
+         * Why not 別の状態にする: 盤ごと差し替わると、答えた直後に自分が何を指したか
+         * 確かめられなくなる。待ちは押したボタンの中だけで示す。
+         */
+        val isJudging: Boolean = false,
     ) : DrillUiState()
-
-    /** エンジン判定中。 */
-    object Judging : DrillUiState()
 
     /** 判定結果を表示中。 */
     data class Result(

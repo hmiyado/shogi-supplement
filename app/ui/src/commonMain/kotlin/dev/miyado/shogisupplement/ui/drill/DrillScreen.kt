@@ -14,12 +14,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -33,15 +35,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import org.jetbrains.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import dev.miyado.shogisupplement.ui.common.ShogiSecondaryButton
-import dev.miyado.shogisupplement.ui.theme.ShipporiMinchoFamily
-import dev.miyado.shogisupplement.ui.theme.ShogiTheme
-import dev.miyado.shogisupplement.ui.theme.TextStyleDataMove
-import dev.miyado.shogisupplement.ui.theme.shogiColors
 import dev.miyado.shogisupplement.blunder.DisplayWinProb
 import dev.miyado.shogisupplement.blunder.PositionEvalDisplay
 import dev.miyado.shogisupplement.board.PieceType
@@ -52,13 +49,19 @@ import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.drill.DrillContestType
 import dev.miyado.shogisupplement.drill.DrillJudge
 import dev.miyado.shogisupplement.drill.DrillReadPvMatch
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.notation.JapaneseNotation
+import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.PvExtState
 import dev.miyado.shogisupplement.ui.common.ShogiBoardView
+import dev.miyado.shogisupplement.ui.common.ShogiSecondaryButton
 import dev.miyado.shogisupplement.ui.common.boardMaxHeight
 import dev.miyado.shogisupplement.ui.common.formatFixed1
+import dev.miyado.shogisupplement.ui.theme.ShipporiMinchoFamily
+import dev.miyado.shogisupplement.ui.theme.ShogiTheme
+import dev.miyado.shogisupplement.ui.theme.TextStyleDataMove
+import dev.miyado.shogisupplement.ui.theme.shogiColors
 import kotlin.math.abs
+import org.jetbrains.compose.ui.tooling.preview.Preview
 
 // トップのDrillScreenはAndroid専用ViewModelとviewModel()に依存するためandroidAppに置く。
 // ここには共通の問題表示、結果表示、Previewだけを定義する。
@@ -161,14 +164,28 @@ fun DrillQuestionContent(
             Spacer(Modifier.height(16.dp))
             Button(
                 onClick = onSubmitAnswer,
-                enabled = state.moves.isNotEmpty(),
+                enabled = state.moves.isNotEmpty() && !state.isJudging,
                 modifier = Modifier.fillMaxWidth(0.6f),
             ) {
-                Text(AppStrings.DRILL_SUBMIT_ANSWER)
+                // ラベルと入れ替えるとボタンの幅が変わる。文字は残したまま重ねる。
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        AppStrings.DRILL_SUBMIT_ANSWER,
+                        modifier = Modifier.alpha(if (state.isJudging) 0f else 1f),
+                    )
+                    if (state.isJudging) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(JUDGING_INDICATOR_SIZE_DP.dp),
+                            strokeWidth = JUDGING_INDICATOR_STROKE_DP.dp,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                        )
+                    }
+                }
             }
             Spacer(Modifier.height(8.dp))
             ShogiSecondaryButton(
                 onClick = onSurrender,
+                enabled = !state.isJudging,
                 modifier = Modifier.fillMaxWidth(0.6f),
             ) {
                 Text(AppStrings.DRILL_GIVE_UP)
@@ -791,3 +808,7 @@ private fun sampleBlunderRecord() = BlunderRecord(
     problemType = "手筋 (両取り・素抜き) の問題",
     priority = 2.9978349024480666,
 )
+
+/** 「答える」ボタンの中に収まる大きさ。ボタンの高さを押し上げない。 */
+private const val JUDGING_INDICATOR_SIZE_DP = 20
+private const val JUDGING_INDICATOR_STROKE_DP = 2

@@ -147,16 +147,6 @@ fun DrillScreen(
                     )
                 }
 
-                is DrillUiState.Judging -> {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            CircularProgressIndicator()
-                            Spacer(Modifier.height(8.dp))
-                            Text(AppStrings.DRILL_JUDGING)
-                        }
-                    }
-                }
-
                 is DrillUiState.Result -> {
                     DrillResultContent(
                         result = s.drillResult,

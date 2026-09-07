@@ -25,8 +25,10 @@ import dev.miyado.shogisupplement.ui.drill.DrillUiState
 import dev.miyado.shogisupplement.ui.drill.DrillViewModel
 import dev.miyado.shogisupplement.upload.FakeUploadRepository
 import dev.miyado.shogisupplement.upload.UploadOrchestrator
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
@@ -150,7 +152,10 @@ class DrillViewModelTest {
     }
 
     /** ドリル候補を1件seedし、出題中（DrillUiState.Question）のDrillViewModelを返す。 */
-    private fun buildVmAtQuestion(repos: TestRepos = createDb()): DrillViewModel {
+    private fun buildVmAtQuestion(
+        repos: TestRepos = createDb(),
+        ioDispatcher: CoroutineDispatcher = testDispatcher,
+    ): DrillViewModel {
         val report = BlunderReport(
             ply = 1,
             side = "sente",
@@ -186,7 +191,7 @@ class DrillViewModelTest {
             gameRepository = repos.game,
             drillRepository = repos.drill,
             settingsRepository = repos.settings,
-            ioDispatcher = testDispatcher,
+            ioDispatcher = ioDispatcher,
         )
     }
 
@@ -329,6 +334,22 @@ class DrillViewModelTest {
 
         val afterSecond = vm.state.value as DrillUiState.Question
         assertEquals(listOf("7g7f", "3c3d"), afterSecond.moves)
+    }
+
+    @Test
+    fun submitAnswer_判定中も出題状態のまま盤の入力を保つ() {
+        // 判定を止めておくため、IOだけ手動で進めるdispatcherにする。
+        val io = StandardTestDispatcher()
+        val vm = buildVmAtQuestion(ioDispatcher = io)
+        io.scheduler.advanceUntilIdle() // 出題の読み込みだけ先に流す
+        vm.onSquareTapped(ShogiSquare(7, 7))
+        vm.onSquareTapped(ShogiSquare(7, 6))
+
+        vm.submitAnswer()
+
+        val judging = vm.state.value as DrillUiState.Question
+        assertTrue("判定中は出題状態のまま", judging.isJudging)
+        assertEquals("指した手が残る", listOf("7g7f"), judging.moves)
     }
 
     @Test
