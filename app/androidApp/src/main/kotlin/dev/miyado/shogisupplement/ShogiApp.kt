@@ -44,9 +44,12 @@ class ShogiApp : Application() {
         }
     }
 
+    /** Debugはdev行を読み、本番行を変更せずに判定を確認する。匿名アカウントの刻印にも使う。 */
+    private val policyPlatform: String = resolvePolicyPlatform("android", BuildConfig.DEBUG)
+
     /** 認証リポジトリのシングルトン。 */
     val authRepository: AuthRepository by lazy {
-        SupabaseAuthRepository(supabaseClient)
+        SupabaseAuthRepository(supabaseClient, signupPlatform = policyPlatform)
     }
 
     /**
@@ -83,8 +86,7 @@ class ShogiApp : Application() {
         ForceUpdatePolicyChecker(
             policyRepository = appPolicyRepository,
             settingsRepository = AppDatabase.settingsRepository(this),
-            // Debugはdev行を読み、本番行を変更せずに判定を確認する。
-            platform = resolvePolicyPlatform("android", BuildConfig.DEBUG),
+            platform = policyPlatform,
             currentBuild = ::currentBuildNumber,
         )
     }

@@ -14,13 +14,20 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 /**
  * Supabase Auth を使ったリポジトリ実装（匿名認証のみ）。
  * 共有 SupabaseClient（Auth + Postgrest プラグイン済み）を受け取る。
+ *
+ * @param signupPlatform 匿名アカウントに刻む値（resolvePolicyPlatformが返すもの）。
+ *   Why not 刻まない: 集計は個票を持たないため、Debugビルドが作ったアカウントを
+ *   あとから見分ける手掛かりが他に無い。匿名アカウントを作らない経路ではnull。
  */
 class SupabaseAuthRepository(
     private val supabase: SupabaseClient,
+    private val signupPlatform: String? = null,
 ) : AuthRepository {
 
     private val scope = CoroutineScope(SupervisorJob() + authIoDispatcher)
@@ -42,7 +49,9 @@ class SupabaseAuthRepository(
         )
 
     override suspend fun signInAnonymously(): Result<Unit> = runCatching {
-        supabase.auth.signInAnonymously()
+        supabase.auth.signInAnonymously(
+            data = signupPlatform?.let { buildJsonObject { put("platform", it) } },
+        )
     }
 
     override suspend fun accessToken(): String? = supabase.auth.currentAccessTokenOrNull()

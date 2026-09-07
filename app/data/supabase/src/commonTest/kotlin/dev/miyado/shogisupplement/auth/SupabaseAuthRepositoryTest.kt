@@ -5,6 +5,7 @@ import io.github.jan.supabase.auth.MemorySessionManager
 import io.github.jan.supabase.createSupabaseClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
+import io.ktor.client.engine.mock.toByteArray
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
@@ -15,7 +16,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
 
-/** [SupabaseAuthRepository.importSession]（引き継ぎコード復元のセッション差し替え）のテスト。 */
+/** [SupabaseAuthRepository] の匿名サインアップと、引き継ぎコード復元のセッション差し替えのテスト。 */
 class SupabaseAuthRepositoryTest {
 
     private val jsonHeaders = headersOf(HttpHeaders.ContentType, "application/json")
@@ -30,7 +31,17 @@ class SupabaseAuthRepositoryTest {
         }
     """.trimIndent()
 
-    private fun repository(engine: MockEngine): SupabaseAuthRepository {
+    private val anonymousSession = """
+        {
+          "access_token": "jwt-1",
+          "refresh_token": "rt-1",
+          "expires_in": 3600,
+          "token_type": "bearer",
+          "user": { "id": "user-1", "aud": "authenticated" }
+        }
+    """.trimIndent()
+
+    private fun repository(engine: MockEngine, signupPlatform: String? = null): SupabaseAuthRepository {
         val client = createSupabaseClient(supabaseUrl = "https://example.supabase.co", supabaseKey = "anon-key") {
             httpEngine = engine
             install(Auth) {
@@ -38,7 +49,7 @@ class SupabaseAuthRepositoryTest {
                 sessionManager = MemorySessionManager()
             }
         }
-        return SupabaseAuthRepository(client)
+        return SupabaseAuthRepository(client, signupPlatform = signupPlatform)
     }
 
     @Test
@@ -73,5 +84,41 @@ class SupabaseAuthRepositoryTest {
 
         assertTrue(result.isFailure)
         assertNull(repository.accessToken())
+    }
+
+    @Test
+    fun `匿名サインアップのリクエストにプラットフォームが載る`() = runTest {
+        var body: String? = null
+        val engine = MockEngine { request ->
+            body = request.body.toByteArray().decodeToString()
+            respond(content = ByteReadChannel(anonymousSession), status = HttpStatusCode.OK, headers = jsonHeaders)
+        }
+        val repository = repository(engine, signupPlatform = "ios-dev")
+
+        val result = repository.signInAnonymously()
+
+        assertTrue(result.isSuccess)
+        assertTrue(
+            body.orEmpty().contains("\"platform\"") && body.orEmpty().contains("ios-dev"),
+            "サインアップのbodyにplatformが入るはず（実際は $body）",
+        )
+    }
+
+    @Test
+    fun `プラットフォーム未指定なら余計なデータを送らない`() = runTest {
+        var body: String? = null
+        val engine = MockEngine { request ->
+            body = request.body.toByteArray().decodeToString()
+            respond(content = ByteReadChannel(anonymousSession), status = HttpStatusCode.OK, headers = jsonHeaders)
+        }
+        val repository = repository(engine)
+
+        val result = repository.signInAnonymously()
+
+        assertTrue(result.isSuccess)
+        assertTrue(
+            !body.orEmpty().contains("\"platform\""),
+            "platformを渡していないので送らないはず（実際は $body）",
+        )
     }
 }

@@ -47,7 +47,7 @@ class SupabaseServices(
         install(Postgrest)
     }
 
-    val authRepository: AuthRepository = SupabaseAuthRepository(client)
+    val authRepository: AuthRepository = SupabaseAuthRepository(client, signupPlatform = platform)
     val uploadRepository: UploadRepository = SupabaseUploadRepository(client, transferSecretStore)
     val uploadOrchestrator: UploadOrchestrator = UploadOrchestrator(
         authRepository = authRepository,
