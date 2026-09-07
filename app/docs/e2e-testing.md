@@ -85,6 +85,7 @@ Debugビルドは匿名サインアップのメタデータに `platform` を刻
 .maestro/run-ios.sh
 .maestro/run-ios.sh <UDID> app/kifu/src/jvmTest/resources/wars_game3.kif
 .maestro/run-android.sh
+ANDROID_SERIAL=emulator-5554 .maestro/run-android.sh   # 実機とエミュレータが同時に繋がっているとき
 
 # 単体のフロー
 maestro test --udid <シミュレータ/エミュレータのUDID> .maestro/ios/03_kif_import_via_clipboard.yaml
@@ -105,6 +106,18 @@ maestro test --platform android .maestro/android/
 ├── android/      # Androidエミュレータ向けフロー
 └── common/       # 両OS共通の後半ステップ。runFlowで各OSのフローから呼ぶ
 ```
+
+## 実行にかかる時間とホストの負荷
+
+Androidの4フローで3分半ほど（うち解析が2回）。エミュレータ上の端末内解析は116手で
+15秒前後で終わる。
+
+**ホストが混んでいると解析が桁で遅くなる**。実測でload average 4のとき16秒だったものが、
+load 9〜13のときは5分かけて56手までしか進まなかった。フローの待ち時間（120秒）に
+収まらず、レポート画面へ辿り着けずに落ちる。ビルドや他のエミュレータと同時に走らせない。
+
+AVDは`hw.gpu.enabled`を有効にしておく。無効だとVulkanがSwiftShader（CPU描画）になり、
+画面が白いまま・ANR・Maestroドライバの起動タイムアウトが出る。
 
 ## 既知の制約
 

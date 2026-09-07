@@ -7,14 +7,24 @@
 # Maestroのコマンドとして提供されていないため。
 #
 # 使い方: .maestro/run-android.sh [KIFファイル]
+#   端末が複数繋がっているときは ANDROID_SERIAL で選ぶ:
+#   ANDROID_SERIAL=emulator-5554 .maestro/run-android.sh
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 KIF_FILE="${1:-app/kifu/src/jvmTest/resources/wars_game3.kif}"
 DEST="/sdcard/Download/$(basename "${KIF_FILE}")"
 
+# エミュレータと実機が同時に繋がっていると、対象を決められずadbもMaestroも止まる。
+# adbはANDROID_SERIALを自前で読むが、Maestroは読まないので明示的に渡す。
+if [ -n "${ANDROID_SERIAL:-}" ]; then
+  MAESTRO_ARGS=(--udid "${ANDROID_SERIAL}")
+else
+  MAESTRO_ARGS=(--platform android)
+fi
+
 adb push "${KIF_FILE}" "${DEST}"
 adb shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE \
   -d "file://${DEST}"
 
-maestro test --platform android .maestro/android/
+maestro test "${MAESTRO_ARGS[@]}" .maestro/android/
