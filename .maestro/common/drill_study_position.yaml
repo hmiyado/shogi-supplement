@@ -1,0 +1,123 @@
+# 次の一手の結果画面で、盤の駒をタップすると検討に入れることを確認する。
+#
+# 並べなかった手を試す導線。レポート画面と同じで、駒をタップした局面から分岐を作れる。
+#
+# どのマスに駒があるかは局面によって変わる（出題は解析結果から選ばれる）。駒の無いマスを
+# タップすると手送りになるだけなので、動きにくい駒のマス（隅の香・桂、玉の初期位置）を
+# 順に叩いて、検討に入れたところで止める。
+#
+# 前提: ホーム画面から始めること。出題対象の悪手が1つ以上あること（「今日の1問」が出る）。
+# 終わったらホームへ戻す（後続のサブフローが同じ前提で始められるように）。
+#
+# 呼び出し元フローのenvで指定（iOS/Android両方から使うため固定しない）
+appId: ${APP_ID}
+---
+- extendedWaitUntil:
+    visible: "今日の1問"
+    timeout: 120000
+- tapOn: "今日の1問"
+- extendedWaitUntil:
+    visible: "次の1手は？"
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      text: "正解を見る"
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- waitForAnimationToEnd
+- tapOn: "正解を見る"
+- extendedWaitUntil:
+    visible: "あなたの手"
+    timeout: 30000
+
+- tapOn:
+    id: "board_sq_1_1"
+    optional: true
+- runFlow:
+    when:
+      notVisible: "検討中"
+    commands:
+      - tapOn:
+          id: "board_sq_9_1"
+          optional: true
+- runFlow:
+    when:
+      notVisible: "検討中"
+    commands:
+      - tapOn:
+          id: "board_sq_1_9"
+          optional: true
+- runFlow:
+    when:
+      notVisible: "検討中"
+    commands:
+      - tapOn:
+          id: "board_sq_9_9"
+          optional: true
+- runFlow:
+    when:
+      notVisible: "検討中"
+    commands:
+      - tapOn:
+          id: "board_sq_2_1"
+          optional: true
+- runFlow:
+    when:
+      notVisible: "検討中"
+    commands:
+      - tapOn:
+          id: "board_sq_8_1"
+          optional: true
+- runFlow:
+    when:
+      notVisible: "検討中"
+    commands:
+      - tapOn:
+          id: "board_sq_2_9"
+          optional: true
+- runFlow:
+    when:
+      notVisible: "検討中"
+    commands:
+      - tapOn:
+          id: "board_sq_8_9"
+          optional: true
+- runFlow:
+    when:
+      notVisible: "検討中"
+    commands:
+      - tapOn:
+          id: "board_sq_5_1"
+          optional: true
+- runFlow:
+    when:
+      notVisible: "検討中"
+    commands:
+      - tapOn:
+          id: "board_sq_5_9"
+          optional: true
+- extendedWaitUntil:
+    visible: "検討中"
+    timeout: 15000
+
+# 検討を抜けると結果画面に戻る。抜けられないと出題を続けられない。
+- tapOn: "終了"
+- extendedWaitUntil:
+    visible: "あなたの手"
+    timeout: 15000
+- extendedWaitUntil:
+    notVisible: "検討中"
+    timeout: 15000
+
+- scrollUntilVisible:
+    element:
+      text: "ホームへ"
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- waitForAnimationToEnd
+- tapOn: "ホームへ"
+- extendedWaitUntil:
+    visible: "将棋サプリ"
+    timeout: 30000

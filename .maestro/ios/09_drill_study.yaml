@@ -1,0 +1,12 @@
+# 次の一手の結果からレポートの検討へ入る導線を確認するフロー。
+#
+# 前提: 解析済みの棋譜があり、出題対象の悪手が1つ以上あること。
+# 03（KIF取込）のあとに流す。
+appId: dev.miyado.shogisupplement.ios.debug
+env:
+  APP_ID: dev.miyado.shogisupplement.ios.debug
+---
+- launchApp:
+    clearState: false
+- runFlow: subflows/handle_consent_onboarding.yaml
+- runFlow: ../common/drill_study_position.yaml

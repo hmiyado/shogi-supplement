@@ -38,6 +38,7 @@ maestro test "${MAESTRO_ARGS[@]}" .maestro/ios/03_kif_import_via_clipboard.yaml
 maestro test "${MAESTRO_ARGS[@]}" .maestro/ios/04_manual_kif_input.yaml
 maestro test "${MAESTRO_ARGS[@]}" .maestro/ios/06_manual_kif_side_cancel.yaml
 maestro test "${MAESTRO_ARGS[@]}" .maestro/ios/07_settings_theme.yaml
+maestro test "${MAESTRO_ARGS[@]}" .maestro/ios/09_drill_study.yaml
 # 05・08はclearStateでリセットするため、削除対象を用意するクリップボードの中身が
 # 引き続き必要（03と同じ前提）。
 maestro test "${MAESTRO_ARGS[@]}" .maestro/ios/05_game_delete.yaml
