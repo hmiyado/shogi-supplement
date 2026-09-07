@@ -63,5 +63,11 @@ sealed class DrillUiState {
         val flip: Boolean = false,
         /** 予測手のあとにユーザーが続けて入力した読み筋（USI手列をスペース区切り）。未入力ならnull。 */
         val readPv: String? = null,
+        /**
+         * ユーザーのラインの末尾からエンジンが返した続き。
+         * Why not blunderへ持たせない: blunder.bestPvは悪手レコードの最善手順で、
+         * 保存対象。ユーザーの手順の続きは今回の解答の話なので画面の状態に留める。
+         */
+        val userLineExtension: List<String> = emptyList(),
     ) : DrillUiState()
 }

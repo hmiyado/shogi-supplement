@@ -26,6 +26,18 @@ internal object PvExtensionRunner {
         repository: GameRepository,
         engineFactory: () -> Engine,
     ): String {
+        val legalPv1 = continuationFrom(sfenAtLineEnd, engineFactory)
+        val concatenated = PvExtender.concatenate(currentPvStr, legalPv1)
+        repository.updateBestPv(blunderId, concatenated)
+        return concatenated
+    }
+
+    /**
+     * 指定局面からエンジンの読み筋を取り、合法な範囲だけを返す。保存はしない。
+     * Why not extendを使い回す: あちらはbest_pvへ書くので最善手順が上書きされる。
+     * @throws IllegalPvMoveException PVが空または先頭手が非合法な場合。
+     */
+    fun continuationFrom(sfenAtLineEnd: String, engineFactory: () -> Engine): List<String> {
         val engine = engineFactory()
         try {
             val pv1 = engine.analyzeSfen(sfenAtLineEnd).firstOrNull()?.pv ?: emptyList()
@@ -34,14 +46,12 @@ internal object PvExtensionRunner {
                 throw IllegalPvMoveException()
             }
             // PV全体を再生し、最初の非合法手の手前で切り詰める。
-            // 2手目以降の非合法手を保存すると、局面再生と棋譜表記が壊れるため。
+            // 2手目以降の非合法手を残すと、局面再生と棋譜表記が壊れるため。
             val legalPv1 = truncateToLegalPrefix(sfenAtLineEnd, pv1)
             if (legalPv1.isEmpty()) {
                 throw IllegalPvMoveException()
             }
-            val concatenated = PvExtender.concatenate(currentPvStr, legalPv1)
-            repository.updateBestPv(blunderId, concatenated)
-            return concatenated
+            return legalPv1
         } finally {
             engine.quit()
         }

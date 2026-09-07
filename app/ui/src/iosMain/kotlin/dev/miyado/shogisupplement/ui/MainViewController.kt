@@ -945,6 +945,8 @@ private fun IosDrillScreen(
                         evalDisplay = evalDisplay,
                         pvExtState = pvExtState,
                         onExtendBestPv = vm::extendBestPv,
+                        onExtendUserLine = vm::extendUserLine,
+                        userLineExtension = s.userLineExtension,
                         onNext = vm::loadNextQuestion,
                         onBack = onBack,
                     )

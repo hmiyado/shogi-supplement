@@ -286,6 +286,10 @@ fun DrillResultContent(
     pvExtState: Map<Long, PvExtState> = emptyMap(),
     /** 読み筋延長コールバック（最善タブ末尾局面の SFEN を渡す）。DrillViewModel::extendBestPv 相当。 */
     onExtendBestPv: (sfenAtLineEnd: String) -> Unit = {},
+    /** ユーザーのラインの末尾からエンジンに続きを出させる。DrillViewModel::extendUserLine 相当。 */
+    onExtendUserLine: (sfenAtLineEnd: String) -> Unit = {},
+    /** ユーザーのラインへ足された、エンジンが返した続き。 */
+    userLineExtension: List<String> = emptyList(),
     onNext: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -318,7 +322,7 @@ fun DrillResultContent(
             ?: emptyList()
     }
     val kifuLines = listOf(
-        KifuLine(AppStrings.DRILL_VIEWER_TAB_YOUR, yourMoves),
+        KifuLine(AppStrings.DRILL_VIEWER_TAB_YOUR, yourMoves + userLineExtension),
         KifuLine(AppStrings.DRILL_VIEWER_TAB_BEST, bestMoves),
     )
     var activeLineIdx by remember { mutableIntStateOf(initialActiveLineIdx) }
@@ -420,11 +424,13 @@ fun DrillResultContent(
             currentMoveLabel = navLabelBase,
             evalSuffixText = evalSuffixText,
             evalSuffixSign = evalSuffixSign,
-            extendableLineIdx = 1,
+            // 開いているタブを延ばす。降参は自分の手が無いので、あなたの手タブは延ばせない。
+            extendableLineIdx = if (yourMoves.isEmpty()) 1 else activeLineIdx,
             extendState = extState,
             onExtendRequested = { sfenAtLineEnd ->
                 pendingExtendAdvance = true
-                onExtendBestPv(sfenAtLineEnd)
+                if (activeLineIdx == 0) onExtendUserLine(sfenAtLineEnd)
+                else onExtendBestPv(sfenAtLineEnd)
             },
         )
 

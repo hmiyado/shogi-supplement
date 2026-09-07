@@ -81,6 +81,34 @@ class DrillScreenScreenshotTest {
     }
 
     @Test
+    fun drillResult_userLineExtended() {
+        captureRoboImage(
+            filePath = "src/test/snapshots/drill_result_user_line_extended.png",
+            roborazziOptions = screenshotRoborazziOptions,
+        ) {
+            ShogiTheme {
+                Surface {
+                    DrillResultContent(
+                        result = DrillJudge.DrillResult(
+                            isCorrect = true,
+                            lossWp = 0.0,
+                            userMoveUsi = "2f6f",
+                            bestMoveUsi = "2f6f",
+                            reason = DrillJudge.Reason.MATCH_BEST,
+                        ),
+                        blunder = vrtBlunderRecord(),
+                        // bestPv（2手）の続きとして足された3手目を表示位置に置く。
+                        userLineExtension = listOf("2g2f"),
+                        initialPlyIndex = 3,
+                        onNext = {},
+                        onBack = {},
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
     fun drillResult_correct() {
         captureRoboImage(
             filePath = "src/test/snapshots/drill_result_correct.png",

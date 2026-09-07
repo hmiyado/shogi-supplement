@@ -243,6 +243,27 @@ class DrillViewModelTest {
         assertEquals(1, engine.quitCount)
     }
 
+    @Test
+    fun extendUserLine_ユーザーのラインだけを伸ばし最善手順は書き換えない() {
+        val repos = createDb()
+        val engine = FixedPvEngine(pv = listOf("2g2f"))
+        val vm = buildVmAtResult(repos, engineFactory = { engine })
+
+        val before = vm.state.value as DrillUiState.Result
+        assertEquals("7g7f 3c3d", before.blunder.bestPv)
+        assertEquals(emptyList<String>(), before.userLineExtension)
+
+        vm.extendUserLine(sfenAtLineEnd(before.blunder.bestPv!!))
+
+        val after = vm.state.value as DrillUiState.Result
+        assertEquals(listOf("2g2f"), after.userLineExtension)
+        assertEquals("最善手順は触らない", "7g7f 3c3d", after.blunder.bestPv)
+        val persisted = repos.game.getReports(after.blunder.gameId).first { it.id == after.blunder.id }
+        assertEquals("DBのbest_pvも書き換わらない", "7g7f 3c3d", persisted.bestPv)
+        assertTrue("延長成功後は pvExtState からエントリが消える", vm.pvExtState.value[after.blunder.id] == null)
+        assertEquals(1, engine.quitCount)
+    }
+
     // ─── 非合法PVの切り詰め ────────────────────────────────────────────────────
 
     @Test

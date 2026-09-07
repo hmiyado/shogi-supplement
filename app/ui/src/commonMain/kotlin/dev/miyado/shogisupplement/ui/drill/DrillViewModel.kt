@@ -319,6 +319,36 @@ class DrillViewModel(
         }
     }
 
+    /**
+     * ユーザーが並べたラインの末尾からエンジンに続きを出させる。
+     * Why not extendBestPvを使う: あちらはblunder.best_pvへ保存するため最善手順が上書きされる。
+     * @param sfenAtLineEnd ライン末尾局面のSFEN。
+     */
+    fun extendUserLine(sfenAtLineEnd: String) {
+        val resultState = _state.value as? DrillUiState.Result ?: return
+        val blunderId = resultState.blunder.id
+        if (_pvExtState.value[blunderId] is PvExtState.Loading) return
+        _pvExtState.update { it + (blunderId to PvExtState.Loading) }
+
+        viewModelScope.launch {
+            try {
+                val factory = engineFactory ?: error("engine not available")
+                val continuation = withContext(ioDispatcher) {
+                    PvExtensionRunner.continuationFrom(sfenAtLineEnd, factory)
+                }
+                val latest = _state.value
+                if (latest is DrillUiState.Result && latest.blunder.id == blunderId) {
+                    _state.value = latest.copy(
+                        userLineExtension = latest.userLineExtension + continuation,
+                    )
+                }
+                _pvExtState.update { it - blunderId }
+            } catch (_: Exception) {
+                _pvExtState.update { it + (blunderId to PvExtState.Error) }
+            }
+        }
+    }
+
     // ─── 内部ヘルパー ─────────────────────────────────────────────────────────
 
     /** 盤へ1手積む。予測手・読み筋のいずれも、判定や保存はせずここで盤面とmovesだけを進める。 */
