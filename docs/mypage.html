@@ -3,6 +3,25 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- このページは同じオリジンのlocalStorageへ棋譜の復号鍵を置く。鍵を読めるのは
+     このオリジンで動くスクリプトなので、実行を許す出所を絞る。
+     Firebase SDKは kento/vendor へ取り込み済み（docs/fetch-firebase.sh）。
+     reCAPTCHA Enterpriseの本体だけは仕組み上Googleから読むため、パスまで指定して許す。
+     'wasm-unsafe-eval' はCompose/WasmのコンパイルにCSP上必要（'unsafe-eval'は与えない）。
+     connect-srcは絞っていない: 接続先URLはビルド時の環境変数で決まり、ここに書くと
+     二重管理になる。localStorageを読む経路はスクリプトの実行であって接続ではない。 -->
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self';
+  script-src 'self' 'wasm-unsafe-eval' https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/;
+  frame-src https://www.google.com/recaptcha/;
+  style-src 'self' 'unsafe-inline';
+  img-src 'self' data: blob:;
+  font-src 'self';
+  connect-src *;
+  worker-src 'self' blob:;
+  object-src 'none';
+  base-uri 'self';
+">
 <title>マイページ — 将棋サプリ</title>
 <link rel="icon" href="assets/app-icon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="assets/style.css">
@@ -16,25 +35,13 @@
 <div id="composeApp">
   <!-- Compose Wasm本体(十数MB)の読み込み中はcomposeAppが空でページが無反応に見えるため、
        静的HTMLのローダーを置く。Composeはこのdivへcanvasを追加するので、
-       canvasの出現をもって役目を終える(下のscript)。 -->
+       canvasの出現をもって役目を終える（kento/mypage-loader.js）。 -->
   <div id="appLoading" class="app-loading" role="status">
     <div class="app-loading-spinner" aria-hidden="true"></div>
     <p>読み込んでいます…</p>
   </div>
 </div>
-<script>
-  (function () {
-    const container = document.getElementById("composeApp");
-    const loading = document.getElementById("appLoading");
-    const observer = new MutationObserver(() => {
-      if (container.querySelector("canvas")) {
-        loading.remove();
-        observer.disconnect();
-      }
-    });
-    observer.observe(container, { childList: true, subtree: true });
-  })();
-</script>
+<script src="kento/mypage-loader.js" defer></script>
 <footer>
   <p class="footer-nav">
     <a href="./index.html">将棋サプリ トップ</a>
