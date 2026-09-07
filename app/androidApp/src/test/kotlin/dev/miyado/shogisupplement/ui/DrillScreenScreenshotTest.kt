@@ -8,6 +8,9 @@ import dev.miyado.shogisupplement.drill.DrillJudge
 import dev.miyado.shogisupplement.ui.drill.DrillQuestionContent
 import dev.miyado.shogisupplement.ui.drill.DrillResultContent
 import dev.miyado.shogisupplement.ui.drill.DrillUiState
+import dev.miyado.shogisupplement.ui.report.StudyEvalState
+import dev.miyado.shogisupplement.ui.report.StudyOrigin
+import dev.miyado.shogisupplement.ui.report.StudyState
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -100,6 +103,43 @@ class DrillScreenScreenshotTest {
                         // bestPv（2手）の続きとして足された3手目を表示位置に置く。
                         userLineExtension = listOf("2g2f"),
                         initialPlyIndex = 3,
+                        onNext = {},
+                        onBack = {},
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun drillResult_study() {
+        captureRoboImage(
+            filePath = "src/test/snapshots/drill_result_study.png",
+            roborazziOptions = screenshotRoborazziOptions,
+        ) {
+            ShogiTheme {
+                Surface {
+                    DrillResultContent(
+                        result = DrillJudge.DrillResult(
+                            isCorrect = true,
+                            lossWp = 0.0,
+                            userMoveUsi = "2f6f",
+                            bestMoveUsi = "2f6f",
+                            reason = DrillJudge.Reason.MATCH_BEST,
+                        ),
+                        blunder = vrtBlunderRecord(),
+                        studyState = StudyState(
+                            baseSfen = vrtBlunderRecord().sfenBefore,
+                            moves = listOf("2f6f"),
+                            displayLine = listOf("2f6f"),
+                            chipEvalStates = listOf(StudyEvalState.None),
+                            origin = StudyOrigin(label = "開始局面", userCp = -320),
+                            originIsBestPv = false,
+                            originPlyIndex = 0,
+                            originSelectedIdx = null,
+                            originAbsolutePly = 40,
+                            flip = false,
+                        ),
                         onNext = {},
                         onBack = {},
                     )

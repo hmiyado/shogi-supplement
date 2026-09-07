@@ -14,6 +14,7 @@ import dev.miyado.shogisupplement.engine.Engine
 import dev.miyado.shogisupplement.engine.FailoverEngine
 import dev.miyado.shogisupplement.engine.IosEngineHost
 import dev.miyado.shogisupplement.engine.RemoteAnalysisRunner
+import dev.miyado.shogisupplement.engine.WasmStudyBridge
 import dev.miyado.shogisupplement.engine.WasmStudyEngine
 import dev.miyado.shogisupplement.judge.Judgement
 import dev.miyado.shogisupplement.judge.VerdictKind
@@ -64,7 +65,22 @@ object DrillDemoFactory {
             // 延長後のquitで共有エンジンを壊さない実装だけを返す。
             engineFactory = buildStudyEngineFactory(authRepository, analysisBaseUrl),
             drillAttemptSync = drillAttemptSync,
+            localEngineLikelyAvailable = studyLocalEngineLikelyAvailable(authRepository, analysisBaseUrl),
         )
+    }
+
+    /**
+     * 端末エンジンの準備が済むまで着手解析を自動発火させないための判定。準備前に発火すると
+     * 端末側が失敗し、待てば済むところでサーバーの解析を消費する。
+     */
+    private fun studyLocalEngineLikelyAvailable(
+        authRepository: AuthRepository?,
+        analysisBaseUrl: String?,
+    ): () -> Boolean {
+        if (IosEngineHost.ENGINE_LINKED || authRepository == null || analysisBaseUrl == null) {
+            return { true }
+        }
+        return { WasmStudyBridge.localReadyProvider?.invoke() ?: false }
     }
 
     /** 端末エンジンもサーバー設定もなければ生成時に失敗する。 */

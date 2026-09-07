@@ -52,10 +52,18 @@ import dev.miyado.shogisupplement.drill.DrillReadPvMatch
 import dev.miyado.shogisupplement.notation.JapaneseNotation
 import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.PvExtState
+import dev.miyado.shogisupplement.ui.common.ReportBackHandler
+import dev.miyado.shogisupplement.ui.common.SfenPosition
 import dev.miyado.shogisupplement.ui.common.ShogiBoardView
 import dev.miyado.shogisupplement.ui.common.ShogiSecondaryButton
 import dev.miyado.shogisupplement.ui.common.boardMaxHeight
 import dev.miyado.shogisupplement.ui.common.formatFixed1
+import dev.miyado.shogisupplement.ui.report.StudyController
+import dev.miyado.shogisupplement.ui.report.StudyNavRow
+import dev.miyado.shogisupplement.ui.report.StudyOrigin
+import dev.miyado.shogisupplement.ui.report.StudyPanel
+import dev.miyado.shogisupplement.ui.report.StudyPromoteDialog
+import dev.miyado.shogisupplement.ui.report.StudyState
 import dev.miyado.shogisupplement.ui.theme.ShipporiMinchoFamily
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
 import dev.miyado.shogisupplement.ui.theme.TextStyleDataMove
@@ -290,6 +298,10 @@ fun DrillResultContent(
     onExtendUserLine: (sfenAtLineEnd: String) -> Unit = {},
     /** ユーザーのラインへ足された、エンジンが返した続き。 */
     userLineExtension: List<String> = emptyList(),
+    /** 検討の状態。nullなら通常の閲覧表示。 */
+    studyState: StudyState? = null,
+    /** 検討の操作先。nullなら盤をタップしても検討に入らない。Why not 操作ごとのコールバックに開く: 素通しのラムダが12本増えるだけになる。 */
+    study: StudyController? = null,
     onNext: () -> Unit,
     onBack: () -> Unit,
 ) {
@@ -397,14 +409,55 @@ fun DrillResultContent(
         }
     }
 
-    // ▶延長: 「最善」タブ（インデックス1）のみ延長可能（ReportScreen の「最善の変化」タブと
-    // 同じ位置づけ）。「あなたの手」タブ（インデックス0）は延長対象にしない。
     val extState = pvExtState[blunder.id] ?: PvExtState.Idle
+
+    // 分岐元の形勢が判るのは出題局面だけ。手を進めた先の局面は評価を持たないので伏せる。
+    val originUserCp = if (navClampedPly != 0) {
+        null
+    } else {
+        blunder.cpBefore?.toInt()?.let { cp ->
+            val senteCp = if (blunder.side == "gote") -cp else cp
+            if (flip) -senteCp else senteCp
+        }
+    }
+    val startStudyAt: (String, ShogiSquare?, PieceType?) -> Unit = { baseSfen, square, handPiece ->
+        study?.startStudy(
+            baseSfen = baseSfen,
+            flip = flip,
+            originIsBestPv = activeLineIdx == 1,
+            originPlyIndex = plyIndex,
+            originSelectedIdx = null,
+            originAbsolutePly = blunder.ply.toInt() - 1 + navClampedPly,
+            origin = StudyOrigin(
+                label = navLabelBase + if (originUserCp != null && evalSuffixText != null) {
+                    " $evalSuffixText"
+                } else {
+                    ""
+                },
+                userCp = originUserCp,
+            ),
+            tappedSquare = square,
+            tappedHandPieceType = handPiece,
+        )
+    }
+    // 検討を抜けたら、始めたときに開いていたタブと手数へ戻す。
+    val exitStudy: () -> Unit = exit@{
+        val s = studyState ?: return@exit
+        study?.endStudy()
+        activeLineIdx = if (s.originIsBestPv) 1 else 0
+        plyIndex = s.originPlyIndex
+    }
+    ReportBackHandler(enabled = studyState != null) { exitStudy() }
 
     Column(
         // 盤は全幅にし、水平paddingは下の結果スクロール領域にのみ適用する。
         modifier = Modifier.fillMaxSize(),
     ) {
+        if (studyState != null) {
+            DrillStudyArea(studyState = studyState, study = study, onExitStudy = exitStudy)
+            return@Column
+        }
+
         // ── 固定エリア（KifuLineViewer: 盤 + タブ + ナビ）────────────────────
         KifuLineViewer(
             startSfen = sfenBefore,
@@ -432,6 +485,9 @@ fun DrillResultContent(
                 if (activeLineIdx == 0) onExtendUserLine(sfenAtLineEnd)
                 else onExtendBestPv(sfenAtLineEnd)
             },
+            // Why not 検討へ入るボタンを置く: 盤の操作で入れるなら、レポート画面と同じ入り方になる。
+            onPieceTapped = study?.let { { sfen, sq -> startStudyAt(sfen, sq, null) } },
+            onHandPieceTapped = study?.let { { sfen, pt -> startStudyAt(sfen, null, pt) } },
         )
 
         // ▶+で延長トリガー後、延長成功（最善タブの手列が伸びる）で自動的に1手進める
@@ -631,6 +687,57 @@ fun DrillResultContent(
             Spacer(Modifier.height(8.dp))
         }
     }
+}
+
+/**
+ * 結果画面の検討モード。盤・ナビ行・検討パネルはレポート画面と同じものを使う。
+ */
+@Composable
+private fun DrillStudyArea(
+    studyState: StudyState,
+    study: StudyController?,
+    onExitStudy: () -> Unit,
+) {
+    val studyCurrentSfen = remember(studyState.baseSfen, studyState.moves) {
+        computeSfenAtStepKifuViewer(studyState.baseSfen, studyState.moves, studyState.moves.size)
+    }
+    val lastMoveDest = remember(studyState.moves) {
+        studyState.moves.lastOrNull()?.let { usi ->
+            runCatching { ShogiMove.fromUsi(usi).to.let { it.file to it.rank } }.getOrNull()
+        }
+    }
+    ShogiBoardView(
+        sfen = studyCurrentSfen,
+        flip = studyState.flip,
+        lastMoveDest = lastMoveDest,
+        selectedFrom = studyState.selectedFrom,
+        selectedDropType = studyState.selectedDropType,
+        legalDestinations = studyState.legalDestinations,
+        onSquareTapped = { study?.onStudySquareTapped(it) },
+        onHandPieceTapped = { study?.onStudyHandPieceTapped(it) },
+        modifier = Modifier.fillMaxWidth().heightIn(max = boardMaxHeight()),
+    )
+    StudyPromoteDialog(
+        show = studyState.showPromoteDialog,
+        onDecision = { study?.onStudyPromoteDecision(it) },
+    )
+    StudyNavRow(
+        studyState = studyState,
+        studySenteToMove = remember(studyCurrentSfen) {
+            SfenPosition.parse(studyCurrentSfen).isBlackTurn
+        },
+        onStudyStepBack = { study?.studyStepBack() },
+        onStudyExit = onExitStudy,
+    )
+    StudyPanel(
+        studyState = studyState,
+        onChipTapped = { study?.onChipTapped(it) },
+        onBranchChipTapped = { study?.onBranchChipTapped(it) },
+        onBranchPopupDismiss = { study?.onBranchPopupDismiss() },
+        onBranchOptionSelected = { depth, moveUsi -> study?.onBranchOptionSelected(depth, moveUsi) },
+        onAnalyze = { study?.analyzeCurrentPosition() },
+        modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 4.dp),
+    )
 }
 
 /**

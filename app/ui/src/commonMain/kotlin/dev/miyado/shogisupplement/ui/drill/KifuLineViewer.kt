@@ -31,8 +31,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import dev.miyado.shogisupplement.board.PieceType
 import dev.miyado.shogisupplement.board.ShogiBoard
 import dev.miyado.shogisupplement.board.ShogiMove
+import dev.miyado.shogisupplement.board.ShogiSquare
 import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.NavIcons
 import dev.miyado.shogisupplement.ui.common.PvExtState
@@ -49,7 +51,7 @@ import dev.miyado.shogisupplement.ui.theme.shogiColors
  */
 data class KifuLine(val name: String, val moves: List<String>)
 
-/** 棋譜ビューア。 @param startSfen 開始SFEN。 @param lines 名前付き手順。 @param activeLineIdx 選択中ライン。 @param plyIndex 現在手数。 @param flip 後手視点表示。 @param boardMaxHeight 盤の最大高さ。 @param onLineSelected ライン選択処理。 @param onNavigate 手数移動処理。 @param lineEnabled ラインの有効状態。 @param currentMoveLabel 現在手ラベル。 @param currentMoveLabelIsBlunder 悪手表示。 @param onMoveListRequested 棋譜リスト処理。 @param evalSuffixText 評価値サフィックス。 @param evalSuffixSign 評価値の符号。 @param extendableLineIdx 延長対象ライン。 @param extendState 延長状態。 @param onExtendRequested 延長処理。 */
+/** 棋譜ビューア。 @param startSfen 開始SFEN。 @param lines 名前付き手順。 @param activeLineIdx 選択中ライン。 @param plyIndex 現在手数。 @param flip 後手視点表示。 @param boardMaxHeight 盤の最大高さ。 @param onLineSelected ライン選択処理。 @param onNavigate 手数移動処理。 @param lineEnabled ラインの有効状態。 @param currentMoveLabel 現在手ラベル。 @param currentMoveLabelIsBlunder 悪手表示。 @param onMoveListRequested 棋譜リスト処理。 @param evalSuffixText 評価値サフィックス。 @param evalSuffixSign 評価値の符号。 @param extendableLineIdx 延長対象ライン。 @param extendState 延長状態。 @param onExtendRequested 延長処理。 @param onPieceTapped 盤上の駒をタップしたときの処理（表示中のSFENを渡す）。渡さなければ手送りだけになる。 @param onHandPieceTapped 持ち駒をタップしたときの処理。 */
 @Composable
 fun KifuLineViewer(
     startSfen: String?,
@@ -70,6 +72,8 @@ fun KifuLineViewer(
     extendableLineIdx: Int? = null,
     extendState: PvExtState = PvExtState.Idle,
     onExtendRequested: ((sfenAtLineEnd: String) -> Unit)? = null,
+    onPieceTapped: ((sfen: String, square: ShogiSquare) -> Unit)? = null,
+    onHandPieceTapped: ((sfen: String, pieceType: PieceType) -> Unit)? = null,
 ) {
     val activeLine = lines.getOrNull(activeLineIdx)
     val movesInLine = activeLine?.moves ?: emptyList()
@@ -112,19 +116,28 @@ fun KifuLineViewer(
     val effectiveSuffixSign = if (showExtendIndicator && extendState is PvExtState.Error) 0 else evalSuffixSign
 
     Column(modifier = modifier) {
-        // 純閲覧ビューアはタップ列の左右で前後移動を選ぶ。
+        // Why not タップを全部呼び出し元へ渡す: 駒のないマスの左右は手送りに使っている。
         ShogiBoardView(
             sfen = currentSfen,
             flip = flip,
             lastMoveDest = lastMoveDest,
             onSquareTapped = { sq ->
-                val files = if (flip) (1..9).toList() else (9 downTo 1).toList()
-                val visualColIndex = files.indexOf(sq.file)
-                if (visualColIndex <= 4) {
-                    if (clampedPly > 0) onNavigate(clampedPly - 1)
+                val piece = SfenPosition.parse(currentSfen).boardPieces[sq.file to sq.rank]
+                if (onPieceTapped != null && piece != null) {
+                    onPieceTapped(currentSfen, sq)
                 } else {
-                    if (clampedPly < maxPly) onNavigate(clampedPly + 1)
+                    // 駒のないマス: 列位置（flip考慮）で左右半分を近似。
+                    val files = if (flip) (1..9).toList() else (9 downTo 1).toList()
+                    val visualColIndex = files.indexOf(sq.file)
+                    if (visualColIndex <= 4) {
+                        if (clampedPly > 0) onNavigate(clampedPly - 1)
+                    } else {
+                        if (clampedPly < maxPly) onNavigate(clampedPly + 1)
+                    }
                 }
+            },
+            onHandPieceTapped = onHandPieceTapped?.let { tapped ->
+                { pt -> tapped(currentSfen, pt) }
             },
             modifier = Modifier
                 .fillMaxWidth()

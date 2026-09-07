@@ -100,6 +100,9 @@ fun DrillScreen(
     val state by vm.state.collectAsState()
     val evalDisplay by vm.evalDisplay.collectAsState()
     val pvExtState by vm.pvExtState.collectAsState()
+    val studyState by vm.studyState.collectAsState()
+    // 画面を離れるときは検討を畳む（ViewModelは画面より長く生きる）。
+    val leave = { vm.endStudy(); onBack() }
 
     Scaffold { padding ->
         Column(
@@ -107,7 +110,7 @@ fun DrillScreen(
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            ShogiThinTopBar(title = AppStrings.DRILL_TITLE, onBack = onBack)
+            ShogiThinTopBar(title = AppStrings.DRILL_TITLE, onBack = leave)
             Box(Modifier.fillMaxSize()) {
             when (val s = state) {
                 is DrillUiState.Loading -> {
@@ -129,7 +132,7 @@ fun DrillScreen(
                                 style = MaterialTheme.typography.bodyMedium,
                             )
                             Spacer(Modifier.height(16.dp))
-                            Button(onClick = onBack) { Text(AppStrings.DRILL_BACK_HOME) }
+                            Button(onClick = leave) { Text(AppStrings.DRILL_BACK_HOME) }
                         }
                     }
                 }
@@ -159,8 +162,10 @@ fun DrillScreen(
                         onExtendBestPv = vm::extendBestPv,
                         onExtendUserLine = vm::extendUserLine,
                         userLineExtension = s.userLineExtension,
+                        studyState = studyState,
+                        study = vm.studyController,
                         onNext = vm::loadNextQuestion,
-                        onBack = onBack,
+                        onBack = leave,
                     )
                 }
             }

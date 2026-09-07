@@ -908,10 +908,13 @@ private fun IosDrillScreen(
     val state by vm.state.collectAsState()
     val evalDisplay by vm.evalDisplay.collectAsState()
     val pvExtState by vm.pvExtState.collectAsState()
+    val studyState by vm.studyState.collectAsState()
+    // 画面を離れるときは検討を畳む（ViewModelは画面より長く生きる）。
+    val leave = { vm.endStudy(); onBack() }
 
     Scaffold { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            ShogiThinTopBar(title = AppStrings.DRILL_TITLE, onBack = onBack)
+            ShogiThinTopBar(title = AppStrings.DRILL_TITLE, onBack = leave)
             when (val s = state) {
                 is DrillUiState.Loading -> {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -947,8 +950,10 @@ private fun IosDrillScreen(
                         onExtendBestPv = vm::extendBestPv,
                         onExtendUserLine = vm::extendUserLine,
                         userLineExtension = s.userLineExtension,
+                        studyState = studyState,
+                        study = vm.studyController,
                         onNext = vm::loadNextQuestion,
-                        onBack = onBack,
+                        onBack = leave,
                     )
                 }
             }

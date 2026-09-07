@@ -15,10 +15,13 @@ import dev.miyado.shogisupplement.db.GameRepository
 import dev.miyado.shogisupplement.db.SettingsRepository
 import dev.miyado.shogisupplement.drill.DrillJudge
 import dev.miyado.shogisupplement.drill.DrillRotation
+import dev.miyado.shogisupplement.engine.BlockingStudyEngine
 import dev.miyado.shogisupplement.engine.Engine
 import dev.miyado.shogisupplement.ui.common.PvExtState
 import dev.miyado.shogisupplement.ui.common.PvExtensionRunner
 import dev.miyado.shogisupplement.ui.common.defaultIoDispatcher
+import dev.miyado.shogisupplement.ui.report.StudyController
+import dev.miyado.shogisupplement.ui.report.StudyState
 import dev.miyado.shogisupplement.upload.DrillAttemptSync
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,6 +43,7 @@ class DrillViewModel(
     private val engineFactory: (() -> Engine)? = null,
     private val ioDispatcher: CoroutineDispatcher = defaultIoDispatcher,
     private val drillAttemptSync: DrillAttemptSync? = null,
+    private val localEngineLikelyAvailable: () -> Boolean = { true },
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<DrillUiState>(DrillUiState.Loading)
@@ -53,9 +57,37 @@ class DrillViewModel(
     private val _pvExtState = MutableStateFlow<Map<Long, PvExtState>>(emptyMap())
     val pvExtState: StateFlow<Map<Long, PvExtState>> = _pvExtState.asStateFlow()
 
+    /**
+     * 結果画面から入る検討。エンジンが無いビルドでは提供しない（評価が返らない盤だけを
+     * 出しても読みを確かめられない）。同期のエンジンは待てる実行文脈へ隔離して渡す。
+     */
+    val studyController: StudyController? = engineFactory?.let { factory ->
+        StudyController(
+            viewModelScope,
+            { BlockingStudyEngine(factory(), ioDispatcher) },
+            { _evalDisplay.value },
+            localEngineLikelyAvailable,
+        )
+    }
+    val studyState: StateFlow<StudyState?> =
+        studyController?.studyState ?: MutableStateFlow(null).asStateFlow()
+
     /** 現在の出題局面を保持する ShogiBoard（合法手計算用）。 */
     private var currentBoard: ShogiBoard? = null
     private var currentBlunder: BlunderRecord? = null
+
+    override fun onCleared() {
+        studyController?.dispose()
+        super.onCleared()
+    }
+
+    /**
+     * 検討を畳む。Androidのドリルは画面を離れてもViewModelが生き続けるため、離脱のたびに
+     * 呼ばないと次に開いたときへ検討状態が残る。
+     */
+    fun endStudy() {
+        studyController?.endStudy()
+    }
 
     init {
         viewModelScope.launch {
@@ -66,6 +98,7 @@ class DrillViewModel(
 
     /** 次の問題をロードする。周回決定則（解答回数少→◎○順→priority降順）で選択する。 */
     fun loadNextQuestion() {
+        studyController?.endStudy()
         _state.value = DrillUiState.Loading
         viewModelScope.launch {
             val (candidates, attemptCounts) = withContext(ioDispatcher) {
@@ -403,6 +436,7 @@ class DrillViewModel(
             engineFactory: (() -> Engine)? = null,
             ioDispatcher: CoroutineDispatcher = defaultIoDispatcher,
             drillAttemptSync: DrillAttemptSync? = null,
+            localEngineLikelyAvailable: () -> Boolean = { true },
         ): ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 DrillViewModel(
@@ -413,6 +447,7 @@ class DrillViewModel(
                     engineFactory = engineFactory,
                     ioDispatcher = ioDispatcher,
                     drillAttemptSync = drillAttemptSync,
+                    localEngineLikelyAvailable = localEngineLikelyAvailable,
                 )
             }
         }

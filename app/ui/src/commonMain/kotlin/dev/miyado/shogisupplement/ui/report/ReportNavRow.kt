@@ -58,109 +58,77 @@ internal fun ReportNavRow(
     canGoLast: Boolean,
     onLast: () -> Unit,
 ) {
-    val shogiColors = MaterialTheme.shogiColors
+    if (studyState != null) {
+        StudyNavRow(
+            studyState = studyState,
+            studySenteToMove = studySenteToMove,
+            onStudyStepBack = onStudyStepBack,
+            onStudyExit = onStudyExit,
+        )
+        return
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .then(
-                if (studyState != null) {
-                    Modifier.background(shogiColors.primarySoft)
-                } else {
-                    Modifier
-                },
-            )
             .padding(horizontal = 8.dp)
             .height(40.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (studyState != null) {
-            // 検討中の進む先はチップ列で選び、ナビ行は戻る操作と終了だけを提供する。
-            TextButton(
-                onClick = onStudyStepBack,
-                enabled = studyState.moves.isNotEmpty(),
-                modifier = Modifier.height(36.dp).widthIn(min = 36.dp),
-                contentPadding = PaddingValues(horizontal = 2.dp),
-            ) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "1手戻る") }
-            Text(
-                text = when {
-                    studyState.showTurnHint -> AppStrings.studyTurnHint(studySenteToMove)
-                    studyState.moves.isEmpty() -> AppStrings.STUDY_START_POSITION
-                    else -> AppStrings.studyPlyLabel(studyState.moves.size)
-                },
-                modifier = Modifier.weight(1f),
-                textAlign = TextAlign.Center,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.primary,
-                maxLines = 1,
-                overflow = TextOverflow.MiddleEllipsis,
-            )
-            TextButton(
-                onClick = {},
-                enabled = false,
-                modifier = Modifier.height(36.dp).widthIn(min = 36.dp),
-                contentPadding = PaddingValues(horizontal = 2.dp),
-            ) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "1手進む") }
-            TextButton(
-                onClick = onStudyExit,
-                modifier = Modifier.height(36.dp),
-            ) { Text(AppStrings.STUDY_END) }
-        } else {
-            // ── 非検討: |◀ ◀ 現在手（形勢）▾ ▶/▶+ ▶| ──────────────────
-            // ボタン実効幅を48dp→36dpに圧縮し、中央ラベルの幅を拡幅する
-            // （手数表示の見切れ対策）。
-            TextButton(
-                onClick = onFirst,
-                enabled = canGoFirst,
-                modifier = Modifier.height(36.dp).widthIn(min = 36.dp),
-                contentPadding = PaddingValues(horizontal = 2.dp),
-            ) { Icon(NavIcons.FirstPage, contentDescription = "最初へ") }
-            TextButton(
-                onClick = onPrev,
-                enabled = canGoPrev,
-                modifier = Modifier.height(36.dp).widthIn(min = 36.dp),
-                contentPadding = PaddingValues(horizontal = 2.dp),
-            ) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "1手戻る") }
-            Text(
-                text = navLabelAnnotated,
-                modifier = Modifier
-                    .weight(1f)
-                    .clickable(onClick = onLabelClick),
-                textAlign = TextAlign.Center,
-                style = MaterialTheme.typography.bodySmall,
-                maxLines = 1,
-                overflow = TextOverflow.MiddleEllipsis,
-            )
-            TextButton(
-                onClick = onNext,
-                enabled = canGoNext,
-                modifier = Modifier.height(36.dp).widthIn(min = 36.dp),
-                contentPadding = PaddingValues(horizontal = 2.dp),
-            ) {
-                if (showExtendIndicator) {
-                    val extendColor = if (canTriggerExtend) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.38f)
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                            contentDescription = "1手進む",
-                            tint = extendColor,
-                        )
-                        Text("+", color = extendColor)
-                    }
+        // ── 非検討: |◀ ◀ 現在手（形勢）▾ ▶/▶+ ▶| ──────────────────
+        // ボタン実効幅を48dp→36dpに圧縮し、中央ラベルの幅を拡幅する
+        // （手数表示の見切れ対策）。
+        TextButton(
+            onClick = onFirst,
+            enabled = canGoFirst,
+            modifier = Modifier.height(36.dp).widthIn(min = 36.dp),
+            contentPadding = PaddingValues(horizontal = 2.dp),
+        ) { Icon(NavIcons.FirstPage, contentDescription = "最初へ") }
+        TextButton(
+            onClick = onPrev,
+            enabled = canGoPrev,
+            modifier = Modifier.height(36.dp).widthIn(min = 36.dp),
+            contentPadding = PaddingValues(horizontal = 2.dp),
+        ) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "1手戻る") }
+        Text(
+            text = navLabelAnnotated,
+            modifier = Modifier
+                .weight(1f)
+                .clickable(onClick = onLabelClick),
+            textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.bodySmall,
+            maxLines = 1,
+            overflow = TextOverflow.MiddleEllipsis,
+        )
+        TextButton(
+            onClick = onNext,
+            enabled = canGoNext,
+            modifier = Modifier.height(36.dp).widthIn(min = 36.dp),
+            contentPadding = PaddingValues(horizontal = 2.dp),
+        ) {
+            if (showExtendIndicator) {
+                val extendColor = if (canTriggerExtend) {
+                    MaterialTheme.colorScheme.primary
                 } else {
-                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "1手進む")
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.38f)
                 }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = "1手進む",
+                        tint = extendColor,
+                    )
+                    Text("+", color = extendColor)
+                }
+            } else {
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "1手進む")
             }
-            TextButton(
-                onClick = onLast,
-                enabled = canGoLast,
-                modifier = Modifier.height(36.dp).widthIn(min = 36.dp),
-                contentPadding = PaddingValues(horizontal = 2.dp),
-            ) { Icon(NavIcons.LastPage, contentDescription = "最後へ") }
         }
+        TextButton(
+            onClick = onLast,
+            enabled = canGoLast,
+            modifier = Modifier.height(36.dp).widthIn(min = 36.dp),
+            contentPadding = PaddingValues(horizontal = 2.dp),
+        ) { Icon(NavIcons.LastPage, contentDescription = "最後へ") }
     }
 }
 
