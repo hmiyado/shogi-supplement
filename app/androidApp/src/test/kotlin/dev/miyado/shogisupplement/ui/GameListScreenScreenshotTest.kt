@@ -128,6 +128,25 @@ class GameListScreenScreenshotTest {
     }
 
     @Test
+    fun gameList_headerWithSummary() {
+        captureRoboImage(
+            filePath = "src/test/snapshots/game_list_header_with_summary.png",
+            roborazziOptions = screenshotRoborazziOptions,
+        ) {
+            ShogiTheme {
+                Surface {
+                    GameListScreen(
+                        games = gamesWithFullData(),
+                        blunderCounts = gamesWithFullData().associate { it.id to 4 },
+                        onBack = {},
+                        onGameClick = {},
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
     fun gameList_emptyGames() {
         captureRoboImage(
             filePath = "src/test/snapshots/game_list_empty.png",

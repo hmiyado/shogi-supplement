@@ -4,12 +4,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -39,6 +41,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.db.GameListFilter
+import dev.miyado.shogisupplement.db.GameListSummary
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.GameResultFilter
 import dev.miyado.shogisupplement.db.TIME_CONTROL_OTHER
@@ -49,6 +52,8 @@ import dev.miyado.shogisupplement.db.distinctSources
 import dev.miyado.shogisupplement.db.distinctTimeControls
 import dev.miyado.shogisupplement.db.hasResultData
 import dev.miyado.shogisupplement.db.hasUserSideData
+import dev.miyado.shogisupplement.strength.StrengthEstimator
+import dev.miyado.shogisupplement.strength.toDisplayString
 import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.exposeTestTags
 import dev.miyado.shogisupplement.ui.common.withMonoNumbers
@@ -69,16 +74,55 @@ fun GameListFilterHeader(
     totalCount: Int,
     onOpenFilter: () -> Unit,
     modifier: Modifier = Modifier,
+    summary: GameListSummary? = null,
 ) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        GameListFilterButton(activeCount = activeCount, onClick = onOpenFilter)
-        GameListCountText(shownCount = shownCount, totalCount = totalCount)
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            GameListFilterButton(activeCount = activeCount, onClick = onOpenFilter)
+            GameListCountText(shownCount = shownCount, totalCount = totalCount)
+        }
+        GameListSummaryRow(summary)
     }
 }
+
+/**
+ * 絞り込んだ集合の成績。条件を変えるたびに出たり消えたりすると一覧の先頭がずれるため、
+ * 出す内容が無くても行の高さは残す。
+ */
+@Composable
+private fun GameListSummaryRow(summary: GameListSummary?) {
+    val parts = summary?.let { s ->
+        buildList {
+            s.winRatePct?.let { add(AppStrings.gameListSummaryWinRate(it, s.wins, s.decidedGames)) }
+            s.blunderRatePct?.let {
+                add(AppStrings.gameListSummaryBlunderRate(it, s.blunders, s.userMoves))
+            }
+            if (s.ratings.isNotEmpty()) {
+                val estimate = StrengthEstimator.aggregate(s.ratings, s.userMoves)
+                add(AppStrings.gameListSummaryStrength(estimate.toDisplayString()))
+            }
+        }
+    }.orEmpty()
+    Box(
+        modifier = Modifier.fillMaxWidth().height(SUMMARY_ROW_HEIGHT_DP.dp),
+        contentAlignment = Alignment.CenterEnd,
+    ) {
+        if (parts.isNotEmpty()) {
+            Text(
+                parts.joinToString(AppStrings.GAME_LIST_SUMMARY_SEPARATOR),
+                style = TextStyleData,
+                color = MaterialTheme.shogiColors.ink2,
+                maxLines = 1,
+            )
+        }
+    }
+}
+
+private const val SUMMARY_ROW_HEIGHT_DP = 24
 
 @Composable
 private fun GameListFilterButton(

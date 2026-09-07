@@ -248,11 +248,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private suspend fun reloadGameList() {
         val games = withContext(Dispatchers.IO) { gameRepository.getAllGames() }
+        val blunderCounts = withContext(Dispatchers.IO) { gameRepository.getBlunderCounts() }
         val isLoggedIn = app.authRepository.currentUser.value != null
         val pendingCount = if (isLoggedIn) {
             withContext(Dispatchers.IO) { gameRepository.getNotUploadedGames().size }
         } else 0
-        _state.value = MainUiState.GameList(games, pendingUploadCount = pendingCount)
+        _state.value = MainUiState.GameList(
+            games,
+            blunderCounts = blunderCounts,
+            pendingUploadCount = pendingCount,
+        )
     }
 
     /**

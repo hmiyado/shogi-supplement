@@ -232,6 +232,10 @@ SELECT * FROM blunder_report WHERE id = ?;
 getDrillAttemptCountAll:
 SELECT blunder_report_id, COUNT(*) AS attempt_count FROM drill_attempt GROUP BY blunder_report_id;
 
+-- 棋譜一覧の絞り込み結果に対する悪手率の分子。1局ずつgetReportsを呼ぶとN回のクエリになる。
+getBlunderCountAll:
+SELECT game_id, COUNT(*) AS blunder_count FROM blunder_report GROUP BY game_id;
+
 -- 棋譜自体が未アップロード（drill_problemsが外部キーで要求するuploaded_games行が無い）だと
 -- 解答送信は必ず失敗する。JOINで対象から外し、その解答がattempted_at昇順の先頭に居座って
 -- 後続の送信可能な解答を止め続ける事態（head-of-line blocking）を避ける。

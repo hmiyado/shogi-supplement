@@ -189,6 +189,7 @@ fun MainApp(vm: MainViewModel, state: MainUiState) {
             BackHandler { vm.loadHome() }
             GameListScreen(
                 games = state.games,
+                blunderCounts = state.blunderCounts,
                 pendingUploadCount = state.pendingUploadCount,
                 isUploading = state.isUploading,
                 uploadResult = state.uploadResult,

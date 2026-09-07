@@ -631,6 +631,7 @@ private fun IosGameListScreenHost(
 
     GameListScreen(
         games = games,
+        blunderCounts = remember { repository.getBlunderCounts() },
         pendingUploadCount = pendingUploadCount,
         isUploading = isUploading,
         uploadResult = uploadResult,

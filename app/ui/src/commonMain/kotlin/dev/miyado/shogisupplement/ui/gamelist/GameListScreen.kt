@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.db.GameListFilter
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.filterGames
+import dev.miyado.shogisupplement.db.summarize
 import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.DeleteGameConfirmDialog
 import dev.miyado.shogisupplement.ui.common.GameCard
@@ -54,6 +55,8 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 @Composable
 fun GameListScreen(
     games: List<GameRecord>,
+    /** 棋譜IDごとの悪手件数。絞り込んだ集合の悪手率の分子。渡さなければ悪手率を出さない。 */
+    blunderCounts: Map<Long, Int> = emptyMap(),
     pendingUploadCount: Int = 0,
     isUploading: Boolean = false,
     uploadResult: String? = null,
@@ -174,6 +177,7 @@ fun GameListScreen(
                             draftFilter = filter
                             showFilterSheet = true
                         },
+                        summary = filteredGames.summarize(blunderCounts),
                     )
                 }
             }

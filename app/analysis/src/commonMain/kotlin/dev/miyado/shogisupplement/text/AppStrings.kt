@@ -277,6 +277,18 @@ object AppStrings {
     /** 絞り込み条件ボトムシートの適用ボタン（条件を確定して一覧に反映する）。 */
     const val GAME_LIST_FILTER_APPLY = "検索"
 
+    /** 絞り込んだ集合の成績。割合が独り歩きしないよう分母を必ず併記する。 */
+    fun gameListSummaryWinRate(pct: Int, wins: Int, decided: Int): String =
+        "勝率 ${pct}%(${wins}/${decided})"
+
+    fun gameListSummaryBlunderRate(pct: Int, blunders: Int, moves: Int): String =
+        "悪手率 ${pct}%(${blunders}/${moves})"
+
+    fun gameListSummaryStrength(display: String): String = "推定 $display"
+
+    /** 成績の各項目の区切り。 */
+    const val GAME_LIST_SUMMARY_SEPARATOR = " ／ "
+
     /** 選択して削除モードへ入るトップバーのアイコン。 */
     const val GAME_LIST_SELECT_TO_DELETE_ICON_DESC = "選択して削除"
     /** 選択して削除モードを抜けるトップバーのアイコン。 */

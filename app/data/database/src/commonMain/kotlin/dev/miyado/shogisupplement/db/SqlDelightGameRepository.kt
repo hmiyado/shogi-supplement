@@ -345,6 +345,13 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
             .map { it.toBlunderRecord() }
     }
 
+    override fun getBlunderCounts(): Map<Long, Int> {
+        return database.shogiSupplementQueries
+            .getBlunderCountAll()
+            .executeAsList()
+            .associate { it.game_id to it.blunder_count.toInt() }
+    }
+
     /**
      * best_pv をオンデマンド延長後に更新する。
      * @param blunderId blunder_report.id

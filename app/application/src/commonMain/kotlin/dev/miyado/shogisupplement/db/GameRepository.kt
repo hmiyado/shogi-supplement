@@ -115,6 +115,9 @@ interface GameRepository {
     /** 指定ゲームの悪手レポートリストを返す（ply昇順）。 */
     fun getReports(gameId: Long): List<BlunderRecord>
 
+    /** 棋譜IDごとの悪手件数。棋譜一覧の絞り込み結果に対する悪手率の分子。 */
+    fun getBlunderCounts(): Map<Long, Int>
+
     /**
      * best_pv をオンデマンド延長後に更新する。
      * @param blunderId blunder_report.id

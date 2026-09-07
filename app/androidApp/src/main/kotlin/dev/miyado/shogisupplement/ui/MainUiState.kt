@@ -72,6 +72,8 @@ sealed class MainUiState {
     /** 棋譜一覧画面。 */
     data class GameList(
         val games: List<GameRecord>,
+        /** 棋譜IDごとの悪手件数。絞り込んだ集合の悪手率の分子。 */
+        val blunderCounts: Map<Long, Int> = emptyMap(),
         /** ログイン中かつ未アップロードがある場合のカウント（0 = ボタン非表示）。 */
         val pendingUploadCount: Int = 0,
         val isUploading: Boolean = false,
