@@ -1,0 +1,8 @@
+# 設定でテーマを変えると、設定画面を出た先にも反映されることを確認するフロー。
+appId: dev.miyado.shogisupplement
+env:
+  APP_ID: dev.miyado.shogisupplement
+---
+- launchApp:
+    clearState: false
+- runFlow: ../common/settings_theme.yaml

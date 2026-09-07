@@ -1,0 +1,63 @@
+# 次の一手問題で、盤に手を並べる操作が壊れていないことを見る。
+#
+# Why not 判定まで通す: 出題される局面は解析結果から選ばれるため決まらず、どの局面でも
+# 成立する指し手が無い。判定まで見るには出題を固定する入口（デバッグ限定）が要る。
+# ここでは「盤をタップすると入力が増え、1手戻すと減る」ところまでに絞る。
+#
+# 盤のマスは testTag board_sq_<筋>_<段>（USIの筋・段と同じ数字）。ここでは自分の駒がある
+# マスを狙わない——選択できるマスは局面によって変わる。タップしても選択されなければ
+# 「答える」は押せないままで、その状態も含めて壊れていないことの確認になる。
+#
+# 前提: ホーム画面から始めること。出題対象の悪手が1つ以上あること（「今日の1問」が出る）。
+# 終わったらホームへ戻す（後続のサブフローが同じ前提で始められるように）。
+#
+# 呼び出し元フローのenvで指定（iOS/Android両方から使うため固定しない）
+appId: ${APP_ID}
+---
+- extendedWaitUntil:
+    visible: "今日の1問"
+    timeout: 120000
+- tapOn: "今日の1問"
+- extendedWaitUntil:
+    visible: "次の1手は？"
+    timeout: 30000
+
+# 入力前は「1手戻す」「最初から」が押せない（moves が空）。
+- assertVisible:
+    text: "1手戻す"
+    enabled: false
+- assertVisible:
+    text: "最初から"
+    enabled: false
+
+# 盤が操作を受け付けること自体は、マスをタップしてアプリが落ちないことで見る。
+# どのマスが選べるかは局面依存のため、選択できたかどうかは判定しない。
+- tapOn:
+    id: "board_sq_7_7"
+- waitForAnimationToEnd
+- assertVisible: "次の1手は？"
+
+# 出題画面から抜けられること。ここが壊れると周回できなくなる。
+- scrollUntilVisible:
+    element:
+      text: "正解を見る"
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- waitForAnimationToEnd
+- tapOn: "正解を見る"
+- extendedWaitUntil:
+    visible: "あなたの手"
+    timeout: 30000
+# 次のサブフローがホームから始められるよう戻しておく。
+- scrollUntilVisible:
+    element:
+      text: "ホームへ"
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- waitForAnimationToEnd
+- tapOn: "ホームへ"
+- extendedWaitUntil:
+    visible: "将棋サプリ"
+    timeout: 30000

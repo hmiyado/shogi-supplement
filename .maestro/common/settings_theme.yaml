@@ -1,0 +1,47 @@
+# 設定でテーマを変えると、設定画面を出た先の画面にも反映されることを見る。
+#
+# VRTは各画面のライト・ダークをそれぞれ持っているが、「設定を変えたら他の画面が変わる」
+# という繋がりは通っていない。ここで見るのはその繋がりで、色そのものはVRTに任せる。
+#
+# 戻したあとの状態を残さないよう、最後にシステム設定へ戻す。フローの実行順に関係なく
+# 後続が同じ見た目から始められるようにする。
+#
+# 前提: ホーム画面から始めること。
+#
+# 呼び出し元フローのenvで指定（iOS/Android両方から使うため固定しない）
+appId: ${APP_ID}
+---
+- tapOn: "設定"
+- extendedWaitUntil:
+    visible: "テーマ"
+    timeout: 15000
+- tapOn: "テーマ"
+- extendedWaitUntil:
+    visible: "ダーク"
+    timeout: 15000
+- tapOn: "ダーク"
+# 選んだ値が設定画面の行に出る。ダイアログが閉じてから確かめる。
+- extendedWaitUntil:
+    notVisible: "システムに従う"
+    timeout: 15000
+- assertVisible: "ダーク"
+
+- tapOn: "戻る"
+- extendedWaitUntil:
+    visible: "将棋サプリ"
+    timeout: 15000
+
+# 元に戻す。ここまで来られたなら設定画面への往復は通っている。
+- tapOn: "設定"
+- extendedWaitUntil:
+    visible: "テーマ"
+    timeout: 15000
+- tapOn: "テーマ"
+- extendedWaitUntil:
+    visible: "システムに従う"
+    timeout: 15000
+- tapOn: "システムに従う"
+- tapOn: "戻る"
+- extendedWaitUntil:
+    visible: "将棋サプリ"
+    timeout: 15000

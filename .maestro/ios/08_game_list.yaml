@@ -1,0 +1,22 @@
+# 棋譜一覧の絞り込みと、選択して複数削除を確認するフロー。
+#
+# 削除まで通すため clearState: true で始める（05と同じ理由。一覧に他の棋譜が残っていると
+# どれが消えたのか判定できない）。取り込む棋譜はクリップボードのKIF1局だけ。
+#
+# 前提: OSクリップボードに有効なKIFが入っていること。投入込みの実行入口は .maestro/run-ios.sh。
+appId: dev.miyado.shogisupplement.ios.debug
+env:
+  APP_ID: dev.miyado.shogisupplement.ios.debug
+---
+- launchApp:
+    clearState: true
+- runFlow: subflows/handle_consent_onboarding.yaml
+- tapOn: "棋譜を追加する"
+- tapOn: "クリップボードから貼り付け"
+- runFlow: subflows/dismiss_paste_permission_alert.yaml
+- runFlow: ../common/select_gote_and_start_analysis.yaml
+- runFlow: ../common/wait_for_analysis_report.yaml
+- tapOn: "戻る"
+- runFlow: ../common/game_list_filter.yaml
+- tapOn: "戻る"
+- runFlow: ../common/game_list_multi_delete.yaml

@@ -1,0 +1,9 @@
+# 設定でテーマを変えると、設定画面を出た先にも反映されることを確認するフロー。
+appId: dev.miyado.shogisupplement.ios.debug
+env:
+  APP_ID: dev.miyado.shogisupplement.ios.debug
+---
+- launchApp:
+    clearState: false
+- runFlow: subflows/handle_consent_onboarding.yaml
+- runFlow: ../common/settings_theme.yaml

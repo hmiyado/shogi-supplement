@@ -1,0 +1,32 @@
+# 棋譜一覧の絞り込みと、選択して複数削除を確認するフロー。
+#
+# 削除まで通すため clearState: true で始める（05と同じ理由。一覧に他の棋譜が残っていると
+# どれが消えたのか判定できない）。
+#
+# 前提: 対象のKIFファイルがエミュレータの /sdcard/Download/ にあり、メディアスキャナに
+# 認識されていること。配置込みの実行入口は .maestro/run-android.sh。
+appId: dev.miyado.shogisupplement
+env:
+  APP_ID: dev.miyado.shogisupplement
+---
+- launchApp:
+    clearState: true
+- tapOn: "棋譜を追加する"
+- tapOn: "ファイルから選ぶ"
+- tapOn:
+    id: "com.google.android.documentsui:id/option_menu_search"
+- inputText: "wars_game3"
+- tapOn: "wars_game3.kif"
+- runFlow: ../common/select_gote_and_start_analysis.yaml
+- extendedWaitUntil:
+    visible: "Allow|許可"
+    timeout: 5000
+    optional: true
+- tapOn:
+    text: "Allow|許可"
+    optional: true
+- runFlow: ../common/wait_for_analysis_report.yaml
+- tapOn: "戻る"
+- runFlow: ../common/game_list_filter.yaml
+- tapOn: "戻る"
+- runFlow: ../common/game_list_multi_delete.yaml

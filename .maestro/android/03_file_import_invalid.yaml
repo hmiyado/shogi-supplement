@@ -1,0 +1,27 @@
+# KIFでないファイルを取り込んだとき、エラーダイアログが出て先へ進まないことを確認するフロー。
+#
+# Androidはファイル取込のパース失敗を黙って進めていたのを、両OSとも失敗として扱うよう
+# 変えた（KIF取り込みの共通化）。iOSの02が見ているのはクリップボードが空のケースで、
+# ファイルのパース失敗とは経路が違う。
+#
+# 前提: KIFでないファイルがエミュレータの /sdcard/Download/ にあり、メディアスキャナに
+# 認識されていること。配置込みの実行入口は .maestro/run-android.sh。
+appId: dev.miyado.shogisupplement
+---
+- launchApp:
+    clearState: false
+- tapOn: "棋譜を追加する"
+- tapOn: "ファイルから選ぶ"
+- tapOn:
+    id: "com.google.android.documentsui:id/option_menu_search"
+- inputText: "not_a_kif"
+- tapOn: "not_a_kif.txt"
+- extendedWaitUntil:
+    visible: "選択したファイルに棋譜（KIF）が見つかりませんでした"
+    timeout: 30000
+# 閉じたあとも取込の入口に戻れる（先へ進んでいない）。
+- tapOn: "キャンセル"
+- extendedWaitUntil:
+    notVisible: "選択したファイルに棋譜（KIF）が見つかりませんでした"
+    timeout: 15000
+- assertVisible: "棋譜を追加する"

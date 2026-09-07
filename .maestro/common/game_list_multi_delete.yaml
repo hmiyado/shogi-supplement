@@ -1,0 +1,51 @@
+# 棋譜一覧の「選択して削除」。選択モードへ入り、カードを選び、まとめて削除するところまで。
+#
+# 選択モードはトップバーが差し替わる状態を持つ。ここが壊れると一覧から抜けられなくなるが、
+# VRTはスナップショット1枚ずつなので遷移が繋がっていることは見えない。
+#
+# 前提: ホーム画面から始めること。将棋ウォーズの棋譜が1局だけあること
+#   （複数あるとどれが消えたのか判定できない。呼び出し元がclearStateで揃える）。
+#
+# 呼び出し元フローのenvで指定（iOS/Android両方から使うため固定しない）
+appId: ${APP_ID}
+---
+- extendedWaitUntil:
+    visible: "すべて見る"
+    timeout: 30000
+- tapOn: "すべて見る"
+- extendedWaitUntil:
+    visible: "棋譜一覧"
+    timeout: 15000
+
+- tapOn: "選択して削除"
+# 選択前は0件。トップバーが選択モードへ差し替わったことをここで確かめる。
+- extendedWaitUntil:
+    visible: "0件選択中"
+    timeout: 15000
+
+# カードは対局サービス名（無ければファイル名）で始まるタイトル行を持つ。手数や日付の行は
+# 分かれているため、行ごとの表記ではなくタイトルで指す。
+- scrollUntilVisible:
+    element:
+      text: ".*将棋ウォーズ.*"
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- waitForAnimationToEnd
+- tapOn: ".*将棋ウォーズ.*"
+- extendedWaitUntil:
+    visible: "1件選択中"
+    timeout: 15000
+
+- tapOn: "棋譜を削除"
+- extendedWaitUntil:
+    visible: "この棋譜を削除しますか？"
+    timeout: 15000
+- tapOn: "削除する"
+- extendedWaitUntil:
+    notVisible: "この棋譜を削除しますか？"
+    timeout: 30000
+# 消えると一覧に出すものが無くなり、選択モードも抜ける。
+- extendedWaitUntil:
+    notVisible: "1件選択中"
+    timeout: 15000

@@ -1,0 +1,60 @@
+# 棋譜一覧の絞り込み。ホームから一覧を開き、条件を適用して件数が変わり、解除で戻ることを見る。
+#
+# 条件は取り込むKIFの中身に依存しない「期間」を使う。「直近7日」なら今日取り込んだ1局が
+# 必ず残るので、0件になって後続が続けられない事態を避けられる。
+#
+# 一覧のカードは画面外にあることがある。assertVisibleは階層にあれば通り、そのままタップすると
+# 空振りするため、押す要素はscrollUntilVisibleで見える位置へ出す。
+#
+# 前提: ホーム画面から始めること。解析済みの棋譜が1局以上あること。
+#
+# 呼び出し元フローのenvで指定（iOS/Android両方から使うため固定しない）
+appId: ${APP_ID}
+---
+- extendedWaitUntil:
+    visible: "すべて見る"
+    timeout: 30000
+- tapOn: "すべて見る"
+- extendedWaitUntil:
+    visible: "棋譜一覧"
+    timeout: 15000
+- assertVisible: "絞り込み"
+
+- tapOn: "絞り込み"
+- extendedWaitUntil:
+    visible: "絞り込み条件"
+    timeout: 15000
+# シートは全開で開く（skipPartiallyExpanded）。条件側だけがスクロールするので、
+# 期間の軸まで送ってから押す。
+- scrollUntilVisible:
+    element:
+      text: "直近7日"
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- waitForAnimationToEnd
+- tapOn: "直近7日"
+- tapOn: "検索"
+- extendedWaitUntil:
+    notVisible: "絞り込み条件"
+    timeout: 15000
+
+# 見ているのはシートの開閉と条件の選択が通ること。**適用された結果は判定していない**。
+#
+# Why not 件数表示の変化を見る: 絞り込みは取込日で効くので、いま取り込んだ棋譜は
+# 「直近7日」に必ず残る。1局しか無い状態では絞り込んでも全件と一致し、表記は「N件」の
+# まま変わらない。日付の違う棋譜を複数用意しないと変化が起きない。
+#
+# Why not チップの選択状態を見る: FilterChipのselectedはiOSのアクセシビリティツリーに
+# 出てこず、絞り込みボタンのバッジも子要素として拾えなかった（どちらも実測）。
+- tapOn: "絞り込み"
+- extendedWaitUntil:
+    visible: "絞り込み条件"
+    timeout: 15000
+
+# 解除はシートの中のボタン。押すとシートごと閉じ、条件が消える。
+- tapOn: "絞り込みを解除"
+- extendedWaitUntil:
+    notVisible: "絞り込み条件"
+    timeout: 15000
+- assertVisible: "絞り込み"

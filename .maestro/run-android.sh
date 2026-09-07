@@ -27,4 +27,11 @@ adb push "${KIF_FILE}" "${DEST}"
 adb shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE \
   -d "file://${DEST}"
 
+# 03（不正ファイルの取込）用。KIFとして読めないファイルをピッカーから選べる場所に置く。
+INVALID_DEST="/sdcard/Download/not_a_kif.txt"
+printf 'this is not a kif\n' > "${TMPDIR:-/tmp}/not_a_kif.txt"
+adb push "${TMPDIR:-/tmp}/not_a_kif.txt" "${INVALID_DEST}"
+adb shell am broadcast -a android.intent.action.MEDIA_SCANNER_SCAN_FILE \
+  -d "file://${INVALID_DEST}"
+
 maestro test "${MAESTRO_ARGS[@]}" .maestro/android/
