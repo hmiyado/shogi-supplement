@@ -50,6 +50,7 @@ import dev.miyado.shogisupplement.db.distinctTimeControls
 import dev.miyado.shogisupplement.db.hasResultData
 import dev.miyado.shogisupplement.db.hasUserSideData
 import dev.miyado.shogisupplement.text.AppStrings
+import dev.miyado.shogisupplement.ui.common.exposeTestTags
 import dev.miyado.shogisupplement.ui.common.withMonoNumbers
 import dev.miyado.shogisupplement.ui.theme.TextStyleData
 import dev.miyado.shogisupplement.ui.theme.shogiColors
@@ -148,6 +149,7 @@ fun GameListFilterSheet(
     }
     // 既定の半開きだと軸が5本を超えた時点でボタン行がシートの外に出る。全開で開く。
     ModalBottomSheet(
+        modifier = Modifier.exposeTestTags(),
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
     ) {

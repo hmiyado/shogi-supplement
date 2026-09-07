@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.text.AppStrings
+import dev.miyado.shogisupplement.ui.common.exposeTestTags
 
 /** 対局情報ダイアログから開く、対局者名だけの編集ダイアログ。 */
 @Composable
@@ -32,6 +33,7 @@ internal fun EditPlayersDialog(
     var gote by remember(show) { mutableStateOf(goteName.orEmpty()) }
 
     AlertDialog(
+        modifier = Modifier.exposeTestTags(),
         onDismissRequest = onDismiss,
         title = { Text(AppStrings.EDIT_PLAYERS_DIALOG_TITLE) },
         text = {
