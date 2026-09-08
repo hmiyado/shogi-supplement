@@ -95,6 +95,7 @@ class SupabaseGameDownloadServiceTest {
         override fun updateGamePlayers(gameId: Long, senteName: String?, goteName: String?) = error("not used")
         override fun resetAllUploadedAt() = error("not used")
         override fun getReports(gameId: Long): List<BlunderRecord> = error("not used")
+        override fun getBlunderCounts(): Map<Long, Int> = error("not used")
         override fun updateBestPv(blunderId: Long, newPv: String) = error("not used")
         override fun savePositionEvals(gameId: Long, rows: List<PositionEvalRow>) = error("not used")
         override fun getPositionEvals(gameId: Long): List<PositionEvalRow> = error("not used")

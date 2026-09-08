@@ -77,6 +77,7 @@ class ReportViewModelStudyResetTest {
         override fun updateGamePlayers(gameId: Long, senteName: String?, goteName: String?) = Unit
         override fun resetAllUploadedAt() = Unit
         override fun getReports(gameId: Long): List<BlunderRecord> = emptyList()
+        override fun getBlunderCounts(): Map<Long, Int> = emptyMap()
         override fun updateBestPv(blunderId: Long, newPv: String) = Unit
         override fun savePositionEvals(gameId: Long, rows: List<PositionEvalRow>) = Unit
         override fun getPositionEvals(gameId: Long): List<PositionEvalRow> = emptyList()
