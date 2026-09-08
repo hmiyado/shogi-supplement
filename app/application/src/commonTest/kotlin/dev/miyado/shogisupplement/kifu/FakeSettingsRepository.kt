@@ -33,8 +33,8 @@ class FakeSettingsRepository(
         ratingRule: String?,
         serviceAccountName: String?,
     ) {
-        service?.let { this.service = it }
-        ratingRaw?.let { this.ratingRaw = it }
+        this.service = service ?: "lishogi"
+        this.ratingRaw = ratingRaw ?: 0
         this.ratingRule = ratingRule
         this.savedServiceAccountName = serviceAccountName
         hasSavedRatingSettings = true

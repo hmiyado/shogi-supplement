@@ -1,5 +1,6 @@
 package dev.miyado.shogisupplement.kifu
 
+import dev.miyado.shogisupplement.rating.ShogiRank
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -16,6 +17,19 @@ import kotlin.test.assertTrue
 class KifImportControllerTest {
 
     private val kif = """
+        手合割：平手
+        先手：miyado
+        後手：相手
+        手数----指手---------消費時間--
+        1 ７六歩(77)
+        2 ３四歩(33)
+        3 投了
+    """.trimIndent()
+
+    // 出典と持ち時間が読める棋譜。段級位はルール別の申告のため、この2つが無いと引けない。
+    private val warsKif = """
+        場所：将棋ウォーズ
+        持ち時間：10分切れ負け
         手合割：平手
         先手：miyado
         後手：相手
@@ -155,6 +169,38 @@ class KifImportControllerTest {
 
         assertNull(recorder.last.ratingService, "既定値を申告値として記録しないはず")
         assertNull(recorder.last.ratingRaw)
+        assertNull(recorder.last.ratingRule)
+    }
+
+    @Test
+    fun `段級位制のサービスでは棋譜のルールで申告段級位を記録する`() {
+        val settings = FakeSettingsRepository(serviceAccounts = mutableMapOf("shogi_wars" to "miyado"))
+        settings.saveRatingSettings("shogi_wars", null, null, "miyado")
+        settings.saveServiceRank("shogi_wars", "10min", ShogiRank.Dan(1).toRaw())
+        settings.saveServiceRank("shogi_wars", "3min", ShogiRank.Kyu(2).toRaw())
+        val (controller, recorder) = build(settings)
+
+        controller.beginFromFile("game.kif", warsKif)
+        controller.confirmSide("sente", skipNext = false)
+
+        assertEquals("shogi_wars", recorder.last.ratingService)
+        assertEquals(ShogiRank.Dan(1).toRaw().toLong(), recorder.last.ratingRaw)
+        assertEquals("10min", recorder.last.ratingRule)
+    }
+
+    @Test
+    fun `ルールを判定できない棋譜にはサービス名だけ記録する`() {
+        val settings = FakeSettingsRepository(serviceAccounts = mutableMapOf("shogi_wars" to "miyado"))
+        settings.saveRatingSettings("shogi_wars", null, null, "miyado")
+        settings.saveServiceRank("shogi_wars", "10min", ShogiRank.Dan(1).toRaw())
+        val (controller, recorder) = build(settings)
+
+        // 出典ヘッダが無く、どのルールの対局か決められない棋譜。
+        controller.beginFromFile("game.kif", kif)
+        controller.confirmSide("sente", skipNext = false)
+
+        assertEquals("shogi_wars", recorder.last.ratingService)
+        assertNull(recorder.last.ratingRaw, "段級位制で単一値の0を記録しないはず")
         assertNull(recorder.last.ratingRule)
     }
 

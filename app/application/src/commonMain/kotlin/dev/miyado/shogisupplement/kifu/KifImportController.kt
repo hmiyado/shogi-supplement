@@ -2,6 +2,7 @@ package dev.miyado.shogisupplement.kifu
 
 import dev.miyado.shogisupplement.db.SettingsRepository
 import dev.miyado.shogisupplement.db.saveRatingSettingsBundle
+import dev.miyado.shogisupplement.rating.declaredRankForGame
 import dev.miyado.shogisupplement.text.AppStrings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,13 +13,22 @@ import kotlinx.coroutines.launch
 /** KIFの取込元。エラー文言の出し分けと、ファイル名の決め方が分かれる。 */
 enum class KifOrigin { FILE, CLIPBOARD, MANUAL }
 
-/** 検証を通ったKIFと、そこから読み取れた対局者名。 */
+/**
+ * 検証を通ったKIFと、そこから読み取れた値。
+ *
+ * @property sourcePlace 出典サービス（[KifuSource.wireValue]）。
+ * @property timeControlRaw 「持ち時間」ヘッダの原文。
+ * @property byoyomiRaw 「秒読み」ヘッダの原文。
+ */
 data class ValidatedKif(
     val kifText: String,
     val fileName: String,
     val senteName: String?,
     val goteName: String?,
     val origin: KifOrigin,
+    val sourcePlace: String?,
+    val timeControlRaw: String?,
+    val byoyomiRaw: String?,
 )
 
 /** 保存に必要な確定値。 */
@@ -99,7 +109,18 @@ class KifImportController(
         // 固有の理由は保存時にしか出せず、ここで潰すと汎用の文言に置き換わってしまう。
         val headers = runCatching { KifParser().parse(text).headers }.getOrElse { emptyMap() }
         val (senteName, goteName) = KifuDecomposer.resolvePlayerNames(text, headers)
-        proceedAfterValidated(ValidatedKif(text, fileName, senteName, goteName, origin))
+        proceedAfterValidated(
+            ValidatedKif(
+                kifText = text,
+                fileName = fileName,
+                senteName = senteName,
+                goteName = goteName,
+                origin = origin,
+                sourcePlace = KifuDecomposer.classifySource(text, headers["場所"], headers["棋戦"]).wireValue,
+                timeControlRaw = headers["持ち時間"],
+                byoyomiRaw = headers["秒読み"],
+            ),
+        )
     }
 
     private fun proceedAfterValidated(kif: ValidatedKif) {
@@ -171,6 +192,14 @@ class KifImportController(
         // 未申告なら記録しない。行の既定値（lishogi 1750）を申告値として棋譜に焼き付けないため。
         val declared = settingsRepository.getRatingSettings()
             .takeIf { settingsRepository.hasUserSavedRatingSettings() }
+        // 段級位制のサービスはルール別に申告するため、この棋譜のルールで引き直す。
+        val rank = declaredRankForGame(
+            service = declared?.service,
+            serviceRanks = settingsRepository.getAllServiceRanks(),
+            sourcePlace = current.kif.sourcePlace,
+            timeControlRaw = current.kif.timeControlRaw,
+            byoyomiRaw = current.kif.byoyomiRaw,
+        )
         val saving = Step.Saving(current.kif)
         _step.value = saving
         val request = KifImportRequest(
@@ -178,8 +207,9 @@ class KifImportController(
             fileName = current.kif.fileName,
             userSide = userSide,
             ratingService = declared?.service,
-            ratingRaw = declared?.ratingRaw?.toLong(),
-            ratingRule = declared?.ratingRule,
+            // 段級位制のサービスでは単一値の申告が無く0が入っているため、値として送らない。
+            ratingRaw = rank?.rankRaw?.toLong() ?: declared?.ratingRaw?.takeIf { it > 0 }?.toLong(),
+            ratingRule = rank?.ruleId ?: declared?.ratingRule,
         )
         scope.launch {
             try {
