@@ -168,16 +168,18 @@ class KifImportController(
         val current = _step.value as? Step.SideConfirm ?: return
         if (current.suggestion.matchedByAccount) settingsRepository.saveSkipSideConfirm(skipNext)
         if (userSide != null) settingsRepository.saveLastUserSide(userSide)
+        // 未申告なら記録しない。行の既定値（lishogi 1750）を申告値として棋譜に焼き付けないため。
         val declared = settingsRepository.getRatingSettings()
+            .takeIf { settingsRepository.hasUserSavedRatingSettings() }
         val saving = Step.Saving(current.kif)
         _step.value = saving
         val request = KifImportRequest(
             kifText = current.kif.kifText,
             fileName = current.kif.fileName,
             userSide = userSide,
-            ratingService = declared.service,
-            ratingRaw = declared.ratingRaw.toLong(),
-            ratingRule = declared.ratingRule,
+            ratingService = declared?.service,
+            ratingRaw = declared?.ratingRaw?.toLong(),
+            ratingRule = declared?.ratingRule,
         )
         scope.launch {
             try {

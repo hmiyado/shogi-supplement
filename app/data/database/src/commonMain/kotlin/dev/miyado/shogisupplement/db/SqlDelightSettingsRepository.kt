@@ -1,5 +1,7 @@
 package dev.miyado.shogisupplement.db
 
+import dev.miyado.shogisupplement.util.currentEpochSeconds
+
 /** user_settings・サービスアカウント・段級（service_rank）のDB永続化リポジトリ（[SettingsRepository]のSQLDelight実装）。 */
 class SqlDelightSettingsRepository(private val database: ShogiSupplementDatabase) : SettingsRepository {
 
@@ -35,6 +37,7 @@ class SqlDelightSettingsRepository(private val database: ShogiSupplementDatabase
                 ratingRaw?.toLong() ?: 0L,
                 ratingRule,
                 serviceAccountName,
+                currentEpochSeconds(),
             )
         }
     }
@@ -58,9 +61,13 @@ class SqlDelightSettingsRepository(private val database: ShogiSupplementDatabase
         }
     }
 
-    /** ユーザーが棋力設定を一度でも保存したかどうか（デフォルト値と区別するため）。 */
+    /**
+     * ユーザーが棋力設定を一度でも保存したかどうか（デフォルト値と区別するため）。
+     * Why not 行の存在を見る: 棋力と無関係な保存（テーマ・ポリシーキャッシュなど）でも
+     * insertOrIgnoreDefaultSettingsが同じ行を作るため、常に真になってしまう。
+     */
     override fun hasUserSavedRatingSettings(): Boolean =
-        database.shogiSupplementQueries.getRatingSettings().executeAsOneOrNull() != null
+        database.shogiSupplementQueries.getRatingDeclaredAt().executeAsOneOrNull()?.rating_declared_at != null
 
     /** 保存されたレートを返す。未設定なら 1750。 */
     override fun getRating(): Int {

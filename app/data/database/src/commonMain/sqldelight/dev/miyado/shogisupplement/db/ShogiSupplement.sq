@@ -80,7 +80,11 @@ CREATE TABLE user_settings (
     skip_side_confirm INTEGER NOT NULL DEFAULT 0,
     -- 以下は列を足した順（.sqmが末尾へ足すため、更新した端末と列順を揃える）。
     app_policy_cache TEXT,
-    account_declined INTEGER NOT NULL DEFAULT 0
+    account_declined INTEGER NOT NULL DEFAULT 0,
+    -- 棋力を申告した日時（Unix epoch 秒）。NULL=未申告、0=申告済みだが日時不明。
+    -- Why not 行の存在で申告を判定する: 棋力と無関係な保存でも
+    -- insertOrIgnoreDefaultSettingsが同じ行を作るため、常に申告済みになってしまう。
+    rating_declared_at INTEGER
 );
 
 insertGame:
@@ -144,7 +148,10 @@ updateRatingFull:
 UPDATE user_settings SET rating = ?, rating_service = ?, rating_raw = ? WHERE id = 1;
 
 updateRatingSettings:
-UPDATE user_settings SET rating = ?, rating_service = ?, rating_raw = ?, rating_rule = ?, service_account_name = ? WHERE id = 1;
+UPDATE user_settings SET rating = ?, rating_service = ?, rating_raw = ?, rating_rule = ?, service_account_name = ?, rating_declared_at = ? WHERE id = 1;
+
+getRatingDeclaredAt:
+SELECT rating_declared_at FROM user_settings WHERE id = 1;
 
 getRating:
 SELECT rating FROM user_settings WHERE id = 1;

@@ -8,6 +8,7 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /** KIFを受け取ってから保存を依頼するまでの分岐（アカウント確認・棋力設定・先後確認）を保証する。 */
@@ -134,15 +135,27 @@ class KifImportControllerTest {
     @Test
     fun `申告棋力を棋譜へ記録する`() {
         val settings = FakeSettingsRepository(serviceAccounts = mutableMapOf("lishogi" to "miyado"))
-        settings.saveRatingSettings("shogi_wars", 1600, "standard", "miyado")
+        settings.saveRatingSettings("lishogi", 1600, null, "miyado")
         val (controller, recorder) = build(settings)
 
         controller.beginFromFile("game.kif", kif)
         controller.confirmSide("sente", skipNext = false)
 
-        assertEquals("shogi_wars", recorder.last.ratingService)
+        assertEquals("lishogi", recorder.last.ratingService)
         assertEquals(1600L, recorder.last.ratingRaw)
-        assertEquals("standard", recorder.last.ratingRule)
+    }
+
+    @Test
+    fun `棋力を申告していなければ棋譜へ記録しない`() {
+        val settings = FakeSettingsRepository(serviceAccounts = mutableMapOf("lishogi" to "miyado"))
+        val (controller, recorder) = build(settings)
+
+        controller.beginFromFile("game.kif", kif)
+        controller.confirmSide("sente", skipNext = false)
+
+        assertNull(recorder.last.ratingService, "既定値を申告値として記録しないはず")
+        assertNull(recorder.last.ratingRaw)
+        assertNull(recorder.last.ratingRule)
     }
 
     @Test
