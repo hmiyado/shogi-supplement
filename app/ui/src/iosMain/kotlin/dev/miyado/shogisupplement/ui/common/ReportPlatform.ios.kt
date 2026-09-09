@@ -1,6 +1,9 @@
 package dev.miyado.shogisupplement.ui.common
 
 import androidx.compose.runtime.Composable
+import platform.Foundation.NSDate
+import platform.Foundation.NSDateFormatter
+import platform.Foundation.dateWithTimeIntervalSince1970
 
 @Composable
 actual fun ReportBackHandler(enabled: Boolean, onBack: () -> Unit) {
@@ -8,58 +11,24 @@ actual fun ReportBackHandler(enabled: Boolean, onBack: () -> Unit) {
     // 検討モード終了は ReportScreen 内の「終了」ボタン（onStudyEnd）で行う。
 }
 
-/**
- * epochSeconds（UTC）を "yyyy/MM/dd HH:mm" に変換する。SimpleDateFormat は Kotlin/Native では
- * 使えないため、NSDateFormatter に頼らず Howard Hinnant の civilFromDays アルゴリズムで変換する
- * （デモ画面用途のみのためタイムゾーンは UTC 固定の簡易実装）。
- */
-actual fun formatDateTime(epochSeconds: Long): String {
-    val totalMinutes = epochSeconds.floorDiv(60)
-    val minute = totalMinutes.mod(60)
-    val totalHours = totalMinutes.floorDiv(60)
-    val hour = totalHours.mod(24)
-    val totalDays = totalHours.floorDiv(24)
+actual fun formatDateTime(epochSeconds: Long): String = format(epochSeconds, "yyyy/MM/dd HH:mm")
 
-    val (year, month, day) = civilFromDays(totalDays)
-
-    return buildString {
-        append(year.toString().padStart(4, '0'))
-        append('/')
-        append(month.toString().padStart(2, '0'))
-        append('/')
-        append(day.toString().padStart(2, '0'))
-        append(' ')
-        append(hour.toString().padStart(2, '0'))
-        append(':')
-        append(minute.toString().padStart(2, '0'))
-    }
-}
-
-/** 現在日時はNSDateFormatterの端末タイムゾーンで取得する。既存の解析日時表示（UTC固定）とは用途が異なる。 */
 actual fun currentLocalDateTime(): String {
-    val formatter = platform.Foundation.NSDateFormatter()
+    val formatter = NSDateFormatter()
     formatter.dateFormat = "yyyy/MM/dd HH:mm"
-    return formatter.stringFromDate(platform.Foundation.NSDate())
+    return formatter.stringFromDate(NSDate())
 }
 
-/** 月日のみの短縮表示（"M/d"）。[formatDateTime] と同じ civilFromDays を再利用する。 */
-actual fun formatShortDate(epochSeconds: Long): String {
-    val totalDays = epochSeconds.floorDiv(86400)
-    val (_, month, day) = civilFromDays(totalDays)
-    return "$month/$day"
-}
+/** 月日のみの短縮表示（"M/d"）。 */
+actual fun formatShortDate(epochSeconds: Long): String = format(epochSeconds, "M/d")
 
-/** 1970-01-01 からの通算日数 → (year, month[1-12], day[1-31])（グレゴリオ暦・UTC）。 */
-private fun civilFromDays(z: Long): Triple<Long, Int, Int> {
-    val z2 = z + 719468
-    val era = (if (z2 >= 0) z2 else z2 - 146096) / 146097
-    val doe = z2 - era * 146097 // [0, 146096]
-    val yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365 // [0, 399]
-    val y = yoe + era * 400
-    val doy = doe - (365 * yoe + yoe / 4 - yoe / 100) // [0, 365]
-    val mp = (5 * doy + 2) / 153 // [0, 11]
-    val d = doy - (153 * mp + 2) / 5 + 1 // [1, 31]
-    val m = if (mp < 10) mp + 3 else mp - 9 // [1, 12]
-    val year = if (m <= 2) y + 1 else y
-    return Triple(year, m.toInt(), d.toInt())
+/**
+ * epochSecondsを端末のタイムゾーンで整形する。
+ * Why not 通算日数から自前で計算する: 日付境界がUTCで切れるため、
+ * JSTでは午前9時より前の対局が前日として表示される。
+ */
+private fun format(epochSeconds: Long, pattern: String): String {
+    val formatter = NSDateFormatter()
+    formatter.dateFormat = pattern
+    return formatter.stringFromDate(NSDate.dateWithTimeIntervalSince1970(epochSeconds.toDouble()))
 }
