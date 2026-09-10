@@ -32,6 +32,7 @@ env:
 - tapOn:
     id: "board_sq_6_6"
 - tapOn: "投了"
+- runFlow: ../common/accept_account_creation.yaml
 # 先後選択ダイアログ。KIFテキスト化・パース（非同期）待ちのため長めに待つ。
 - extendedWaitUntil:
     visible: "自分の側"

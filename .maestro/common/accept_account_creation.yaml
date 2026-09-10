@@ -1,0 +1,16 @@
+# 解析へ進む前に出る匿名アカウント作成の確認を通す。
+#
+# iOSはサーバー解析へ向かうため、アカウントを持たない端末では棋譜を確定した時点で
+# 確認が出る。端末内解析で完結するAndroidでは作成自体が起きないので出ない。
+# clearStateで始まるフローは毎回アカウントを失うため、取込のたびに現れる。
+#
+# 呼び出し元フローのenvで指定（iOS/Android両方から使うため固定しない）
+appId: ${APP_ID}
+---
+- extendedWaitUntil:
+    visible: "アカウントの作成"
+    timeout: 8000
+    optional: true
+- tapOn:
+    text: "続ける"
+    optional: true

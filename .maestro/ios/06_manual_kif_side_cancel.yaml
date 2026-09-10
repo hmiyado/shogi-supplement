@@ -23,6 +23,7 @@ env:
 - tapOn:
     id: "board_sq_3_4"
 - tapOn: "投了"
+- runFlow: ../common/accept_account_creation.yaml
 - extendedWaitUntil:
     visible: "自分の側"
     timeout: 15000
@@ -32,6 +33,7 @@ env:
 - assertVisible: "盤で棋譜を入力"
 # 入力した手も残っているので、そのまま投了し直して先へ進める。
 - tapOn: "投了"
+- runFlow: ../common/accept_account_creation.yaml
 - extendedWaitUntil:
     visible: "自分の側"
     timeout: 15000
