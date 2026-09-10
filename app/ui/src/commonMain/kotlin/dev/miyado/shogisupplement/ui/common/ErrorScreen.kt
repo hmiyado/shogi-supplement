@@ -31,7 +31,8 @@ fun ErrorScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
+            .padding(16.dp)
+            .adaptiveContentWidth(),
     ) {
         Text(AppStrings.errorMessage(message), style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(8.dp))

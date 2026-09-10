@@ -5,14 +5,14 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
-import dev.miyado.shogisupplement.webApp.WebMobileLayout
+import dev.miyado.shogisupplement.webApp.WebAppSurface
 
 @Composable
 fun MyPageRoot() {
     val scope = rememberCoroutineScope()
     val viewModel = remember { MyPageViewModel(scope) }
     ShogiTheme {
-        WebMobileLayout {
+        WebAppSurface {
             MyPageScreen(
                 state = viewModel.state,
                 transferCodeInputState = viewModel.transferCodeInputViewModel.uiState.collectAsState().value,

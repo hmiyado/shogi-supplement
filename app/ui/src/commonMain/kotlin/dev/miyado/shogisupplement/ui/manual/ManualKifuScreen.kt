@@ -55,6 +55,7 @@ import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.ShogiBoardView
 import dev.miyado.shogisupplement.ui.common.ShogiSecondaryButton
 import dev.miyado.shogisupplement.ui.common.ReportBackHandler
+import dev.miyado.shogisupplement.ui.common.adaptiveContentWidth
 import dev.miyado.shogisupplement.ui.common.currentLocalDateTime
 import dev.miyado.shogisupplement.ui.common.scaffoldContentInsets
 import dev.miyado.shogisupplement.ui.theme.shogiColors
@@ -203,7 +204,7 @@ fun ManualKifuScreen(
         },
     ) { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 8.dp),
+            modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 8.dp).adaptiveContentWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             ShogiBoardView(
@@ -407,7 +408,7 @@ private fun ManualGameInfoScreen(
         },
     ) { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
+            modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp).adaptiveContentWidth(),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(

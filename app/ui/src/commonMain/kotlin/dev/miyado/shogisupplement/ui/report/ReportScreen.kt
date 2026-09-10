@@ -1,7 +1,10 @@
 package dev.miyado.shogisupplement.ui.report
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -12,6 +15,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -32,7 +36,11 @@ import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.PositionEvalRow
 import dev.miyado.shogisupplement.text.AppStrings
+import dev.miyado.shogisupplement.ui.common.TwoPaneBoardHeightFraction
+import dev.miyado.shogisupplement.ui.common.WindowWidthClass
+import dev.miyado.shogisupplement.ui.common.adaptiveContentWidth
 import dev.miyado.shogisupplement.ui.common.boardMaxHeight
+import dev.miyado.shogisupplement.ui.common.rememberWindowWidthClass
 import dev.miyado.shogisupplement.ui.common.appendPlayerRating
 import dev.miyado.shogisupplement.ui.common.DeleteGameConfirmDialog
 import dev.miyado.shogisupplement.ui.common.PvExtState
@@ -210,6 +218,8 @@ fun ReportScreen(
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val screenHeight = maxHeight
+        val twoPane = rememberWindowWidthClass(maxWidth) == WindowWidthClass.EXPANDED
+        val twoPaneBoardMaxHeight = maxHeight * TwoPaneBoardHeightFraction
 
         // シートは盤を隠し切らない高さに制限する。
         MoveListBottomSheet(
@@ -267,100 +277,9 @@ fun ReportScreen(
                     }
                 }
 
-                ReportBoardArea(
-                    studyState = studyState,
-                    currentSfen = currentSfen,
-                    studyCurrentSfen = studyCurrentSfen,
-                    flip = flip,
-                    lastMoveDest = lastMoveDest,
-                    studyLastMoveDest = studyLastMoveDest,
-                    clampedPly = clampedPly,
-                    maxPly = maxPly,
-                    viewerMode = viewerMode,
-                    selectedIdx = selectedIdx,
-                    studyOriginAbsolutePly = navInfo.studyOriginAbsolutePly,
-                    studyOrigin = navInfo.studyOrigin,
-                    onStartStudy = onStartStudy,
-                    onStudySquareTapped = onStudySquareTapped,
-                    onStudyHandPieceTapped = onStudyHandPieceTapped,
-                    onPlyIndexChange = { plyIndex = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = boardMaxHeight()),
-                )
-
-                StudyPromoteDialog(
-                    show = studyState?.showPromoteDialog == true,
-                    onDecision = onStudyPromoteDecision,
-                )
-
                 val studySenteToMove = remember(studyCurrentSfen, currentSfen) {
                     SfenPosition.parse(studyCurrentSfen ?: currentSfen).isBlackTurn
                 }
-
-                // 排他的な固定高スロットで検討モード切替時のY座標を保つ。
-                if (showCompletionBanner) {
-                    ReportNavBannerRow(
-                        text = AppStrings.ANALYSIS_COMPLETED_BANNER,
-                        textColor = MaterialTheme.colorScheme.primary,
-                        backgroundColor = MaterialTheme.shogiColors.primarySoft,
-                    )
-                } else {
-                    ReportNavRow(
-                        studyState = studyState,
-                        studySenteToMove = studySenteToMove,
-                        onStudyStepBack = onStudyStepBack,
-                        onStudyExit = exitStudy,
-                        navLabelAnnotated = navInfo.navLabelAnnotated,
-                        onLabelClick = { showMoveList = true },
-                        canGoFirst = clampedPly > 0,
-                        onFirst = { plyIndex = 0 },
-                        canGoPrev = clampedPly > 0,
-                        onPrev = { plyIndex = (clampedPly - 1).coerceAtLeast(0) },
-                        canGoNext = clampedPly < maxPly || navInfo.canTriggerExtend,
-                        onNext = {
-                            if (clampedPly < maxPly) {
-                                plyIndex = clampedPly + 1
-                            } else if (navInfo.canTriggerExtend) {
-                                selectedBlunder?.let { blunder ->
-                                    val sfenAtEnd = computeSfenAtStep(
-                                        blunder.sfenBefore,
-                                        movesInMode,
-                                        movesInMode.size,
-                                    )
-                                    pendingExtendAdvance = true
-                                    onExtendBestPv(blunder.id, sfenAtEnd, blunder.bestPv)
-                                }
-                            }
-                        },
-                        showExtendIndicator = navInfo.showExtendIndicator,
-                        canTriggerExtend = navInfo.canTriggerExtend,
-                        canGoLast = clampedPly < maxPly,
-                        onLast = { plyIndex = maxPly },
-                    )
-                }
-
-                if (studyState == null) {
-                    LaunchedEffect(maxPly) {
-                        if (pendingExtendAdvance) {
-                            plyIndex = clampedPly + 1
-                            pendingExtendAdvance = false
-                        }
-                    }
-                    LaunchedEffect(selectedBlunder?.let { pvExtState[it.id] }) {
-                        if (pendingExtendAdvance &&
-                            selectedBlunder != null &&
-                            pvExtState[selectedBlunder.id] is PvExtState.Error
-                        ) {
-                            pendingExtendAdvance = false
-                        }
-                    }
-                }
-
-                HorizontalDivider(
-                    color = MaterialTheme.shogiColors.line,
-                    modifier = Modifier.testTag("report_divider"),
-                )
 
                 val noBlundersMessage = when {
                     game.userSide != null && game.gameWinner != null ->
@@ -381,74 +300,188 @@ fun ReportScreen(
                     }
                 }
 
-                if (studyState != null) {
-                    StudyPanel(
+                val boardPane: @Composable () -> Unit = {
+                    ReportBoardArea(
                         studyState = studyState,
-                        onChipTapped = onStudyChipTapped,
-                        onBranchChipTapped = onStudyBranchChipTapped,
-                        onBranchPopupDismiss = onStudyBranchPopupDismiss,
-                        onBranchOptionSelected = onStudyBranchOptionSelected,
-                        onAnalyze = onStudyAnalyze,
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 4.dp),
+                        currentSfen = currentSfen,
+                        studyCurrentSfen = studyCurrentSfen,
+                        flip = flip,
+                        lastMoveDest = lastMoveDest,
+                        studyLastMoveDest = studyLastMoveDest,
+                        clampedPly = clampedPly,
+                        maxPly = maxPly,
+                        viewerMode = viewerMode,
+                        selectedIdx = selectedIdx,
+                        studyOriginAbsolutePly = navInfo.studyOriginAbsolutePly,
+                        studyOrigin = navInfo.studyOrigin,
+                        onStartStudy = onStartStudy,
+                        onStudySquareTapped = onStudySquareTapped,
+                        onStudyHandPieceTapped = onStudyHandPieceTapped,
+                        onPlyIndexChange = { plyIndex = it },
+                        modifier = if (twoPane) {
+                            Modifier.fillMaxWidth().heightIn(max = twoPaneBoardMaxHeight)
+                        } else {
+                            Modifier.adaptiveContentWidth().heightIn(max = boardMaxHeight())
+                        },
                     )
-                } else {
-                    when (bodyMode) {
-                        ReportBodyMode.SUMMARY -> {
-                            ReportSummaryBody(
-                                evalGraphPoints = evalGraphPoints,
-                                maxPly = game.movesUsi.size,
-                                blunderPlies = blunderPlies,
-                                currentPly = clampedPly,
-                                onPlyTapped = { ply ->
-                                    viewerMode = ViewerMode.MAINLINE
-                                    plyIndex = ply
-                                    val idx = reports.indexOfFirst { it.ply.toInt() == ply }
-                                    if (idx >= 0) {
-                                        selectedIdx = idx
-                                        bodyMode = ReportBodyMode.LIST
+
+                    StudyPromoteDialog(
+                        show = studyState?.showPromoteDialog == true,
+                        onDecision = onStudyPromoteDecision,
+                    )
+
+                    Box(modifier = Modifier.adaptiveContentWidth()) {
+                        // 排他的な固定高スロットで検討モード切替時のY座標を保つ。
+                        if (showCompletionBanner) {
+                            ReportNavBannerRow(
+                                text = AppStrings.ANALYSIS_COMPLETED_BANNER,
+                                textColor = MaterialTheme.colorScheme.primary,
+                                backgroundColor = MaterialTheme.shogiColors.primarySoft,
+                            )
+                        } else {
+                            ReportNavRow(
+                                studyState = studyState,
+                                studySenteToMove = studySenteToMove,
+                                onStudyStepBack = onStudyStepBack,
+                                onStudyExit = exitStudy,
+                                navLabelAnnotated = navInfo.navLabelAnnotated,
+                                onLabelClick = { showMoveList = true },
+                                canGoFirst = clampedPly > 0,
+                                onFirst = { plyIndex = 0 },
+                                canGoPrev = clampedPly > 0,
+                                onPrev = { plyIndex = (clampedPly - 1).coerceAtLeast(0) },
+                                canGoNext = clampedPly < maxPly || navInfo.canTriggerExtend,
+                                onNext = {
+                                    if (clampedPly < maxPly) {
+                                        plyIndex = clampedPly + 1
+                                    } else if (navInfo.canTriggerExtend) {
+                                        selectedBlunder?.let { blunder ->
+                                            val sfenAtEnd = computeSfenAtStep(
+                                                blunder.sfenBefore,
+                                                movesInMode,
+                                                movesInMode.size,
+                                            )
+                                            pendingExtendAdvance = true
+                                            onExtendBestPv(blunder.id, sfenAtEnd, blunder.bestPv)
+                                        }
                                     }
                                 },
-                                onPlyDragged = { ply ->
-                                    viewerMode = ViewerMode.MAINLINE
-                                    plyIndex = ply
-                                },
-                                reports = reports,
-                                noBlundersMessage = noBlundersMessage,
-                                strengthDisplayText = strengthDisplayText,
-                                matchRateDisplayText = matchRateDisplayText,
-                                blunderRateDisplayText = blunderRateDisplayText,
-                                onViewList = { bodyMode = ReportBodyMode.LIST },
-                                analysisPending = analysisPending,
-                                onAnalyze = onAnalyze,
-                                modifier = Modifier.fillMaxSize(),
-                            )
-                        }
-                        ReportBodyMode.LIST -> {
-                            ReportBlunderListBody(
-                                onBackToSummary = {
-                                    bodyMode = ReportBodyMode.SUMMARY
-                                    viewerMode = ViewerMode.MAINLINE
-                                },
-                                viewerMode = viewerMode,
-                                hasBestPv = hasBestPv,
-                                onSelectMainlineTab = {
-                                    viewerMode = ViewerMode.MAINLINE
-                                    plyIndex = clampedPly.coerceAtMost(game.movesUsi.size)
-                                },
-                                onSelectBestPvTab = {
-                                    viewerMode = ViewerMode.BEST_PV
-                                    plyIndex = 0
-                                },
-                                reports = reports,
-                                noBlundersMessage = noBlundersMessage,
-                                selectedIdx = selectedIdx,
-                                evalDisplay = evalDisplay,
-                                onSelectBlunder = selectBlunderAndShowList,
-                                modifier = Modifier.fillMaxSize(),
+                                showExtendIndicator = navInfo.showExtendIndicator,
+                                canTriggerExtend = navInfo.canTriggerExtend,
+                                canGoLast = clampedPly < maxPly,
+                                onLast = { plyIndex = maxPly },
                             )
                         }
                     }
-                } // else (studyState == null)
+
+                    if (studyState == null) {
+                        LaunchedEffect(maxPly) {
+                            if (pendingExtendAdvance) {
+                                plyIndex = clampedPly + 1
+                                pendingExtendAdvance = false
+                            }
+                        }
+                        LaunchedEffect(selectedBlunder?.let { pvExtState[it.id] }) {
+                            if (pendingExtendAdvance &&
+                                selectedBlunder != null &&
+                                pvExtState[selectedBlunder.id] is PvExtState.Error
+                            ) {
+                                pendingExtendAdvance = false
+                            }
+                        }
+                    }
+                }
+
+                val bodyPane: @Composable () -> Unit = {
+                    Box(modifier = Modifier.adaptiveContentWidth()) {
+                        if (studyState != null) {
+                            StudyPanel(
+                                studyState = studyState,
+                                onChipTapped = onStudyChipTapped,
+                                onBranchChipTapped = onStudyBranchChipTapped,
+                                onBranchPopupDismiss = onStudyBranchPopupDismiss,
+                                onBranchOptionSelected = onStudyBranchOptionSelected,
+                                onAnalyze = onStudyAnalyze,
+                                modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 4.dp),
+                            )
+                        } else {
+                            when (bodyMode) {
+                                ReportBodyMode.SUMMARY -> {
+                                    ReportSummaryBody(
+                                        evalGraphPoints = evalGraphPoints,
+                                        maxPly = game.movesUsi.size,
+                                        blunderPlies = blunderPlies,
+                                        currentPly = clampedPly,
+                                        onPlyTapped = { ply ->
+                                            viewerMode = ViewerMode.MAINLINE
+                                            plyIndex = ply
+                                            val idx = reports.indexOfFirst { it.ply.toInt() == ply }
+                                            if (idx >= 0) {
+                                                selectedIdx = idx
+                                                bodyMode = ReportBodyMode.LIST
+                                            }
+                                        },
+                                        onPlyDragged = { ply ->
+                                            viewerMode = ViewerMode.MAINLINE
+                                            plyIndex = ply
+                                        },
+                                        reports = reports,
+                                        noBlundersMessage = noBlundersMessage,
+                                        strengthDisplayText = strengthDisplayText,
+                                        matchRateDisplayText = matchRateDisplayText,
+                                        blunderRateDisplayText = blunderRateDisplayText,
+                                        onViewList = { bodyMode = ReportBodyMode.LIST },
+                                        analysisPending = analysisPending,
+                                        onAnalyze = onAnalyze,
+                                        modifier = Modifier.fillMaxSize(),
+                                    )
+                                }
+                                ReportBodyMode.LIST -> {
+                                    ReportBlunderListBody(
+                                        onBackToSummary = {
+                                            bodyMode = ReportBodyMode.SUMMARY
+                                            viewerMode = ViewerMode.MAINLINE
+                                        },
+                                        viewerMode = viewerMode,
+                                        hasBestPv = hasBestPv,
+                                        onSelectMainlineTab = {
+                                            viewerMode = ViewerMode.MAINLINE
+                                            plyIndex = clampedPly.coerceAtMost(game.movesUsi.size)
+                                        },
+                                        onSelectBestPvTab = {
+                                            viewerMode = ViewerMode.BEST_PV
+                                            plyIndex = 0
+                                        },
+                                        reports = reports,
+                                        noBlundersMessage = noBlundersMessage,
+                                        selectedIdx = selectedIdx,
+                                        evalDisplay = evalDisplay,
+                                        onSelectBlunder = selectBlunderAndShowList,
+                                        modifier = Modifier.fillMaxSize(),
+                                    )
+                                }
+                            }
+                        } // else (studyState == null)
+                    }
+                }
+
+                if (twoPane) {
+                    Row(modifier = Modifier.fillMaxSize()) {
+                        Column(modifier = Modifier.weight(1f).fillMaxHeight()) { boardPane() }
+                        VerticalDivider(
+                            color = MaterialTheme.shogiColors.line,
+                            modifier = Modifier.testTag("report_divider"),
+                        )
+                        Column(modifier = Modifier.weight(1f).fillMaxHeight()) { bodyPane() }
+                    }
+                } else {
+                    boardPane()
+                    HorizontalDivider(
+                        color = MaterialTheme.shogiColors.line,
+                        modifier = Modifier.testTag("report_divider"),
+                    )
+                    bodyPane()
+                }
             } // Column
         } // Scaffold content lambda
 

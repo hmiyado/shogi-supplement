@@ -4,11 +4,13 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -26,6 +28,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -38,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.blunder.DisplayWinProb
 import dev.miyado.shogisupplement.blunder.PositionEvalDisplay
@@ -52,6 +56,10 @@ import dev.miyado.shogisupplement.drill.DrillReadPvMatch
 import dev.miyado.shogisupplement.notation.JapaneseNotation
 import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.PvExtState
+import dev.miyado.shogisupplement.ui.common.TwoPaneBoardHeightFraction
+import dev.miyado.shogisupplement.ui.common.adaptiveContentWidth
+import dev.miyado.shogisupplement.ui.common.WindowWidthClass
+import dev.miyado.shogisupplement.ui.common.rememberWindowWidthClass
 import dev.miyado.shogisupplement.ui.common.ReportBackHandler
 import dev.miyado.shogisupplement.ui.common.SfenPosition
 import dev.miyado.shogisupplement.ui.common.ShogiBoardView
@@ -101,104 +109,125 @@ fun DrillQuestionContent(
         )
     }
 
-    Column(
-        // 水平paddingをColumn全体から外している。盤はレポートと同じ全幅（=同じ駒サイズ）にし、
-        // スクロール領域側にのみ水平paddingを適用する。
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        // ── 固定エリア（持駒行 + 盤） ─────────────────────────────────────────
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val twoPane = rememberWindowWidthClass(maxWidth) == WindowWidthClass.EXPANDED
 
-        // インタラクティブ盤面。レポートビューアと同等の高さ制約を適用して盤サイズを統一する。
-        ShogiBoardView(
-            sfen = state.sfenCurrent,
-            selectedFrom = state.selectedFrom,
-            selectedDropType = state.selectedDropType,
-            legalDestinations = state.legalDestinations,
-            onSquareTapped = onSquareTapped,
-            onHandPieceTapped = onHandPieceTapped,
-            flip = state.flip,
-            modifier = Modifier.heightIn(max = boardMaxHeight()),
-        )
-
-        // ── スクロールエリア（問いかけ・読み筋入力・周回情報・ボタン）────────────
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 8.dp)
-                .verticalScroll(rememberScrollState()),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = AppStrings.DRILL_QUESTION_PROMPT,
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontFamily = ShipporiMinchoFamily,
-                    fontWeight = FontWeight.Bold,
-                ),
+        val boardPane: @Composable () -> Unit = {
+            // インタラクティブ盤面。レポートビューアと同等の高さ制約を適用して盤サイズを統一する。
+            ShogiBoardView(
+                sfen = state.sfenCurrent,
+                selectedFrom = state.selectedFrom,
+                selectedDropType = state.selectedDropType,
+                legalDestinations = state.legalDestinations,
+                onSquareTapped = onSquareTapped,
+                onHandPieceTapped = onHandPieceTapped,
+                flip = state.flip,
+                modifier = if (twoPane) Modifier else Modifier.heightIn(max = boardMaxHeight()),
             )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = AppStrings.DRILL_QUESTION_HINT,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.shogiColors.ink2,
-                textAlign = TextAlign.Center,
-            )
-            Spacer(Modifier.height(12.dp))
+        }
 
-            DrillYourLineCard(
-                sfenAtQuestion = state.blunder.sfenBefore,
-                moves = state.moves,
-                onUndoMove = onUndoMove,
-                onResetMoves = onResetMoves,
-            )
-            Spacer(Modifier.height(12.dp))
-
-            // 周回情報
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
-            ) {
-                Text(
-                    text = AppStrings.drillAttemptCount(state.attemptCount),
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                Spacer(Modifier.width(16.dp))
-                Text(
-                    text = AppStrings.drillTotalCount(state.totalCandidates),
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-            Spacer(Modifier.height(16.dp))
-            Button(
-                onClick = onSubmitAnswer,
-                enabled = state.moves.isNotEmpty() && !state.isJudging,
-                modifier = Modifier.fillMaxWidth(0.6f),
-            ) {
-                // ラベルと入れ替えるとボタンの幅が変わる。文字は残したまま重ねる。
-                Box(contentAlignment = Alignment.Center) {
+        val bodyPane: @Composable () -> Unit = {
+            Box(modifier = Modifier.adaptiveContentWidth()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 8.dp)
+                        .verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Spacer(Modifier.height(8.dp))
                     Text(
-                        AppStrings.DRILL_SUBMIT_ANSWER,
-                        modifier = Modifier.alpha(if (state.isJudging) 0f else 1f),
+                        text = AppStrings.DRILL_QUESTION_PROMPT,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontFamily = ShipporiMinchoFamily,
+                            fontWeight = FontWeight.Bold,
+                        ),
                     )
-                    if (state.isJudging) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(JUDGING_INDICATOR_SIZE_DP.dp),
-                            strokeWidth = JUDGING_INDICATOR_STROKE_DP.dp,
-                            color = MaterialTheme.colorScheme.onPrimary,
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = AppStrings.DRILL_QUESTION_HINT,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.shogiColors.ink2,
+                        textAlign = TextAlign.Center,
+                    )
+                    Spacer(Modifier.height(12.dp))
+
+                    DrillYourLineCard(
+                        sfenAtQuestion = state.blunder.sfenBefore,
+                        moves = state.moves,
+                        onUndoMove = onUndoMove,
+                        onResetMoves = onResetMoves,
+                    )
+                    Spacer(Modifier.height(12.dp))
+
+                    // 周回情報
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center,
+                    ) {
+                        Text(
+                            text = AppStrings.drillAttemptCount(state.attemptCount),
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        Spacer(Modifier.width(16.dp))
+                        Text(
+                            text = AppStrings.drillTotalCount(state.totalCandidates),
+                            style = MaterialTheme.typography.bodySmall,
                         )
                     }
+                    Spacer(Modifier.height(16.dp))
+                    Button(
+                        onClick = onSubmitAnswer,
+                        enabled = state.moves.isNotEmpty() && !state.isJudging,
+                        modifier = Modifier.fillMaxWidth(0.6f),
+                    ) {
+                        // ラベルと入れ替えるとボタンの幅が変わる。文字は残したまま重ねる。
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                AppStrings.DRILL_SUBMIT_ANSWER,
+                                modifier = Modifier.alpha(if (state.isJudging) 0f else 1f),
+                            )
+                            if (state.isJudging) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(JUDGING_INDICATOR_SIZE_DP.dp),
+                                    strokeWidth = JUDGING_INDICATOR_STROKE_DP.dp,
+                                    color = MaterialTheme.colorScheme.onPrimary,
+                                )
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    ShogiSecondaryButton(
+                        onClick = onSurrender,
+                        enabled = !state.isJudging,
+                        modifier = Modifier.fillMaxWidth(0.6f),
+                    ) {
+                        Text(AppStrings.DRILL_GIVE_UP)
+                    }
+                    Spacer(Modifier.height(16.dp))
                 }
             }
-            Spacer(Modifier.height(8.dp))
-            ShogiSecondaryButton(
-                onClick = onSurrender,
-                enabled = !state.isJudging,
-                modifier = Modifier.fillMaxWidth(0.6f),
-            ) {
-                Text(AppStrings.DRILL_GIVE_UP)
+        }
+
+        if (twoPane) {
+            Row(modifier = Modifier.fillMaxSize()) {
+                Column(
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) { boardPane() }
+                VerticalDivider(color = MaterialTheme.shogiColors.line)
+                Column(modifier = Modifier.weight(1f).fillMaxHeight()) { bodyPane() }
             }
-            Spacer(Modifier.height(16.dp))
+        } else {
+            Column(
+                // 水平paddingをColumn全体から外している。盤はレポートと同じ全幅（=同じ駒サイズ）にし、
+                // スクロール領域側にのみ水平paddingを適用する。
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                boardPane()
+                bodyPane()
+            }
         }
     }
 }
@@ -449,242 +478,266 @@ fun DrillResultContent(
     }
     ReportBackHandler(enabled = studyState != null) { exitStudy() }
 
-    Column(
-        // 盤は全幅にし、水平paddingは下の結果スクロール領域にのみ適用する。
-        modifier = Modifier.fillMaxSize(),
-    ) {
-        if (studyState != null) {
-            DrillStudyArea(studyState = studyState, study = study, onExitStudy = exitStudy)
-            return@Column
-        }
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val twoPane = rememberWindowWidthClass(maxWidth) == WindowWidthClass.EXPANDED
 
-        // ── 固定エリア（KifuLineViewer: 盤 + タブ + ナビ）────────────────────
-        KifuLineViewer(
-            startSfen = sfenBefore,
-            lines = kifuLines,
-            activeLineIdx = activeLineIdx,
-            plyIndex = plyIndex,
-            flip = flip,
-            boardMaxHeight = boardMaxHeight(),
-            onLineSelected = { idx ->
-                activeLineIdx = idx
-                plyIndex = 0
-            },
-            onNavigate = { ply ->
-                val maxPly = kifuLines.getOrNull(activeLineIdx)?.moves?.size ?: 0
-                plyIndex = ply.coerceIn(0, maxPly)
-            },
-            currentMoveLabel = navLabelBase,
-            evalSuffixText = evalSuffixText,
-            evalSuffixSign = evalSuffixSign,
-            // 開いているタブを延ばす。降参は自分の手が無いので、あなたの手タブは延ばせない。
-            extendableLineIdx = if (yourMoves.isEmpty()) 1 else activeLineIdx,
-            extendState = extState,
-            onExtendRequested = { sfenAtLineEnd ->
-                pendingExtendAdvance = true
-                if (activeLineIdx == 0) onExtendUserLine(sfenAtLineEnd)
-                else onExtendBestPv(sfenAtLineEnd)
-            },
-            // Why not 検討へ入るボタンを置く: 盤の操作で入れるなら、レポート画面と同じ入り方になる。
-            onPieceTapped = study?.let { { sfen, sq -> startStudyAt(sfen, sq, null) } },
-            onHandPieceTapped = study?.let { { sfen, pt -> startStudyAt(sfen, null, pt) } },
-        )
+        val boardPane: @Composable () -> Unit = {
+            // ── 固定エリア（KifuLineViewer: 盤 + タブ + ナビ）────────────────────
+            KifuLineViewer(
+                startSfen = sfenBefore,
+                lines = kifuLines,
+                activeLineIdx = activeLineIdx,
+                plyIndex = plyIndex,
+                flip = flip,
+                boardMaxHeight = if (twoPane) maxHeight * TwoPaneBoardHeightFraction else boardMaxHeight(),
+                onLineSelected = { idx ->
+                    activeLineIdx = idx
+                    plyIndex = 0
+                },
+                onNavigate = { ply ->
+                    val maxPly = kifuLines.getOrNull(activeLineIdx)?.moves?.size ?: 0
+                    plyIndex = ply.coerceIn(0, maxPly)
+                },
+                currentMoveLabel = navLabelBase,
+                evalSuffixText = evalSuffixText,
+                evalSuffixSign = evalSuffixSign,
+                // 開いているタブを延ばす。降参は自分の手が無いので、あなたの手タブは延ばせない。
+                extendableLineIdx = if (yourMoves.isEmpty()) 1 else activeLineIdx,
+                extendState = extState,
+                onExtendRequested = { sfenAtLineEnd ->
+                    pendingExtendAdvance = true
+                    if (activeLineIdx == 0) onExtendUserLine(sfenAtLineEnd)
+                    else onExtendBestPv(sfenAtLineEnd)
+                },
+                // Why not 検討へ入るボタンを置く: 盤の操作で入れるなら、レポート画面と同じ入り方になる。
+                onPieceTapped = study?.let { { sfen, sq -> startStudyAt(sfen, sq, null) } },
+                onHandPieceTapped = study?.let { { sfen, pt -> startStudyAt(sfen, null, pt) } },
+            )
 
-        // ▶+で延長トリガー後、延長成功（最善タブの手列が伸びる）で自動的に1手進める
-        // （ReportScreen と同じUX）。
-        LaunchedEffect(bestMoves.size) {
-            if (pendingExtendAdvance) {
-                plyIndex = navClampedPly + 1
-                pendingExtendAdvance = false
-            }
-        }
-        // 延長エラー時はフラグを下ろす（▶+での再試行を妨げないため）。
-        LaunchedEffect(extState) {
-            if (pendingExtendAdvance && extState is PvExtState.Error) {
-                pendingExtendAdvance = false
-            }
-        }
-
-        // ── スクロールエリア（結果バナー・解説・ナビゲーション）────────────────
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 8.dp)
-                .verticalScroll(rememberScrollState()),
-        ) {
-            Spacer(Modifier.height(12.dp))
-
-            // 正誤バナー（静かなスタイル: 背景は淡い面色、テキストに色を乗せる）
-            val isCorrect = result.isCorrect
-            val shogiColors = MaterialTheme.shogiColors
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(
-                        if (isCorrect) shogiColors.primarySoft else shogiColors.lossSoft,
-                    )
-                    .padding(vertical = 12.dp, horizontal = 16.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = if (isCorrect) AppStrings.DRILL_CORRECT else AppStrings.DRILL_INCORRECT,
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = if (isCorrect) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.error,
-                )
-            }
-
-            Spacer(Modifier.height(16.dp))
-
-            // あなたの手（和式表記）
-            val boardForNotation = runCatching { ShogiBoard.fromSfen(blunder.sfenBefore) }.getOrNull()
-            val userMoveDisplay = if (boardForNotation != null && result.userMoveUsi != "[降参]") {
-                runCatching { JapaneseNotation.format(result.userMoveUsi, boardForNotation) }
-                    .getOrElse { result.userMoveUsi }
-            } else {
-                result.userMoveUsi
-            }
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Text(
-                    AppStrings.DRILL_YOUR_MOVE,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.shogiColors.ink3,
-                )
-                Text(
-                    userMoveDisplay,
-                    style = TextStyleDataMove,
-                    color = if (isCorrect) MaterialTheme.colorScheme.primary
-                            else MaterialTheme.colorScheme.error,
-                )
-            }
-            Spacer(Modifier.height(4.dp))
-
-            // 最善手（和式表記）
-            val bestMoveUsi = result.bestMoveUsi
-            if (bestMoveUsi != null) {
-                val bestDisplay = if (boardForNotation != null) {
-                    runCatching { JapaneseNotation.format(bestMoveUsi, boardForNotation) }
-                        .getOrElse { bestMoveUsi }
-                } else {
-                    bestMoveUsi
+            // ▶+で延長トリガー後、延長成功（最善タブの手列が伸びる）で自動的に1手進める
+            // （ReportScreen と同じUX）。
+            LaunchedEffect(bestMoves.size) {
+                if (pendingExtendAdvance) {
+                    plyIndex = navClampedPly + 1
+                    pendingExtendAdvance = false
                 }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+            }
+            // 延長エラー時はフラグを下ろす（▶+での再試行を妨げないため）。
+            LaunchedEffect(extState) {
+                if (pendingExtendAdvance && extState is PvExtState.Error) {
+                    pendingExtendAdvance = false
+                }
+            }
+        }
+
+        val bodyPane: @Composable () -> Unit = {
+            Box(modifier = Modifier.adaptiveContentWidth()) {
+                // ── スクロールエリア（結果バナー・解説・ナビゲーション）────────────────
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 8.dp)
+                        .verticalScroll(rememberScrollState()),
                 ) {
-                    Text(
-                        AppStrings.DRILL_BEST_MOVE,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.shogiColors.ink3,
-                    )
-                    Text(
-                        bestDisplay,
-                        style = TextStyleDataMove,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
-                Spacer(Modifier.height(4.dp))
-            }
+                    Spacer(Modifier.height(12.dp))
 
-            // 損失表示（cp モード or 勝率モード）
-            run {
-                val cpBefore = blunder.cpBefore
-                val cpAfter = blunder.cpAfter
-                val lossText: String? = when {
-                    evalDisplay == "cp" && cpBefore != null && cpAfter != null -> {
-                        val isMate = abs(cpBefore) >= 29_000 || abs(cpAfter) >= 29_000
-                        if (isMate) {
-                            AppStrings.BLUNDER_LOSS_MATE
+                    // 正誤バナー（静かなスタイル: 背景は淡い面色、テキストに色を乗せる）
+                    val isCorrect = result.isCorrect
+                    val shogiColors = MaterialTheme.shogiColors
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                if (isCorrect) shogiColors.primarySoft else shogiColors.lossSoft,
+                            )
+                            .padding(vertical = 12.dp, horizontal = 16.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = if (isCorrect) AppStrings.DRILL_CORRECT else AppStrings.DRILL_INCORRECT,
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = if (isCorrect) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.error,
+                        )
+                    }
+
+                    Spacer(Modifier.height(16.dp))
+
+                    // あなたの手（和式表記）
+                    val boardForNotation = runCatching { ShogiBoard.fromSfen(blunder.sfenBefore) }.getOrNull()
+                    val userMoveDisplay = if (boardForNotation != null && result.userMoveUsi != "[降参]") {
+                        runCatching { JapaneseNotation.format(result.userMoveUsi, boardForNotation) }
+                            .getOrElse { result.userMoveUsi }
+                    } else {
+                        result.userMoveUsi
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Text(
+                            AppStrings.DRILL_YOUR_MOVE,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.shogiColors.ink3,
+                        )
+                        Text(
+                            userMoveDisplay,
+                            style = TextStyleDataMove,
+                            color = if (isCorrect) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.error,
+                        )
+                    }
+                    Spacer(Modifier.height(4.dp))
+
+                    // 最善手（和式表記）
+                    val bestMoveUsi = result.bestMoveUsi
+                    if (bestMoveUsi != null) {
+                        val bestDisplay = if (boardForNotation != null) {
+                            runCatching { JapaneseNotation.format(bestMoveUsi, boardForNotation) }
+                                .getOrElse { bestMoveUsi }
                         } else {
-                            // blunderLossCp は無条件で「−」を前置する契約（DESIGN.md の
-                            // 符号規約）なので、渡す値は損失の絶対値でなければならない。
-                            // (cpBefore + cpAfter) は理論上まれに負（技術的な改善方向）に
-                            // 振れることがあり、abs() を外すと「−」の後に符号付き負数が続き
-                            // 「−-150」（二重マイナス）になる。
-                            val cpLoss = abs((cpBefore + cpAfter).toInt())
-                            AppStrings.blunderLossCp(cpLoss)
+                            bestMoveUsi
+                        }
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Text(
+                                AppStrings.DRILL_BEST_MOVE,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.shogiColors.ink3,
+                            )
+                            Text(
+                                bestDisplay,
+                                style = TextStyleDataMove,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                        Spacer(Modifier.height(4.dp))
+                    }
+
+                    // 損失表示（cp モード or 勝率モード）
+                    run {
+                        val cpBefore = blunder.cpBefore
+                        val cpAfter = blunder.cpAfter
+                        val lossText: String? = when {
+                            evalDisplay == "cp" && cpBefore != null && cpAfter != null -> {
+                                val isMate = abs(cpBefore) >= 29_000 || abs(cpAfter) >= 29_000
+                                if (isMate) {
+                                    AppStrings.BLUNDER_LOSS_MATE
+                                } else {
+                                    // blunderLossCp は無条件で「−」を前置する契約（DESIGN.md の
+                                    // 符号規約）なので、渡す値は損失の絶対値でなければならない。
+                                    // (cpBefore + cpAfter) は理論上まれに負（技術的な改善方向）に
+                                    // 振れることがあり、abs() を外すと「−」の後に符号付き負数が続き
+                                    // 「−-150」（二重マイナス）になる。
+                                    val cpLoss = abs((cpBefore + cpAfter).toInt())
+                                    AppStrings.blunderLossCp(cpLoss)
+                                }
+                            }
+                            evalDisplay == "wp" && cpBefore != null && cpAfter != null -> {
+                                val displayLoss = DisplayWinProb.lossWp(cpBefore.toInt(), cpAfter.toInt())
+                                "−${formatFixed1(displayLoss * 100)}%"
+                            }
+                            !result.lossWp.isNaN() && result.lossWp > 0.0 -> {
+                                // 旧レコード（cp未保存）: 保存済み loss_wp にフォールバック
+                                val pct = formatFixed1(result.lossWp * 100)
+                                AppStrings.drillLossPct(pct)
+                            }
+                            else -> null
+                        }
+                        if (lossText != null) {
+                            Text(
+                                lossText,
+                                style = dev.miyado.shogisupplement.ui.theme.TextStyleData,
+                                color = MaterialTheme.colorScheme.error,
+                            )
                         }
                     }
-                    evalDisplay == "wp" && cpBefore != null && cpAfter != null -> {
-                        val displayLoss = DisplayWinProb.lossWp(cpBefore.toInt(), cpAfter.toInt())
-                        "−${formatFixed1(displayLoss * 100)}%"
+
+                    Spacer(Modifier.height(12.dp))
+
+                    // 不正解時: 実戦の悪手情報
+                    if (!isCorrect) {
+                        val actualMoveDisplay = if (boardForNotation != null) {
+                            runCatching { JapaneseNotation.format(blunder.moveUsi, boardForNotation) }
+                                .getOrElse { blunder.moveUsi }
+                        } else {
+                            blunder.moveUsi
+                        }
+                        Text(AppStrings.drillActualMove(actualMoveDisplay), style = MaterialTheme.typography.bodyMedium)
                     }
-                    !result.lossWp.isNaN() && result.lossWp > 0.0 -> {
-                        // 旧レコード（cp未保存）: 保存済み loss_wp にフォールバック
-                        val pct = formatFixed1(result.lossWp * 100)
-                        AppStrings.drillLossPct(pct)
+
+                    // 読み筋を入力していた場合のみ、あなたの読み筋と実際の進行を並べて示す。
+                    if (readPv != null && result.userMoveUsi != "[降参]") {
+                        Spacer(Modifier.height(16.dp))
+                        val sfenAfterUserMove = remember(blunder, result) {
+                            runCatching {
+                                val board = ShogiBoard.fromSfen(blunder.sfenBefore)
+                                board.push(ShogiMove.fromUsi(result.userMoveUsi))
+                                board.toSfen()
+                            }.getOrNull()
+                        }
+                        val userContinuation = remember(readPv) {
+                            readPv.split(" ").filter { it.isNotBlank() }
+                        }
+                        val actualContinuation = remember(yourMoves) { yourMoves.drop(1) }
+                        // 一次判定のみで確定した判定（PRIMARY_MATCH_SECOND/PRIMARY_OUT_OF_TOP2）は
+                        // 継続読み筋を取得していないため、比較対象が無い状態で空の照合を出さない。
+                        if (sfenAfterUserMove != null && actualContinuation.isNotEmpty()) {
+                            val isCloseContest = remember(blunder) {
+                                DrillContestType.isCloseContest(blunder.cpBefore, blunder.secondCp, blunder.missedMateIn)
+                            }
+                            DrillReadPvCompareBlock(
+                                sfenAfterUserMove = sfenAfterUserMove,
+                                userContinuation = userContinuation,
+                                actualContinuation = actualContinuation,
+                                isCloseContest = isCloseContest,
+                            )
+                        }
                     }
-                    else -> null
-                }
-                if (lossText != null) {
-                    Text(
-                        lossText,
-                        style = dev.miyado.shogisupplement.ui.theme.TextStyleData,
-                        color = MaterialTheme.colorScheme.error,
-                    )
+
+                    Spacer(Modifier.height(24.dp))
+
+                    // ナビゲーションボタン
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        ShogiSecondaryButton(onClick = onBack, modifier = Modifier.weight(1f)) {
+                            Text(AppStrings.DRILL_GO_HOME)
+                        }
+                        Button(onClick = onNext, modifier = Modifier.weight(1f)) {
+                            Text(AppStrings.DRILL_NEXT)
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
                 }
             }
+        }
 
-            Spacer(Modifier.height(12.dp))
-
-            // 不正解時: 実戦の悪手情報
-            if (!isCorrect) {
-                val actualMoveDisplay = if (boardForNotation != null) {
-                    runCatching { JapaneseNotation.format(blunder.moveUsi, boardForNotation) }
-                        .getOrElse { blunder.moveUsi }
-                } else {
-                    blunder.moveUsi
-                }
-                Text(AppStrings.drillActualMove(actualMoveDisplay), style = MaterialTheme.typography.bodyMedium)
+        if (studyState != null) {
+            DrillStudyArea(
+                studyState = studyState,
+                study = study,
+                onExitStudy = exitStudy,
+                twoPane = twoPane,
+                twoPaneBoardMaxHeight = maxHeight * TwoPaneBoardHeightFraction,
+            )
+        } else if (twoPane) {
+            Row(modifier = Modifier.fillMaxSize()) {
+                Column(modifier = Modifier.weight(1f).fillMaxHeight()) { boardPane() }
+                VerticalDivider(color = MaterialTheme.shogiColors.line)
+                Column(modifier = Modifier.weight(1f).fillMaxHeight()) { bodyPane() }
             }
-
-            // 読み筋を入力していた場合のみ、あなたの読み筋と実際の進行を並べて示す。
-            if (readPv != null && result.userMoveUsi != "[降参]") {
-                Spacer(Modifier.height(16.dp))
-                val sfenAfterUserMove = remember(blunder, result) {
-                    runCatching {
-                        val board = ShogiBoard.fromSfen(blunder.sfenBefore)
-                        board.push(ShogiMove.fromUsi(result.userMoveUsi))
-                        board.toSfen()
-                    }.getOrNull()
-                }
-                val userContinuation = remember(readPv) {
-                    readPv.split(" ").filter { it.isNotBlank() }
-                }
-                val actualContinuation = remember(yourMoves) { yourMoves.drop(1) }
-                // 一次判定のみで確定した判定（PRIMARY_MATCH_SECOND/PRIMARY_OUT_OF_TOP2）は
-                // 継続読み筋を取得していないため、比較対象が無い状態で空の照合を出さない。
-                if (sfenAfterUserMove != null && actualContinuation.isNotEmpty()) {
-                    val isCloseContest = remember(blunder) {
-                        DrillContestType.isCloseContest(blunder.cpBefore, blunder.secondCp, blunder.missedMateIn)
-                    }
-                    DrillReadPvCompareBlock(
-                        sfenAfterUserMove = sfenAfterUserMove,
-                        userContinuation = userContinuation,
-                        actualContinuation = actualContinuation,
-                        isCloseContest = isCloseContest,
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(24.dp))
-
-            // ナビゲーションボタン
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+        } else {
+            Column(
+                // 盤は全幅にし、水平paddingは下の結果スクロール領域にのみ適用する。
+                modifier = Modifier.fillMaxSize(),
             ) {
-                ShogiSecondaryButton(onClick = onBack, modifier = Modifier.weight(1f)) {
-                    Text(AppStrings.DRILL_GO_HOME)
-                }
-                Button(onClick = onNext, modifier = Modifier.weight(1f)) {
-                    Text(AppStrings.DRILL_NEXT)
-                }
+                boardPane()
+                bodyPane()
             }
-            Spacer(Modifier.height(8.dp))
         }
     }
 }
@@ -697,6 +750,8 @@ private fun DrillStudyArea(
     studyState: StudyState,
     study: StudyController?,
     onExitStudy: () -> Unit,
+    twoPane: Boolean,
+    twoPaneBoardMaxHeight: Dp,
 ) {
     val studyCurrentSfen = remember(studyState.baseSfen, studyState.moves) {
         computeSfenAtStepKifuViewer(studyState.baseSfen, studyState.moves, studyState.moves.size)
@@ -706,38 +761,62 @@ private fun DrillStudyArea(
             runCatching { ShogiMove.fromUsi(usi).to.let { it.file to it.rank } }.getOrNull()
         }
     }
-    ShogiBoardView(
-        sfen = studyCurrentSfen,
-        flip = studyState.flip,
-        lastMoveDest = lastMoveDest,
-        selectedFrom = studyState.selectedFrom,
-        selectedDropType = studyState.selectedDropType,
-        legalDestinations = studyState.legalDestinations,
-        onSquareTapped = { study?.onStudySquareTapped(it) },
-        onHandPieceTapped = { study?.onStudyHandPieceTapped(it) },
-        modifier = Modifier.fillMaxWidth().heightIn(max = boardMaxHeight()),
-    )
-    StudyPromoteDialog(
-        show = studyState.showPromoteDialog,
-        onDecision = { study?.onStudyPromoteDecision(it) },
-    )
-    StudyNavRow(
-        studyState = studyState,
-        studySenteToMove = remember(studyCurrentSfen) {
-            SfenPosition.parse(studyCurrentSfen).isBlackTurn
-        },
-        onStudyStepBack = { study?.studyStepBack() },
-        onStudyExit = onExitStudy,
-    )
-    StudyPanel(
-        studyState = studyState,
-        onChipTapped = { study?.onChipTapped(it) },
-        onBranchChipTapped = { study?.onBranchChipTapped(it) },
-        onBranchPopupDismiss = { study?.onBranchPopupDismiss() },
-        onBranchOptionSelected = { depth, moveUsi -> study?.onBranchOptionSelected(depth, moveUsi) },
-        onAnalyze = { study?.analyzeCurrentPosition() },
-        modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 4.dp),
-    )
+    val boardPane: @Composable () -> Unit = {
+        ShogiBoardView(
+            sfen = studyCurrentSfen,
+            flip = studyState.flip,
+            lastMoveDest = lastMoveDest,
+            selectedFrom = studyState.selectedFrom,
+            selectedDropType = studyState.selectedDropType,
+            legalDestinations = studyState.legalDestinations,
+            onSquareTapped = { study?.onStudySquareTapped(it) },
+            onHandPieceTapped = { study?.onStudyHandPieceTapped(it) },
+            modifier = if (twoPane) {
+                Modifier.fillMaxWidth().heightIn(max = twoPaneBoardMaxHeight)
+            } else {
+                Modifier.adaptiveContentWidth().heightIn(max = boardMaxHeight())
+            },
+        )
+        StudyPromoteDialog(
+            show = studyState.showPromoteDialog,
+            onDecision = { study?.onStudyPromoteDecision(it) },
+        )
+        Box(modifier = Modifier.adaptiveContentWidth()) {
+            StudyNavRow(
+                studyState = studyState,
+                studySenteToMove = remember(studyCurrentSfen) {
+                    SfenPosition.parse(studyCurrentSfen).isBlackTurn
+                },
+                onStudyStepBack = { study?.studyStepBack() },
+                onStudyExit = onExitStudy,
+            )
+        }
+    }
+    val panelPane: @Composable () -> Unit = {
+        Box(modifier = Modifier.adaptiveContentWidth()) {
+            StudyPanel(
+                studyState = studyState,
+                onChipTapped = { study?.onChipTapped(it) },
+                onBranchChipTapped = { study?.onBranchChipTapped(it) },
+                onBranchPopupDismiss = { study?.onBranchPopupDismiss() },
+                onBranchOptionSelected = { depth, moveUsi -> study?.onBranchOptionSelected(depth, moveUsi) },
+                onAnalyze = { study?.analyzeCurrentPosition() },
+                modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 4.dp),
+            )
+        }
+    }
+    if (twoPane) {
+        Row(modifier = Modifier.fillMaxSize()) {
+            Column(modifier = Modifier.weight(1f).fillMaxHeight()) { boardPane() }
+            VerticalDivider(color = MaterialTheme.shogiColors.line)
+            Column(modifier = Modifier.weight(1f).fillMaxHeight()) { panelPane() }
+        }
+    } else {
+        Column(modifier = Modifier.fillMaxSize()) {
+            boardPane()
+            panelPane()
+        }
+    }
 }
 
 /**

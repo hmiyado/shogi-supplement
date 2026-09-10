@@ -7,12 +7,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -40,6 +41,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.window.ComposeUIViewController
 import com.mikepenz.aboutlibraries.Libs
 import dev.miyado.shogisupplement.auth.AuthRepository
@@ -90,6 +93,9 @@ import dev.miyado.shogisupplement.ui.strength.StrengthDetailData
 import dev.miyado.shogisupplement.ui.strength.StrengthDetailViewModel
 import dev.miyado.shogisupplement.ui.common.LocalBoardBaseHeight
 import dev.miyado.shogisupplement.ui.common.LocalScaffoldContentInsets
+import dev.miyado.shogisupplement.ui.common.scaffoldContentInsets
+import dev.miyado.shogisupplement.ui.common.LocalWindowWidthClass
+import dev.miyado.shogisupplement.ui.common.windowWidthClassOf
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
 import dev.miyado.shogisupplement.ui.transfercode.TransferCodeInputDialog
 import dev.miyado.shogisupplement.ui.transfercode.TransferCodeInputUiState
@@ -161,17 +167,25 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
     // またはチェック未完了（起動直後）はnullで、通常どおり以降の分岐に進む。
     val forceUpdateDecision by controller.forceUpdateDecision.collectAsState()
     ShogiTheme(themeMode = themeMode) {
+        // 背景は画面の端まで通し、safe areaは各Scaffoldが内容にだけ掛ける（edge-to-edge）。
+        // imeを含めない理由: Scaffoldがキーボードを別途扱うため、含めると二重に空く。
         Surface(modifier = Modifier.fillMaxSize()) {
-            BoxWithConstraints(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .windowInsetsPadding(WindowInsets.safeDrawing),
-            ) {
-                // 盤の基準はここで決める。safe areaを引く前のウィンドウ高さを使うと、
-                // iOSだけ盤がその分だけ大きくなり画面下が入らなくなる。
+            val contentInsets = WindowInsets.systemBars.union(WindowInsets.displayCutout)
+            // 幅の区分はsafe areaを引く前のウィンドウ幅で決める。引いたあとの幅で判定すると、
+            // 横向きの電話（852pt）がノッチの分だけ840ptの境界を下回って1カラムのままになる。
+            val windowWidthClass = with(LocalDensity.current) {
+                windowWidthClassOf(LocalWindowInfo.current.containerSize.width.toDp())
+            }
+            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                val density = LocalDensity.current
+                // 盤の基準はsafe areaを引いた高さ。引く前だと盤がその分だけ大きくなり画面下が入らない。
+                val boardBaseHeight = maxHeight - with(density) {
+                    (contentInsets.getTop(density) + contentInsets.getBottom(density)).toDp()
+                }
                 CompositionLocalProvider(
-                    LocalBoardBaseHeight provides maxHeight,
-                    LocalScaffoldContentInsets provides WindowInsets(0, 0, 0, 0),
+                    LocalBoardBaseHeight provides boardBaseHeight,
+                    LocalScaffoldContentInsets provides contentInsets,
+                    LocalWindowWidthClass provides windowWidthClass,
                 ) {
                     val decision = forceUpdateDecision
                     val services = supabaseServices
@@ -912,7 +926,7 @@ private fun IosDrillScreen(
     // 画面を離れるときは検討を畳む（ViewModelは画面より長く生きる）。
     val leave = { vm.endStudy(); onBack() }
 
-    Scaffold { padding ->
+    Scaffold(contentWindowInsets = scaffoldContentInsets()) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             ShogiThinTopBar(title = AppStrings.DRILL_TITLE, onBack = leave)
             when (val s = state) {

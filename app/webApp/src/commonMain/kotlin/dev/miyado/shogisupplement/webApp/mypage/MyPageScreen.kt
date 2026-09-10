@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.text.AppStrings
+import dev.miyado.shogisupplement.ui.common.adaptiveContentWidth
 import dev.miyado.shogisupplement.ui.gamelist.GameListScreen
 import dev.miyado.shogisupplement.ui.report.ReportScreen
 import dev.miyado.shogisupplement.ui.transfercode.TransferCodeInputDialog
@@ -91,7 +92,7 @@ fun MyPageScreen(
 private fun LoginPrompt(onOpenLogin: () -> Unit) {
     Scaffold { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(24.dp),
+            modifier = Modifier.fillMaxSize().adaptiveContentWidth().padding(padding).padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
         ) {
             Text(AppStrings.MYPAGE_LOGIN_DESCRIPTION, style = MaterialTheme.typography.bodyMedium)
@@ -106,7 +107,7 @@ private fun LoginPrompt(onOpenLogin: () -> Unit) {
 private fun LoadingView() {
     Scaffold { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding),
+            modifier = Modifier.fillMaxSize().adaptiveContentWidth().padding(padding),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
         ) {
@@ -120,7 +121,7 @@ private fun LoadingView() {
 private fun ErrorView(message: String, onLogout: () -> Unit, onBackToList: (() -> Unit)?) {
     Scaffold { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(24.dp),
+            modifier = Modifier.fillMaxSize().adaptiveContentWidth().padding(padding).padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text(message, color = MaterialTheme.colorScheme.error)

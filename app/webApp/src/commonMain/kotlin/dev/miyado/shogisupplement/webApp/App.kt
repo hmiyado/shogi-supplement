@@ -16,6 +16,7 @@ import dev.miyado.shogisupplement.board.PieceType
 import dev.miyado.shogisupplement.board.ShogiSquare
 import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.UserSideDialog
+import dev.miyado.shogisupplement.ui.common.adaptiveContentWidth
 import dev.miyado.shogisupplement.ui.report.ReportScreen
 import dev.miyado.shogisupplement.ui.report.StudyOrigin
 import dev.miyado.shogisupplement.ui.report.StudyState
@@ -62,7 +63,7 @@ fun App(
     studyActions: WebStudyActions? = null,
 ) {
     ShogiTheme {
-        WebMobileLayout {
+        WebAppSurface {
             AppContent(
                 state = state,
                 onBack = onBack,
@@ -160,6 +161,7 @@ private fun KentoInputScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .adaptiveContentWidth()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 12.dp),
     ) {

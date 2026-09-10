@@ -43,6 +43,7 @@ import dev.miyado.shogisupplement.pipeline.InProgressAnalysis
 import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.AnalyzingGameCard
 import dev.miyado.shogisupplement.ui.common.GameCard
+import dev.miyado.shogisupplement.ui.common.adaptiveContentWidth
 import dev.miyado.shogisupplement.ui.common.scaffoldContentInsets
 import dev.miyado.shogisupplement.ui.theme.IbmPlexMonoFamily
 import dev.miyado.shogisupplement.ui.theme.ShogiColors
@@ -105,18 +106,23 @@ fun HomeScreen(
             )
         },
         bottomBar = {
-            // 「棋譜を追加する」を最下部固定
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surface)
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .background(MaterialTheme.colorScheme.surface),
             ) {
-                Button(
-                    onClick = onOpenKif,
-                    modifier = Modifier.fillMaxWidth(),
+                // 余白を最大幅の内側に置く: 外側だと本文のカードより16dpずつ広いボタンになる。
+                Box(
+                    modifier = Modifier
+                        .adaptiveContentWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
                 ) {
-                    Text(AppStrings.HOME_OPEN_KIF)
+                    Button(
+                        onClick = onOpenKif,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(AppStrings.HOME_OPEN_KIF)
+                    }
                 }
             }
         },
@@ -124,7 +130,8 @@ fun HomeScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
+                .padding(padding)
+                .adaptiveContentWidth(),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
