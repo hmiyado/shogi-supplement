@@ -63,11 +63,6 @@ final class StoreScreenshotTests: XCTestCase {
         // KIFはlaunchEnvironmentで渡し、アプリ自身にクリップボードへ書き込ませる
         // （iosAppApp.swift の seedPasteboardForUITestIfNeeded 参照）。
         app.launchEnvironment["UITEST_PASTEBOARD_KIF_BASE64"] = Data(kifText.utf8).base64EncodedString()
-        // ContentView.swift の開発用タブバー（Spike/CMP）は撮影に写り込むと店頭に出せないため、
-        // 撮影中だけ隠す（Releaseと同じ「ComposeViewが画面全体」の見た目にする）。
-        // launchEnvironmentはXCUIApplicationインスタンスに残るため、後段のダークモード
-        // 再起動（app.launch()の2回目）にも自動的に引き継がれる。
-        app.launchEnvironment["UITEST_HIDE_DEBUG_TABS"] = "1"
         app.launch()
 
         // 同意オンボーディング（[ConsentScreen]）は初回起動のみ表示される

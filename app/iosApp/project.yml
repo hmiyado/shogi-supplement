@@ -51,10 +51,7 @@ targets:
     sources:
       - path: iosApp
         excludes:
-          - "Resources/**"
           - "Info.plist"
-      - path: iosApp/Resources
-        buildPhase: resources
       # engine_wrapper.h/.cpp はKotlin(:shared)のcinterop経由でのみ使う
       # （build_ios.shがlibshogiengine.aへコンパイル込み。実体はSharedUi.frameworkに
       # 埋め込まれるため、Xcodeターゲットのソースとしては含めない）。
@@ -138,7 +135,7 @@ targets:
           "FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]": "$(SRCROOT)/../ui/build/bin/iosSimulatorArm64/debugFramework"
           "FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]": "$(SRCROOT)/../ui/build/bin/iosArm64/debugFramework"
           OTHER_LDFLAGS: "-framework SharedUi -lsqlite3 -lc++ -ObjC"
-          # Swift側のエンジン依存コード（DEBUG用EngineView等）を#if !ENGINELESSで外すためのフラグ
+          # engineless構成をSwift側から判定するためのフラグ（DEBUGはUIテスト用の分岐が使う）
           SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DEBUG ENGINELESS"
         Release-Engineless:
           "FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]": "$(SRCROOT)/../ui/build/bin/iosSimulatorArm64/releaseFramework"
