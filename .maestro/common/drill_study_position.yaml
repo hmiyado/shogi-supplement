@@ -12,13 +12,7 @@
 # 呼び出し元フローのenvで指定（iOS/Android両方から使うため固定しない）
 appId: ${APP_ID}
 ---
-- extendedWaitUntil:
-    visible: "今日の1問"
-    timeout: 120000
-- tapOn: "今日の1問"
-- extendedWaitUntil:
-    visible: "次の1手は？"
-    timeout: 30000
+- runFlow: open_drill_question.yaml
 - scrollUntilVisible:
     element:
       text: "正解を見る"

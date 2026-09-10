@@ -1,0 +1,22 @@
+# ホームから次の一手の出題画面まで進める。
+#
+# Why not 「今日の1問」を押せば出題画面が出るとみなす: ドリルの状態は画面より長く生き、
+# 結果画面のまま離れたあとに開き直すと、結果画面が残ったままになる。
+#
+# 前提: ホーム画面から始めること。出題対象の悪手が1つ以上あること（「今日の1問」が出る）。
+#
+# 呼び出し元フローのenvで指定（iOS/Android両方から使うため固定しない）
+appId: ${APP_ID}
+---
+- extendedWaitUntil:
+    visible: "今日の1問"
+    timeout: 120000
+- tapOn: "今日の1問"
+- runFlow:
+    when:
+      visible: "次の問題"
+    commands:
+      - tapOn: "次の問題"
+- extendedWaitUntil:
+    visible: "次の1手は？"
+    timeout: 30000

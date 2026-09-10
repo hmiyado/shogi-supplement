@@ -13,10 +13,7 @@
 # 呼び出し元フローのenvで指定（iOS/Android両方から使うため固定しない）
 appId: ${APP_ID}
 ---
-- extendedWaitUntil:
-    visible: "今日の1問"
-    timeout: 120000
-- tapOn: "今日の1問"
+- runFlow: open_drill_question.yaml
 # 出題画面のボタンは盤と読み筋入力の下にあり画面外。assertVisibleは階層にあれば通り、
 # 画面外のままタップすると空振りするため、スクロールして見える位置へ出す。
 - scrollUntilVisible:
