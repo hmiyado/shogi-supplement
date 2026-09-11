@@ -68,9 +68,11 @@ UIが変わったリリースでは掲載画像も更新する。
 cd app && ./gradlew :androidApp:recordRoborazziDebug --tests "*StoreImageTest*" -Pshogi.storeImages=true --rerun-tasks
 ```
 
-- 書き出し先は `app/iosApp/fastlane/screenshots/ja/` の7枚（1290x2796・6.9インチ枠）。
+- 書き出し先は `app/iosApp/fastlane/screenshots/ja/` の6枚（1290x2796・6.9インチ枠）。
   差分を目で確認してから準備コミットに含める。
-- 元データは `StoreImageTest.kt` にある。文言・数値を変えたいときはそこを直す。
+- 1枚は「見出し＋端末モック」の組み。見出しの文言・画面の中身の数値はどちらも
+  `StoreImageTest.kt` にある。見出しは2行までに収める（はみ出すと端末に被る）。
+- 見出しの文言は `docs/wording.md` の対象。変えるときは表と突き合わせる。
 - `-Pshogi.storeImages=true` を付けないと1枚も書き出さない。VRTの検証
   （`verifyRoborazziDebug`）に巻き込まれて落ちないよう、明示指示のときだけ走る。
 - `--rerun-tasks` が要るのは、入力が変わっていないとGradleがテストを飛ばすため。

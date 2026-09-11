@@ -100,8 +100,8 @@ fastlane版はpilotを明示的なアップロード手段にするため、`Fas
 `fastlane/metadata/ja/`（name・subtitle・promotional_text・description・keywords・
 release_notes・support_url・privacy_url）は、App Store Connectに2026-07-19時点で
 登録済みの文言（1.1のリリースノートのみ新規）をもとに作成した。
-`fastlane/screenshots/ja/` の7枚（1290×2796・6.9インチ）は `StoreImageTest` が
-Composeから書き出す。生成手順は `app/docs/release-checklist.md`。
+`fastlane/screenshots/ja/` の6枚（1290×2796・6.9インチ）は `StoreImageTest` が
+Composeから書き出す（見出し＋端末モックの組み）。生成手順は `app/docs/release-checklist.md`。
 ロケールディレクトリが `ja` なのはdeliverが `ja-JP` を受理しないため。
 
 ## 残る検証

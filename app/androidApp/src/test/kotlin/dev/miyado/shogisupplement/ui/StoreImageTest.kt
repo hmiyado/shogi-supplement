@@ -1,7 +1,29 @@
 package dev.miyado.shogisupplement.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredHeight
+import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.layout.requiredWidth
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
 import com.github.takahirom.roborazzi.RoborazziOptions
 import com.github.takahirom.roborazzi.captureRoboImage
@@ -25,7 +47,13 @@ import dev.miyado.shogisupplement.ui.report.StudyCandidate
 import dev.miyado.shogisupplement.ui.report.StudyEvalState
 import dev.miyado.shogisupplement.ui.report.StudyOrigin
 import dev.miyado.shogisupplement.ui.report.StudyState
+import dev.miyado.shogisupplement.ui.theme.LightBg
+import dev.miyado.shogisupplement.ui.theme.LightInk
+import dev.miyado.shogisupplement.ui.theme.LightPrimarySoft
+import dev.miyado.shogisupplement.ui.theme.LightSurface
+import dev.miyado.shogisupplement.ui.theme.ShipporiMinchoFamily
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
+import java.awt.RenderingHints
 import java.awt.image.BufferedImage
 import java.io.File
 import javax.imageio.ImageIO
@@ -37,14 +65,14 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-// 430x932dp・xxhdpi = 1290x2796px は App Store Connect の6.9インチ枠。
 // Why not ステータスバーとホームインジケータも描く: OSのUIを描き足すと実機を騙ることになる。
-/** ストア掲載画像を書き出す。 */
+/** ストア掲載画像（見出し＋端末の枠）を書き出す。 */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(
     sdk = [34],
-    qualifiers = "w430dp-h932dp-xxhdpi",
+    // 台紙は端末（[PhoneWidth]）より大きく、縦横比は [OutputWidthPx]:[OutputHeightPx] に合わせる。
+    qualifiers = "w500dp-h1084dp-xxhdpi",
     application = android.app.Application::class,
 )
 class StoreImageTest {
@@ -58,32 +86,39 @@ class StoreImageTest {
         assumeTrue(System.getProperty(STORE_IMAGE_PROPERTY) == "true")
     }
 
-    private fun capture(fileName: String, content: @Composable () -> Unit) {
+    private fun capture(fileName: String, caption: String, screen: @Composable () -> Unit) {
         val path = "../iosApp/fastlane/screenshots/ja/$fileName.png"
-        captureRoboImage(filePath = path, roborazziOptions = storeRoborazziOptions, content = content)
-        dropAlphaChannel(File(path))
+        captureRoboImage(filePath = path, roborazziOptions = storeRoborazziOptions) {
+            StoreCard(caption = caption, screen = screen)
+        }
+        finalizeImage(File(path))
     }
 
-    /** App Store Connect は透過を含むスクリーンショットを受け付けない。書き出しはRGBAなので落とす。 */
-    private fun dropAlphaChannel(file: File) {
+    /**
+     * 提出枠へ縮小し、アルファチャンネルを落とす。
+     * Why not 提出枠のまま描く: 端末の中身を実寸（[PhoneWidth]）で組み立てたいので、
+     * 台紙は端末より大きい。App Store Connect は透過を含む画像も受け付けない。
+     */
+    private fun finalizeImage(file: File) {
         val source = ImageIO.read(file)
-        val opaque = BufferedImage(source.width, source.height, BufferedImage.TYPE_INT_RGB)
-        opaque.createGraphics().apply {
-            drawImage(source, 0, 0, null)
+        val output = BufferedImage(OutputWidthPx, OutputHeightPx, BufferedImage.TYPE_INT_RGB)
+        output.createGraphics().apply {
+            setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC)
+            setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY)
+            setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
+            drawImage(source, 0, 0, OutputWidthPx, OutputHeightPx, null)
             dispose()
         }
-        ImageIO.write(opaque, "png", file)
+        ImageIO.write(output, "png", file)
     }
 
-    private fun themed(content: @Composable () -> Unit): @Composable () -> Unit = {
-        ShogiTheme { Surface { content() } }
-    }
 
     @Test
     fun `01 home`() {
         capture(
             "01_home",
-            themed {
+            "悪手を復習して\n棋力向上",
+            {
                 HomeScreen(
                     pastGames = storeGames,
                     isLoggedIn = true,
@@ -109,25 +144,52 @@ class StoreImageTest {
     }
 
     @Test
-    fun `02 report graph`() {
-        capture("02_report_graph", themed { StoreReport() })
+    @Config(qualifiers = "+night")
+    fun `02 home dark`() {
+        capture(
+            "02_home_dark",
+            "ダークモードも対応",
+            {
+                HomeScreen(
+                    pastGames = storeGames,
+                    isLoggedIn = true,
+                    strengthCard = StrengthCardData(
+                        displayText = "58 ±9",
+                        detailText = "直近20局から算出",
+                        declaredRankLine = "申告: 将棋ウォーズ 初段（10秒将棋）",
+                    ),
+                    todaysDrillHint = TodaysDrillHint(ply = 41L),
+                    drillRecordCard = DrillRecordCardData(
+                        activeDaysInWindow = 22,
+                        windowDays = 30,
+                        totalAttempts = 214,
+                        weekStreakCount = 3,
+                    ),
+                    onOpenKif = {},
+                    onGameClick = {},
+                    onStartDrill = {},
+                    onViewAllGames = {},
+                )
+            },
+        )
     }
 
     @Test
-    fun `03 blunder list`() {
-        capture("03_blunder_list", themed { StoreReport(showBlunderList = true) })
+    fun `03 report graph`() {
+        capture("03_report_graph", "形勢をグラフで確認") { StoreReport() }
     }
 
     @Test
-    fun `04 study`() {
-        capture("04_study", themed { StoreReport(studyState = storeStudyState) })
+    fun `04 blunder list`() {
+        capture("04_blunder_list", "ポイントとなる\n悪手をピックアップ") { StoreReport(showBlunderList = true) }
     }
 
     @Test
     fun `05 drill question`() {
         capture(
             "05_drill_question",
-            themed {
+            "自分の棋譜から\n問題を出題",
+            {
                 DrillQuestionContent(
                     state = DrillUiState.Question(
                         blunder = storeBlunder,
@@ -151,7 +213,8 @@ class StoreImageTest {
     fun `06 drill result`() {
         capture(
             "06_drill_result",
-            themed {
+            "正解は AI で判定",
+            {
                 DrillResultContent(
                     result = DrillJudge.DrillResult(
                         isCorrect = true,
@@ -166,12 +229,6 @@ class StoreImageTest {
                 )
             },
         )
-    }
-
-    @Test
-    @Config(qualifiers = "+night")
-    fun `07 report dark`() {
-        capture("07_report_dark", themed { StoreReport() })
     }
 
     @Composable
@@ -197,6 +254,84 @@ class StoreImageTest {
 
 /** ビルド側（androidApp/build.gradle.kts）がテストJVMへ渡す。 */
 private const val STORE_IMAGE_PROPERTY = "shogi.storeImages"
+
+/** App Store Connect の6.9インチ枠。 */
+private const val OutputWidthPx = 1290
+private const val OutputHeightPx = 2796
+
+/** 端末の中身は6.9インチの実寸で組み立てる。縮小は画像にしてから行う。 */
+private val PhoneWidth = 430.dp
+private val PhoneHeight = 932.dp
+
+// 6枚を並べたときにキャプションの行数で端末の位置がずれないよう、見出し帯の高さは固定する。
+private val CaptionTop = 56.dp
+private val CaptionBandHeight = 136.dp
+private val DeviceTop = CaptionTop + CaptionBandHeight + 20.dp
+
+private val BezelWidth = 8.dp
+
+/**
+ * 見出し＋端末の枠の2段。端末は台紙の下端で切れる長さにして、画面の続きがあることを示す。
+ * 背景・文字色をテーマから取らない理由: ダークモードの端末を明るい台紙に載せる枚があるため。
+ */
+@Composable
+private fun StoreCard(caption: String, screen: @Composable () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.linearGradient(
+                    colors = listOf(LightBg, LightPrimarySoft),
+                    start = Offset.Zero,
+                    end = Offset.Infinite,
+                ),
+            ),
+    ) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = CaptionTop, start = 32.dp, end = 32.dp)
+                .requiredHeight(CaptionBandHeight)
+                .fillMaxWidth(),
+            contentAlignment = Alignment.TopCenter,
+        ) {
+            Text(
+                text = caption,
+                style = TextStyle(
+                    fontFamily = ShipporiMinchoFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 42.sp,
+                    lineHeight = 62.sp,
+                    textAlign = TextAlign.Center,
+                    color = LightInk,
+                ),
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .offset(y = DeviceTop)
+                .requiredWidth(PhoneWidth + BezelWidth * 2)
+                .shadow(
+                    elevation = 20.dp,
+                    shape = RoundedCornerShape(topStart = 56.dp, topEnd = 56.dp),
+                    clip = false,
+                )
+                .clip(RoundedCornerShape(topStart = 56.dp, topEnd = 56.dp))
+                .background(LightSurface)
+                .padding(top = BezelWidth, start = BezelWidth, end = BezelWidth),
+        ) {
+            Box(
+                modifier = Modifier
+                    .requiredSize(PhoneWidth, PhoneHeight)
+                    .clip(RoundedCornerShape(topStart = 48.dp, topEnd = 48.dp)),
+            ) {
+                ShogiTheme { Surface { screen() } }
+            }
+        }
+    }
+}
 
 /** ストア画像は縮小せずそのまま書き出す（VRTのゴールデンは0.5倍で記録している）。 */
 @OptIn(ExperimentalRoborazziApi::class)
