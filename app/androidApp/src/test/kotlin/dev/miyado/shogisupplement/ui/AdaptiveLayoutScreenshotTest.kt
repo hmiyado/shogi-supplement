@@ -1,15 +1,8 @@
 package dev.miyado.shogisupplement.ui
 
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.unit.dp
 import com.github.takahirom.roborazzi.captureRoboImage
-import dev.miyado.shogisupplement.R
 import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.PositionEvalRow
@@ -36,15 +29,6 @@ import org.robolectric.annotation.GraphicsMode
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [34], application = android.app.Application::class)
 class AdaptiveLayoutScreenshotTest {
-
-    @Composable
-    private fun testTitleIcon() {
-        Image(
-            painter = painterResource(id = R.drawable.ic_app_title_icon),
-            contentDescription = null,
-            modifier = Modifier.height(30.dp).width(24.dp),
-        )
-    }
 
     private fun sampleGames() = listOf(
         GameRecord(
@@ -143,7 +127,6 @@ class AdaptiveLayoutScreenshotTest {
                         onGameClick = {},
                         onStartDrill = {},
                         onViewAllGames = {},
-                        titleIcon = { testTitleIcon() },
                     )
                 }
             }

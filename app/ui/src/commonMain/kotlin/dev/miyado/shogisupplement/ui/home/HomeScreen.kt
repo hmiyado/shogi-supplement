@@ -42,6 +42,7 @@ import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.pipeline.InProgressAnalysis
 import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.AnalyzingGameCard
+import dev.miyado.shogisupplement.ui.common.AppTitleIcon
 import dev.miyado.shogisupplement.ui.common.GameCard
 import dev.miyado.shogisupplement.ui.common.adaptiveContentWidth
 import dev.miyado.shogisupplement.ui.common.scaffoldContentInsets
@@ -52,8 +53,6 @@ import dev.miyado.shogisupplement.ui.theme.TextStyleDataLarge
 import dev.miyado.shogisupplement.ui.theme.shogiColors
 
 // HomeScreen・StrengthCard を持つ（GameCard は ui.common で共用）。
-// タイトル左のアプリアイコンは commonMain が Android リソースを直接参照できないため、
-// titleIcon: @Composable () -> Unit スロットへホイストしている。
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -75,8 +74,6 @@ fun HomeScreen(
     /** 推定棋力カードのタップ（「?」アイコン部分を除く）。推定棋力詳細画面へ遷移する。 */
     onOpenStrengthDetail: () -> Unit = {},
     onOpenDrillRecordDetail: () -> Unit = {},
-    /** タイトル左の小さなアプリアイコン（Android専用リソースのためホイスト。既定は非表示）。 */
-    titleIcon: @Composable () -> Unit = {},
 ) {
     val shogiColors = MaterialTheme.shogiColors
     Scaffold(
@@ -85,7 +82,7 @@ fun HomeScreen(
             TopAppBar(
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        titleIcon()
+                        AppTitleIcon()
                         Spacer(Modifier.width(8.dp))
                         Text(
                             AppStrings.APP_TITLE,
