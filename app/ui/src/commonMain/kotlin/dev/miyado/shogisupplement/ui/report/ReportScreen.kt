@@ -97,6 +97,7 @@ fun ReportScreen(
     onStudyBranchPopupDismiss: () -> Unit = {},
     onStudyBranchOptionSelected: (depth: Int, moveUsi: String) -> Unit = { _, _ -> },
     onStudyAnalyze: () -> Unit = {},
+    onStudyCandidateSelected: (String) -> Unit = {},
     onCopyKif: (String) -> Unit = {},
     onDeleteGame: (
         deleteServer: Boolean,
@@ -402,6 +403,7 @@ fun ReportScreen(
                                 onBranchPopupDismiss = onStudyBranchPopupDismiss,
                                 onBranchOptionSelected = onStudyBranchOptionSelected,
                                 onAnalyze = onStudyAnalyze,
+                                onCandidateTapped = onStudyCandidateSelected,
                                 modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 4.dp),
                             )
                         } else {

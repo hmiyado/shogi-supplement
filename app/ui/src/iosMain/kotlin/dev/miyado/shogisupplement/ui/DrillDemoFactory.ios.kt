@@ -106,13 +106,13 @@ object DrillDemoFactory {
             httpClient = httpClient,
             appCheckTokenProvider = AppCheckTokenBridge::getToken,
         )
-        val remoteEngine = RemoteStudyEngine { sfen, moves ->
+        val remoteEngine = RemoteStudyEngine { sfen, moves, multiPv ->
             // サーバー解析はJWT必須のため、未ログインならここで匿名サインインする
             // （通常はドリル到達前に済んでいるはずで、ここに来るのは保険）。
             if (authRepository.currentUser.value == null) {
                 authRepository.signInAnonymously()
             }
-            runner.analyzePosition(sfen, moves)
+            runner.analyzePosition(sfen, moves, multiPv)
         }
         return { FailoverEngine(primary = WasmStudyEngine(), secondary = remoteEngine) }
     }

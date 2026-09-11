@@ -12,8 +12,14 @@ package dev.miyado.shogisupplement.engine
  */
 object WasmStudyBridge {
 
-    /** 単発局面解析を開始する。 @param requestId リクエストID。 @param baseSfenArg position引数。 @param movesJson 追加手列のJSON。 @return 受理できたか。 */
-    var analyzeHandler: ((requestId: String, baseSfenArg: String, movesJson: String) -> Boolean)? = null
+    /**
+     * 単発局面解析を開始する。
+     * @param requestId リクエストID。 @param baseSfenArg position引数。 @param movesJson 追加手列のJSON。
+     * @param multiPv 候補手の本数。 @return 受理できたか。
+     */
+    var analyzeHandler: (
+        (requestId: String, baseSfenArg: String, movesJson: String, multiPv: Int) -> Boolean
+    )? = null
 
     /** WASMバイナリとWebViewページが準備済みかを返す。未準備ならfalseで、解析開始はfail-fastする。 */
     var localReadyProvider: (() -> Boolean)? = null

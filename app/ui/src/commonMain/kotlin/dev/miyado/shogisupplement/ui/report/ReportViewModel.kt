@@ -153,6 +153,8 @@ class ReportViewModel(
     fun onStudyBranchOptionSelected(depth: Int, moveUsi: String) = studyController.onBranchOptionSelected(depth, moveUsi)
     fun onStudyAnalyze() = studyController.analyzeCurrentPosition()
 
+    fun onStudyCandidateSelected(moveUsi: String) = studyController.onCandidateSelected(moveUsi)
+
     /** リーク厳禁: 呼び出し元（MainViewModel）の onCleared 相当のタイミングで呼ぶこと。 */
     fun dispose() {
         studyController.dispose()

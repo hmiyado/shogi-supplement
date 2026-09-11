@@ -31,8 +31,12 @@ class WireFormatTest {
     @Test
     fun 解析リクエストのキー名() {
         assertEquals(
-            """{"moves_usi":["7g7f","3c3d"],"sfen":null,"moves":null}""",
+            """{"moves_usi":["7g7f","3c3d"],"sfen":null,"moves":null,"multi_pv":null}""",
             json.encodeToString(AnalysisRequest(movesUsi = listOf("7g7f", "3c3d"))),
+        )
+        assertEquals(
+            """{"moves_usi":null,"sfen":"sfen","moves":["7g7f"],"multi_pv":3}""",
+            json.encodeToString(AnalysisRequest(sfen = "sfen", moves = listOf("7g7f"), multiPv = 3)),
         )
     }
 

@@ -27,18 +27,32 @@ private data class RawStudyScore(val cp: Int? = null, val mate: Int? = null) {
 private data class RawStudyPv2(val score: RawStudyScore? = null, val pv: List<String> = emptyList())
 
 @Serializable
+private data class RawStudyPv(
+    val multipv: Int,
+    val score: RawStudyScore? = null,
+    val nodes: Long? = null,
+    val pv: List<String> = emptyList(),
+)
+
+@Serializable
 private data class RawStudyPositionResult(
     val score: RawStudyScore? = null,
     val nodes: Long? = null,
     val pv: List<String> = emptyList(),
     val multipv2: RawStudyPv2? = null,
+    val pvs: List<RawStudyPv> = emptyList(),
 )
 
 class WorkerStudyEngine(assetDirUrl: String) : StudyEngine {
     private val handle: StudyEngineHandle = kentoBridge().createStudyEngine(assetDirUrl)
 
-    // Why not nodes をWorkerへ渡す: study-worker.js が解析条件を固定しており、変更できない。
-    override suspend fun analyzeSfen(sfen: String, additionalMoves: List<String>, nodes: Int): List<PvInfo> =
+    // Why not nodes をWorkerへ渡す: study-worker.js がノード数を固定しており、変更できない。
+    override suspend fun analyzeSfen(
+        sfen: String,
+        additionalMoves: List<String>,
+        nodes: Int,
+        multiPv: Int,
+    ): List<PvInfo> =
         suspendCancellableCoroutine { cont ->
             handle.analyze(
                 baseSfenArg = "sfen $sfen",
@@ -51,6 +65,7 @@ class WorkerStudyEngine(assetDirUrl: String) : StudyEngine {
                     }
                 },
                 onError = { message -> cont.resumeWithException(IllegalStateException(message)) },
+                multiPv = multiPv,
             )
             cont.invokeOnCancellation { handle.dispose() }
         }
@@ -58,8 +73,14 @@ class WorkerStudyEngine(assetDirUrl: String) : StudyEngine {
     override fun quit() = handle.dispose()
 }
 
+/** Why not pvs だけを読まない理由: 公開済みのWorkerは pvs を持たない（先頭2本は旧項目にある）。 */
 private fun String.toPvInfos(): List<PvInfo> {
     val raw = studyEngineJson.decodeFromString<RawStudyPositionResult>(this)
+    if (raw.pvs.isNotEmpty()) {
+        return raw.pvs.mapNotNull { p ->
+            p.score?.toScore()?.let { PvInfo(multipv = p.multipv, score = it, pv = p.pv, nodes = p.nodes ?: 0L) }
+        }
+    }
     return buildList {
         raw.score?.toScore()?.let { score ->
             add(PvInfo(multipv = 1, score = score, pv = raw.pv, nodes = raw.nodes ?: 0L))

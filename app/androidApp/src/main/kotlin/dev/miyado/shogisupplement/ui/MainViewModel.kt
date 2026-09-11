@@ -556,6 +556,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun onStudyBranchPopupDismiss() = reportViewModel.onStudyBranchPopupDismiss()
     fun onStudyBranchOptionSelected(depth: Int, moveUsi: String) = reportViewModel.onStudyBranchOptionSelected(depth, moveUsi)
     fun onStudyAnalyze() = reportViewModel.onStudyAnalyze()
+    fun onStudyCandidateSelected(moveUsi: String) = reportViewModel.onStudyCandidateSelected(moveUsi)
 
     override fun onCleared() {
         super.onCleared()

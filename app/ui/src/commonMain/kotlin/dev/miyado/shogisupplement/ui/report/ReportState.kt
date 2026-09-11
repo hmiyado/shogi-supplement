@@ -23,15 +23,25 @@ sealed class StudyEvalState {
     /**
      * @param label 表示用ラベル。
      * @param userCp 自分視点のcp。差は非線形な勝率軸でなくcp軸で計算する。
-     * @param bestMoveText PV先頭手の棋譜表記。PVが空または整形失敗ならnull。
+     * @param candidates エンジンが返した候補手（評価の高い順）。整形に失敗した手は含まない。
      */
     data class Value(
         val label: PositionEvalDisplay.EvalLabel,
         val userCp: Int? = null,
-        val bestMoveText: String? = null,
+        val candidates: List<StudyCandidate> = emptyList(),
     ) : StudyEvalState()
     object Error : StudyEvalState()
 }
+
+/**
+ * 検討モードの候補手1つ。
+ * @param moveUsi 着手のUSI表記。 @param moveText 棋譜表記。 @param label その手を指した局面の表示用ラベル。
+ */
+data class StudyCandidate(
+    val moveUsi: String,
+    val moveText: String,
+    val label: PositionEvalDisplay.EvalLabel,
+)
 
 /**
  * 検討開始時に固定する分岐元情報。

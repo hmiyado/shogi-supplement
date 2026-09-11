@@ -663,9 +663,6 @@ object AppStrings {
     /** 評価スロットの解析中表示。 */
     const val STUDY_EVAL_ANALYZING = "解析中"
 
-    /** 評価スロットの最善手表示（例:「最善 ▲2六歩」）。moveText は棋譜表記済みの文字列。 */
-    fun studyBestMoveLabel(moveText: String): String = "最善 $moveText"
-
     fun studyChipEvalSuffix(text: String): String = "($text)"
 
     const val STUDY_BRANCH_CURRENT_SUFFIX = "（いま）"

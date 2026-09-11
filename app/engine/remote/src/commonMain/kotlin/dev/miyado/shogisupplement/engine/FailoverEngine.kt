@@ -11,9 +11,9 @@ class FailoverEngine(
     override fun analyze(moves: List<String>, nodes: Int): List<PvInfo> =
         runOrSecondary { primary.analyze(moves, nodes) } ?: secondary.analyze(moves, nodes)
 
-    override fun analyzeSfen(sfen: String, additionalMoves: List<String>, nodes: Int): List<PvInfo> =
-        runOrSecondary { primary.analyzeSfen(sfen, additionalMoves, nodes) }
-            ?: secondary.analyzeSfen(sfen, additionalMoves, nodes)
+    override fun analyzeSfen(sfen: String, additionalMoves: List<String>, nodes: Int, multiPv: Int): List<PvInfo> =
+        runOrSecondary { primary.analyzeSfen(sfen, additionalMoves, nodes, multiPv) }
+            ?: secondary.analyzeSfen(sfen, additionalMoves, nodes, multiPv)
 
     override fun newGame() {
         primary.newGame()

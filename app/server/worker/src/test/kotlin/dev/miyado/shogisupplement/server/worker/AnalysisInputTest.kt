@@ -1,9 +1,11 @@
 package dev.miyado.shogisupplement.server.worker
 
 import dev.miyado.shogisupplement.api.analysis.AnalysisRequest
+import dev.miyado.shogisupplement.engine.Engine
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNotEquals
 
 /** 解析リクエストの入力検証（上限と形式）が、エンジンへ渡す前に不正な入力を弾くことを保証する。 */
 class AnalysisInputTest {
@@ -43,7 +45,37 @@ class AnalysisInputTest {
     fun `初期局面のSFENを受け付ける`() {
         val request = AnalysisRequest(sfen = initialSfen, moves = listOf("7g7f"))
         val result = assertIs<EngineInputResult.Valid>(request.toEngineInput())
-        assertEquals(EngineInput.Position(initialSfen, listOf("7g7f")), result.input)
+        assertEquals(EngineInput.Position(initialSfen, listOf("7g7f"), Engine.MULTI_PV), result.input)
+    }
+
+    @Test
+    fun `multi_pvを省略したら解析の不変条件の本数になる`() {
+        val result = assertIs<EngineInputResult.Valid>(AnalysisRequest(sfen = initialSfen).toEngineInput())
+        assertEquals(Engine.MULTI_PV, assertIs<EngineInput.Position>(result.input).multiPv)
+    }
+
+    @Test
+    fun `multi_pvは上限まで受け付け、外れた値と1局まるごとへの指定は弾く`() {
+        val accepted = assertIs<EngineInputResult.Valid>(
+            AnalysisRequest(sfen = initialSfen, multiPv = AnalysisInputLimits.MAX_MULTI_PV).toEngineInput(),
+        )
+        assertEquals(AnalysisInputLimits.MAX_MULTI_PV, assertIs<EngineInput.Position>(accepted.input).multiPv)
+
+        assertIs<EngineInputResult.Invalid>(AnalysisRequest(sfen = initialSfen, multiPv = 0).toEngineInput())
+        assertIs<EngineInputResult.Invalid>(
+            AnalysisRequest(sfen = initialSfen, multiPv = AnalysisInputLimits.MAX_MULTI_PV + 1).toEngineInput(),
+        )
+        assertIs<EngineInputResult.Invalid>(
+            AnalysisRequest(movesUsi = listOf("7g7f"), multiPv = 3).toEngineInput(),
+        )
+    }
+
+    @Test
+    fun `本数が違えば冪等キーも変わるが、既定値のキーは従来のまま`() {
+        val default = EngineInput.Position(initialSfen, listOf("7g7f"), Engine.MULTI_PV)
+        val three = EngineInput.Position(initialSfen, listOf("7g7f"), 3)
+        assertNotEquals(default.hashSeed, three.hashSeed)
+        assertEquals("$initialSfen|7g7f", default.hashSeed)
     }
 
     @Test

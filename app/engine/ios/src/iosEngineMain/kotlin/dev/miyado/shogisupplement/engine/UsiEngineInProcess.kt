@@ -46,7 +46,7 @@ class UsiEngineInProcess private constructor() : Engine {
             // オプション設定（不変条件。Android版 UsiEngineProcess.create と同一）
             engine.send("setoption name Threads value 1")
             engine.send("setoption name USI_Hash value 128")
-            engine.send("setoption name MultiPV value 2")
+            engine.send("setoption name MultiPV value ${EngineInvariants.MULTI_PV}")
             engine.send("setoption name USI_OwnBook value false")
             engine.send("setoption name NetworkDelay value 0")
             engine.send("setoption name NetworkDelay2 value 0")
@@ -62,6 +62,7 @@ class UsiEngineInProcess private constructor() : Engine {
     }
 
     override fun analyze(moves: List<String>, nodes: Int): List<PvInfo> {
+        applyMultiPv(EngineInvariants.MULTI_PV)
         val posCmd = if (moves.isEmpty()) {
             "position startpos"
         } else {
@@ -72,7 +73,8 @@ class UsiEngineInProcess private constructor() : Engine {
         return collectPvResult()
     }
 
-    override fun analyzeSfen(sfen: String, additionalMoves: List<String>, nodes: Int): List<PvInfo> {
+    override fun analyzeSfen(sfen: String, additionalMoves: List<String>, nodes: Int, multiPv: Int): List<PvInfo> {
+        applyMultiPv(multiPv)
         val posCmd = if (additionalMoves.isEmpty()) {
             "position sfen $sfen"
         } else {
@@ -81,6 +83,17 @@ class UsiEngineInProcess private constructor() : Engine {
         send(posCmd)
         send("go nodes $nodes")
         return collectPvResult()
+    }
+
+    /**
+     * MultiPVを [multiPv] に揃える。検討モードと解析でインスタンスを共有しうるため、
+     * 解析の入口では毎回不変条件へ戻す必要がある。
+     * Why not 常にsetoptionを送らない理由: 不変条件どおりの解析では送信列を1行も変えない。
+     */
+    private fun applyMultiPv(multiPv: Int) {
+        if (multiPv == currentMultiPv) return
+        send("setoption name MultiPV value $multiPv")
+        currentMultiPv = multiPv
     }
 
     /** quitを送信する。プロセス内スレッドは破棄できないため、呼び出し後は再利用しない。 */
@@ -146,6 +159,9 @@ class UsiEngineInProcess private constructor() : Engine {
 
     /** 直前に送信した USI コマンド名（"go"/"position" など。内容は含まない）。デバッグ用。 */
     private var lastCommandName: String = ""
+
+    /** エンジンへ最後に設定した MultiPV。初期化時の送信内容と一致させる。 */
+    private var currentMultiPv: Int = EngineInvariants.MULTI_PV
 
     /** USI info行をPvInfoへ変換する。multipvがない行はnullを返す。 */
     private fun parseInfoLine(line: String): PvInfo? {

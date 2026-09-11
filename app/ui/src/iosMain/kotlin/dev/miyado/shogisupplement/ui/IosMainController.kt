@@ -177,13 +177,13 @@ class IosMainController(
             httpClient = runnerHttpClient,
             appCheckTokenProvider = AppCheckTokenBridge::getToken,
         )
-        val remoteEngine = RemoteStudyEngine { sfen, moves ->
+        val remoteEngine = RemoteStudyEngine { sfen, moves, multiPv ->
             // サーバー解析はJWT必須のため、未ログインならここで匿名サインインする
             // （通常は取込解析時に済んでいるはずで、ここに来るのは保険）。
             if (auth.currentUser.value == null) {
                 auth.signInAnonymously()
             }
-            runner.analyzePosition(sfen, moves)
+            runner.analyzePosition(sfen, moves, multiPv)
         }
         // ローカルWASM優先・不可時（WASMバイナリ未準備・ホスト起動失敗）はサーバーへ
         // （FailoverEngine KDoc参照。WasmStudyEngineはfail-fastで即座に例外を投げるため
@@ -702,6 +702,8 @@ class IosMainController(
     fun onStudyBranchPopupDismiss() = reportViewModel.onStudyBranchPopupDismiss()
     fun onStudyBranchOptionSelected(depth: Int, moveUsi: String) = reportViewModel.onStudyBranchOptionSelected(depth, moveUsi)
     fun onStudyAnalyze() = reportViewModel.onStudyAnalyze()
+
+    fun onStudyCandidateSelected(moveUsi: String) = reportViewModel.onStudyCandidateSelected(moveUsi)
 
     /** リーク厳禁: 呼び出し元（MainViewController）が破棄されるタイミングで呼ぶこと。 */
     fun dispose() {

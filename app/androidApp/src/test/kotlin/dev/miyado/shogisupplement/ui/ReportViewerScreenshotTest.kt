@@ -35,6 +35,25 @@ class ReportViewerScreenshotTest {
     @get:Rule
     val composeRule = createComposeRule()
 
+    /** 評価スロットの候補手3件（先頭が最善で、2件目以降は評価が下がる）。 */
+    private fun studyCandidates() = listOf(
+        dev.miyado.shogisupplement.ui.report.StudyCandidate(
+            moveUsi = "2g2f",
+            moveText = "▲２六歩",
+            label = PositionEvalDisplay.EvalLabel(text = "+120", sign = 1),
+        ),
+        dev.miyado.shogisupplement.ui.report.StudyCandidate(
+            moveUsi = "6i7h",
+            moveText = "▲７八金",
+            label = PositionEvalDisplay.EvalLabel(text = "+40", sign = 1),
+        ),
+        dev.miyado.shogisupplement.ui.report.StudyCandidate(
+            moveUsi = "3i4h",
+            moveText = "▲４八銀",
+            label = PositionEvalDisplay.EvalLabel(text = "−60", sign = -1),
+        ),
+    )
+
     /**
      * Why not ラムダ版 captureRoboImage: Espresso の idle 待ちが、フレームを流し続ける
      * 無限アニメーションでは終わらない。Compose テスト規則はこれを idle 判定から除く。
@@ -421,7 +440,6 @@ class ReportViewerScreenshotTest {
                                 dev.miyado.shogisupplement.ui.report.StudyEvalState.Value(
                                     PositionEvalDisplay.EvalLabel(text = "+120", sign = 1),
                                     userCp = 120,
-                                    bestMoveText = "▲2六歩",
                                 ),
                             ),
                             origin = dev.miyado.shogisupplement.ui.report.StudyOrigin(
@@ -437,7 +455,7 @@ class ReportViewerScreenshotTest {
                             evalState = dev.miyado.shogisupplement.ui.report.StudyEvalState.Value(
                                 PositionEvalDisplay.EvalLabel(text = "+120", sign = 1),
                                 userCp = 120,
-                                bestMoveText = "▲2六歩",
+                                candidates = studyCandidates(),
                             ),
                         ),
                     )
@@ -543,7 +561,6 @@ class ReportViewerScreenshotTest {
                                 dev.miyado.shogisupplement.ui.report.StudyEvalState.Value(
                                     PositionEvalDisplay.EvalLabel(text = "+120", sign = 1),
                                     userCp = 120,
-                                    bestMoveText = "▲2六歩",
                                 ),
                             ),
                             origin = dev.miyado.shogisupplement.ui.report.StudyOrigin(
@@ -559,7 +576,7 @@ class ReportViewerScreenshotTest {
                             evalState = dev.miyado.shogisupplement.ui.report.StudyEvalState.Value(
                                 PositionEvalDisplay.EvalLabel(text = "+120", sign = 1),
                                 userCp = 120,
-                                bestMoveText = "▲2六歩",
+                                candidates = studyCandidates(),
                             ),
                         ),
                     )
@@ -648,7 +665,7 @@ class ReportViewerScreenshotTest {
                             evalState = dev.miyado.shogisupplement.ui.report.StudyEvalState.Value(
                                 PositionEvalDisplay.EvalLabel(text = "+820", sign = 1),
                                 userCp = 820,
-                                bestMoveText = "▲６八玉",
+                                candidates = studyCandidates(),
                             ),
                         ),
                     )

@@ -16,6 +16,7 @@ external interface StudyEngineHandle : JsAny {
         movesJson: String,
         onResult: (String) -> Unit,
         onError: (String) -> Unit,
+        multiPv: Int,
     )
 
     fun dispose()

@@ -155,7 +155,7 @@
 
   /**
    * @typedef {Object} StudyEngine
-   * @property {(baseSfenArg: string, movesJson: string, onResult: (resultJson: string) => void, onError: (message: string) => void) => void} analyze
+   * @property {(baseSfenArg: string, movesJson: string, onResult: (resultJson: string) => void, onError: (message: string) => void, multiPv?: number) => void} analyze
    * @property {() => void} dispose
    */
 
@@ -220,6 +220,7 @@
             type: "analyze",
             baseSfenArg: activeRequest.baseSfenArg,
             movesJson: activeRequest.movesJson,
+            multiPv: activeRequest.multiPv,
           });
         }
       } else if (msg.type === "result") {
@@ -242,7 +243,9 @@
     startWorker();
 
     return {
-      analyze(baseSfenArg, movesJson, onResult, onError) {
+      // multiPvを末尾に置く理由: webApp.js と別々にキャッシュされるため、
+      // 片方だけ古い組み合わせでも既存の引数位置がずれない。
+      analyze(baseSfenArg, movesJson, onResult, onError, multiPv) {
         // 黙って返すと待ち側が永久に再開しないため、破棄済みでも必ず応答する。
         if (disposed) {
           onError("検討エンジンは破棄済みです");
@@ -252,10 +255,10 @@
           onError("検討エンジンはすでに解析中です");
           return;
         }
-        const request = { baseSfenArg, movesJson, onResult, onError, finished: false };
+        const request = { baseSfenArg, movesJson, multiPv, onResult, onError, finished: false };
         if (prepared) {
           activeRequest = request;
-          worker.postMessage({ type: "analyze", baseSfenArg, movesJson });
+          worker.postMessage({ type: "analyze", baseSfenArg, movesJson, multiPv });
         } else {
           pendingRequest = request;
         }

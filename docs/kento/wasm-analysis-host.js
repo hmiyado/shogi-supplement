@@ -111,9 +111,10 @@ window.__initStudy = function (assetBaseUrl) {
 
 // [requestId] は一意な文字列であればよい（応答メッセージにそのまま付けて返す）。
 // [baseSfenArg] は "startpos" または "sfen <SFEN文字列>"。
+// [multiPv] は省略可（公開済みのアプリは渡してこない。省略時はstudy-worker.jsの既定）。
 // 待機Workerの準備が済んでいない・既に別リクエストが進行中のときは即座にエラーを返す
 // （検討中に何秒も待たせてからサーバーへ切り替えるのを避けるための即時失敗）。
-window.__analyzePosition = function (requestId, baseSfenArg, movesJson) {
+window.__analyzePosition = function (requestId, baseSfenArg, movesJson, multiPv) {
   if (studyBusy || !nextWorkerReady || !nextWorker) {
     postStudy("study-error", { requestId: requestId, message: "対話的解析ホストが未準備です" });
     return;
@@ -140,7 +141,7 @@ window.__analyzePosition = function (requestId, baseSfenArg, movesJson) {
     postStudy("study-error", { requestId: requestId, message: "Workerエラー: " + (err.message || err) });
     prepareNextWorker();
   };
-  worker.postMessage({ type: "analyze", baseSfenArg: baseSfenArg, movesJson: movesJson });
+  worker.postMessage({ type: "analyze", baseSfenArg: baseSfenArg, movesJson: movesJson, multiPv: multiPv });
 };
 
 post("ready");

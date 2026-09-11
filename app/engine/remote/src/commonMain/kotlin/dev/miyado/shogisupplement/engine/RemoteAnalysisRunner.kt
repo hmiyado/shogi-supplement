@@ -58,9 +58,13 @@ class RemoteAnalysisRunner(
     )
 
     /** `sfen`から`moves`を進めた単一局面へ、[analyzeGame]と同じ再送・冪等性を適用する。 */
-    suspend fun analyzePosition(sfen: String, moves: List<String> = emptyList()): List<PvInfo> {
+    suspend fun analyzePosition(
+        sfen: String,
+        moves: List<String> = emptyList(),
+        multiPv: Int = Engine.MULTI_PV,
+    ): List<PvInfo> {
         val perPosition = executeWithRetry(
-            AnalysisRequest(sfen = sfen, moves = moves),
+            AnalysisRequest(sfen = sfen, moves = moves, multiPv = multiPv),
             onProgress = null,
             onPositionResult = null,
         )

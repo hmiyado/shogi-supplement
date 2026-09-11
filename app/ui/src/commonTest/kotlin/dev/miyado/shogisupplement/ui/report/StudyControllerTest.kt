@@ -23,7 +23,7 @@ class StudyControllerTest {
 
     private class NoPvEngine : Engine {
         override fun analyze(moves: List<String>, nodes: Int): List<PvInfo> = emptyList()
-        override fun analyzeSfen(sfen: String, additionalMoves: List<String>, nodes: Int): List<PvInfo> = emptyList()
+        override fun analyzeSfen(sfen: String, additionalMoves: List<String>, nodes: Int, multiPv: Int): List<PvInfo> = emptyList()
         override fun quit() = Unit
         override fun newGame() = Unit
     }
@@ -39,7 +39,7 @@ class StudyControllerTest {
             return listOf(PvInfo(multipv = 1, score = score, pv = emptyList(), nodes = 0L))
         }
 
-        override fun analyzeSfen(sfen: String, additionalMoves: List<String>, nodes: Int): List<PvInfo> {
+        override fun analyzeSfen(sfen: String, additionalMoves: List<String>, nodes: Int, multiPv: Int): List<PvInfo> {
             analyzeCallCount++
             return listOf(PvInfo(multipv = 1, score = score, pv = emptyList(), nodes = 0L))
         }
@@ -49,6 +49,24 @@ class StudyControllerTest {
         }
 
         override fun newGame() {}
+    }
+
+    /** MultiPVの本数ぶんPVを返し、要求された本数を記録するエンジン。 */
+    private class MultiPvEngine(private val pvs: List<Pair<Score, String>>) : Engine {
+        var requestedMultiPv: Int? = null
+            private set
+
+        override fun analyze(moves: List<String>, nodes: Int): List<PvInfo> = emptyList()
+
+        override fun analyzeSfen(sfen: String, additionalMoves: List<String>, nodes: Int, multiPv: Int): List<PvInfo> {
+            requestedMultiPv = multiPv
+            return pvs.take(multiPv).mapIndexed { index, (score, usi) ->
+                PvInfo(multipv = index + 1, score = score, pv = listOf(usi), nodes = 0L)
+            }
+        }
+
+        override fun quit() = Unit
+        override fun newGame() = Unit
     }
 
     private val testDispatcher = UnconfinedTestDispatcher()
@@ -653,5 +671,94 @@ class StudyControllerTest {
             controller.studyState.value?.displayLine,
             "別の手を指したのでdisplayLineは新しいラインに置き換わる（旧ラインは木には残る）",
         )
+    }
+
+    @Test
+    fun `検討の解析は3候補を要求し、返ってきた候補を評価の高い順に並べる`() {
+        // 7g7f のあとの局面（後手番）の候補手を返す。
+        val engine = MultiPvEngine(
+            listOf(
+                Score.Cp(120) to "3c3d",
+                Score.Cp(90) to "8c8d",
+                Score.Cp(40) to "4a3b",
+            ),
+        )
+        val controller = StudyController(
+            scope = testScope,
+            studyEngineFactory = { BlockingStudyEngine(engine, testDispatcher) },
+            evalDisplayProvider = { "cp" },
+        )
+        controller.startStudy(
+            baseSfen = startSfen,
+            flip = false,
+            originIsBestPv = false,
+            originPlyIndex = 0,
+            originSelectedIdx = null,
+            originAbsolutePly = 0,
+            origin = noOrigin,
+        )
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 7))
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 6))
+
+        assertEquals(Engine.STUDY_MULTI_PV, engine.requestedMultiPv)
+        val value = assertIs<StudyEvalState.Value>(controller.studyState.value?.evalState)
+        assertEquals(listOf("3c3d", "8c8d", "4a3b"), value.candidates.map { it.moveUsi })
+        assertEquals(value.label, value.candidates.first().label, "先頭の候補手は局面の評価と同じ")
+    }
+
+    @Test
+    fun `候補手を選ぶとその手を指す`() {
+        val engine = MultiPvEngine(listOf(Score.Cp(0) to "7g7f"))
+        val controller = StudyController(
+            scope = testScope,
+            studyEngineFactory = { BlockingStudyEngine(engine, testDispatcher) },
+            evalDisplayProvider = { "cp" },
+        )
+        controller.startStudy(
+            baseSfen = startSfen,
+            flip = false,
+            originIsBestPv = false,
+            originPlyIndex = 0,
+            originSelectedIdx = null,
+            originAbsolutePly = 0,
+            origin = noOrigin,
+        )
+        controller.onCandidateSelected("2g2f")
+        assertEquals(listOf("2g2f"), controller.studyState.value?.moves)
+
+        controller.onCandidateSelected("9z9z")
+        assertEquals(listOf("2g2f"), controller.studyState.value?.moves, "指せない手は無視する")
+    }
+
+    @Test
+    fun `MultiPV番号が評価の順と食い違っていても候補手は評価の高い順に並ぶ`() {
+        // 固定ノードで打ち切ると、最後の反復で番号ごとに深さの違う評価が残ることがある。
+        val engine = MultiPvEngine(
+            listOf(
+                Score.Cp(40) to "3c3d",
+                Score.Cp(120) to "8c8d",
+                Score.Cp(90) to "4a3b",
+            ),
+        )
+        val controller = StudyController(
+            scope = testScope,
+            studyEngineFactory = { BlockingStudyEngine(engine, testDispatcher) },
+            evalDisplayProvider = { "cp" },
+        )
+        controller.startStudy(
+            baseSfen = startSfen,
+            flip = false,
+            originIsBestPv = false,
+            originPlyIndex = 0,
+            originSelectedIdx = null,
+            originAbsolutePly = 0,
+            origin = noOrigin,
+        )
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 7))
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 6))
+
+        val value = assertIs<StudyEvalState.Value>(controller.studyState.value?.evalState)
+        assertEquals(listOf("8c8d", "4a3b", "3c3d"), value.candidates.map { it.moveUsi })
+        assertEquals(value.label, value.candidates.first().label, "先頭の候補手は局面の評価と同じ")
     }
 }

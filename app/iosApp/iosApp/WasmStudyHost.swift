@@ -41,8 +41,14 @@ final class WasmStudyHost: NSObject {
 
     private override init() {
         super.init()
-        WasmStudyBridge.shared.analyzeHandler = { [weak self] requestId, baseSfenArg, movesJson in
-            self?.beginAnalyze(requestId: requestId, baseSfenArg: baseSfenArg, movesJson: movesJson)
+        WasmStudyBridge.shared.analyzeHandler = { [weak self] requestId, baseSfenArg, movesJson, multiPv in
+            self?.beginAnalyze(
+                requestId: requestId,
+                baseSfenArg: baseSfenArg,
+                movesJson: movesJson,
+                // Kotlinのクロージャ引数のIntはボックス化されてKotlinIntで渡ってくる。
+                multiPv: multiPv.int32Value
+            )
                 ?? KotlinBoolean(bool: false)
         }
         // 検討モードの自動発火（StudyController.maybeAutoAnalyze）向け見込み判定。
@@ -81,7 +87,9 @@ final class WasmStudyHost: NSObject {
     /// 別リクエストが割り込んで [busyRequestId] を二重に埋めることを防ぐ
     /// （メインスレッドで直列化する。同期実行にする狙いは、呼び出し元へ受理可否を
     /// その場で返せるようにするため——非同期にすると受理可否の通知に別経路が要る）。
-    private func beginAnalyze(requestId: String, baseSfenArg: String, movesJson: String) -> KotlinBoolean {
+    private func beginAnalyze(
+        requestId: String, baseSfenArg: String, movesJson: String, multiPv: Int32
+    ) -> KotlinBoolean {
         var accepted = false
         DispatchQueue.main.sync {
             guard busyRequestId == nil else { return }
@@ -91,8 +99,13 @@ final class WasmStudyHost: NSObject {
             busyRequestId = requestId
             accepted = true
             webView.callAsyncJavaScript(
-                "window.__analyzePosition(requestId, baseSfenArg, movesJson);",
-                arguments: ["requestId": requestId, "baseSfenArg": baseSfenArg, "movesJson": movesJson],
+                "window.__analyzePosition(requestId, baseSfenArg, movesJson, multiPv);",
+                arguments: [
+                    "requestId": requestId,
+                    "baseSfenArg": baseSfenArg,
+                    "movesJson": movesJson,
+                    "multiPv": Int(multiPv),
+                ],
                 in: nil,
                 in: .page
             ) { [weak self] result in

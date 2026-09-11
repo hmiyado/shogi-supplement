@@ -112,13 +112,13 @@ fun Application.module(config: WorkerConfig) {
             )
             if (config.isolatePositions) IsolatedEngine(engine) else engine
         },
-        engineMetaProvider = {
+        engineMetaProvider = { multiPv ->
             EngineMetaJson(
                 engineRev = config.engineRev,
                 evalSha256 = config.evalSha256,
                 nodes = EngineInvariants.NODES,
                 threads = EngineInvariants.THREADS,
-                multiPv = EngineInvariants.MULTI_PV,
+                multiPv = multiPv,
                 usiHash = EngineInvariants.USI_HASH_MB,
                 fvScale = EngineInvariants.FV_SCALE,
             )

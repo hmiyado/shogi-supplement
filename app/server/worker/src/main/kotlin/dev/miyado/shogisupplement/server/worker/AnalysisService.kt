@@ -11,6 +11,7 @@ import dev.miyado.shogisupplement.api.analysis.toJson
 import dev.miyado.shogisupplement.crash.NoopCrashReporter
 import dev.miyado.shogisupplement.engine.AnalysisRunner
 import dev.miyado.shogisupplement.engine.Engine
+import dev.miyado.shogisupplement.engine.EngineInvariants
 import dev.miyado.shogisupplement.engine.PvInfo
 import dev.miyado.shogisupplement.server.worker.auth.AppCheckResult
 import dev.miyado.shogisupplement.server.worker.auth.AppCheckVerifier
@@ -79,7 +80,7 @@ class AnalysisService(
     private val quotaLimitRepository: QuotaLimitRepository,
     private val analysisJobRepository: AnalysisJobRepository,
     private val engineFactory: () -> Engine,
-    private val engineMetaProvider: () -> EngineMetaJson,
+    private val engineMetaProvider: (multiPv: Int) -> EngineMetaJson,
     private val clock: Clock = Clock.systemUTC(),
     private val pollIntervalMs: Long = 500,
     private val pollTimeoutMs: Long = 280_000,
@@ -300,7 +301,7 @@ class AnalysisService(
         }
         return AnalysisResultJson(
             result = allPv.map { pvList -> pvList.map { it.toJson() } },
-            engineMeta = engineMetaProvider(),
+            engineMeta = engineMetaProvider(EngineInvariants.MULTI_PV),
         )
     }
 
@@ -311,14 +312,14 @@ class AnalysisService(
         emitLine(json.encodeToString(ProgressJson(0, 1)) + "\n")
         val engine = engineFactory()
         val pvList = try {
-            engine.analyzeSfen(input.sfen, input.moves)
+            engine.analyzeSfen(input.sfen, input.moves, multiPv = input.multiPv)
         } finally {
             runCatching { engine.quit() }
         }
         emitLine(json.encodeToString(ProgressJson(1, 1)) + "\n")
         return AnalysisResultJson(
             result = listOf(pvList.map { it.toJson() }),
-            engineMeta = engineMetaProvider(),
+            engineMeta = engineMetaProvider(input.multiPv),
         )
     }
 
@@ -360,5 +361,6 @@ private fun EngineInput.toStoragePayload(): JsonElement = when (this) {
         put("mode", "position")
         put("sfen", sfen)
         put("moves", JsonArray(moves.map { JsonPrimitive(it) }))
+        put("multi_pv", multiPv)
     }
 }

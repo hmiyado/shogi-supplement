@@ -59,8 +59,8 @@ object IosEngineHost {
 private class NonQuittingEngine(private val delegate: Engine) : Engine {
     override fun analyze(moves: List<String>, nodes: Int): List<PvInfo> = delegate.analyze(moves, nodes)
 
-    override fun analyzeSfen(sfen: String, additionalMoves: List<String>, nodes: Int): List<PvInfo> =
-        delegate.analyzeSfen(sfen, additionalMoves, nodes)
+    override fun analyzeSfen(sfen: String, additionalMoves: List<String>, nodes: Int, multiPv: Int): List<PvInfo> =
+        delegate.analyzeSfen(sfen, additionalMoves, nodes, multiPv)
 
     override fun newGame() = delegate.newGame()
 

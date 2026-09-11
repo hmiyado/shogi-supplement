@@ -20,7 +20,7 @@ class ReportViewModelStudyResetTest {
 
     private class FakeEngine : Engine {
         override fun analyze(moves: List<String>, nodes: Int): List<PvInfo> = emptyList()
-        override fun analyzeSfen(sfen: String, additionalMoves: List<String>, nodes: Int): List<PvInfo> = emptyList()
+        override fun analyzeSfen(sfen: String, additionalMoves: List<String>, nodes: Int, multiPv: Int): List<PvInfo> = emptyList()
         override fun quit() = Unit
         override fun newGame() = Unit
     }

@@ -894,6 +894,7 @@ private fun IosReportScreenHost(
         onStudyBranchPopupDismiss = { controller.onStudyBranchPopupDismiss() },
         onStudyBranchOptionSelected = { depth, moveUsi -> controller.onStudyBranchOptionSelected(depth, moveUsi) },
         onStudyAnalyze = { controller.onStudyAnalyze() },
+        onStudyCandidateSelected = { moveUsi -> controller.onStudyCandidateSelected(moveUsi) },
         // KIFコピー（トップバー⧉アイコン）。iOSはクリップボードへ直接書き込む
         // （Android版 ReportHost.kt の ClipboardManager 相当・snackbar表示は ReportScreen 側）。
         onCopyKif = { kifText -> UIPasteboard.generalPasteboard.string = kifText },

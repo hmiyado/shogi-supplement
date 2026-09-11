@@ -6,12 +6,16 @@ import kotlinx.serialization.Serializable
 /**
  * `POST /v1/analyses` のリクエストボディ。
  * moves_usi（1局まるごと）と sfen+moves（単発局面）のどちらか一方を受け付ける。
+ *
+ * @property multiPv 候補手の本数。省略時はサーバー既定（解析の不変条件）。
+ *   1局まるごとの解析では指定できない（保存する解析結果の条件を動かさないため）。
  */
 @Serializable
 data class AnalysisRequest(
     @SerialName("moves_usi") val movesUsi: List<String>? = null,
     val sfen: String? = null,
     val moves: List<String>? = null,
+    @SerialName("multi_pv") val multiPv: Int? = null,
 )
 
 @Serializable

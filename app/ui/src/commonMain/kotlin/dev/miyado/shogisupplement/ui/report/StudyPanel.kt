@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -45,6 +46,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import dev.miyado.shogisupplement.board.ShogiBoard
 import dev.miyado.shogisupplement.board.ShogiMove
 import dev.miyado.shogisupplement.notation.JapaneseNotation
@@ -121,6 +123,7 @@ internal fun StudyPanel(
     onBranchPopupDismiss: () -> Unit,
     onBranchOptionSelected: (depth: Int, moveUsi: String) -> Unit,
     onAnalyze: () -> Unit,
+    onCandidateTapped: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val shogiColors = MaterialTheme.shogiColors
@@ -208,14 +211,11 @@ internal fun StudyPanel(
                                     else -> MaterialTheme.colorScheme.onSurface
                                 },
                             )
-                            if (es.bestMoveText != null) {
+                            if (es.candidates.isNotEmpty()) {
                                 Spacer(Modifier.width(10.dp))
-                                Text(
-                                    AppStrings.studyBestMoveLabel(es.bestMoveText),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = shogiColors.ink2,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
+                                StudyCandidateRow(
+                                    candidates = es.candidates,
+                                    onCandidateTapped = onCandidateTapped,
                                 )
                             }
                         }
@@ -288,6 +288,68 @@ internal fun StudyPanel(
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 候補手を評価の高い順に横1行で並べる。狭い画面では右端が切れるため、行内で横スクロールする。
+ */
+@Composable
+private fun StudyCandidateRow(
+    candidates: List<StudyCandidate>,
+    onCandidateTapped: (String) -> Unit,
+) {
+    val shogiColors = MaterialTheme.shogiColors
+    val evalStyle = MaterialTheme.typography.bodySmall.copy(fontFamily = IbmPlexMonoFamily)
+    Row(
+        modifier = Modifier.horizontalScroll(rememberScrollState()),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        candidates.forEachIndexed { index, candidate ->
+            val isBest = index == 0
+            if (index > 0) {
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 4.dp)
+                        .width(1.dp)
+                        .height(14.dp)
+                        .background(shogiColors.line),
+                )
+            }
+            Surface(
+                modifier = Modifier.clickable { onCandidateTapped(candidate.moveUsi) },
+                color = MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(4.dp),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 3.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        candidate.moveText,
+                        // 最善手は紺青・太字・一回り大きく（DESIGN.mdの三色体系で最善手は紺青）。
+                        style = if (isBest) {
+                            TextStyleDataMove.copy(fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        } else {
+                            TextStyleDataMove
+                        },
+                        color = if (isBest) MaterialTheme.colorScheme.primary else shogiColors.ink2,
+                        maxLines = 1,
+                    )
+                    Spacer(Modifier.width(3.dp))
+                    Text(
+                        candidate.label.text,
+                        style = if (isBest) evalStyle.copy(fontWeight = FontWeight.Bold) else evalStyle,
+                        color = when {
+                            candidate.label.sign > 0 -> MaterialTheme.colorScheme.primary
+                            candidate.label.sign < 0 -> shogiColors.loss
+                            else -> shogiColors.ink2
+                        },
+                        maxLines = 1,
+                    )
                 }
             }
         }

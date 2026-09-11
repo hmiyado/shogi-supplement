@@ -8,6 +8,7 @@ import dev.miyado.shogisupplement.board.ShogiBoard
 import dev.miyado.shogisupplement.board.ShogiMove
 import dev.miyado.shogisupplement.board.ShogiSquare
 import dev.miyado.shogisupplement.board.Side
+import dev.miyado.shogisupplement.engine.Engine
 import dev.miyado.shogisupplement.engine.PvInfo
 import dev.miyado.shogisupplement.engine.StudyEngine
 import dev.miyado.shogisupplement.notation.JapaneseNotation
@@ -242,6 +243,13 @@ class StudyController(
         _studyState.value = s.copy(openBranchPopupDepth = depth, branchPopupOptions = options)
     }
 
+    /** 候補手の選択。表示局面からその手を指す。 */
+    fun onCandidateSelected(moveUsi: String) {
+        val board = studyBoard ?: return
+        val move = board.legalMoves().firstOrNull { it.toUsiString() == moveUsi } ?: return
+        executeStudyMove(move)
+    }
+
     fun onBranchPopupDismiss() {
         _studyState.update { it?.copy(openBranchPopupDepth = null, branchPopupOptions = emptyList()) }
     }
@@ -332,9 +340,14 @@ class StudyController(
         scope.launch {
             val evalResult = try {
                 val engine = studyEngine ?: studyEngineFactory().also { studyEngine = it }
-                val pv1 = engine.analyzeSfen(baseSfen, moves, nodes = STUDY_ANALYSIS_NODES).firstOrNull()
-                if (pv1 == null) terminalEvalLabel(baseSfen, moves, flip)
-                else studyEvalLabel(baseSfen, moves, pv1, flip)
+                val pvs = engine.analyzeSfen(
+                    baseSfen,
+                    moves,
+                    nodes = STUDY_ANALYSIS_NODES,
+                    multiPv = Engine.STUDY_MULTI_PV,
+                )
+                if (pvs.isEmpty()) terminalEvalLabel(baseSfen, moves, flip)
+                else studyEvalLabel(baseSfen, moves, pvs, flip)
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Throwable) {
@@ -433,40 +446,58 @@ class StudyController(
         return board
     }
 
-    private fun studyEvalLabel(baseSfen: String, moves: List<String>, pv: PvInfo, userIsGote: Boolean): StudyEvalState {
+    private fun studyEvalLabel(
+        baseSfen: String,
+        moves: List<String>,
+        pvs: List<PvInfo>,
+        userIsGote: Boolean,
+    ): StudyEvalState {
         val board = boardAt(baseSfen, moves) ?: return StudyEvalState.Error
         val moverIsSente = board.turn == Side.BLACK
-        val syntheticPly = if (moverIsSente) 0 else 1
 
-        val score = pv.score
-        val moverCp = BlunderJudge.toCp(score)
+        // Why not MultiPV番号で並べる: 固定ノードで探索を打ち切るため、最後の反復で
+        // 全本数が出そろわず、番号ごとに深さの違う評価が混ざる。評価値で並べ直す。
+        val ranked = pvs.sortedByDescending { BlunderJudge.toCp(it.score) }
+        val best = ranked.firstOrNull() ?: return StudyEvalState.Error
+        val moverCp = BlunderJudge.toCp(best.score)
         val senteCp = if (moverIsSente) moverCp else -moverCp
         val userCp = if (userIsGote) -senteCp else senteCp
 
-        val label = when (score) {
+        val label = evalLabelOf(best.score, moverIsSente, userIsGote) ?: return StudyEvalState.None
+        val candidates = ranked.mapNotNull { pv ->
+            val usi = pv.pv.firstOrNull() ?: return@mapNotNull null
+            val moveText = runCatching { JapaneseNotation.format(usi, board) }.getOrNull() ?: return@mapNotNull null
+            val candidateLabel = evalLabelOf(pv.score, moverIsSente, userIsGote) ?: return@mapNotNull null
+            StudyCandidate(moveUsi = usi, moveText = moveText, label = candidateLabel)
+        }
+        return StudyEvalState.Value(label, userCp = userCp, candidates = candidates)
+    }
+
+    /** 手番側視点の [score] を、表示設定に従った先手/自分視点のラベルへ直す。 */
+    private fun evalLabelOf(
+        score: Score,
+        moverIsSente: Boolean,
+        userIsGote: Boolean,
+    ): PositionEvalDisplay.EvalLabel? {
+        val syntheticPly = if (moverIsSente) 0 else 1
+        return when (score) {
             is Score.Cp -> {
+                val moverCp = BlunderJudge.toCp(score)
                 PositionEvalDisplay.format(
-                    scoreCp = senteCp,
+                    scoreCp = if (moverIsSente) moverCp else -moverCp,
                     mateIn = null,
                     userIsGote = userIsGote,
                     evalDisplay = evalDisplayProvider(),
                     ply = syntheticPly,
                 )
             }
-            is Score.Mate -> {
-                val senteMate = if (moverIsSente) score.plies else -score.plies
-                PositionEvalDisplay.format(
-                    scoreCp = null,
-                    mateIn = senteMate,
-                    userIsGote = userIsGote,
-                    evalDisplay = evalDisplayProvider(),
-                    ply = syntheticPly,
-                )
-            }
+            is Score.Mate -> PositionEvalDisplay.format(
+                scoreCp = null,
+                mateIn = if (moverIsSente) score.plies else -score.plies,
+                userIsGote = userIsGote,
+                evalDisplay = evalDisplayProvider(),
+                ply = syntheticPly,
+            )
         }
-        val bestMoveText = pv.pv.firstOrNull()?.let { usi ->
-            runCatching { JapaneseNotation.format(usi, board) }.getOrNull()
-        }
-        return label?.let { StudyEvalState.Value(it, userCp = userCp, bestMoveText = bestMoveText) } ?: StudyEvalState.None
     }
 }

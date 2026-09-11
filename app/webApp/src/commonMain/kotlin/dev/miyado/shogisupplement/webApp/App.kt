@@ -49,6 +49,8 @@ interface WebStudyActions {
     fun onStudyBranchPopupDismiss()
     fun onStudyBranchOptionSelected(depth: Int, moveUsi: String)
     fun onStudyAnalyze()
+
+    fun onStudyCandidateSelected(moveUsi: String)
 }
 
 @Composable
@@ -121,6 +123,7 @@ private fun AppContent(
             onStudyBranchPopupDismiss = { studyActions?.onStudyBranchPopupDismiss() },
             onStudyBranchOptionSelected = { depth, moveUsi -> studyActions?.onStudyBranchOptionSelected(depth, moveUsi) },
             onStudyAnalyze = { studyActions?.onStudyAnalyze() },
+            onStudyCandidateSelected = { moveUsi -> studyActions?.onStudyCandidateSelected(moveUsi) },
             // Why not 読み筋延長を有効にしない理由: Web版のWorkerは任意局面からのPV延長を
             // 実行する経路を持たないため。
             pvExtensionEnabled = false,

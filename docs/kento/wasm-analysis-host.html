@@ -13,7 +13,7 @@
     __cancelAnalysis()。docs/kento/webapp-bridge.js（Web版=:webAppと共通の2Worker並列解析JS。
     変更しない）をそのまま動かし、"wasmAnalysis" ハンドラへ通知する。
   - 対話的単発局面解析: window.__initStudy(assetBaseUrl) /
-    __analyzePosition(requestId, baseSfenArg, movesJson)。docs/kento/study-worker.js
+    __analyzePosition(requestId, baseSfenArg, movesJson, multiPv)。docs/kento/study-worker.js
     （バッチ用analysis-worker.jsとは別プロトコル。ファイル冒頭のコメント参照）を運用し、
     "wasmStudy" ハンドラへ通知する。
 
