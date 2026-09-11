@@ -116,6 +116,11 @@ android {
             isReturnDefaultValues = true
             all {
                 it.systemProperty("robolectric.graphicsMode", "NATIVE")
+                // ストア画像の書き出し（StoreImageTest）は -Pshogi.storeImages=true のときだけ走る。
+                it.systemProperty(
+                    "shogi.storeImages",
+                    providers.gradleProperty("shogi.storeImages").getOrElse("false"),
+                )
                 // ゴールデン画像はAsia/Tokyoで生成されているため、対局日時のSimpleDateFormat
                 // （ui/ReportPlatform.android.kt）がCI実行環境のタイムゾーンに引きずられて
                 // ズレないようテストJVM自体のタイムゾーンを固定する。

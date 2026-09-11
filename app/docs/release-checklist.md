@@ -60,6 +60,22 @@
 - 過去バージョンの文言は遡及変更しない。
 - Play Consoleの「新機能」欄はメンテナが手入力する。文面は`release_notes.txt`と揃える。
 
+### ストア画像
+
+UIが変わったリリースでは掲載画像も更新する。
+
+```bash
+cd app && ./gradlew :androidApp:recordRoborazziDebug --tests "*StoreImageTest*" -Pshogi.storeImages=true --rerun-tasks
+```
+
+- 書き出し先は `app/iosApp/fastlane/screenshots/ja/` の7枚（1290x2796・6.9インチ枠）。
+  差分を目で確認してから準備コミットに含める。
+- 元データは `StoreImageTest.kt` にある。文言・数値を変えたいときはそこを直す。
+- `-Pshogi.storeImages=true` を付けないと1枚も書き出さない。VRTの検証
+  （`verifyRoborazziDebug`）に巻き込まれて落ちないよう、明示指示のときだけ走る。
+- `--rerun-tasks` が要るのは、入力が変わっていないとGradleがテストを飛ばすため。
+- Play Consoleの掲載画像はメンテナが手で差し替える（同じ7枚を使う）。
+
 ### コミット
 
 - コミット前に必ず self-code-review（`.claude/skills/self-code-review/SKILL.md`）を実施する。
