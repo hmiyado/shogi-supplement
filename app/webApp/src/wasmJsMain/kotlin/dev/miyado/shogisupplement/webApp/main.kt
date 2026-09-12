@@ -22,7 +22,10 @@ import kotlinx.coroutines.launch
 fun main() {
     GlobalScope.launch {
         preloadShogiWebFonts()
-        ComposeViewport(document.getElementById("composeApp")!!) {
+        ComposeViewport(
+            document.getElementById("composeApp")!!,
+            configure = { isA11YEnabled = debugSemanticsRequested() },
+        ) {
             if (window.location.pathname.endsWith("mypage.html")) {
                 MyPageRoot()
             } else {
@@ -31,6 +34,12 @@ fun main() {
         }
     }
 }
+
+// canvasに描くため、これを有効にしないとDOMから画面の中身が見えず、要素を指した操作もできない。
+// Why not 常に有効にする: ノードの増減のたびにDOMを同期する費用を利用者に払わせない。
+/** セマンティクスツリーのDOMへの同期を求めているか。 */
+private fun debugSemanticsRequested(): Boolean =
+    window.location.search.contains("debug=1")
 
 @Composable
 private fun KentoRoot() {
