@@ -103,9 +103,10 @@
     for (let ply = 0; ply <= totalMoves; ply++) {
       jobs.push({ ply, moves: moves.slice(0, ply) });
     }
-    const half = Math.ceil(jobs.length / 2);
-    const group1 = jobs.slice(0, half);
-    const group2 = jobs.slice(half);
+    // Why not 前半・後半で分ける: 画面はply=0から連続して確定した区間だけを出すため、
+    // 後半を担当したWorkerの結果は前半が終わるまで1手も表示されない。
+    const group1 = jobs.filter((job) => job.ply % 2 === 0);
+    const group2 = jobs.filter((job) => job.ply % 2 === 1);
 
     const workerScriptUrl = resolveWorkerScriptUrl();
     let activeWorkers = [];
