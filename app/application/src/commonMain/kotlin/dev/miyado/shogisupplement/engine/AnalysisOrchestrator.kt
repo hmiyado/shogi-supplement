@@ -16,6 +16,9 @@ import dev.miyado.shogisupplement.pipeline.toPositionEval
 import dev.miyado.shogisupplement.opening.OpeningClassifier
 import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.util.sha256Hex
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 
 /**
  * 判定ロジック・係数表・解析条件（go nodes 400000 / Threads=1 / MultiPV=2 / FV_SCALE=20）は
@@ -50,7 +53,7 @@ class AnalysisOrchestrator(
     /**
      * @param contentHash nullならKIFから算出。非nullは再構成で原本と書式が変わる場合の原本ハッシュ。
      * @param sourcePlaceOverride nullならKIFから判定。非nullは再構成で失われた出典の正規化済み値。
-     * @param onPositionResult 局面ごとの中間結果。既定のno-opでは全局面完了後のみ評価・保存する。
+     * @param onPositionResult 局面ごとの中間結果。nullは進捗を表示しないホストで、テンポを作らず解析する。
      */
     suspend fun analyzeAndSave(
         kifContent: String,
@@ -62,7 +65,7 @@ class AnalysisOrchestrator(
         contentHash: String? = null,
         sourcePlaceOverride: String? = null,
         onProgress: (done: Int, total: Int) -> Unit = { _, _ -> },
-        onPositionResult: (ply: Int, pvs: List<PvInfo>) -> Unit = { _, _ -> },
+        onPositionResult: ((ply: Int, pvs: List<PvInfo>) -> Unit)? = null,
     ): Outcome {
         return try {
             val effectiveContentHash = contentHash ?: sha256Hex(kifContent)
@@ -75,11 +78,24 @@ class AnalysisOrchestrator(
 
             val game = KifParser().parse(kifContent)
 
-            val allPv = analyzer.analyzeGame(
-                moves = game.moves,
-                onPositionResult = onPositionResult,
-                onProgress = onProgress,
-            )
+            // Why not 届いた順にそのまま渡す: 並列ワーカーの完了はまとまって届くため、
+            // 盤が数手ぶん飛んでから止まる見え方になる。一定間隔で1手ずつ出す。
+            val allPv = if (onPositionResult == null) {
+                analyzer.analyzeGame(moves = game.moves, onProgress = onProgress)
+            } else {
+                coroutineScope {
+                    val pacer = PositionRevealPacer(onPositionResult)
+                    val pacing = launch { pacer.pace() }
+                    val analyzed = analyzer.analyzeGame(
+                        moves = game.moves,
+                        onPositionResult = pacer::submit,
+                        onProgress = onProgress,
+                    )
+                    pacing.cancelAndJoin()
+                    pacer.revealRemaining()
+                    analyzed
+                }
+            }
 
             // 再解析なしで第2候補まで判定できるよう、MultiPV=2の結果を保持する。
             val evals = allPv.map { pvList -> pvList.toPositionEval() }

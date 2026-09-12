@@ -48,6 +48,31 @@ class AnalysisOrchestratorTest {
         return orchestrator to repository
     }
 
+    private fun fourMoveKif(): String = listOf(
+        "手合割：平手",
+        "先手：太郎",
+        "後手：花子",
+        "手数----指手---------消費時間--",
+        "   1 ７六歩(77)",
+        "   2 ３四歩(33)",
+        "   3 ２六歩(27)",
+        "   4 ８四歩(83)",
+    ).joinToString("\n")
+
+    /** 全局面がply順に1回ずつ通知される（解析が一瞬で終わる場合も取りこぼさない）。 */
+    @Test
+    fun `局面の通知はply順で重複しない`() = runBlocking {
+        val (orchestrator, _) = newOrchestrator()
+        val revealed = mutableListOf<Int>()
+        val outcome = orchestrator.analyzeAndSave(
+            fourMoveKif(),
+            fileName = "reveal.kif",
+            onPositionResult = { ply, _ -> revealed.add(ply) },
+        )
+        if (outcome is AnalysisOrchestrator.Outcome.Failed) fail("解析に失敗した: ${outcome.message}")
+        assertEquals(listOf(0, 1, 2, 3, 4), revealed)
+    }
+
     private fun singleMoveKif(headerLines: List<String>): String =
         (headerLines + listOf("手数----指手---------消費時間--", "   1 ７六歩(77)")).joinToString("\n")
 
