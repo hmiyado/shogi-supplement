@@ -125,15 +125,14 @@ class ReportScreenEvalGraphDragTest {
             }
         }
 
-        composeRule.onNodeWithText(AppStrings.VIEW_BLUNDER_LIST).assertIsDisplayed()
 
         composeRule.onNodeWithTag("eval_graph_canvas").performTouchInput {
             swipe(start = Offset(1f, height / 2f), end = Offset(width - 1f, height / 2f), durationMillis = 200)
         }
         composeRule.waitForIdle()
 
-        composeRule.onNodeWithText(AppStrings.VIEW_BLUNDER_LIST).assertIsDisplayed()
-        composeRule.onNodeWithText(AppStrings.BACK_TO_SUMMARY).assertDoesNotExist()
+        // 悪手一覧へ切り替わっていない＝内側タブ（本譜/最善の変化）がまだ出ていない。
+        composeRule.onNodeWithText(AppStrings.TAB_MAINLINE).assertDoesNotExist()
     }
 
     @Test
@@ -153,13 +152,12 @@ class ReportScreenEvalGraphDragTest {
             }
         }
 
-        composeRule.onNodeWithText(AppStrings.VIEW_BLUNDER_LIST).assertIsDisplayed()
 
         composeRule.onNodeWithTag("eval_graph_canvas").performTouchInput {
             click(Offset(width / 2f, height / 2f))
         }
         composeRule.waitForIdle()
 
-        composeRule.onNodeWithText(AppStrings.BACK_TO_SUMMARY).assertIsDisplayed()
+        composeRule.onNodeWithText(AppStrings.TAB_MAINLINE).assertIsDisplayed()
     }
 }

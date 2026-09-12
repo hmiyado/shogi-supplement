@@ -1,8 +1,10 @@
 package dev.miyado.shogisupplement.ui
 
 import androidx.compose.material3.Surface
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.text.AppStrings
@@ -73,5 +75,53 @@ class ReportScreenBackTest {
     @Config(qualifiers = "w1440dp-h900dp-xxhdpi")
     fun `2ペインでも戻るが呼ばれる`() {
         assertEquals(1, clickBack())
+    }
+
+    /** 悪手が無い棋譜で一覧を開けると、未解析でも「悪手は見つかりませんでした」と出てしまう。 */
+    @Test
+    @Config(qualifiers = "w400dp-h800dp-xxhdpi")
+    fun `悪手が無いときは悪手一覧タブを押しても切り替わらない`() {
+        composeRule.setContent {
+            ShogiTheme {
+                Surface {
+                    ReportScreen(
+                        game = game(),
+                        reports = emptyList(),
+                        flip = false,
+                        analysisPending = true,
+                        onBack = {},
+                    )
+                }
+            }
+        }
+        composeRule.onNodeWithText(AppStrings.REPORT_TAB_BLUNDERS).performClick()
+        composeRule.waitForIdle()
+
+        // 切り替わっていない＝内側タブ（本譜/最善の変化）が出ていない。
+        composeRule.onNodeWithText(AppStrings.TAB_MAINLINE).assertDoesNotExist()
+        composeRule.onNodeWithText(AppStrings.REPORT_TAB_SUMMARY).assertIsDisplayed()
+    }
+
+    /** 検討を持たないホスト（Web版マイページ）では、押しても反応しないタブを出さない。 */
+    @Test
+    @Config(qualifiers = "w400dp-h800dp-xxhdpi")
+    fun `検討の開始口が無いホストでは検討タブを押しても切り替わらない`() {
+        composeRule.setContent {
+            ShogiTheme {
+                Surface {
+                    ReportScreen(
+                        game = game(),
+                        reports = emptyList(),
+                        flip = false,
+                        onBack = {},
+                    )
+                }
+            }
+        }
+        composeRule.onNodeWithText(AppStrings.REPORT_TAB_STUDY).performClick()
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithText(AppStrings.STUDY_PANEL_TITLE).assertDoesNotExist()
+        composeRule.onNodeWithText(AppStrings.REPORT_TAB_SUMMARY).assertIsDisplayed()
     }
 }

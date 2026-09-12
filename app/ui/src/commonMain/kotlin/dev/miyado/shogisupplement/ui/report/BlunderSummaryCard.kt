@@ -30,7 +30,6 @@ internal fun BlunderSummaryCard(
     strengthDisplayText: String?,
     matchRateDisplayText: String?,
     blunderRateDisplayText: String?,
-    onViewList: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val shogiColors = MaterialTheme.shogiColors
@@ -71,12 +70,6 @@ internal fun BlunderSummaryCard(
                 }
             }
 
-            if (reports.isNotEmpty()) {
-                Spacer(Modifier.height(8.dp))
-                ShogiSecondaryButton(onClick = onViewList, modifier = Modifier.fillMaxWidth()) {
-                    Text(AppStrings.VIEW_BLUNDER_LIST, style = MaterialTheme.typography.labelMedium)
-                }
-            }
         }
     }
 }

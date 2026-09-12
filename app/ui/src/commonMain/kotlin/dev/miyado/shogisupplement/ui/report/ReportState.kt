@@ -134,4 +134,4 @@ fun buildInitialStudyState(
 internal enum class ViewerMode { MAINLINE, BEST_PV }
 
 /** レポート画面下部の表示モード。グラフと悪手一覧は領域確保のため排他表示する。 */
-internal enum class ReportBodyMode { SUMMARY, LIST }
+internal enum class ReportBodyMode { SUMMARY, LIST, STUDY }

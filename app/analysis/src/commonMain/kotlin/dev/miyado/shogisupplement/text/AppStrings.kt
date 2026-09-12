@@ -207,6 +207,11 @@ object AppStrings {
      * 動的サフィックスは廃止——起点情報はカード選択状態と現在手ラベルで伝わる。
      */
     const val TAB_BEST_PV = "最善の変化"
+
+    // レポート画面下部の3タブ。画面の主要な切替はここに集約する。
+    const val REPORT_TAB_SUMMARY = "サマリー"
+    const val REPORT_TAB_BLUNDERS = "悪手一覧"
+    const val REPORT_TAB_STUDY = "検討"
     const val VIEWER_START_POSITION = "開始局面"
     fun viewerPlyLabel(ply: Int): String = "${ply}手目"
     const val NO_BLUNDERS_WIN = "悪手は見つかりませんでした。会心の一局です！"

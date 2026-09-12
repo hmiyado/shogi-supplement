@@ -44,7 +44,7 @@ internal fun ReportNavRow(
     studyState: StudyState?,
     studySenteToMove: Boolean,
     onStudyStepBack: () -> Unit,
-    onStudyExit: () -> Unit,
+    onStudyExit: (() -> Unit)?,
     navLabelAnnotated: AnnotatedString,
     onLabelClick: () -> Unit,
     canGoFirst: Boolean,

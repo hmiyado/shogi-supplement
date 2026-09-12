@@ -29,7 +29,6 @@ import dev.miyado.shogisupplement.ui.theme.shogiColors
 
 @Composable
 internal fun ReportBlunderListBody(
-    onBackToSummary: () -> Unit,
     viewerMode: ViewerMode,
     hasBestPv: Boolean,
     onSelectMainlineTab: () -> Unit,
@@ -42,26 +41,6 @@ internal fun ReportBlunderListBody(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 4.dp)
-                .height(32.dp)
-                .clickable(onClick = onBackToSummary),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = AppStrings.BACK_TO_SUMMARY,
-                modifier = Modifier.size(18.dp),
-            )
-            Spacer(Modifier.width(4.dp))
-            Text(
-                AppStrings.BACK_TO_SUMMARY,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.shogiColors.ink2,
-            )
-        }
 
         Row(
             modifier = Modifier

@@ -66,7 +66,7 @@ internal fun StudyNavRow(
     studyState: StudyState,
     studySenteToMove: Boolean,
     onStudyStepBack: () -> Unit,
-    onStudyExit: () -> Unit,
+    onStudyExit: (() -> Unit)?,
 ) {
     Row(
         modifier = Modifier
@@ -102,10 +102,12 @@ internal fun StudyNavRow(
             modifier = Modifier.height(36.dp).widthIn(min = 36.dp),
             contentPadding = PaddingValues(horizontal = 2.dp),
         ) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "1手進む") }
-        TextButton(
-            onClick = onStudyExit,
-            modifier = Modifier.height(36.dp),
-        ) { Text(AppStrings.STUDY_END) }
+        if (onStudyExit != null) {
+            TextButton(
+                onClick = onStudyExit,
+                modifier = Modifier.height(36.dp),
+            ) { Text(AppStrings.STUDY_END) }
+        }
     }
 }
 

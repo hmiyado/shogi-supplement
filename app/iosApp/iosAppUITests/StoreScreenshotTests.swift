@@ -4,7 +4,7 @@ import XCTest
 ///
 /// フローは PasteboardImportSmokeTests.swift と同一（クリップボード取込→先後選択→
 /// 解析完了待ち→レポート自動遷移）を土台にする。1.1のレポート画面はデフォルトで
-/// 評価値グラフ＋サマリーを表示し、「悪手一覧を見る」で一覧に切替、盤面（駒のあるマス）を
+/// 評価値グラフ＋サマリーを表示し、下部のタブで一覧へ切替、盤面（駒のあるマス）を
 /// タップすると検討モード（分岐ツリー）に入れる。実行後は xcresulttool で xcresult から
 /// PNG を抽出する（抽出スクリプト側の作業。本ファイルは撮影のみを担う）。
 ///
@@ -12,7 +12,7 @@ import XCTest
 /// 順序で行うため番号順とは限らない）:
 ///   1. 01_home            — ホーム（推定棋力カード＋今日の1問＋解析済み棋譜）
 ///   2. 02_report_graph    — レポート（デフォルト表示＝評価値グラフ＋サマリー）
-///   3. 03_blunder_list    — 「悪手一覧を見る」→ 悪手一覧（本譜/最善の変化タブが見える状態）
+///   3. 03_blunder_list    — 「悪手一覧」タブ → 悪手一覧（本譜/最善の変化タブが見える状態）
 ///   4. 04_study           — 盤面タップ→検討モード開始（分岐ツリーの検討パネル）
 ///   5. 05_drill_question  — 次の一手問題の出題画面（盤面＋降参ボタン）
 ///   6. 06_drill_result    — 降参して答えを見た結果画面
@@ -171,16 +171,16 @@ final class StoreScreenshotTests: XCTestCase {
         Thread.sleep(forTimeInterval: 0.8)
         attachScreenshot(named: "04_study")
 
-        // 検討終了 → 元のサマリー表示へ戻す（ReportScreen.exitStudy）。
-        let endButton = element(labeled: "終了", timeout: 5)
-        XCTAssertTrue(endButton.exists, "検討モードの「終了」ボタンが見つかりません")
-        endButton.tap()
+        // 検討終了 → サマリータブへ戻す。
+        let summaryTab = element(labeled: "サマリー", timeout: 5)
+        XCTAssertTrue(summaryTab.exists, "「サマリー」タブが見つかりません")
+        summaryTab.tap()
         XCTAssertTrue(waitForDisappearance(of: studyTitle, timeout: 5), "検討モードが終了しませんでした")
 
-        // ── 4. 「悪手一覧を見る」→ 悪手一覧（03_blunder_list） ─────────────────
-        let viewListButton = element(labeled: "悪手一覧を見る", timeout: 5)
-        XCTAssertTrue(viewListButton.exists, "「悪手一覧を見る」ボタンが見つかりません")
-        viewListButton.tap()
+        // ── 4. 「悪手一覧」タブ → 悪手一覧（03_blunder_list） ─────────────────
+        let blunderTab = element(labeled: "悪手一覧", timeout: 5)
+        XCTAssertTrue(blunderTab.exists, "「悪手一覧」タブが見つかりません")
+        blunderTab.tap()
 
         let mainlineTab = element(labeled: "本譜", timeout: 5)
         XCTAssertTrue(mainlineTab.exists, "悪手一覧の「本譜」タブが見つかりません")

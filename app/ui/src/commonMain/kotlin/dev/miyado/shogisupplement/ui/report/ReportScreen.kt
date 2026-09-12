@@ -3,10 +3,13 @@ package dev.miyado.shogisupplement.ui.report
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -75,7 +78,7 @@ fun ReportScreen(
     pvExtensionEnabled: Boolean = true,
     onExtendBestPv: (blunderId: Long, sfenAtLineEnd: String, currentPvStr: String?) -> Unit = { _, _, _ -> },
     studyState: StudyState? = null,
-    onStartStudy: (
+    onStartStudy: ((
         baseSfen: String,
         flip: Boolean,
         originIsBestPv: Boolean,
@@ -85,7 +88,8 @@ fun ReportScreen(
         origin: StudyOrigin,
         tappedSquare: ShogiSquare?,
         tappedHandPieceType: PieceType?,
-    ) -> Unit = { _, _, _, _, _, _, _, _, _ -> },
+        // nullは検討を持たないホスト（Web版マイページ）。タブもそこから無効にする。
+    ) -> Unit)? = null,
     onStudySquareTapped: (ShogiSquare) -> Unit = {},
     onStudyHandPieceTapped: (PieceType) -> Unit = {},
     onStudyPromoteDecision: (Boolean) -> Unit = {},
@@ -315,7 +319,7 @@ fun ReportScreen(
                         selectedIdx = selectedIdx,
                         studyOriginAbsolutePly = navInfo.studyOriginAbsolutePly,
                         studyOrigin = navInfo.studyOrigin,
-                        onStartStudy = onStartStudy,
+                        onStartStudy = onStartStudy ?: { _, _, _, _, _, _, _, _, _ -> },
                         onStudySquareTapped = onStudySquareTapped,
                         onStudyHandPieceTapped = onStudyHandPieceTapped,
                         onPlyIndexChange = { plyIndex = it },
@@ -344,7 +348,8 @@ fun ReportScreen(
                                 studyState = studyState,
                                 studySenteToMove = studySenteToMove,
                                 onStudyStepBack = onStudyStepBack,
-                                onStudyExit = exitStudy,
+                                // 終了はタブで行う（サマリー/悪手一覧を選べば検討から出る）。
+                                onStudyExit = null,
                                 navLabelAnnotated = navInfo.navLabelAnnotated,
                                 onLabelClick = { showMoveList = true },
                                 canGoFirst = clampedPly > 0,
@@ -393,6 +398,44 @@ fun ReportScreen(
                     }
                 }
 
+                // 検討中かどうかは studyState が持つため、タブの実効状態はそこから導く。
+                val activeTab = if (studyState != null) ReportBodyMode.STUDY else bodyMode
+                val selectTab: (ReportBodyMode) -> Unit = { mode ->
+                    if (mode != ReportBodyMode.STUDY && studyState != null) exitStudy()
+                    when (mode) {
+                        ReportBodyMode.SUMMARY -> {
+                            bodyMode = ReportBodyMode.SUMMARY
+                            viewerMode = ViewerMode.MAINLINE
+                        }
+                        ReportBodyMode.LIST -> if (reports.isNotEmpty()) bodyMode = ReportBodyMode.LIST
+                        ReportBodyMode.STUDY -> if (studyState == null) {
+                            onStartStudy?.invoke(
+                                currentSfen, flip, viewerMode == ViewerMode.BEST_PV,
+                                clampedPly, selectedIdx,
+                                navInfo.studyOriginAbsolutePly, navInfo.studyOrigin, null, null,
+                            )
+                        }
+                    }
+                }
+
+                val tabRow: @Composable () -> Unit = {
+                    ReportTabRow(
+                        active = activeTab,
+                        onSelect = selectTab,
+                        // 悪手が無いときに一覧を開けると、未解析でも「悪手は見つかりませんでした」と
+                        // 出て解析済みの結果に見える。
+                        isEnabled = { mode ->
+                            when (mode) {
+                                ReportBodyMode.LIST -> reports.isNotEmpty()
+                                ReportBodyMode.STUDY -> onStartStudy != null
+                                ReportBodyMode.SUMMARY -> true
+                            }
+                        },
+                    )
+                    // カード同士の間隔（上下4dpずつ）に合わせ、タブと本文の間も8dpにする。
+                    Spacer(Modifier.height(4.dp))
+                }
+
                 val bodyPane: @Composable () -> Unit = {
                     Box(modifier = Modifier.adaptiveContentWidth()) {
                         if (studyState != null) {
@@ -432,7 +475,6 @@ fun ReportScreen(
                                         strengthDisplayText = strengthDisplayText,
                                         matchRateDisplayText = matchRateDisplayText,
                                         blunderRateDisplayText = blunderRateDisplayText,
-                                        onViewList = { bodyMode = ReportBodyMode.LIST },
                                         analysisPending = analysisPending,
                                         onAnalyze = onAnalyze,
                                         modifier = Modifier.fillMaxSize(),
@@ -440,10 +482,6 @@ fun ReportScreen(
                                 }
                                 ReportBodyMode.LIST -> {
                                     ReportBlunderListBody(
-                                        onBackToSummary = {
-                                            bodyMode = ReportBodyMode.SUMMARY
-                                            viewerMode = ViewerMode.MAINLINE
-                                        },
                                         viewerMode = viewerMode,
                                         hasBestPv = hasBestPv,
                                         onSelectMainlineTab = {
@@ -462,9 +500,17 @@ fun ReportScreen(
                                         modifier = Modifier.fillMaxSize(),
                                     )
                                 }
+                                ReportBodyMode.STUDY -> Unit
                             }
                         } // else (studyState == null)
                     }
+                }
+
+                // Why not 画面の底へ置く: edge-to-edgeでは底にsafe areaぶんの帯が残り、
+                // タブと画面の縁が離れて座りが悪い。
+                val bodyWithTabs: @Composable ColumnScope.() -> Unit = {
+                    tabRow()
+                    Box(modifier = Modifier.weight(1f)) { bodyPane() }
                 }
 
                 if (twoPane) {
@@ -474,7 +520,7 @@ fun ReportScreen(
                             color = MaterialTheme.shogiColors.line,
                             modifier = Modifier.testTag("report_divider"),
                         )
-                        Column(modifier = Modifier.weight(1f).fillMaxHeight()) { bodyPane() }
+                        Column(modifier = Modifier.weight(1f).fillMaxHeight()) { bodyWithTabs() }
                     }
                 } else {
                     boardPane()
@@ -482,7 +528,7 @@ fun ReportScreen(
                         color = MaterialTheme.shogiColors.line,
                         modifier = Modifier.testTag("report_divider"),
                     )
-                    bodyPane()
+                    bodyWithTabs()
                 }
             } // Column
         } // Scaffold content lambda

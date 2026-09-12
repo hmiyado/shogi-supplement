@@ -22,7 +22,6 @@ internal fun ReportSummaryBody(
     strengthDisplayText: String?,
     matchRateDisplayText: String?,
     blunderRateDisplayText: String?,
-    onViewList: () -> Unit,
     analysisPending: Boolean = false,
     onAnalyze: () -> Unit = {},
     modifier: Modifier = Modifier,
@@ -54,7 +53,6 @@ internal fun ReportSummaryBody(
                 strengthDisplayText = strengthDisplayText,
                 matchRateDisplayText = matchRateDisplayText,
                 blunderRateDisplayText = blunderRateDisplayText,
-                onViewList = onViewList,
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             )
         }

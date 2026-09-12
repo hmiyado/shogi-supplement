@@ -20,7 +20,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -138,6 +137,15 @@ fun AnalyzingReportScreen(
                     modifier = Modifier.testTag("report_divider"),
                 )
 
+                // 解析完了でReportScreenへ入れ替わる。同じ位置にタブ行を置かないと
+                // その瞬間に本文が44dpずれる（DESIGN.md No-jitter原則）。
+                ReportTabRow(
+                    active = ReportBodyMode.SUMMARY,
+                    onSelect = {},
+                    isEnabled = { false },
+                )
+                Spacer(Modifier.height(4.dp))
+
                 Column(modifier = Modifier.fillMaxSize()) {
                     EvalGraphCard(
                         points = evalGraphPoints,
@@ -183,10 +191,6 @@ private fun AnalyzingSummaryCard(modifier: Modifier = Modifier) {
                     style = MaterialTheme.typography.labelSmall.copy(fontFamily = IbmPlexMonoFamily),
                     color = shogiColors.ink2,
                 )
-            }
-            Spacer(Modifier.height(8.dp))
-            OutlinedButton(onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth()) {
-                Text(AppStrings.VIEW_BLUNDER_LIST, style = MaterialTheme.typography.labelMedium)
             }
         }
     }
