@@ -2,6 +2,7 @@ package dev.miyado.shogisupplement.kifu
 
 import dev.miyado.shogisupplement.rating.ShogiRank
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -319,7 +320,11 @@ class KifImportControllerTest {
         val settings = FakeSettingsRepository(serviceAccounts = mutableMapOf("lishogi" to "別人"))
         val controller = KifImportController(
             settingsRepository = settings,
-            scope = CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob()),
+            // 保存の失敗はscopeへ伝わる。ここで受けないとJVM全体の未捕捉例外になり、
+            // 同じワーカーで次に走るテストの失敗として報告される。
+            scope = CoroutineScope(
+                UnconfinedTestDispatcher() + SupervisorJob() + CoroutineExceptionHandler { _, _ -> },
+            ),
             dateTimeLabel = { "2026-09-01 12:00" },
             onImport = { error("保存に失敗") },
         )
