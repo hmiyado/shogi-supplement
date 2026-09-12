@@ -28,6 +28,8 @@ import io.ktor.server.netty.Netty
 import io.ktor.http.HttpHeaders
 import io.ktor.server.plugins.calllogging.CallLogging
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.http.HttpMethod
+import io.ktor.server.plugins.cors.CORSConfig
 import io.ktor.server.plugins.cors.routing.CORS
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.response.respond
@@ -46,23 +48,27 @@ fun main() {
     }.start(wait = true)
 }
 
+// Why not ローカルのポートを固定する: 確認のたびに配信ポートが変わり、固定すると
+// ポート違いのプリフライトが403になって原因がCORSだと分かりにくい。
+/** Web版（docs/mypage.html）からのfetchを通すCORS設定。 */
+fun CORSConfig.configureWebOrigins(allowLocalhost: Boolean) {
+    allowHost("shogi-supplement.miyado.dev", schemes = listOf("https"))
+    if (allowLocalhost) {
+        allowOrigins { origin -> origin == "http://localhost" || origin.startsWith("http://localhost:") }
+    }
+    allowMethod(HttpMethod.Post)
+    allowHeader(HttpHeaders.ContentType)
+    allowHeader(ApiHeaders.APP_CHECK)
+    allowHeader(ApiHeaders.APP_PLATFORM)
+    allowHeader(ApiHeaders.APP_BUILD)
+}
+
 fun Application.module(config: WorkerConfig) {
     install(ContentNegotiation) {
         json(Json { ignoreUnknownKeys = true })
     }
     // Web版（docs/mypage.html）からのfetchはブラウザのプリフライトで弾かれるため必須。
-    install(CORS) {
-        allowHost("shogi-supplement.miyado.dev", schemes = listOf("https"))
-        // ALLOW_LOCALHOST_CORS=true（ローカル起動時のみ）でdocs/mypage.htmlの動作確認を可能にする。
-        if (config.allowLocalhostCors) {
-            allowHost("localhost:8000", schemes = listOf("http"))
-        }
-        allowMethod(io.ktor.http.HttpMethod.Post)
-        allowHeader(HttpHeaders.ContentType)
-        allowHeader(ApiHeaders.APP_CHECK)
-        allowHeader(ApiHeaders.APP_PLATFORM)
-        allowHeader(ApiHeaders.APP_BUILD)
-    }
+    install(CORS) { configureWebOrigins(allowLocalhost = config.allowLocalhostCors) }
     install(CallLogging)
     install(StatusPages) {
         exception<Throwable> { call, cause ->
