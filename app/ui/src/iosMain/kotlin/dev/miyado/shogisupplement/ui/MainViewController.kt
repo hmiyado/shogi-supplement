@@ -109,13 +109,19 @@ import kotlin.experimental.ExperimentalNativeApi
 import kotlin.native.Platform
 import platform.Foundation.NSBundle
 import platform.Foundation.NSURL
+import platform.darwin.NSObject
 import platform.UIKit.UIApplication
 import platform.UIKit.UIActivityViewController
+import platform.UIKit.UIActivityItemSourceProtocol
+import platform.UIKit.UIActivityType
+import platform.UIKit.UIImage
 import platform.UIKit.UIPasteboard
+import platform.LinkPresentation.LPLinkMetadata
 import platform.UIKit.UIWindowScene
 import platform.UIKit.UIWindow
 import platform.UIKit.UIViewController
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.ObjCSignatureOverride
 import kotlinx.cinterop.useContents
 import platform.CoreGraphics.CGSizeMake
 import platform.UIKit.UIGraphicsBeginImageContextWithOptions
@@ -1269,10 +1275,38 @@ private fun shareCurrentScreen() {
     if (image == null) return
     val presenter = window.rootViewController ?: return
     presenter.presentViewController(
-        UIActivityViewController(activityItems = listOf(image), applicationActivities = null),
+        UIActivityViewController(
+            activityItems = listOf(ScreenshotActivityItemSource(image)),
+            applicationActivities = null,
+        ),
         animated = true,
         completion = null,
     )
+}
+
+private class ScreenshotActivityItemSource(
+    private val image: UIImage,
+) : NSObject(), UIActivityItemSourceProtocol {
+    override fun activityViewControllerPlaceholderItem(activityViewController: UIActivityViewController): Any = image
+
+    @ObjCSignatureOverride
+    override fun activityViewController(
+        activityViewController: UIActivityViewController,
+        itemForActivityType: UIActivityType?,
+    ): Any = image
+
+    @ObjCSignatureOverride
+    override fun activityViewController(
+        activityViewController: UIActivityViewController,
+        subjectForActivityType: UIActivityType?,
+    ): String = AppStrings.APP_TITLE
+
+    @Suppress("RETURN_TYPE_MISMATCH_ON_OVERRIDE")
+    override fun activityViewControllerLinkMetadata(
+        activityViewController: UIActivityViewController,
+    ): LPLinkMetadata? = LPLinkMetadata().apply {
+        title = AppStrings.APP_TITLE
+    }
 }
 
 /** iOSではContextがないため同梱resourceを同期読込し、失敗時は画面を壊さずnullにする。 */
