@@ -43,6 +43,14 @@ def read_gradle_property(key)
   line.split("=", 2).last.strip
 end
 
+# UIが変わるリリースでは、提出前に掲載画像を最新のStoreImageTestから作り直す。
+def generate_store_images
+  Dir.chdir(APP_DIR) do
+    sh("./gradlew :androidApp:recordRoborazziDebug --tests '*StoreImageTest*' -Pshogi.storeImages=true --rerun-tasks")
+  end
+  UI.success("ストア画像を再生成完了")
+end
+
 # Why not key_filepathだけ: 鍵をディスクへ書き出す運用は、置き場所と消し忘れが
 # 人任せになる。中身を環境変数で受け取れれば、ファイルを作らずに提出できる。
 # パス指定も残すのは、中身を環境変数へ入れられない端末からでも出せる退避路のため。
@@ -91,6 +99,7 @@ platform :ios do
     api_key = asc_api_key
 
     sh(File.join(REPO_ROOT, ".maestro/run-ios.sh"))
+    generate_store_images
 
     build_app(
       scheme: "iosApp-Engineless",
