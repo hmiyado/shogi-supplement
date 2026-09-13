@@ -14,7 +14,7 @@ data class StrengthDetailData(
     val rangeHigh: Int,
     /** 対局サービスでの最高段級位（null = どのサービスにも段級位申告が無い）。 */
     val bestRank: StrengthDetailBestRank?,
-    /** 対局ごとの推移（解析日時の古い順。最大8局）。 */
+    /** 対局ごとの推移（解析日時の古い順。最新局から30日以内）。 */
     val trend: List<StrengthTrendPoint>,
     /** 対局サービス一覧（何も入力していないサービスは含めない）。 */
     val services: List<StrengthDetailService>,

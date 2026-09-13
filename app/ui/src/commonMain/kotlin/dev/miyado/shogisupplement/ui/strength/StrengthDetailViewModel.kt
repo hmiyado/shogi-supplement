@@ -29,8 +29,8 @@ class StrengthDetailViewModel(
     private val ioDispatcher: CoroutineDispatcher = defaultIoDispatcher,
 ) {
 
-    /** 推移グラフに出す最大局数。 */
-    private val trendGameLimit = 8
+    /** 推移グラフに出す期間（30日）。 */
+    private val trendWindowSeconds = 30L * 24 * 60 * 60
 
     /** @return 解析済みでuser_sideが分かっている対局が1局も無ければ null。 */
     suspend fun loadStrengthDetail(): StrengthDetailData? = withContext(ioDispatcher) {
@@ -48,8 +48,12 @@ class StrengthDetailViewModel(
         val deviation = StrengthNorm.deviationScore(estimate.rating)
         val width = StrengthNorm.deviationWidth(estimate.errorMargin)
 
-        // 推移グラフは解析日時の新しい順にtrendGameLimit局取り、グラフ左→右のため古い順へ戻す。
-        val recentGames = games.sortedByDescending { it.analyzedAt }.take(trendGameLimit).sortedBy { it.analyzedAt }
+        // 推移グラフは最新の解析日時から30日以内に絞り、グラフ左→右のため古い順へ戻す。
+        val latestAnalyzedAt = games.maxOf { it.analyzedAt }
+        val trendStart = latestAnalyzedAt - trendWindowSeconds
+        val recentGames = games
+            .filter { it.analyzedAt >= trendStart }
+            .sortedBy { it.analyzedAt }
         val trend = recentGames.map { buildTrendPoint(it) }
 
         val serviceRanks = settingsRepository.getAllServiceRanks()
