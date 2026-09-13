@@ -80,8 +80,8 @@ class AdaptiveLayoutScreenshotTest {
         note = "あなたの棋力帯(偏差値47-59): 約3局に1回",
         problemType = "手筋 (両取り・素抜き) の問題",
         priority = 2.9978349024480666,
-        bestPv = "2f6f 2d2e",
-        punishPv = "2d2e 2f2e",
+        bestPv = "2f6f 2e2f",
+        punishPv = "2f6f 8c8d",
         cpBefore = -350L,
     )
 
