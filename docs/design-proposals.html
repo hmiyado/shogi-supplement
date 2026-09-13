@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>将棋サプリ デザイン案 — 未決定Issue</title>
+  <style>
+    :root {
+      --bg: #f7f3ea;
+      --surface: #fffdf7;
+      --surface-2: #efe9dc;
+      --ink: #211e1a;
+      --ink-2: #5c564c;
+      --ink-3: #8c857b;
+      --line: #ddd5c4;
+      --primary: #3a4b7c;
+      --primary-soft: #e4e8f2;
+      --highlight: #eedd77;
+      --highlight-soft: #f7efc5;
+      --loss: #c73e3a;
+      --loss-soft: #f5e0de;
+      --board: #e9c98e;
+      --board-line: #a98b54;
+      --shadow: 0 2px 8px rgba(33, 30, 26, .06);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: "IBM Plex Sans JP", "Hiragino Sans", sans-serif;
+      line-height: 1.65;
+    }
+    a { color: var(--primary); }
+    .page { max-width: 1280px; margin: 0 auto; padding: 32px 24px 72px; }
+    .eyebrow, .label, .meta, .option-number, .token, .metric, .move, .time {
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-variant-numeric: tabular-nums;
+    }
+    .eyebrow {
+      color: var(--primary);
+      font-size: 12px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    h1, h2, h3, h4 { margin: 0; font-family: "Shippori Mincho", "Hiragino Mincho ProN", serif; line-height: 1.35; }
+    h1 { margin-top: 8px; font-size: clamp(30px, 5vw, 48px); font-weight: 700; }
+    h2 { font-size: 28px; }
+    h3 { font-size: 21px; }
+    h4 { font-size: 17px; }
+    p { margin: 0; }
+    .intro { max-width: 760px; margin-top: 16px; color: var(--ink-2); }
+    .intro strong { color: var(--ink); }
+    .rule { height: 1px; margin: 28px 0; background: var(--line); }
+    .scope {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 24px;
+    }
+    .scope-card { padding: 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); }
+    .scope-card .label { color: var(--primary); font-size: 12px; }
+    .scope-card p { margin-top: 5px; color: var(--ink-2); font-size: 14px; }
+    nav { margin: 32px 0 48px; padding: 16px; background: var(--surface-2); border-left: 3px solid var(--primary); }
+    nav h2 { font-size: 20px; }
+    nav ul { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 10px 0 0; padding: 0; list-style: none; }
+    nav a { font-size: 14px; }
+    .issue { scroll-margin-top: 20px; margin-top: 64px; }
+    .issue-head { display: flex; align-items: end; justify-content: space-between; gap: 16px; border-bottom: 2px solid var(--ink); padding-bottom: 10px; }
+    .issue-head .number { color: var(--primary); font-size: 14px; }
+    .status { display: inline-block; margin-right: 6px; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 700; }
+    .status.selected { color: var(--primary); background: var(--primary-soft); }
+    .status.hold { color: var(--ink-2); background: var(--surface-2); }
+    .selected-fit { color: var(--surface); background: var(--primary); }
+    .issue.on-hold .issue-head { border-bottom-color: var(--ink-3); }
+    .issue.on-hold .issue-head .number { color: var(--ink-3); }
+    .issue.on-hold .options { opacity: .78; }
+    .hold-note { background: var(--surface-2); border-left-color: var(--ink-3); }
+    .issue-summary { max-width: 820px; margin-top: 12px; color: var(--ink-2); }
+    .decision { margin: 16px 0 20px; padding: 12px 16px; background: var(--highlight-soft); border-left: 3px solid var(--highlight); font-size: 14px; }
+    .decision strong { color: var(--ink); }
+    .options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+    .option { min-width: 0; overflow: hidden; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); }
+    .option-head { display: flex; justify-content: space-between; gap: 12px; padding: 16px 16px 12px; border-bottom: 1px solid var(--line); }
+    .option-number { color: var(--primary); font-size: 12px; }
+    .option-head h3 { margin-top: 3px; }
+    .fit { align-self: start; padding: 2px 7px; color: var(--primary); background: var(--primary-soft); border-radius: 4px; font-size: 11px; white-space: nowrap; }
+    .mock { min-height: 250px; padding: 14px; background: #f1ede4; }
+    .phone { max-width: 270px; min-height: 218px; margin: 0 auto; overflow: hidden; background: var(--surface); border: 1px solid #c9c0af; border-radius: 10px; box-shadow: 0 3px 10px rgba(33,30,26,.08); }
+    .phone-bar { display: flex; align-items: center; justify-content: space-between; padding: 9px 12px; color: var(--ink); background: var(--surface-2); font-family: "Shippori Mincho", serif; font-size: 14px; }
+    .phone-body { padding: 12px; }
+    .tiny { color: var(--ink-3); font-size: 10px; }
+    .tiny-strong { color: var(--ink-2); font-size: 12px; font-weight: 700; }
+    .mock-title { margin-bottom: 8px; font-family: "Shippori Mincho", serif; font-size: 17px; }
+    .mock-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
+    .mock-row:last-child { border-bottom: 0; }
+    .dot { width: 8px; height: 8px; flex: 0 0 auto; border-radius: 50%; background: var(--primary); }
+    .dot.loss { background: var(--loss); }
+    .dot.highlight { background: var(--highlight); border: 1px solid #c8b74b; }
+    .pill { padding: 2px 6px; border-radius: 4px; background: var(--primary-soft); color: var(--primary); font-size: 10px; }
+    .pill.loss { background: var(--loss-soft); color: var(--loss); }
+    .pill.yellow { background: var(--highlight-soft); color: var(--ink-2); }
+    .button { display: inline-flex; align-items: center; justify-content: center; min-height: 30px; padding: 5px 10px; border: 1px solid var(--primary); border-radius: 6px; color: var(--surface); background: var(--primary); font-size: 11px; }
+    .button.secondary { color: var(--primary); background: transparent; }
+    .button.destructive { color: var(--loss); border-color: var(--loss); background: transparent; }
+    .button.full { width: 100%; }
+    .empty { padding: 22px 10px; text-align: center; color: var(--ink-3); font-size: 12px; }
+    .metric-large { color: var(--primary); font-family: "IBM Plex Mono", monospace; font-size: 30px; line-height: 1.1; }
+    .bar { height: 8px; background: var(--surface-2); border-radius: 4px; }
+    .bar > i { display: block; height: 100%; background: var(--primary); border-radius: 4px 0 0 4px; }
+    .bar.loss > i { background: var(--loss); }
+    .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+    .cell { aspect-ratio: 1; border: 1px solid var(--line); border-radius: 2px; background: var(--surface); }
+    .cell.on { border-color: var(--primary); background: var(--primary-soft); }
+    .cell.today { border-color: #bca92e; background: var(--highlight); }
+    .calendar { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .month { padding: 8px; border: 1px solid var(--line); border-radius: 6px; }
+    .month strong { font-family: "IBM Plex Mono", monospace; font-size: 11px; }
+    .month .metric { display: block; margin-top: 3px; font-size: 19px; color: var(--primary); }
+    .chart { position: relative; height: 76px; margin: 6px 0 8px; border-bottom: 1px solid var(--line); background: repeating-linear-gradient(to bottom, transparent 0, transparent 24px, var(--line) 25px); }
+    .chart svg { width: 100%; height: 100%; }
+    .chart polyline { fill: none; stroke: var(--primary); stroke-width: 2.5; }
+    .chart circle { fill: var(--primary); }
+    .chart .loss-line { stroke: var(--loss); }
+    .chart .loss-dot { fill: var(--loss); }
+    .dual-chart { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .dual-chart .chart { height: 62px; }
+    .board { display: grid; grid-template-columns: repeat(5, 1fr); width: 132px; aspect-ratio: 1; margin: 0 auto 10px; border: 1px solid var(--board-line); background: var(--board); }
+    .board span { display: grid; place-items: center; border: 1px solid rgba(169,139,84,.65); color: #332719; font-family: "Shippori Mincho", serif; font-size: 17px; }
+    .board span.active { background: var(--highlight); }
+    .board span.bad { color: var(--loss); }
+    .segmented { display: grid; grid-template-columns: repeat(2, 1fr); margin-bottom: 8px; border-bottom: 1px solid var(--line); }
+    .segmented span { padding: 5px 2px; color: var(--ink-3); text-align: center; font-size: 10px; }
+    .segmented span.active { color: var(--primary); border-bottom: 2px solid var(--primary); }
+    .option-copy { padding: 14px 16px 16px; }
+    .option-copy p { color: var(--ink-2); font-size: 13px; }
+    .tradeoff { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); color: var(--ink-3); font-size: 12px; }
+    .tradeoff strong { color: var(--ink-2); }
+    .footer { margin-top: 72px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--ink-3); font-size: 12px; }
+    @media (max-width: 960px) {
+      .options { grid-template-columns: 1fr; }
+      .option { display: grid; grid-template-columns: minmax(220px, 38%) 1fr; }
+      .option-head { grid-column: 1 / -1; }
+      .option-copy { align-self: center; }
+    }
+    @media (max-width: 640px) {
+      .page { padding: 24px 16px 56px; }
+      .scope { grid-template-columns: 1fr; }
+      .issue-head { display: block; }
+      .issue-head h2 { margin-top: 4px; }
+      .option { display: block; }
+      .mock { min-height: 230px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <div class="eyebrow">SHOGI SUPPLEMENT / DESIGN EXPLORATION</div>
+      <h1>未決定Issueのデザイン案</h1>
+      <p class="intro">画面単位の方針がまだ決まっていないIssueを、実装前に比較できる形へ整理したものです。今回、#90と#91はOption Bを選択し、#89はKIFの分岐表現に沿った「分岐ごとのノート」方向へ更新しました。#12・#59・#76は保留です。</p>
+      <div class="scope">
+        <div class="scope-card"><div class="label">今回の決定</div><p><strong>2 Issue</strong><br>#90・#91はOption Bを採用</p></div>
+        <div class="scope-card"><div class="label">再設計</div><p><strong>1 Issue</strong><br>#89は分岐単位のノートへ更新</p></div>
+        <div class="scope-card"><div class="label">保留</div><p><strong>3 Issue</strong><br>#12・#59・#76は後日再開</p></div>
+        <div class="scope-card"><div class="label">基準</div><p><strong>DESIGN.md</strong><br>和の計器盤、No-jitter、数値mono、静かな正確さ</p></div>
+      </div>
+    </header>
+
+    <nav aria-label="Issue一覧">
+      <h2>比較するIssue</h2>
+      <ul>
+        <li><a href="#issue-12">#12 購読（保留）</a></li>
+        <li><a href="#issue-59">#59 苦手問題の復習（保留）</a></li>
+        <li><a href="#issue-76">#76 個別通知（保留）</a></li>
+        <li><a href="#issue-89">#89 検討の保存（再設計）</a></li>
+        <li><a href="#issue-90">#90 消費時間と悪手（B採用）</a></li>
+        <li><a href="#issue-91">#91 絞り込みの保存・比較（B採用）</a></li>
+      </ul>
+    </nav>
+
+    <section class="issue on-hold" id="issue-12">
+      <div class="issue-head"><div><div class="number">ISSUE #12 / design-needed</div><h2>Stripeによる購読を導入する</h2></div><div class="meta"><span class="status hold">保留</span>課金導線・権利状態</div></div>
+      <p class="issue-summary">IAPを中心に再整理する前提で、無料枠から有料機能へ移る画面の設計が未決定です。価格・対象機能・購入後の導線は別途確定が必要です。</p>
+      <div class="decision hold-note"><strong>保留：</strong>今は実装・方針決定の対象にしない。3案は購読仕様が再開したときの比較材料として保持する。</div>
+      <div class="options">
+        <article class="option"><div class="option-head"><div><div class="option-number">OPTION A</div><h3>残量カード型</h3></div><span class="fit">静かな計器盤</span></div><div class="mock"><div class="phone"><div class="phone-bar">ホーム <span>設定</span></div><div class="phone-body"><div class="tiny">今日の解析</div><div class="metric-large">2 / 3</div><div class="tiny">無料枠の使用数</div><div style="height:8px;margin:9px 0;background:#efe9dc;border-radius:4px"><i style="display:block;width:66%;height:100%;background:#3a4b7c;border-radius:4px 0 0 4px"></i></div><div class="mock-row"><span>より詳しく振り返る</span><span class="pill">購読を見る</span></div></div></div></div><div class="option-copy"><p>ホームの解析残量カードを、購読案内の入口にする。ユーザーが制限に近づいたときだけ自然に見える。</p><div class="tradeoff"><strong>長所：</strong>押し売り感が弱い。<br><strong>注意：</strong>初回ユーザーが購読機能を発見しにくい。</div></div></article>
+        <article class="option"><div class="option-head"><div><div class="option-number">OPTION B</div><h3>機能比較シート型</h3></div><span class="fit">比較しやすい</span></div><div class="mock"><div class="phone"><div class="phone-bar">購読 <span>×</span></div><div class="phone-body"><div class="mock-title">将棋サプリを深く使う</div><div class="mock-row"><span>端末内解析</span><span class="pill">無料</span></div><div class="mock-row"><span>サーバー解析</span><span class="pill">購読</span></div><div class="mock-row"><span>全期間の統計</span><span class="pill">購読</span></div><div style="display:flex;gap:6px;margin-top:12px"><span class="button full">購読を確認</span></div></div></div></div><div class="option-copy"><p>機能ごとの無料・購読範囲を一覧で示し、購入判断に必要な情報を一画面へ集約する。</p><div class="tradeoff"><strong>長所：</strong>説明責任が高い。<br><strong>注意：</strong>価格や機能が未確定だと更新箇所が増える。</div></div></article>
+        <article class="option"><div class="option-head"><div><div class="option-number">OPTION C</div><h3>機能ロック解説型</h3></div><span class="fit">文脈重視</span></div><div class="mock"><div class="phone"><div class="phone-bar">レポート <span>共有</span></div><div class="phone-body"><div class="mock-title">この続きを詳しく見る</div><div class="board"><span>歩</span><span>銀</span><span>金</span><span>玉</span><span>歩</span><span>角</span><span class="active">飛</span><span>歩</span><span>銀</span><span>歩</span><span>香</span><span>歩</span><span>歩</span><span>金</span><span>桂</span><span>歩</span><span>歩</span><span>歩</span><span>玉</span><span>歩</span><span>香</span><span>桂</span><span>銀</span><span>金</span><span>角</span></div><div class="tiny">サーバー解析でこの局面を詳しく検討できます</div><div style="margin-top:9px"><span class="button full">購読の内容を見る</span></div></div></div></div><div class="option-copy"><p>利用したい機能の直前で、何が増えるかを説明する。ホームに課金面を常設しない。</p><div class="tradeoff"><strong>長所：</strong>価値と案内が直結する。<br><strong>注意：</strong>複数の入口で同じ説明を保つ必要がある。</div></div></article>
+      </div>
+    </section>
+
+    <section class="issue on-hold" id="issue-59">
+      <div class="issue-head"><div><div class="number">ISSUE #59</div><h2>よく間違える問題を一覧から解き直せるようにする</h2></div><div class="meta"><span class="status hold">保留</span>復習導線・一覧密度</div></div>
+      <p class="issue-summary">学習記録の詳細に、2回以上解いている問題を正答数・解答数の少ない順で置き、行から解き直せるようにします。行にどの情報を残すかが未決定です。</p>
+      <div class="decision hold-note"><strong>保留：</strong>今は実装・方針決定の対象にしない。3案は復習機能を再開したときの比較材料として保持する。</div>
+      <div class="options">
+        <article class="option"><div class="option-head"><div><div class="option-number">OPTION A</div><h3>計器リスト型</h3></div><span class="fit">情報密度</span></div><div class="mock"><div class="phone"><div class="phone-bar">学習の記録 <span>共有</span></div><div class="phone-body"><div class="mock-title">復習が必要な問題</div><div class="mock-row"><span><span class="dot loss" style="display:inline-block;margin-right:6px"></span>駒損（タクティクス）<br><span class="tiny">4手目・3回解答</span></span><span class="metric">1 / 3</span></div><div class="mock-row"><span><span class="dot loss" style="display:inline-block;margin-right:6px"></span>守りの見落とし<br><span class="tiny">7手目・2回解答</span></span><span class="metric">0 / 2</span></div><div style="margin-top:9px"><span class="button secondary full">問題を選ぶ</span></div></div></div></div><div class="option-copy"><p>問題を一行の計器として並べ、正答数／解答数と分類を主役にする。タップで即出題。</p><div class="tradeoff"><strong>長所：</strong>比較と選択が速い。<br><strong>注意：</strong>盤面を見ないため、問題の記憶が薄いと選びにくい。</div></div></article>
+        <article class="option"><div class="option-head"><div><div class="option-number">OPTION B</div><h3>局面サムネイル型</h3></div><span class="fit">盤面重視</span></div><div class="mock"><div class="phone"><div class="phone-bar">学習の記録 <span>共有</span></div><div class="phone-body"><div class="mock-title">復習する局面</div><div class="mock-row"><div class="board" style="width:62px;margin:0"><span>歩</span><span>銀</span><span>金</span><span>玉</span><span>歩</span><span>角</span><span class="bad">飛</span><span>歩</span><span>銀</span><span>歩</span><span>香</span><span>歩</span><span>歩</span><span>金</span><span>桂</span><span>歩</span><span>歩</span><span>歩</span><span>玉</span><span>歩</span><span>桂</span><span>銀</span><span>金</span><span>角</span><span>香</span></div><span><span class="tiny-strong">駒損</span><br><span class="metric">1 / 3</span></span></div><div class="mock-row"><div class="board" style="width:62px;margin:0"><span>歩</span><span>銀</span><span>金</span><span>玉</span><span>歩</span><span>角</span><span>飛</span><span>歩</span><span>銀</span><span>歩</span><span>香</span><span>歩</span><span>歩</span><span>金</span><span>桂</span><span>歩</span><span>歩</span><span>歩</span><span>玉</span><span>歩</span><span>桂</span><span>銀</span><span>金</span><span>角</span><span>香</span></div><span><span class="tiny-strong">守り</span><br><span class="metric">0 / 2</span></span></div></div></div></div><div class="option-copy"><p>小さな盤面を添え、どの局面を復習するかを視覚的に選ぶ。行の高さは固定する。</p><div class="tradeoff"><strong>長所：</strong>局面の識別がしやすい。<br><strong>注意：</strong>一覧の表示件数が減り、狭い画面では密度が高い。</div></div></article>
+        <article class="option"><div class="option-head"><div><div class="option-number">OPTION C</div><h3>分類タブ型</h3></div><span class="fit">苦手の整理</span></div><div class="mock"><div class="phone"><div class="phone-bar">学習の記録 <span>共有</span></div><div class="phone-body"><div class="segmented"><span class="active">すべて 5</span><span>駒損 2</span></div><div class="mock-title">復習する問題</div><div class="mock-row"><span>4手目・駒損（タクティクス）</span><span class="pill loss">1 / 3</span></div><div class="mock-row"><span>12手目・駒損（タクティクス）</span><span class="pill loss">0 / 2</span></div><div class="mock-row"><span>7手目・守りの見落とし</span><span class="pill loss">1 / 2</span></div></div></div></div><div class="option-copy"><p>分類で切り替え、苦手の種類ごとに問題を選ぶ。分類名は既存6分類をそのまま使う。</p><div class="tradeoff"><strong>長所：</strong>「何が苦手か」と「何を解くか」がつながる。<br><strong>注意：</strong>タブ追加で初見の説明が必要。</div></div></article>
+      </div>
+    </section>
+
+    <section class="issue on-hold" id="issue-76">
+      <div class="issue-head"><div><div class="number">ISSUE #76</div><h2>購読の前提として個別ユーザーへ届く通知を持つ</h2></div><div class="meta"><span class="status hold">保留</span>通知入口・既読状態</div></div>
+      <p class="issue-summary">匿名アカウント宛ての通知を、一覧と未読印で受け取れるようにするIssueです。全員向けのお知らせと同じ器にするか、プッシュ通知まで含めるかが未決定です。</p>
+      <div class="decision hold-note"><strong>保留：</strong>今は実装・方針決定の対象にしない。3案は通知機能を再開したときの比較材料として保持する。</div>
+      <div class="options">
+        <article class="option"><div class="option-head"><div><div class="option-number">OPTION A</div><h3>アプリバー入口型</h3></div><span class="fit">発見しやすい</span></div><div class="mock"><div class="phone"><div class="phone-bar">ホーム <span style="color:#c73e3a">●</span></div><div class="phone-body"><div class="mock-title">学習の記録</div><div class="mock-row"><span>直近30日の取組日数</span><span class="metric">3日</span></div><div class="mock-row"><span>解析できる棋譜</span><span class="metric">2局</span></div><div class="tiny" style="margin-top:12px">アプリバーの点から通知一覧へ</div></div></div></div><div class="option-copy"><p>アプリバーに通知アイコンと未読ドットだけを置き、本文は一覧画面で読む。</p><div class="tradeoff"><strong>長所：</strong>全画面から入口を発見できる。<br><strong>注意：</strong>アプリバーの情報量が増える。</div></div></article>
+        <article class="option"><div class="option-head"><div><div class="option-number">OPTION B</div><h3>設定内の通知型</h3></div><span class="fit">最小変更</span></div><div class="mock"><div class="phone"><div class="phone-bar">設定 <span>×</span></div><div class="phone-body"><div class="mock-row"><span>表示設定</span><span>›</span></div><div class="mock-row"><span>アカウント</span><span>›</span></div><div class="mock-row"><span>お知らせ <span class="pill loss">1</span></span><span>›</span></div><div class="mock-row"><span>ライセンス</span><span>›</span></div><div class="tiny" style="margin-top:12px">プッシュ通知は使わず、起動時に未読を同期</div></div></div></div><div class="option-copy"><p>設定に「お知らせ」を追加し、アプリ内で開いたときだけ同期する。購読関連の連絡に絞る。</p><div class="tradeoff"><strong>長所：</strong>常時の注意喚起が少ない。<br><strong>注意：</strong>重要な通知に気づくまで遅れる。</div></div></article>
+        <article class="option"><div class="option-head"><div><div class="option-number">OPTION C</div><h3>受信箱型</h3></div><span class="fit">拡張性</span></div><div class="mock"><div class="phone"><div class="phone-bar">受信箱 <span>すべて既読</span></div><div class="phone-body"><div class="mock-row"><span><span class="dot loss" style="display:inline-block;margin-right:6px"></span><span class="tiny-strong">購読について</span><br>決済状態を確認してください<br><span class="tiny">2026-09-13</span></span><span>›</span></div><div class="mock-row"><span><span class="dot" style="display:inline-block;margin-right:6px"></span><span class="tiny-strong">アプリのお知らせ</span><br>解析処理を更新しました<br><span class="tiny">2026-09-10</span></span><span>›</span></div><div class="empty">既読の通知はここに残ります</div></div></div></div><div class="option-copy"><p>個別通知と全員向け通知を同じ受信箱にまとめ、種類をラベルで区別する。</p><div class="tradeoff"><strong>長所：</strong>将来の通知種別を追加しやすい。<br><strong>注意：</strong>小規模な段階では器が大きい。</div></div></article>
+      </div>
+    </section>
+
+    <section class="issue" id="issue-89">
+      <div class="issue-head"><div><div class="number">ISSUE #89</div><h2>検討分岐にノートを保存する</h2></div><div class="meta"><span class="status selected">再設計</span>検討の継続・再訪</div></div>
+      <p class="issue-summary">KIFには本譜とは別に「変化：N手」で変化手順を表し、`*` コメント行を手順に添えられるため、分岐とノートをKIF互換の構造として保存する方向に寄せます。現在の実装は本譜のコメントだけを保持し、変化手順は対象外なので、保存モデルの拡張が必要です。</p>
+      <div class="decision"><strong>今回の方向：</strong>検討木全体ではなく、選択した分岐を保存単位にする。分岐の手順とノートを一緒に再開できるようにし、KIFへの書き出し時は変化手順とコメント表現へ対応させる。</div>
+      <div class="options">
+        <article class="option"><div class="option-head"><div><div class="option-number">OPTION A</div><h3>局面ブックマーク型</h3></div><span class="fit">単純明快</span></div><div class="mock"><div class="phone"><div class="phone-bar">検討 <span>保存</span></div><div class="phone-body"><div class="board"><span>歩</span><span>銀</span><span>金</span><span>玉</span><span>歩</span><span>角</span><span class="active">飛</span><span>歩</span><span>銀</span><span>歩</span><span>香</span><span>歩</span><span>歩</span><span>金</span><span>桂</span><span>歩</span><span>歩</span><span>歩</span><span>玉</span><span>歩</span><span>桂</span><span>銀</span><span>金</span><span>角</span></div><div class="mock-row"><span>▲６六飛の局面</span><span class="pill yellow">保存済み</span></div><div class="mock-row"><span>メモなし</span><span>＋</span></div></div></div></div><div class="option-copy"><p>現在の局面を1件のブックマークとして保存する。分岐木は保存局面を開いた後に再現する。</p><div class="tradeoff"><strong>長所：</strong>ユーザーの理解が早い。<br><strong>注意：</strong>複雑な分岐を一覧で比較しにくい。</div></div></article>
+        <article class="option"><div class="option-head"><div><div class="option-number">OPTION B</div><h3>検討セッション型</h3></div><span class="fit">再開重視</span></div><div class="mock"><div class="phone"><div class="phone-bar">検討を再開 <span>＋</span></div><div class="phone-body"><div class="mock-row"><span><span class="tiny-strong">2026-09-13 17:20</span><br>▲７六歩からの検討<br><span class="tiny">分岐 4・メモ 2</span></span><span>›</span></div><div class="mock-row"><span><span class="tiny-strong">2026-09-11 21:04</span><br>▲２四歩の検討<br><span class="tiny">分岐 2・メモ 0</span></span><span>›</span></div><div style="margin-top:10px"><span class="button secondary full">現在の棋譜から始める</span></div></div></div></div><div class="option-copy"><p>検討をセッションとして保存し、日時・開始手・分岐数から再開する。メモはセッション内に置く。</p><div class="tradeoff"><strong>長所：</strong>途中の検討をそのまま再開できる。<br><strong>注意：</strong>保存単位が大きく、局面だけを再訪しにくい。</div></div></article>
+        <article class="option"><div class="option-head"><div><div class="option-number">OPTION C</div><h3>分岐ノート型</h3></div><span class="fit selected-fit">採用方向</span></div><div class="mock"><div class="phone"><div class="phone-bar">検討 <span>保存</span></div><div class="phone-body"><div class="mock-title">分岐ノート</div><div class="mock-row"><span>本譜　▲６六飛</span><span class="pill">+0.3</span></div><div class="mock-row"><span>変化A　▲２四歩</span><span class="pill">+0.1</span></div><div class="mock-row"><span>変化B　▲５八金</span><span class="pill loss">-1.2</span></div><div class="mock-row"><span>ノート：ここで急がない</span><span>編集</span></div></div></div></div><div class="option-copy"><p>KIFの「変化：N手」に相当する分岐を選び、その分岐の手順へノートを紐づけて保存する。再開時は分岐の開始局面と手順を復元し、ノートを同じ場所に表示する。</p><div class="tradeoff"><strong>長所：</strong>候補手の比較と学びの記録に強く、KIFとの対応も説明しやすい。<br><strong>注意：</strong>現状の本譜中心モデルから分岐構造を扱えるようにする必要がある。</div></div></article>
+      </div>
+    </section>
+
+    <section class="issue" id="issue-90">
+      <div class="issue-head"><div><div class="number">ISSUE #90</div><h2>消費時間と悪手を重ねて振り返れるようにする</h2></div><div class="meta"><span class="status selected">採用：Option B</span>時間軸・因果を断定しない</div></div>
+      <p class="issue-summary">形勢グラフと手数を揃えて、各手の消費時間を事実として表示するIssueです。長考や早指しを悪手の原因と断定しない設計が必要です。</p>
+      <div class="decision"><strong>決定：</strong>上下2レーン型（Option B）。形勢と消費時間を同じ手数軸で上下に分け、悪手の印だけを朱で表示する。不明値と0秒を別表現にする。</div>
+      <div class="options">
+        <article class="option"><div class="option-head"><div><div class="option-number">OPTION A</div><h3>形勢グラフへの点重ね</h3></div><span class="fit">一画面で把握</span></div><div class="mock"><div class="phone"><div class="phone-bar">レポート <span>共有</span></div><div class="phone-body"><div class="mock-title">形勢と消費時間</div><div class="chart"><svg viewBox="0 0 240 76" preserveAspectRatio="none"><polyline points="0,46 35,39 70,44 105,24 140,30 175,58 210,44 240,49"/><circle cx="105" cy="24" r="3"/><circle class="loss-dot" cx="175" cy="58" r="3"/></svg></div><div class="mock-row"><span>● 18手目</span><span class="time">01:42</span></div><div class="mock-row"><span><span class="dot loss" style="display:inline-block;margin-right:5px"></span>悪手</span><span class="time">不明</span></div></div></div></div><div class="option-copy"><p>形勢の点に時間を対応づけ、長考の手だけ大きな点で示す。悪手は朱の小点に留める。</p><div class="tradeoff"><strong>長所：</strong>形勢と時間の対応が直感的。<br><strong>注意：</strong>2つの量を同じグラフに重ねるため読み取りに慣れが要る。</div></div></article>
+        <article class="option"><div class="option-head"><div><div class="option-number">OPTION B</div><h3>上下2レーン型</h3></div><span class="fit selected-fit">採用</span></div><div class="mock"><div class="phone"><div class="phone-bar">レポート <span>共有</span></div><div class="phone-body"><div class="mock-title">手数ごとの記録</div><div class="tiny">形勢</div><div class="chart"><svg viewBox="0 0 240 76" preserveAspectRatio="none"><polyline points="0,40 35,35 70,47 105,29 140,31 175,55 210,44 240,50"/></svg></div><div class="tiny">消費時間</div><div class="chart" style="height:38px"><svg viewBox="0 0 240 38" preserveAspectRatio="none"><polyline class="loss-line" points="0,31 35,29 70,26 105,10 140,28 175,5 210,25 240,23"/></svg></div><div class="tiny">朱＝悪手　灰＝不明</div></div></div></div><div class="option-copy"><p>形勢と時間を同じ手数軸の上下に分ける。時間の線は朱ではなく、悪手の印だけを朱にする。</p><div class="tradeoff"><strong>長所：</strong>単位の違う値を混同しにくい。<br><strong>注意：</strong>縦方向の表示領域が増える。</div></div></article>
+        <article class="option"><div class="option-head"><div><div class="option-number">OPTION C</div><h3>手数テーブル型</h3></div><span class="fit">正確さ重視</span></div><div class="mock"><div class="phone"><div class="phone-bar">レポート <span>共有</span></div><div class="phone-body"><div class="mock-title">消費時間</div><div class="mock-row"><span class="move">18手目　▲６六飛</span><span class="time">01:42</span></div><div class="mock-row"><span class="move">19手目　△２六歩</span><span class="time">00:08</span></div><div class="mock-row"><span class="move"><span class="dot loss" style="display:inline-block;margin-right:5px"></span>20手目　▲５八金</span><span class="time">不明</span></div><div class="mock-row"><span class="tiny">時間情報なし</span><span class="tiny">—</span></div></div></div></div><div class="option-copy"><p>グラフには新しい系列を足さず、悪手一覧と同じ手数のテーブルに時間列を追加する。</p><div class="tradeoff"><strong>長所：</strong>不明値・0秒・秒数を明確に区別できる。<br><strong>注意：</strong>時間と形勢の同時把握は弱い。</div></div></article>
+      </div>
+    </section>
+
+    <section class="issue" id="issue-91">
+      <div class="issue-head"><div><div class="number">ISSUE #91</div><h2>棋譜の絞り込み条件を保存して期間比較できるようにする</h2></div><div class="meta"><span class="status selected">採用：Option B</span>条件・母数・期間</div></div>
+      <p class="issue-summary">一覧の一時的な絞り込み条件を名前付きで保存し、同じ条件で前月・今月などを比較するIssueです。保存条件の入口と、0局・少数局の見せ方が未決定です。</p>
+      <div class="decision"><strong>決定：</strong>条件カード選択型（Option B）。保存条件を一覧で確認してから選択し、選択後に期間比較へ進む。編集・削除はカード単位で行う。</div>
+      <div class="options">
+        <article class="option"><div class="option-head"><div><div class="option-number">OPTION A</div><h3>保存条件タブ型</h3></div><span class="fit">切替が速い</span></div><div class="mock"><div class="phone"><div class="phone-bar">棋譜一覧 <span>＋条件</span></div><div class="phone-body"><div class="segmented"><span class="active">今月</span><span>前月</span></div><div class="mock-row"><span class="tiny-strong">将棋ウォーズ・10分</span><span class="pill yellow">選択中</span></div><div class="mock-row"><span>対局数</span><span class="metric">12</span></div><div class="mock-row"><span>勝率</span><span class="metric">58%</span></div><div class="mock-row"><span>悪手率</span><span class="metric" style="color:#c73e3a">12%</span></div></div></div></div><div class="option-copy"><p>保存した条件を横タブにし、期間だけを切り替えて同じ3指標を見る。</p><div class="tradeoff"><strong>長所：</strong>定点観測が速い。<br><strong>注意：</strong>保存条件が増えるとタブが詰まる。</div></div></article>
+        <article class="option"><div class="option-head"><div><div class="option-number">OPTION B</div><h3>条件カード選択型</h3></div><span class="fit selected-fit">採用</span></div><div class="mock"><div class="phone"><div class="phone-bar">棋譜一覧 <span>絞り込み</span></div><div class="phone-body"><div class="mock-title">保存した条件</div><div class="mock-row"><span><span class="tiny-strong">ウォーズ 10分</span><br><span class="tiny">12局・今月</span></span><span>›</span></div><div class="mock-row"><span><span class="tiny-strong">クエスト 5分</span><br><span class="tiny">8局・今月</span></span><span>›</span></div><div style="margin-top:10px"><span class="button secondary full">新しい条件を保存</span></div></div></div></div><div class="option-copy"><p>条件をカードとして一覧にし、選択後に期間比較画面へ進む。編集・削除もカード単位で行う。</p><div class="tradeoff"><strong>長所：</strong>条件名と中身を確認しやすい。<br><strong>注意：</strong>比較へ1タップ多くなる。</div></div></article>
+        <article class="option"><div class="option-head"><div><div class="option-number">OPTION C</div><h3>比較表型</h3></div><span class="fit">差分が見える</span></div><div class="mock"><div class="phone"><div class="phone-bar">ウォーズ 10分 <span>編集</span></div><div class="phone-body"><div class="mock-title">期間比較</div><div class="calendar"><div class="month"><strong>前月</strong><span class="metric">10局</span><div class="tiny">勝率 40%</div><div class="tiny">悪手率 18%</div></div><div class="month"><strong>今月</strong><span class="metric">12局</span><div class="tiny">勝率 58%</div><div class="tiny">悪手率 12%</div></div></div><div class="mock-row" style="margin-top:8px"><span>今月の変化</span><span class="metric">+18pt</span></div><div class="tiny">※少数局では参考値として表示</div></div></div></div><div class="option-copy"><p>条件を固定したまま、前月と今月を左右のカードで比較する。母数を指標の隣に置く。</p><div class="tradeoff"><strong>長所：</strong>期間差が最も読み取りやすい。<br><strong>注意：</strong>スマホ幅では指標が小さくなりやすい。</div></div></article>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <p><strong>対象外：</strong>#60（出題ロジック）、#70–#72（棋力データ時点整合）、#82・#85–#87（解析基盤）、#98（実装上の空表示修正）、#74（#73の方針変更後に再設計）など、画面デザインの比較より先に仕様・データ・基盤を決めるIssueは今回の案から外しました。</p>
+      <p style="margin-top:8px">参照：<a href="https://github.com/hmiyado/shogi-supplement-research/issues/12">#12</a>・<a href="https://github.com/hmiyado/shogi-supplement-research/issues/59">#59</a>・<a href="https://github.com/hmiyado/shogi-supplement-research/issues/76">#76</a>・<a href="https://github.com/hmiyado/shogi-supplement-research/issues/89">#89</a>・<a href="https://github.com/hmiyado/shogi-supplement-research/issues/90">#90</a>・<a href="https://github.com/hmiyado/shogi-supplement-research/issues/91">#91</a> ／ 基準：<code>DESIGN.md</code></p>
+    </footer>
+  </main>
+</body>
+</html>
