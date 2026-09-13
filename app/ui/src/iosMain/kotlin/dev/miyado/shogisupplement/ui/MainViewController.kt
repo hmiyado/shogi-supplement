@@ -110,8 +110,17 @@ import kotlin.native.Platform
 import platform.Foundation.NSBundle
 import platform.Foundation.NSURL
 import platform.UIKit.UIApplication
+import platform.UIKit.UIActivityViewController
 import platform.UIKit.UIPasteboard
+import platform.UIKit.UIWindowScene
+import platform.UIKit.UIWindow
 import platform.UIKit.UIViewController
+import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.useContents
+import platform.CoreGraphics.CGSizeMake
+import platform.UIKit.UIGraphicsBeginImageContextWithOptions
+import platform.UIKit.UIGraphicsEndImageContext
+import platform.UIKit.UIGraphicsGetImageFromCurrentImageContext
 
 /** Supabase設定時、未同意なら他ルートを遮断し、同意処理の完了後だけホームへ進める。 */
 @OptIn(ExperimentalNativeApi::class)
@@ -479,7 +488,7 @@ private fun DemoApp(
             )
         }
         is DemoRoute.DrillRecordDetail -> {
-            DrillRecordDetailScreen(data = r.data, onBack = { route = DemoRoute.Home })
+            DrillRecordDetailScreen(data = r.data, onBack = { route = DemoRoute.Home }, onShare = ::shareCurrentScreen)
         }
         is DemoRoute.StrengthDetail -> {
             // 対局サービスの編集ダイアログはこの画面専用（Settings画面の棋力入力は廃止済み）。
@@ -505,6 +514,7 @@ private fun DemoApp(
                 data = r.data,
                 onBack = { route = DemoRoute.Home },
                 onEditAccounts = { showEditDialog = true },
+                onShare = ::shareCurrentScreen,
             )
         }
         is DemoRoute.Report -> {
@@ -513,6 +523,7 @@ private fun DemoApp(
                 justCompleted = r.justCompleted,
                 controller = controller,
                 onBack = { route = DemoRoute.Home },
+                onShare = ::shareCurrentScreen,
             )
         }
         DemoRoute.Drill -> {
@@ -807,6 +818,7 @@ private fun IosReportScreenHost(
     controller: IosMainController,
     onBack: () -> Unit,
     justCompleted: Boolean = false,
+    onShare: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     var report by remember(gameId) { mutableStateOf<ReportScreenState?>(null) }
@@ -898,6 +910,7 @@ private fun IosReportScreenHost(
         // KIFコピー（トップバー⧉アイコン）。iOSはクリップボードへ直接書き込む
         // （Android版 ReportHost.kt の ClipboardManager 相当・snackbar表示は ReportScreen 側）。
         onCopyKif = { kifText -> UIPasteboard.generalPasteboard.string = kifText },
+        onShare = onShare,
     )
 }
 
@@ -1224,6 +1237,30 @@ private const val IOS_SOURCE_REPO_URL = "https://github.com/hmiyado/shogi-supple
 private fun openUrl(url: String) {
     val nsUrl = NSURL.URLWithString(url) ?: return
     UIApplication.sharedApplication.openURL(nsUrl, options = emptyMap<Any?, Any>(), completionHandler = null)
+}
+
+@OptIn(ExperimentalForeignApi::class)
+private fun shareCurrentScreen() {
+    val scene = UIApplication.sharedApplication.connectedScenes
+        .asSequence()
+        .filterIsInstance<UIWindowScene>()
+        .firstOrNull() ?: return
+    val window = scene.windows.asSequence()
+        .filterIsInstance<UIWindow>()
+        .firstOrNull { it.isKeyWindow() } ?: return
+    val view = window.rootViewController?.view ?: return
+    val size = view.bounds.useContents { CGSizeMake(size.width, size.height) }
+    UIGraphicsBeginImageContextWithOptions(size, true, 0.0)
+    view.drawViewHierarchyInRect(view.bounds, afterScreenUpdates = true)
+    val image = UIGraphicsGetImageFromCurrentImageContext()
+    UIGraphicsEndImageContext()
+    if (image == null) return
+    val presenter = window.rootViewController ?: return
+    presenter.presentViewController(
+        UIActivityViewController(activityItems = listOf(image), applicationActivities = null),
+        animated = true,
+        completion = null,
+    )
 }
 
 /** iOSではContextがないため同梱resourceを同期読込し、失敗時は画面を壊さずnullにする。 */

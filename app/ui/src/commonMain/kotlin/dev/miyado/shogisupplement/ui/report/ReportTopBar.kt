@@ -5,6 +5,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -22,6 +23,7 @@ internal fun ReportTopBar(
     onInfoClick: () -> Unit,
     kifText: String?,
     onCopyKifClick: () -> Unit,
+    onShareClick: () -> Unit,
     onDeleteClick: (() -> Unit)?,
 ) {
     ShogiThinTopBar(title = title, onBack = onBack) {
@@ -41,6 +43,13 @@ internal fun ReportTopBar(
                     modifier = Modifier.size(18.dp),
                 )
             }
+        }
+        IconButton(onClick = onShareClick, modifier = Modifier.size(32.dp)) {
+            Icon(
+                imageVector = Icons.Outlined.Share,
+                contentDescription = AppStrings.SHARE_SCREEN,
+                modifier = Modifier.size(18.dp),
+            )
         }
         if (onDeleteClick != null) {
             IconButton(onClick = onDeleteClick, modifier = Modifier.size(32.dp)) {

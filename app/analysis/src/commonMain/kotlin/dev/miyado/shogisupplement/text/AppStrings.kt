@@ -201,6 +201,7 @@ object AppStrings {
 
 
     const val BACK = "戻る"
+    const val SHARE_SCREEN = "画面を共有"
     const val TAB_MAINLINE = "本譜"
     /**
      * 「最善の変化」タブのラベル（固定文字列）。

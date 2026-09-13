@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -60,6 +61,7 @@ fun EstimatedStrengthDetailScreen(
     data: StrengthDetailData,
     onBack: () -> Unit,
     onEditAccounts: () -> Unit,
+    onShare: () -> Unit = {},
 ) {
     Scaffold(
         contentWindowInsets = scaffoldContentInsets(),
@@ -72,6 +74,11 @@ fun EstimatedStrengthDetailScreen(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = AppStrings.BACK,
                         )
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onShare) {
+                        Icon(Icons.Outlined.Share, contentDescription = AppStrings.SHARE_SCREEN)
                     }
                 },
             )

@@ -12,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.core.content.ContextCompat
 import dev.miyado.shogisupplement.db.GameAnalysisStatus
 import dev.miyado.shogisupplement.ui.MainUiState
@@ -24,6 +25,7 @@ fun ReportHost(vm: MainViewModel, state: MainUiState.ShowReport) {
     val pvExtState by vm.pvExtState.collectAsState()
     val studyState by vm.studyState.collectAsState()
     val context = LocalContext.current
+    val view = LocalView.current
     val analyzeLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         vm.analyzeStoredGame(state.report.game)
     }
@@ -83,5 +85,6 @@ fun ReportHost(vm: MainViewModel, state: MainUiState.ShowReport) {
             val clip = ClipData.newPlainText("棋譜", kifText)
             context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(clip)
         },
+        onShare = { shareScreen(context, view) },
     )
 }

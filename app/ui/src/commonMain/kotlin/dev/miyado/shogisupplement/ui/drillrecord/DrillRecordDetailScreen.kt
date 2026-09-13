@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -57,6 +58,7 @@ private const val GRID_COLUMNS = 10
 fun DrillRecordDetailScreen(
     data: DrillRecordDetailData,
     onBack: () -> Unit,
+    onShare: () -> Unit = {},
 ) {
     Scaffold(
         contentWindowInsets = scaffoldContentInsets(),
@@ -69,6 +71,11 @@ fun DrillRecordDetailScreen(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = AppStrings.BACK,
                         )
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onShare) {
+                        Icon(Icons.Outlined.Share, contentDescription = AppStrings.SHARE_SCREEN)
                     }
                 },
             )

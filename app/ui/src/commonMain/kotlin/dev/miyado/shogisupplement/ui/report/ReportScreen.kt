@@ -103,6 +103,7 @@ fun ReportScreen(
     onStudyAnalyze: () -> Unit = {},
     onStudyCandidateSelected: (String) -> Unit = {},
     onCopyKif: (String) -> Unit = {},
+    onShare: () -> Unit = {},
     onDeleteGame: (
         deleteServer: Boolean,
         onResult: (DeleteGameOutcome) -> Unit,
@@ -268,6 +269,7 @@ fun ReportScreen(
                         }
                     },
                     onDeleteClick = if (canDelete) { { showDeleteDialog = true } } else null,
+                    onShareClick = onShare,
                 )
 
                 val studyCurrentSfen = remember(studyState) {
