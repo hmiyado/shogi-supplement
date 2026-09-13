@@ -8,8 +8,8 @@
 IOS_PROJECT_DIR = File.expand_path("..", __dir__)
 APP_DIR = File.expand_path("../..", __dir__)
 REPO_ROOT = File.expand_path("../../..", __dir__)
-KEY_ID = "BM62Q97564"
-ISSUER_ID = "9f6a60f5-d95c-484a-9c8c-574f65a93b7b"
+KEY_ID = ENV.fetch("ASC_KEY_ID", "BM62Q97564")
+ISSUER_ID = ENV.fetch("ASC_ISSUER_ID", "9f6a60f5-d95c-484a-9c8c-574f65a93b7b")
 TEAM_ID = "C8DX3743C6"
 BUNDLE_ID = "dev.miyado.shogisupplement.ios"
 PROFILE_NAME = "shogisup ios appstore"
@@ -71,8 +71,8 @@ def upload_dsyms_to_sentry
     UI.message("sentry-cli未インストールのためdSYMアップロードをスキップ")
     return
   end
-  unless ENV["SENTRY_AUTH_TOKEN"]
-    UI.message("SENTRY_AUTH_TOKEN未設定のためdSYMアップロードをスキップ")
+  unless ENV["SENTRY_AUTH_TOKEN"] && ENV["SENTRY_ORG"] && ENV["SENTRY_PROJECT"]
+    UI.message("Sentry設定（SENTRY_AUTH_TOKEN/SENTRY_ORG/SENTRY_PROJECT）が揃っていないためdSYMアップロードをスキップ")
     return
   end
   system("sentry-cli", "debug-files", "upload", File.join(ARCHIVE_PATH, "dSYMs")) \
