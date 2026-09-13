@@ -1,6 +1,9 @@
 package dev.miyado.shogisupplement.db
 
 import dev.miyado.shogisupplement.util.currentEpochSeconds
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 /** user_settings・サービスアカウント・段級（service_rank）のDB永続化リポジトリ（[SettingsRepository]のSQLDelight実装）。 */
 class SqlDelightSettingsRepository(private val database: ShogiSupplementDatabase) : SettingsRepository {
@@ -224,6 +227,36 @@ class SqlDelightSettingsRepository(private val database: ShogiSupplementDatabase
             .executeAsOneOrNull() ?: "system"
     }
 
+    // ─── 棋譜一覧の保存条件 ────────────────────────────────────────────────────
+
+    override fun getSavedGameFilters(): List<SavedGameFilter> {
+        val json = database.shogiSupplementQueries
+            .getSavedGameFilters()
+            .executeAsOneOrNull()
+            ?.saved_game_filters
+            ?: return emptyList()
+        return runCatching { savedFilterJson.decodeFromString<List<SavedGameFilter>>(json) }
+            .getOrDefault(emptyList())
+    }
+
+    override fun saveGameFilter(filter: SavedGameFilter) {
+        database.transaction {
+            database.shogiSupplementQueries.insertOrIgnoreDefaultSettings()
+            val filters = getSavedGameFilters().toMutableList()
+            val existingIndex = filters.indexOfFirst { it.name == filter.name }
+            if (existingIndex >= 0) filters[existingIndex] = filter else filters += filter
+            database.shogiSupplementQueries.updateSavedGameFilters(savedFilterJson.encodeToString(filters))
+        }
+    }
+
+    override fun deleteGameFilter(name: String) {
+        database.transaction {
+            database.shogiSupplementQueries.insertOrIgnoreDefaultSettings()
+            val filters = getSavedGameFilters().filterNot { it.name == name }
+            database.shogiSupplementQueries.updateSavedGameFilters(savedFilterJson.encodeToString(filters))
+        }
+    }
+
     // ─── ルール別棋力（service_rank） ─────────────────────────────────────────
 
     /** サービスのルール別棋力を保存する（申告のみ、相応判定には使用しない）。 */
@@ -311,5 +344,9 @@ class SqlDelightSettingsRepository(private val database: ShogiSupplementDatabase
             .getAppPolicyCache()
             .executeAsOneOrNull()
             ?.app_policy_cache
+    }
+
+    private companion object {
+        val savedFilterJson = Json { ignoreUnknownKeys = true }
     }
 }

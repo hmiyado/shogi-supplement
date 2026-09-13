@@ -2,6 +2,7 @@ package dev.miyado.shogisupplement.ui
 
 import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.db.GameRecord
+import dev.miyado.shogisupplement.db.SavedGameFilter
 import dev.miyado.shogisupplement.db.PositionEvalRow
 import dev.miyado.shogisupplement.pipeline.InProgressAnalysis
 import dev.miyado.shogisupplement.pipeline.ProgressiveReportState
@@ -78,5 +79,6 @@ sealed class MainUiState {
         val pendingUploadCount: Int = 0,
         val isUploading: Boolean = false,
         val uploadResult: String? = null,
+        val savedFilters: List<SavedGameFilter> = emptyList(),
     ) : MainUiState()
 }

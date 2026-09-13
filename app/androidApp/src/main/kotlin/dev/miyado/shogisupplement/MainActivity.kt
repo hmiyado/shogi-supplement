@@ -200,8 +200,11 @@ fun MainApp(vm: MainViewModel, state: MainUiState) {
                 pendingUploadCount = state.pendingUploadCount,
                 isUploading = state.isUploading,
                 uploadResult = state.uploadResult,
+                savedFilters = state.savedFilters,
                 onBack = { vm.loadHome() },
                 onGameClick = { game -> vm.showReport(game.id) },
+                onSaveFilter = { filter -> vm.saveGameFilter(filter) },
+                onDeleteSavedFilter = { name -> vm.deleteGameFilter(name) },
                 onUpload = { vm.uploadFromGameList() },
                 onDeleteGame = { game, deleteServer, onResult ->
                     vm.deleteGame(game, deleteServer, onResult)

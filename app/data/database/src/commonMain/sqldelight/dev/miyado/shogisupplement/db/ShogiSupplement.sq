@@ -84,7 +84,9 @@ CREATE TABLE user_settings (
     -- 棋力を申告した日時（Unix epoch 秒）。NULL=未申告、0=申告済みだが日時不明。
     -- Why not 行の存在で申告を判定する: 棋力と無関係な保存でも
     -- insertOrIgnoreDefaultSettingsが同じ行を作るため、常に申告済みになってしまう。
-    rating_declared_at INTEGER
+    rating_declared_at INTEGER,
+    -- 棋譜一覧の保存条件（SavedGameFilterのJSON配列）。端末内だけに保持する。
+    saved_game_filters TEXT
 );
 
 insertGame:
@@ -194,6 +196,12 @@ SELECT account_declined FROM user_settings WHERE id = 1;
 
 getThemeMode:
 SELECT theme_mode FROM user_settings WHERE id = 1;
+
+getSavedGameFilters:
+SELECT saved_game_filters FROM user_settings WHERE id = 1;
+
+updateSavedGameFilters:
+UPDATE user_settings SET saved_game_filters = ? WHERE id = 1;
 
 updateThemeMode:
 UPDATE user_settings SET theme_mode = ? WHERE id = 1;

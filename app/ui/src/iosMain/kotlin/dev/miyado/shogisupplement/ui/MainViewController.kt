@@ -608,6 +608,7 @@ private fun DemoApp(
             IosGameListScreenHost(
                 repository = gameRepository,
                 services = supabaseServices,
+                settingsRepository = settingsRepository,
                 controller = controller,
                 onBack = { route = DemoRoute.Home },
                 onGameClick = { game -> route = DemoRoute.Report(game.id) },
@@ -641,6 +642,7 @@ private fun DemoApp(
 private fun IosGameListScreenHost(
     repository: GameRepository,
     services: SupabaseServices?,
+    settingsRepository: SettingsRepository,
     controller: IosMainController,
     onBack: () -> Unit,
     onGameClick: (GameRecord) -> Unit,
@@ -653,6 +655,7 @@ private fun IosGameListScreenHost(
     }
     var isUploading by remember { mutableStateOf(false) }
     var uploadResult by remember { mutableStateOf<String?>(null) }
+    var savedFilters by remember { mutableStateOf(settingsRepository.getSavedGameFilters()) }
 
     GameListScreen(
         games = games,
@@ -660,6 +663,15 @@ private fun IosGameListScreenHost(
         pendingUploadCount = pendingUploadCount,
         isUploading = isUploading,
         uploadResult = uploadResult,
+        savedFilters = savedFilters,
+        onSaveFilter = { filter ->
+            settingsRepository.saveGameFilter(filter)
+            savedFilters = settingsRepository.getSavedGameFilters()
+        },
+        onDeleteSavedFilter = { name ->
+            settingsRepository.deleteGameFilter(name)
+            savedFilters = settingsRepository.getSavedGameFilters()
+        },
         onBack = onBack,
         onGameClick = onGameClick,
         onDeleteGame = { game, deleteServer, onResult ->

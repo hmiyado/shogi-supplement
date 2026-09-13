@@ -35,6 +35,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.db.GameListFilter
 import dev.miyado.shogisupplement.db.GameRecord
+import dev.miyado.shogisupplement.db.SavedGameFilter
 import dev.miyado.shogisupplement.db.filterGames
 import dev.miyado.shogisupplement.db.summarize
 import dev.miyado.shogisupplement.text.AppStrings
@@ -43,6 +44,7 @@ import dev.miyado.shogisupplement.ui.common.GameCard
 import dev.miyado.shogisupplement.ui.common.adaptiveContentWidth
 import dev.miyado.shogisupplement.ui.common.scaffoldContentInsets
 import dev.miyado.shogisupplement.ui.theme.shogiColors
+import dev.miyado.shogisupplement.util.currentEpochSeconds
 import dev.miyado.shogisupplement.upload.DeleteGameOutcome
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -64,6 +66,9 @@ fun GameListScreen(
     canDelete: Boolean = true,
     onBack: (() -> Unit)?,
     onGameClick: (GameRecord) -> Unit,
+    savedFilters: List<SavedGameFilter> = emptyList(),
+    onSaveFilter: ((SavedGameFilter) -> Unit)? = null,
+    onDeleteSavedFilter: ((String) -> Unit)? = null,
     topBarActions: @Composable RowScope.() -> Unit = {},
     onUpload: () -> Unit = {},
     onDeleteGame: (
@@ -77,6 +82,11 @@ fun GameListScreen(
     var filter by remember { mutableStateOf(GameListFilter()) }
     var draftFilter by remember { mutableStateOf(GameListFilter()) }
     var showFilterSheet by remember { mutableStateOf(false) }
+    var localSavedFilters by remember(savedFilters) { mutableStateOf(savedFilters) }
+    var filterToSave by remember { mutableStateOf<GameListFilter?>(null) }
+    var filterNameToEdit by remember { mutableStateOf<String?>(null) }
+    var showSaveFilterDialog by remember { mutableStateOf(false) }
+    var comparisonFilter by remember { mutableStateOf<SavedGameFilter?>(null) }
     var selectionMode by remember { mutableStateOf(false) }
     var selectedIds by remember { mutableStateOf(emptySet<Long>()) }
     var showBulkDeleteDialog by remember { mutableStateOf(false) }
@@ -254,6 +264,61 @@ fun GameListScreen(
                 showFilterSheet = false
             },
             onDismiss = { showFilterSheet = false },
+            savedFilters = localSavedFilters,
+            onSelectSavedFilter = { saved ->
+                val current = saved.currentFilter(currentEpochSeconds())
+                filter = current
+                draftFilter = current
+                comparisonFilter = saved
+                showFilterSheet = false
+            },
+            onRequestSave = onSaveFilter?.let {
+                {
+                    filterToSave = draftFilter
+                    showSaveFilterDialog = true
+                }
+            },
+            onEditSavedFilter = { saved ->
+                draftFilter = saved.currentFilter(currentEpochSeconds())
+                filterNameToEdit = saved.name
+            },
+            onDeleteSavedFilter = { name ->
+                localSavedFilters = localSavedFilters.filterNot { it.name == name }
+                onDeleteSavedFilter?.invoke(name)
+            },
+        )
+    }
+
+    if (showSaveFilterDialog && filterToSave != null) {
+        SaveGameFilterDialog(
+            initialName = filterNameToEdit.orEmpty(),
+            onSave = { name ->
+                val saved = SavedGameFilter.fromFilter(name, filterToSave!!, currentEpochSeconds())
+                val previousName = filterNameToEdit
+                if (previousName != null && previousName != name) {
+                    localSavedFilters = localSavedFilters.filterNot { it.name == previousName }
+                    onDeleteSavedFilter?.invoke(previousName)
+                }
+                localSavedFilters = (localSavedFilters.filterNot { it.name == name } + saved)
+                onSaveFilter?.invoke(saved)
+                showSaveFilterDialog = false
+                filterToSave = null
+                filterNameToEdit = null
+            },
+            onDismiss = {
+                showSaveFilterDialog = false
+                filterToSave = null
+                filterNameToEdit = null
+            },
+        )
+    }
+
+    comparisonFilter?.let { saved ->
+        SavedGameFilterComparisonSheet(
+            saved = saved,
+            games = games,
+            blunderCounts = blunderCounts,
+            onDismiss = { comparisonFilter = null },
         )
     }
 

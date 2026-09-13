@@ -24,6 +24,8 @@ data class GameListFilter(
     val result: GameResultFilter? = null,
     /** 解析日時の下限（epoch秒・含む）。 */
     val dateFrom: Long? = null,
+    /** 解析日時の上限（epoch秒・含む）。期間比較の過去側だけで使う。 */
+    val dateTo: Long? = null,
     val openingStyle: String? = null,
     /** 持ち時間の表示文字列（[timeControlDisplayText]の値）。[TIME_CONTROL_OTHER]なら判定表に無いものすべて。 */
     val timeControl: String? = null,
@@ -45,7 +47,7 @@ fun List<GameRecord>.filterGames(filter: GameListFilter): List<GameRecord> {
             matchesOpeningStyle(game, filter.openingStyle) &&
             matchesTimeControl(game, filter.timeControl) &&
             matchesResult(game, filter.result) &&
-            matchesDateFrom(game, filter.dateFrom)
+            matchesDateRange(game, filter.dateFrom, filter.dateTo)
     }
 }
 
@@ -77,8 +79,9 @@ private fun matchesResult(game: GameRecord, result: GameResultFilter?): Boolean 
     }
 }
 
-private fun matchesDateFrom(game: GameRecord, dateFrom: Long?): Boolean =
-    dateFrom == null || game.analyzedAt >= dateFrom
+private fun matchesDateRange(game: GameRecord, dateFrom: Long?, dateTo: Long?): Boolean =
+    (dateFrom == null || game.analyzedAt >= dateFrom) &&
+        (dateTo == null || game.analyzedAt <= dateTo)
 
 /**
  * 一覧に実在するsource_place（正規化値）を順序を保って重複なく返す。

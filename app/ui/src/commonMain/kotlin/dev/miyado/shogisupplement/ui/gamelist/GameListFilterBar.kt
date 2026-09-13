@@ -18,6 +18,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material3.Badge
@@ -31,7 +34,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -44,6 +50,7 @@ import dev.miyado.shogisupplement.db.GameListFilter
 import dev.miyado.shogisupplement.db.GameListSummary
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.GameResultFilter
+import dev.miyado.shogisupplement.db.SavedGameFilter
 import dev.miyado.shogisupplement.db.TIME_CONTROL_OTHER
 import dev.miyado.shogisupplement.db.availableTimeControls
 import dev.miyado.shogisupplement.db.clearUnavailableTimeControl
@@ -52,6 +59,8 @@ import dev.miyado.shogisupplement.db.distinctSources
 import dev.miyado.shogisupplement.db.distinctTimeControls
 import dev.miyado.shogisupplement.db.hasResultData
 import dev.miyado.shogisupplement.db.hasUserSideData
+import dev.miyado.shogisupplement.db.filterGames
+import dev.miyado.shogisupplement.db.summarize
 import dev.miyado.shogisupplement.strength.StrengthEstimator
 import dev.miyado.shogisupplement.strength.toDisplayString
 import dev.miyado.shogisupplement.text.AppStrings
@@ -187,6 +196,11 @@ fun GameListFilterSheet(
     onApply: () -> Unit,
     onClear: () -> Unit,
     onDismiss: () -> Unit,
+    savedFilters: List<SavedGameFilter> = emptyList(),
+    onSelectSavedFilter: (SavedGameFilter) -> Unit = {},
+    onRequestSave: (() -> Unit)? = null,
+    onEditSavedFilter: (SavedGameFilter) -> Unit = {},
+    onDeleteSavedFilter: (String) -> Unit = {},
 ) {
     val maxAxesHeight = with(LocalDensity.current) {
         LocalWindowInfo.current.containerSize.height.toDp() * AXES_MAX_HEIGHT_FRACTION
@@ -204,6 +218,13 @@ fun GameListFilterSheet(
                 .padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            SavedGameFilterSection(
+                savedFilters = savedFilters,
+                allGames = allGames,
+                onSelect = onSelectSavedFilter,
+                onEdit = onEditSavedFilter,
+                onDelete = onDeleteSavedFilter,
+            )
             Text(
                 AppStrings.GAME_LIST_FILTER_SHEET_TITLE,
                 style = MaterialTheme.typography.titleLarge,
@@ -223,22 +244,196 @@ fun GameListFilterSheet(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                if (onRequestSave != null) {
+                    TextButton(
+                        onClick = onRequestSave,
+                        modifier = Modifier.weight(1f).testTag("filter_save_button"),
+                    ) {
+                        Text(AppStrings.GAME_LIST_SAVE_FILTER)
+                    }
+                }
                 TextButton(
                     onClick = onClear,
-                    modifier = Modifier
-                        .weight(1f)
+                    modifier = Modifier.weight(1f)
                         .testTag("filter_clear_button"),
                 ) {
                     Text(AppStrings.GAME_LIST_FILTER_CLEAR)
                 }
                 Button(
                     onClick = onApply,
-                    modifier = Modifier
-                        .weight(1f)
+                    modifier = Modifier.weight(1f)
                         .testTag("filter_apply_button"),
                 ) {
                     Text(AppStrings.GAME_LIST_FILTER_APPLY)
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SavedGameFilterSection(
+    savedFilters: List<SavedGameFilter>,
+    allGames: List<GameRecord>,
+    onSelect: (SavedGameFilter) -> Unit,
+    onEdit: (SavedGameFilter) -> Unit,
+    onDelete: (String) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            AppStrings.GAME_LIST_SAVED_FILTERS,
+            style = MaterialTheme.typography.titleMedium,
+        )
+        if (savedFilters.isEmpty()) {
+            Text(
+                AppStrings.GAME_LIST_SAVED_FILTER_EMPTY,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.shogiColors.ink3,
+            )
+        } else {
+            savedFilters.forEach { saved ->
+                SavedGameFilterCard(
+                    saved = saved,
+                    gameCount = allGames.filterGames(saved.currentFilter(currentEpochSeconds())).size,
+                    onClick = { onSelect(saved) },
+                    onEdit = { onEdit(saved) },
+                    onDelete = { onDelete(saved.name) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SavedGameFilterCard(
+    saved: SavedGameFilter,
+    gameCount: Int,
+    onClick: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.shogiColors.line),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(saved.name, style = MaterialTheme.typography.titleSmall)
+                Text(
+                    "${AppStrings.gameListSavedFilterPeriod(saved.periodDays)}・${gameCount}局",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.shogiColors.ink3,
+                )
+            }
+            TextButton(onClick = onEdit) { Text(AppStrings.GAME_LIST_SAVED_FILTER_EDIT) }
+            TextButton(onClick = onDelete) { Text(AppStrings.GAME_LIST_SAVED_FILTER_DELETE) }
+        }
+    }
+}
+
+@Composable
+internal fun SaveGameFilterDialog(
+    initialName: String = "",
+    onSave: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var name by remember(initialName) { mutableStateOf(initialName) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(AppStrings.GAME_LIST_SAVE_FILTER_TITLE) },
+        text = {
+            androidx.compose.material3.OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text(AppStrings.GAME_LIST_SAVE_FILTER_NAME) },
+                placeholder = { Text(AppStrings.GAME_LIST_SAVE_FILTER_PLACEHOLDER) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onSave(name.trim()) },
+                enabled = name.trim().isNotEmpty(),
+            ) { Text(AppStrings.GAME_LIST_SAVE_FILTER_DONE) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(AppStrings.CANCEL) } },
+    )
+}
+
+@Composable
+@OptIn(ExperimentalMaterial3Api::class)
+internal fun SavedGameFilterComparisonSheet(
+    saved: SavedGameFilter,
+    games: List<GameRecord>,
+    blunderCounts: Map<Long, Int>,
+    onDismiss: () -> Unit,
+) {
+    val now = remember(saved) { currentEpochSeconds() }
+    val days = saved.periodDays.coerceAtLeast(1).toLong()
+    val current = games.filterGames(saved.conditionFilter().copy(dateFrom = now - days * SECONDS_PER_DAY))
+    val previous = games.filterGames(
+        saved.conditionFilter().copy(
+            dateFrom = now - days * 2 * SECONDS_PER_DAY,
+            dateTo = now - days * SECONDS_PER_DAY - 1,
+        ),
+    )
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(saved.name, style = MaterialTheme.typography.headlineSmall)
+            Text(
+                "${AppStrings.GAME_LIST_FILTER_COMPARE_TITLE}・${AppStrings.gameListSavedFilterPeriod(saved.periodDays)}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.shogiColors.ink2,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                ComparisonPeriodCard(
+                    label = AppStrings.GAME_LIST_FILTER_COMPARE_CURRENT,
+                    summary = current.summarize(blunderCounts),
+                    modifier = Modifier.weight(1f),
+                )
+                ComparisonPeriodCard(
+                    label = AppStrings.GAME_LIST_FILTER_COMPARE_PREVIOUS,
+                    summary = previous.summarize(blunderCounts),
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) {
+                Text(AppStrings.GAME_LIST_FILTER_COMPARE_CLOSE)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ComparisonPeriodCard(
+    label: String,
+    summary: GameListSummary,
+    modifier: Modifier = Modifier,
+) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.shogiColors.line),
+    ) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.shogiColors.ink2)
+            Text("${summary.games}局", style = MaterialTheme.typography.titleLarge)
+            summary.winRatePct?.let {
+                Text(AppStrings.gameListSummaryWinRate(it, summary.wins, summary.decidedGames), style = MaterialTheme.typography.bodySmall)
+            }
+            summary.blunderRatePct?.let {
+                Text(AppStrings.gameListSummaryBlunderRate(it, summary.blunders, summary.userMoves), style = MaterialTheme.typography.bodySmall)
             }
         }
     }

@@ -1,6 +1,6 @@
 package dev.miyado.shogisupplement.db
 
-/** user_settings・サービスアカウント・段級（service_rank）の永続化リポジトリのインターフェース。 */
+/** user_settings・サービスアカウント・段級（service_rank）・保存条件の永続化リポジトリのインターフェース。 */
 interface SettingsRepository {
 
     /** ユーザーレートを保存する（upsert）。 */
@@ -93,6 +93,15 @@ interface SettingsRepository {
 
     /** テーマモードを返す。未設定なら 'system'。 */
     fun getThemeMode(): String
+
+    /** 棋譜一覧で保存した絞り込み条件を返す。 */
+    fun getSavedGameFilters(): List<SavedGameFilter> = emptyList()
+
+    /** 棋譜一覧の絞り込み条件を名前単位で保存する。同名なら上書きする。 */
+    fun saveGameFilter(filter: SavedGameFilter) = Unit
+
+    /** 棋譜一覧の保存条件を削除する。 */
+    fun deleteGameFilter(name: String) = Unit
 
     /** サービスのルール別棋力を保存する（申告のみ、相応判定には使用しない）。 */
     fun saveServiceRank(service: String, rule: String, rankRaw: Int)

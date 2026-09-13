@@ -16,6 +16,7 @@ import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.GameRepository
 import dev.miyado.shogisupplement.db.RatingSettings
 import dev.miyado.shogisupplement.db.SettingsRepository
+import dev.miyado.shogisupplement.db.SavedGameFilter
 import dev.miyado.shogisupplement.engine.Engine
 import dev.miyado.shogisupplement.engine.PvInfo
 import dev.miyado.shogisupplement.engine.UsiEngineProcess
@@ -257,7 +258,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             games,
             blunderCounts = blunderCounts,
             pendingUploadCount = pendingCount,
+            savedFilters = withContext(Dispatchers.IO) { settingsRepository.getSavedGameFilters() },
         )
+    }
+
+    fun saveGameFilter(filter: SavedGameFilter) {
+        settingsRepository.saveGameFilter(filter)
+        val current = _state.value as? MainUiState.GameList ?: return
+        _state.value = current.copy(savedFilters = settingsRepository.getSavedGameFilters())
+    }
+
+    fun deleteGameFilter(name: String) {
+        settingsRepository.deleteGameFilter(name)
+        val current = _state.value as? MainUiState.GameList ?: return
+        _state.value = current.copy(savedFilters = settingsRepository.getSavedGameFilters())
     }
 
     /**

@@ -282,6 +282,22 @@ object AppStrings {
     /** 絞り込み条件ボトムシートの適用ボタン（条件を確定して一覧に反映する）。 */
     const val GAME_LIST_FILTER_APPLY = "検索"
 
+    const val GAME_LIST_SAVED_FILTERS = "保存した条件"
+    const val GAME_LIST_SAVED_FILTER_EMPTY = "保存した条件はありません"
+    const val GAME_LIST_SAVE_FILTER = "この条件を保存"
+    const val GAME_LIST_SAVE_FILTER_TITLE = "絞り込み条件を保存"
+    const val GAME_LIST_SAVE_FILTER_NAME = "条件名"
+    const val GAME_LIST_SAVE_FILTER_PLACEHOLDER = "例: 将棋ウォーズの10分"
+    const val GAME_LIST_SAVE_FILTER_DONE = "保存"
+    const val GAME_LIST_SAVED_FILTER_DELETE = "削除"
+    const val GAME_LIST_SAVED_FILTER_EDIT = "編集"
+    const val GAME_LIST_FILTER_COMPARE_TITLE = "期間比較"
+    const val GAME_LIST_FILTER_COMPARE_CURRENT = "今期"
+    const val GAME_LIST_FILTER_COMPARE_PREVIOUS = "前期"
+    const val GAME_LIST_FILTER_COMPARE_GAMES = "対局数"
+    const val GAME_LIST_FILTER_COMPARE_CLOSE = "閉じる"
+    fun gameListSavedFilterPeriod(days: Int): String = if (days == 7) GAME_LIST_FILTER_PERIOD_7D else GAME_LIST_FILTER_PERIOD_30D
+
     /** 絞り込んだ集合の成績。割合が独り歩きしないよう分母を必ず併記する。 */
     fun gameListSummaryWinRate(pct: Int, wins: Int, decided: Int): String =
         "勝率 ${pct}%(${wins}/${decided})"

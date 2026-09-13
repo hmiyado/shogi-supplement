@@ -89,6 +89,23 @@ class SettingsRepositoryTest {
         assertFalse(repo.getAutoUpload())
     }
 
+    @Test
+    fun `棋譜一覧の保存条件は同名更新と削除を含めて復元できる`() {
+        val repo = newRepository()
+        val first = SavedGameFilter(name = "ウォーズ", source = "wars", periodDays = 7)
+        val updated = first.copy(timeControl = "10分", periodDays = 30)
+        val second = SavedGameFilter(name = "後手", userSide = "gote")
+
+        assertEquals(emptyList(), repo.getSavedGameFilters())
+        repo.saveGameFilter(first)
+        repo.saveGameFilter(second)
+        repo.saveGameFilter(updated)
+        assertEquals(listOf(updated, second), repo.getSavedGameFilters())
+
+        repo.deleteGameFilter("ウォーズ")
+        assertEquals(listOf(second), repo.getSavedGameFilters())
+    }
+
     // ─── service_rank ────────────────────────────────────────────────────────
 
     @Test
