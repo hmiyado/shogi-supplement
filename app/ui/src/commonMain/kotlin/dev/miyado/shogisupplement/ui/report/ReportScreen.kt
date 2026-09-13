@@ -37,6 +37,7 @@ import dev.miyado.shogisupplement.board.ShogiMove
 import dev.miyado.shogisupplement.board.ShogiSquare
 import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.db.GameRecord
+import dev.miyado.shogisupplement.kifu.KifParser
 import dev.miyado.shogisupplement.db.PositionEvalRow
 import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.TwoPaneBoardHeightFraction
@@ -146,6 +147,9 @@ fun ReportScreen(
         buildEvalGraphPoints(positionEvals, userIsGote = game.userSide == "gote")
     }
     val blunderPlies = remember(reports) { reports.map { it.ply.toInt() }.toSet() }
+    val moveTimesSeconds = remember(game.kifText) {
+        game.kifText?.let { text -> runCatching { KifParser().parse(text).timesSeconds }.getOrNull() }.orEmpty()
+    }
 
     val exitStudy: () -> Unit = exit@{
         val s = studyState ?: return@exit
@@ -458,6 +462,7 @@ fun ReportScreen(
                                         evalGraphPoints = evalGraphPoints,
                                         maxPly = game.movesUsi.size,
                                         blunderPlies = blunderPlies,
+                                        moveTimesSeconds = moveTimesSeconds,
                                         currentPly = clampedPly,
                                         onPlyTapped = { ply ->
                                             viewerMode = ViewerMode.MAINLINE

@@ -817,6 +817,10 @@ object AppStrings {
 
     /** 評価値グラフのカード見出し。ユーザーの先後で符号を反転済み（自分視点で統一）であることを明示する。 */
     const val EVAL_GRAPH_TITLE = "形勢の推移（自分視点）"
+    const val EVAL_GRAPH_TIME_LABEL = "消費時間"
+    const val EVAL_GRAPH_TIME_LEGEND = "朱＝悪手　—＝不明　棒の長さ＝秒数"
+    const val EVAL_GRAPH_TIME_NONE = "時間情報なし"
+    const val EVAL_GRAPH_TIME_UNKNOWN = "—"
 
     /** 悪手率行のラベル（値は Mono で続く）。分母は MATCH_RATE_LABEL と同じ n（自分の手数）。 */
     const val BLUNDER_RATE_LABEL = "悪手率: "

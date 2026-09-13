@@ -32,6 +32,16 @@ import kotlin.math.roundToInt
 /** 自分視点・クランプ済みの評価値。 */
 data class EvalGraphPoint(val ply: Int, val clampedCp: Int)
 
+/** 1手ごとの消費時間。nullはKIFに時間が記録されていない手を表す（0秒とは別）。 */
+data class MoveTimeGraphPoint(val ply: Int, val seconds: Int?)
+
+fun buildMoveTimeGraphPoints(moveTimesSeconds: List<Int?>, maxPly: Int): List<MoveTimeGraphPoint> =
+    (1..maxPly.coerceAtLeast(0)).map { ply ->
+        MoveTimeGraphPoint(ply, moveTimesSeconds.getOrNull(ply - 1))
+    }
+
+fun formatMoveTime(seconds: Int?): String = seconds?.let { "${it / 60}:${(it % 60).toString().padStart(2, '0')}" } ?: AppStrings.EVAL_GRAPH_TIME_UNKNOWN
+
 /** 詰み評価もこの上下限へ丸める。 */
 const val EVAL_GRAPH_CLAMP_CP = 2000
 
@@ -89,9 +99,10 @@ fun EvalGraphCard(
     analyzingThroughPly: Int? = null,
     interactive: Boolean = true,
     enabled: Boolean = true,
+    moveTimesSeconds: List<Int?> = emptyList(),
 ) {
     // 解析中と無効状態は、点がなくてもカードの領域を保つ。
-    if (points.isEmpty() && analyzingThroughPly == null && enabled) return
+    if (points.isEmpty() && moveTimesSeconds.isEmpty() && analyzingThroughPly == null && enabled) return
     val shogiColors = MaterialTheme.shogiColors
     val lineColor = MaterialTheme.colorScheme.onSurface
     val zeroLineColor = shogiColors.line
@@ -226,6 +237,64 @@ fun EvalGraphCard(
                         strokeWidth = 1.dp.toPx(),
                     )
                 }
+            }
+            if (moveTimesSeconds.isNotEmpty()) {
+                Text(
+                    AppStrings.EVAL_GRAPH_TIME_LABEL,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = shogiColors.ink2,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+                val timePoints = buildMoveTimeGraphPoints(moveTimesSeconds, effectiveMaxPly)
+                val maxSeconds = timePoints.mapNotNull { it.seconds }.maxOrNull()?.coerceAtLeast(1) ?: 1
+                Canvas(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(64.dp)
+                        .testTag("move_time_graph_canvas"),
+                ) {
+                    val w = size.width
+                    val h = size.height
+                    val baseline = h - 8.dp.toPx()
+                    fun xOf(ply: Int): Float = w * ply / effectiveMaxPly
+                    drawLine(
+                        color = zeroLineColor,
+                        start = Offset(0f, baseline),
+                        end = Offset(w, baseline),
+                        strokeWidth = 1.dp.toPx(),
+                    )
+                    for (point in timePoints) {
+                        val x = xOf(point.ply)
+                        val seconds = point.seconds
+                        if (seconds == null) {
+                            // nullは0秒と区別し、短いXで「記録なし」を示す。
+                            drawLine(hatchColor, Offset(x - 3.dp.toPx(), baseline - 8.dp.toPx()), Offset(x + 3.dp.toPx(), baseline - 2.dp.toPx()), 1.dp.toPx())
+                            drawLine(hatchColor, Offset(x - 3.dp.toPx(), baseline - 2.dp.toPx()), Offset(x + 3.dp.toPx(), baseline - 8.dp.toPx()), 1.dp.toPx())
+                        } else if (seconds == 0) {
+                            drawCircle(lineColor, radius = 2.5.dp.toPx(), center = Offset(x, baseline))
+                        } else {
+                            val barHeight = (h - 16.dp.toPx()) * seconds / maxSeconds
+                            drawLine(
+                                color = lineColor,
+                                start = Offset(x, baseline),
+                                end = Offset(x, baseline - barHeight),
+                                strokeWidth = 3.dp.toPx(),
+                            )
+                        }
+                        if (point.ply in blunderPlies) {
+                            drawCircle(markerColor, radius = 3.dp.toPx(), center = Offset(x, baseline + 4.dp.toPx()))
+                        }
+                    }
+                    if (currentPly != null) {
+                        val x = xOf(currentPly.coerceIn(0, effectiveMaxPly))
+                        drawLine(currentPlyLineColor, Offset(x, 0f), Offset(x, h), 1.dp.toPx())
+                    }
+                }
+                Text(
+                    if (timePoints.any { it.seconds != null }) AppStrings.EVAL_GRAPH_TIME_LEGEND else AppStrings.EVAL_GRAPH_TIME_NONE,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = shogiColors.ink3,
+                )
             }
         }
     }

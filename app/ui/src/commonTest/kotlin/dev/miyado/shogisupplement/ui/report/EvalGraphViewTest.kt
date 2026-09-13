@@ -42,6 +42,25 @@ class EvalGraphViewTest {
     }
 
     @Test
+    fun `消費時間は手数に対応しnullと0秒を区別する`() {
+        assertEquals(
+            listOf(
+                MoveTimeGraphPoint(1, null),
+                MoveTimeGraphPoint(2, 0),
+                MoveTimeGraphPoint(3, 75),
+            ),
+            buildMoveTimeGraphPoints(listOf(null, 0, 75), 3),
+        )
+    }
+
+    @Test
+    fun `消費時間表示は分秒で不明をダッシュにする`() {
+        assertEquals("0:00", formatMoveTime(0))
+        assertEquals("1:15", formatMoveTime(75))
+        assertEquals("—", formatMoveTime(null))
+    }
+
+    @Test
     fun `端数は四捨五入する`() {
         // 360px幅・40plyのとき1plyあたり9px。x=13pxは1.44ply→四捨五入で1。
         assertEquals(1, plyFromX(13f, 360, 40))

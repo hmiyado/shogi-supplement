@@ -22,6 +22,7 @@ internal fun ReportSummaryBody(
     strengthDisplayText: String?,
     matchRateDisplayText: String?,
     blunderRateDisplayText: String?,
+    moveTimesSeconds: List<Int?> = emptyList(),
     analysisPending: Boolean = false,
     onAnalyze: () -> Unit = {},
     modifier: Modifier = Modifier,
@@ -29,7 +30,7 @@ internal fun ReportSummaryBody(
     // 縦に余裕が無い端末ではColumnが最後の子（悪手一覧ボタン）を潰すためスクロールさせる。
     Column(modifier = modifier.verticalScroll(rememberScrollState())) {
         // 未解析では空のグラフを無効表示し、解析済みの空データは表示しない。
-        if (evalGraphPoints.isNotEmpty() || analysisPending) {
+        if (evalGraphPoints.isNotEmpty() || moveTimesSeconds.isNotEmpty() || analysisPending) {
             EvalGraphCard(
                 points = evalGraphPoints,
                 maxPly = maxPly,
@@ -39,6 +40,7 @@ internal fun ReportSummaryBody(
                 onPlyTapped = onPlyTapped,
                 onPlyDragged = onPlyDragged,
                 enabled = !analysisPending,
+                moveTimesSeconds = moveTimesSeconds,
             )
         }
         if (analysisPending) {
