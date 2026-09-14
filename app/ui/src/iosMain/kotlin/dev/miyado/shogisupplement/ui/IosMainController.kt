@@ -607,16 +607,28 @@ class IosMainController(
 
     fun analyzePendingGames() {
         if (currentAnalysisJob?.isActive == true) return
+        IosAnalysisNotificationCenter.requestAuthorization()
         currentAnalysisJob = scope.launch {
             for (game in gameRepository.getPendingGames()) {
                 val pending = game.toPendingAnalysis() ?: continue
                 val id = game.contentHash
+                lastProgressAtEpochSeconds = currentEpochSeconds()
                 val outcome = analysisSessionCoordinator.run(
                     session = AnalysisSession(id, game.fileName, game.movesUsi, game.userSide),
                     analyze = { onPositionResult -> runAnalysis(pending, onPositionResult) },
                 )
-                if (outcome is AnalysisOrchestrator.Outcome.Completed) {
-                    uploadOrchestrator?.maybeAutoUpload(outcome.gameId)
+                when (outcome) {
+                    is AnalysisOrchestrator.Outcome.Completed -> {
+                        uploadOrchestrator?.maybeAutoUpload(outcome.gameId)
+                        if (!IosAnalysisNotificationCenter.isAppActive()) {
+                            IosAnalysisNotificationCenter.notifyCompleted(outcome.gameId)
+                        }
+                    }
+                    is AnalysisOrchestrator.Outcome.Failed -> {
+                        if (!IosAnalysisNotificationCenter.isAppActive()) {
+                            IosAnalysisNotificationCenter.notifyFailed(outcome.message)
+                        }
+                    }
                 }
             }
             reloadHome()
