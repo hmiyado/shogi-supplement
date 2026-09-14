@@ -76,6 +76,7 @@ class AnalysisServiceTest {
         staleRunningTimeoutMs: Long = 600_000,
         appPolicyGate: AppPolicyGate = AppPolicyGate.AlwaysAllow,
         appUsageRepository: FakeAppUsageRepository = FakeAppUsageRepository(),
+        cacheKeyPrefix: String = "",
     ) = AnalysisService(
         authVerifier = authVerifier,
         banRepository = banRepository,
@@ -92,6 +93,7 @@ class AnalysisServiceTest {
         staleRunningTimeoutMs = staleRunningTimeoutMs,
         appPolicyGate = appPolicyGate,
         appUsageRepository = appUsageRepository,
+        cacheKeyPrefix = cacheKeyPrefix,
     )
 
     private suspend fun AnalysisRequestOutcome.Stream.collectLines(): List<String> {
@@ -312,6 +314,24 @@ class AnalysisServiceTest {
         val service = buildService(quotaLimitRepository = FakeQuotaLimitRepository(mapOf("user-1" to 30)))
         val outcome = service.handle("Bearer valid-token", AnalysisRequest(movesUsi = listOf("7g7f")))
         assertIs<AnalysisRequestOutcome.Stream>(outcome)
+    }
+
+    @Test
+    fun `engine provenance is part of the idempotency key`() = runTest {
+        val jobs = FakeAnalysisJobRepository()
+        val service = buildService(
+            analysisJobRepository = jobs,
+            cacheKeyPrefix = "yo-717da87-p1|eval-sha",
+        )
+
+        val outcome = service.handle("Bearer valid-token", AnalysisRequest(movesUsi = listOf("7g7f")))
+
+        assertIs<AnalysisRequestOutcome.Stream>(outcome)
+        assertTrue(
+            jobs.find("user-1", sha256Hex("yo-717da87-p1|eval-sha|7g7f")) != null,
+            "engine revision and evaluation hash must distinguish cached results",
+        )
+        assertEquals(null, jobs.find("user-1", sha256Hex("7g7f")))
     }
 
     @Test

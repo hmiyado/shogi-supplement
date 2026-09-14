@@ -81,6 +81,9 @@ class AnalysisService(
     private val analysisJobRepository: AnalysisJobRepository,
     private val engineFactory: () -> Engine,
     private val engineMetaProvider: (multiPv: Int) -> EngineMetaJson,
+    // エンジン版が変わっても結果を取り違えないため、解析キャッシュキーへ来歴を含める。
+    // 空文字列ではprefixを付けず、保存済みキーの検索規則との互換性を保つ。
+    private val cacheKeyPrefix: String = "",
     private val clock: Clock = Clock.systemUTC(),
     private val pollIntervalMs: Long = 500,
     private val pollTimeoutMs: Long = 280_000,
@@ -155,7 +158,12 @@ class AnalysisService(
 
         recordAppUsage(userId, platformHeader, buildHeader)
 
-        val movesHash = sha256Hex(input.hashSeed)
+        val cacheSeed = if (cacheKeyPrefix.isBlank()) {
+            input.hashSeed
+        } else {
+            "$cacheKeyPrefix|${input.hashSeed}"
+        }
+        val movesHash = sha256Hex(cacheSeed)
 
         // Why not クォータ判定を先に: 既存ジョブの再取得は新規消費ではないため、
         // 冪等チェックはクォータ判定より前に行う（不変条件）。

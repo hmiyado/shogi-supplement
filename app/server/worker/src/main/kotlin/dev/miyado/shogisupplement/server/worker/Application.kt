@@ -129,6 +129,7 @@ fun Application.module(config: WorkerConfig) {
                 fvScale = EngineInvariants.FV_SCALE,
             )
         },
+        cacheKeyPrefix = "${config.engineRev}|${config.evalSha256}",
         analysisWorkers = config.analysisWorkers,
         positionDailyLimit = config.analysisPositionDailyLimit,
         staleRunningTimeoutMs = config.staleRunningTimeoutMs,
