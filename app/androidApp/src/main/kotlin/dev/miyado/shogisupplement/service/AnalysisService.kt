@@ -15,6 +15,8 @@ import dev.miyado.shogisupplement.ShogiApp
 import dev.miyado.shogisupplement.crash.SentryCrashReporter
 import dev.miyado.shogisupplement.crash.isAlreadyReported
 import dev.miyado.shogisupplement.db.AppDatabase
+import dev.miyado.shogisupplement.engine.AnalysisSession
+import dev.miyado.shogisupplement.engine.AnalysisSessionCoordinator
 import dev.miyado.shogisupplement.engine.AnalysisOrchestrator
 import dev.miyado.shogisupplement.engine.EvalLoader
 import dev.miyado.shogisupplement.engine.createAndroidAnalysisRunner
@@ -79,8 +81,6 @@ class AnalysisService : Service() {
         ratingRaw: Long? = null,
         ratingRule: String? = null,
     ) {
-        // ID確定前の失敗ではレジストリへの登録もないため、nullならfinishしない。
-        var sessionId: String? = null
         try {
             val repository = AppDatabase.gameRepository(this)
             val storedGame = gameId?.let(repository::getGameById)
@@ -99,9 +99,7 @@ class AnalysisService : Service() {
             // orchestrator呼び出しより先にレジストリへ登録できる。
             // AnalysisOrchestrator側でも同じ入力から同じハッシュを計算するため値は一致する。
             val id = storedGame?.contentHash ?: sha256Hex(kifContent)
-            sessionId = id
             val moves = runCatching { KifParser().parse(kifContent).moves }.getOrElse { emptyList() }
-            InProgressAnalysisRegistry.shared.start(id, fileName, moves, effectiveUserSide)
 
             // 係数読み込み
             val coefJson = assets.open(CoefficientTable.COEFFICIENTS_FILE_NAME).readBytes().decodeToString()
@@ -121,22 +119,27 @@ class AnalysisService : Service() {
                 crashReporter = crashReporter,
             )
 
-            val outcome = orchestrator.analyzeAndSave(
-                kifContent = kifContent,
-                fileName = fileName,
-                userSide = effectiveUserSide,
-                ratingService = effectiveRatingService,
-                ratingRaw = effectiveRatingRaw,
-                ratingRule = effectiveRatingRule,
-                contentHash = storedGame?.contentHash,
-                sourcePlaceOverride = storedGame?.sourcePlace,
-                onProgress = { done, total ->
-                    if (done % 5 == 0 || done == total) {
-                        updateProgressNotification(done, total)
-                    }
+            val outcome = AnalysisSessionCoordinator(InProgressAnalysisRegistry.shared).run(
+                session = AnalysisSession(id, fileName, moves, effectiveUserSide),
+                analyze = { onPositionResult ->
+                    orchestrator.analyzeAndSave(
+                        kifContent = kifContent,
+                        fileName = fileName,
+                        userSide = effectiveUserSide,
+                        ratingService = effectiveRatingService,
+                        ratingRaw = effectiveRatingRaw,
+                        ratingRule = effectiveRatingRule,
+                        contentHash = storedGame?.contentHash,
+                        sourcePlaceOverride = storedGame?.sourcePlace,
+                        onProgress = { done, total ->
+                            if (done % 5 == 0 || done == total) {
+                                updateProgressNotification(done, total)
+                            }
+                        },
+                        onPositionResult = onPositionResult,
+                    )
                 },
                 onPositionResult = { ply, pvs ->
-                    InProgressAnalysisRegistry.shared.updatePosition(id, ply, pvs)
                     AnalysisServiceBus.emit(ServiceEvent.PositionResult(ply, pvs))
                 },
             )
@@ -177,9 +180,6 @@ class AnalysisService : Service() {
             AnalysisServiceBus.emit(ServiceEvent.Failed(e.message ?: AppStrings.UNKNOWN_ERROR))
             showErrorNotification(e.message ?: AppStrings.UNKNOWN_ERROR)
         } finally {
-            // 完了・失敗・想定外の例外いずれの経路でも、登録済みなら必ずレジストリから外す
-            // （ここを分岐ごとに書くと呼び忘れの余地が出るため、finally一箇所に集約する）。
-            sessionId?.let { InProgressAnalysisRegistry.shared.finish(it) }
             stopSelf()
         }
     }

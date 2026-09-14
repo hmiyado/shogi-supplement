@@ -12,6 +12,9 @@ import dev.miyado.shogisupplement.db.SettingsRepository
 import dev.miyado.shogisupplement.download.GameImportOutcome
 import dev.miyado.shogisupplement.download.ReconstructedGame
 import dev.miyado.shogisupplement.engine.AnalysisOrchestrator
+import dev.miyado.shogisupplement.engine.AnalysisSession
+import dev.miyado.shogisupplement.engine.AnalysisSessionCoordinator
+import dev.miyado.shogisupplement.engine.AnalysisEngineRoute
 import dev.miyado.shogisupplement.engine.AnalysisRunner
 import dev.miyado.shogisupplement.engine.AuthRetryingAnalyzer
 import dev.miyado.shogisupplement.engine.Engine
@@ -25,6 +28,8 @@ import dev.miyado.shogisupplement.engine.RemoteAnalysisRunner
 import dev.miyado.shogisupplement.engine.WasmAnalysisRunner
 import dev.miyado.shogisupplement.engine.WasmStudyBridge
 import dev.miyado.shogisupplement.engine.WasmStudyEngine
+import dev.miyado.shogisupplement.engine.PvInfo
+import dev.miyado.shogisupplement.engine.selectAnalysisEngineRoute
 import dev.miyado.shogisupplement.kifu.KifParser
 import dev.miyado.shogisupplement.db.saveRatingSettingsBundle
 import dev.miyado.shogisupplement.kifu.GameImportFlow
@@ -111,6 +116,7 @@ class IosMainController(
 
     private val scope = CoroutineScope(SupervisorJob() + defaultIoDispatcher)
     private val coefTable = IosCoefficients.getInstance()
+    private val analysisSessionCoordinator = AnalysisSessionCoordinator(InProgressAnalysisRegistry.shared)
 
     /**
      * 全局面のストリーム完了前に切れないよう、Cloud Runより長いタイムアウトで使い回す。
@@ -455,10 +461,9 @@ class IosMainController(
         lastProgressAtEpochSeconds = currentEpochSeconds()
         val moves = runCatching { KifParser().parse(pending.kifText).moves }.getOrElse { emptyList() }
         // idは保存時のcontent_hashと同一。
-        // レジストリはIosMainController（プロセス生存期間のシングルトン）だけが書く
-        // ——画面を離れてimportStateが畳まれてもレジストリ側は生き続ける。
+        // レジストリは共通コーディネータが書く。画面を離れてimportStateが畳まれても
+        // セッション側は生き続ける。
         val id = pending.contentHash ?: sha256Hex(pending.kifText)
-        InProgressAnalysisRegistry.shared.start(id, pending.fileName, moves, pending.userSide)
         _importState.value = ImportState.Analyzing(
             fileName = pending.fileName,
             moves = moves,
@@ -467,7 +472,16 @@ class IosMainController(
         )
 
         currentAnalysisJob = scope.launch {
-            val outcome = runAnalysis(pending, id)
+            val outcome = analysisSessionCoordinator.run(
+                session = AnalysisSession(id, pending.fileName, moves, pending.userSide),
+                analyze = { onPositionResult -> runAnalysis(pending, onPositionResult) },
+                onPositionResult = { ply, pvs ->
+                    val current = _importState.value
+                    if (current is ImportState.Analyzing) {
+                        _importState.value = current.copy(progressive = current.progressive.withPosition(ply, pvs))
+                    }
+                },
+            )
             // 再開でキャンセルされた旧ジョブが結果を持ち帰っても状態を触らせない
             // （新ジョブの表示をキャンセル起因のエラーで上書きさせないため）
             if (!isActive) return@launch
@@ -475,7 +489,6 @@ class IosMainController(
             // ホーム等の他画面にいる間に裏で完了しても、その画面から強制的に連れ去らない
             // （画面はレジストリの購読者に過ぎず、遷移は「見ている」ときの一度きりの体験でよい）。
             val wasWatching = _importState.value is ImportState.Analyzing
-            InProgressAnalysisRegistry.shared.finish(id)
             when (outcome) {
                 is AnalysisOrchestrator.Outcome.Completed -> {
                     // 自動アップロード設定ON＋ログイン中のときだけ実行される
@@ -508,7 +521,10 @@ class IosMainController(
     }
 
     /** analyzer構築〜orchestrator実行のみを担う（状態遷移は呼び出し元 [launchAnalysis] の責務）。 */
-    private suspend fun runAnalysis(pending: PendingAnalysis, id: String): AnalysisOrchestrator.Outcome {
+    private suspend fun runAnalysis(
+        pending: PendingAnalysis,
+        onPositionResult: (Int, List<PvInfo>) -> Unit = { _, _ -> },
+    ): AnalysisOrchestrator.Outcome {
         analyzerConfigurationError()?.let { return it }
 
         val auth = authRepository
@@ -539,13 +555,7 @@ class IosMainController(
             sourcePlaceOverride = pending.sourcePlaceOverride,
             // NDJSONのprogress行は無進捗判定だけを更新し、局面状態とは分離する。
             onProgress = { _, _ -> lastProgressAtEpochSeconds = currentEpochSeconds() },
-            onPositionResult = { ply, pvs ->
-                InProgressAnalysisRegistry.shared.updatePosition(id, ply, pvs)
-                val current = _importState.value
-                if (current is ImportState.Analyzing) {
-                    _importState.value = current.copy(progressive = current.progressive.withPosition(ply, pvs))
-                }
-            },
+            onPositionResult = onPositionResult,
         )
     }
 
@@ -578,12 +588,10 @@ class IosMainController(
             for (game in gameRepository.getPendingGames()) {
                 val pending = game.toPendingAnalysis() ?: continue
                 val id = game.contentHash
-                InProgressAnalysisRegistry.shared.start(id, game.fileName, game.movesUsi, game.userSide)
-                val outcome = try {
-                    runAnalysis(pending, id)
-                } finally {
-                    InProgressAnalysisRegistry.shared.finish(id)
-                }
+                val outcome = analysisSessionCoordinator.run(
+                    session = AnalysisSession(id, game.fileName, game.movesUsi, game.userSide),
+                    analyze = { onPositionResult -> runAnalysis(pending, onPositionResult) },
+                )
                 if (outcome is AnalysisOrchestrator.Outcome.Completed) {
                     uploadOrchestrator?.maybeAutoUpload(outcome.gameId)
                 }
@@ -629,37 +637,40 @@ class IosMainController(
         val baseUrl = analysisBaseUrl
         // アカウントを作らない端末はサーバーを使えないため、エンジン非同梱ビルドでも
         // 動く端末内WASMを単独で使う（else側はネイティブエンジンを前提にしている）。
-        if (!serverAnalysisAvailable() && !IosEngineHost.ENGINE_LINKED) {
-            return WasmAnalysisRunner()
-        }
-        return if (serverAnalysisAvailable() && auth != null && baseUrl != null) {
-            // 429・障害・接続断では同条件のWASMで最初から再解析する。426では切り替えない。
-            FailoverAnalyzer(
-                delegate = AuthRetryingAnalyzer(
-                    delegate = RemoteAnalysisRunner(
-                        baseUrl = baseUrl,
-                        accessTokenProvider = {
-                            checkNotNull(auth.accessToken()) { "アクセストークンが取得できない" }
-                        },
-                        platform = "ios",
-                        httpClient = checkNotNull(analysisHttpClient),
-                        appCheckTokenProvider = AppCheckTokenBridge::getToken,
+        return when (selectAnalysisEngineRoute(serverAnalysisAvailable(), IosEngineHost.ENGINE_LINKED)) {
+            AnalysisEngineRoute.REMOTE_WITH_WASM_FALLBACK -> {
+                val remoteAuth = checkNotNull(auth)
+                val remoteBaseUrl = checkNotNull(baseUrl)
+                // 429・障害・接続断では同条件のWASMで最初から再解析する。426では切り替えない。
+                FailoverAnalyzer(
+                    delegate = AuthRetryingAnalyzer(
+                        delegate = RemoteAnalysisRunner(
+                            baseUrl = remoteBaseUrl,
+                            accessTokenProvider = {
+                                checkNotNull(remoteAuth.accessToken()) { "アクセストークンが取得できない" }
+                            },
+                            platform = "ios",
+                            httpClient = checkNotNull(analysisHttpClient),
+                            appCheckTokenProvider = AppCheckTokenBridge::getToken,
+                        ),
+                        authRepository = remoteAuth,
                     ),
-                    authRepository = auth,
-                ),
-                fallbackAnalyzer = WasmAnalysisRunner(),
-            )
-        } else {
-            // ANALYSIS_BASE_URL未設定ビルドでの graceful degradation（従来の端末エンジン）。
-            AnalysisRunner(
-                // iOS はプロセス内で1エンジンのみ（in-process制約）のため workers=1。
-                workers = 1,
-                crashReporter = NoopCrashReporter,
-                // 1局の中で複数局面を続けて解析しても局面ごとに置換表がクリアされるよう
-                // IsolatedEngine で包む（解析結果が解析順に依存しないようにするため）。
-                engineFactory = { IsolatedEngine(IosEngineHost.newGameEngineFactory()()) },
-                disposeEngine = IosEngineHost.keepAliveDispose,
-            )
+                    fallbackAnalyzer = WasmAnalysisRunner(),
+                )
+            }
+            AnalysisEngineRoute.LOCAL_WASM -> WasmAnalysisRunner()
+            AnalysisEngineRoute.LOCAL_NATIVE -> {
+                // ANALYSIS_BASE_URL未設定ビルドでの graceful degradation（従来の端末エンジン）。
+                AnalysisRunner(
+                    // iOS はプロセス内で1エンジンのみ（in-process制約）のため workers=1。
+                    workers = 1,
+                    crashReporter = NoopCrashReporter,
+                    // 1局の中で複数局面を続けて解析しても局面ごとに置換表がクリアされるよう
+                    // IsolatedEngine で包む（解析結果が解析順に依存しないようにするため）。
+                    engineFactory = { IsolatedEngine(IosEngineHost.newGameEngineFactory()()) },
+                    disposeEngine = IosEngineHost.keepAliveDispose,
+                )
+            }
         }
     }
 
