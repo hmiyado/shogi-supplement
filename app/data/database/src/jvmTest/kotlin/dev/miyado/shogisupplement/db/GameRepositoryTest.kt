@@ -100,6 +100,37 @@ class GameRepositoryTest {
     }
 
     @Test
+    fun `ホーム用の最近のゲーム取得は件数をDB側で制限し完了済みの棋力集計は別条件で取得する`() {
+        val repo = newRepository()
+        repeat(4) { index ->
+            repo.saveAnalysis(
+                fileName = "game-$index.kif",
+                contentHash = "hash-$index",
+                moves = listOf("7g7f"),
+                headers = emptyMap(),
+                reports = emptyList(),
+                rating = 1750 + index,
+                coefVersion = "hao_v1",
+                analyzedAt = 1_780_000_000L + index,
+                userSide = if (index == 3) "sente" else null,
+            )
+        }
+        repo.savePendingGame(
+            fileName = "pending.kif",
+            contentHash = "pending-hash",
+            moves = listOf("7g7f"),
+            headers = emptyMap(),
+            kifText = "手合割：平手",
+            userSide = "sente",
+            importedAt = 1_780_000_010L,
+        )
+
+        assertEquals(listOf("pending.kif", "game-3.kif"), repo.getRecentGames(2).map { it.fileName })
+        assertEquals(listOf("game-3.kif"), repo.getGamesWithUserSide().map { it.fileName })
+        assertTrue(repo.getRecentGames(0).isEmpty())
+    }
+
+    @Test
     fun `持ち時間ヘッダの原文を保存・復元できる`() {
         val repo = newRepository()
         val gameId = repo.saveAnalysis(

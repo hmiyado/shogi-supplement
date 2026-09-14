@@ -83,6 +83,9 @@ interface GameRepository {
     /** 全ゲームレコードを解析日時降順で返す。 */
     fun getAllGames(): List<GameRecord>
 
+    /** 解析日時が新しい順で、指定件数だけゲームレコードを返す。 */
+    fun getRecentGames(limit: Int): List<GameRecord> = getAllGames().take(limit)
+
     /** 指定IDのゲームレコードを返す。見つからなければ null。 */
     fun getGameById(gameId: Long): GameRecord?
 

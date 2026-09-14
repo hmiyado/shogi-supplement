@@ -130,8 +130,16 @@ SELECT * FROM game WHERE content_hash = ?;
 getAllGames:
 SELECT * FROM game ORDER BY analyzed_at DESC;
 
+getRecentGames:
+SELECT * FROM game ORDER BY analyzed_at DESC LIMIT ?;
+
 getGameById:
 SELECT * FROM game WHERE id = ?;
+
+getGamesWithUserSide:
+SELECT * FROM game
+WHERE user_side IS NOT NULL AND analysis_status = 'completed'
+ORDER BY analyzed_at DESC;
 
 getGamesNotUploaded:
 SELECT * FROM game WHERE uploaded_at IS NULL AND analysis_status = 'completed' ORDER BY analyzed_at DESC;
@@ -258,6 +266,14 @@ WHERE game_id = ? AND (verdict LIKE '◎%' OR verdict LIKE '○%')
 ORDER BY
     CASE WHEN verdict LIKE '◎%' THEN 0 ELSE 1 END,
     priority DESC;
+
+getFirstDrillCandidate:
+SELECT * FROM blunder_report
+WHERE verdict LIKE '◎%' OR verdict LIKE '○%'
+ORDER BY
+    CASE WHEN verdict LIKE '◎%' THEN 0 ELSE 1 END,
+    priority DESC
+LIMIT 1;
 
 getBlunderById:
 SELECT * FROM blunder_report WHERE id = ?;

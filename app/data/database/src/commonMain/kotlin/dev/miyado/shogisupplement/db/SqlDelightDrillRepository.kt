@@ -13,6 +13,12 @@ class SqlDelightDrillRepository(private val database: ShogiSupplementDatabase) :
             .map { it.toBlunderRecord() }
     }
 
+    override fun getFirstDrillCandidate(): BlunderRecord? =
+        database.shogiSupplementQueries
+            .getFirstDrillCandidate()
+            .executeAsOneOrNull()
+            ?.toBlunderRecord()
+
     override fun getDrillCandidatesByGame(gameId: Long): List<BlunderRecord> {
         return database.shogiSupplementQueries
             .getDrillCandidatesByGame(gameId)

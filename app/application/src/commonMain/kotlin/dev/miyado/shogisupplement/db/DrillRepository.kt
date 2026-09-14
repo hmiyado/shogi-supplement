@@ -11,6 +11,9 @@ interface DrillRepository {
      */
     fun getDrillCandidates(): List<BlunderRecord>
 
+    /** ホームの「今日の1問」で表示する、最優先の出題候補を1件だけ返す。 */
+    fun getFirstDrillCandidate(): BlunderRecord? = getDrillCandidates().firstOrNull()
+
     /** 指定棋譜のドリル出題候補だけを優先度順に返す。 */
     fun getDrillCandidatesByGame(gameId: Long): List<BlunderRecord>
 

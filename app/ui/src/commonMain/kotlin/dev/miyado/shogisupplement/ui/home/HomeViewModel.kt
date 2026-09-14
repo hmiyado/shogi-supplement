@@ -37,15 +37,14 @@ class HomeViewModel(
 
     /** ホーム画面（過去の解析一覧）表示用データをロードする。 */
     suspend fun loadHomeData(): HomeResult = withContext(ioDispatcher) {
-        val g = gameRepository.getAllGames()
-        val drillCandidates = drillRepository.getDrillCandidates()
+        val recentGames = gameRepository.getRecentGames(HOME_RECENT_GAME_LIMIT)
+        val drillCandidate = drillRepository.getFirstDrillCandidate()
         val sc = computeStrengthCard(gameRepository.getGamesWithUserSide())
-        val hint = drillCandidates.firstOrNull()?.let { blunder ->
-            val gameExists = g.any { it.id == blunder.gameId }
-            if (gameExists) TodaysDrillHint(blunder.ply) else null
+        val hint = drillCandidate?.let { blunder ->
+            if (gameRepository.getGameById(blunder.gameId) != null) TodaysDrillHint(blunder.ply) else null
         }
         val record = computeDrillRecordCard()
-        HomeResult(g, sc, hint, record)
+        HomeResult(recentGames, sc, hint, record)
     }
 
     /** 一度も解いていなければカード自体を出さない（データが無い状態を数字の0で見せない方針）。 */
@@ -112,5 +111,9 @@ class HomeViewModel(
     private fun userMoveCount(totalMoves: Long, userSide: String): Int {
         val t = totalMoves.toInt()
         return if (userSide == "sente") (t + 1) / 2 else t / 2
+    }
+
+    private companion object {
+        const val HOME_RECENT_GAME_LIMIT = 3
     }
 }

@@ -293,6 +293,14 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
             .map { it.toGameRecord() }
     }
 
+    override fun getRecentGames(limit: Int): List<GameRecord> {
+        if (limit <= 0) return emptyList()
+        return database.shogiSupplementQueries
+            .getRecentGames(limit.toLong())
+            .executeAsList()
+            .map { it.toGameRecord() }
+    }
+
     /** 指定IDのゲームレコードを返す。見つからなければ null。 */
     override fun getGameById(gameId: Long): GameRecord? {
         return database.shogiSupplementQueries
@@ -315,9 +323,10 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
 
     /** user_side が設定されているゲームレコードを解析日時降順で返す。 */
     override fun getGamesWithUserSide(): List<GameRecord> {
-        return getAllGames().filter {
-            it.userSide != null && it.analysisStatus == GameAnalysisStatus.COMPLETED
-        }
+        return database.shogiSupplementQueries
+            .getGamesWithUserSide()
+            .executeAsList()
+            .map { it.toGameRecord() }
     }
 
     /** アップロード成功時刻を記録する（Unix epoch 秒）。 */
@@ -430,6 +439,41 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
 // internal: DrillRepository（getDrillCandidates）からも悪手レコード変換を再利用するため。
 
 internal fun Game.toGameRecord() = GameRecord(
+    id = id,
+    fileName = file_name,
+    contentHash = content_hash,
+    moveCount = move_count,
+    senteName = sente_name,
+    goteName = gote_name,
+    analyzedAt = analyzed_at,
+    rating = rating,
+    ratingSampleMoves = rating_sample_moves,
+    coefVersion = coef_version,
+    kifText = kif_text,
+    uploadedAt = uploaded_at,
+    movesUsi = moves_usi?.let {
+        runCatching { Json.decodeFromString<List<String>>(it) }.getOrElse { emptyList() }
+    } ?: emptyList(),
+    userSide = user_side,
+    ratingService = rating_service,
+    ratingRaw = rating_raw,
+    ratingRule = rating_rule,
+    ratingDeclaredAt = rating_declared_at,
+    sourcePlace = normalizeLegacySourcePlace(source_place),
+    gameWinner = game_winner,
+    endReason = end_reason,
+    analysisStatus = GameAnalysisStatus.fromWireValue(analysis_status),
+    openingStyle = opening_style,
+    openingCastle = opening_castle,
+    openingTags = opening_tags,
+    senteRating = sente_rating,
+    goteRating = gote_rating,
+    timeControlRaw = time_control_raw,
+    timeControlByoyomiRaw = time_control_byoyomi_raw,
+)
+
+/** user_sideがNULLでないことをSQL条件に含むクエリの生成型は専用型になるため、同じドメイン変換を明示する。 */
+internal fun GetGamesWithUserSide.toGameRecord() = GameRecord(
     id = id,
     fileName = file_name,
     contentHash = content_hash,
