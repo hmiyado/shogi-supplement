@@ -1,5 +1,6 @@
 package dev.miyado.shogisupplement.kifu
 
+import dev.miyado.shogisupplement.db.RatingDeclaration
 import dev.miyado.shogisupplement.db.RatingSettings
 import dev.miyado.shogisupplement.db.SettingsRepository
 
@@ -16,6 +17,7 @@ class FakeSettingsRepository(
     var accountDeclined: Boolean = false,
 ) : SettingsRepository {
     private var ratingDeclaredAt: Long? = null
+    val ratingDeclarations = mutableListOf<RatingDeclaration>()
     val serviceRanks: MutableMap<String, MutableMap<String, Int>> = mutableMapOf()
     var savedServiceAccountName: String? = null
         private set
@@ -40,6 +42,9 @@ class FakeSettingsRepository(
         this.savedServiceAccountName = serviceAccountName
         hasSavedRatingSettings = true
         ratingDeclaredAt = 1L
+        if (service != null && ratingRaw != null) {
+            saveRatingDeclarationHistory(service, ratingRaw, ratingRule, 1L)
+        }
     }
 
     override fun getRatingSettings(): RatingSettings =
@@ -48,6 +53,18 @@ class FakeSettingsRepository(
     override fun hasUserSavedRatingSettings(): Boolean = hasSavedRatingSettings
 
     override fun getRatingDeclaredAt(): Long? = ratingDeclaredAt
+
+    override fun getRatingDeclarationsAtOrBefore(epochSeconds: Long): List<RatingDeclaration> =
+        ratingDeclarations.filter { it.declaredAt <= epochSeconds }.sortedByDescending { it.declaredAt }
+
+    override fun saveRatingDeclarationHistory(
+        service: String?,
+        ratingRaw: Int?,
+        ratingRule: String?,
+        declaredAt: Long,
+    ) {
+        ratingDeclarations += RatingDeclaration(service, ratingRaw, ratingRule, declaredAt)
+    }
 
     override fun getRating(): Int = rating
 

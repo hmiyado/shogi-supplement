@@ -90,6 +90,23 @@ CREATE TABLE user_settings (
     saved_game_filters TEXT
 );
 
+CREATE TABLE rating_declaration_history (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    rating_service TEXT,
+    rating_raw INTEGER,
+    rating_rule TEXT,
+    declared_at INTEGER NOT NULL
+);
+
+insertRatingDeclarationHistory:
+INSERT INTO rating_declaration_history (rating_service, rating_raw, rating_rule, declared_at)
+VALUES (?, ?, ?, ?);
+
+getRatingDeclarationsAtOrBefore:
+SELECT * FROM rating_declaration_history
+WHERE declared_at <= ?
+ORDER BY declared_at DESC, id DESC;
+
 insertGame:
 INSERT INTO game (file_name, content_hash, move_count, sente_name, gote_name, analyzed_at, rating, rating_sample_moves, coef_version, kif_text, moves_usi, user_side, rating_service, rating_raw, rating_rule, rating_declared_at, source_place, game_winner, end_reason, analysis_status, opening_style, opening_castle, opening_tags, sente_rating, gote_rating, time_control_raw, time_control_byoyomi_raw)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
@@ -446,3 +463,6 @@ DELETE FROM service_account;
 
 deleteAllUserSettings:
 DELETE FROM user_settings;
+
+deleteAllRatingDeclarationHistory:
+DELETE FROM rating_declaration_history;

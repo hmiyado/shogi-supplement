@@ -420,6 +420,7 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
             database.shogiSupplementQueries.deleteAllGames()
             database.shogiSupplementQueries.deleteAllServiceRanks()
             database.shogiSupplementQueries.deleteAllServiceAccounts()
+            database.shogiSupplementQueries.deleteAllRatingDeclarationHistory()
             database.shogiSupplementQueries.deleteAllUserSettings()
         }
     }

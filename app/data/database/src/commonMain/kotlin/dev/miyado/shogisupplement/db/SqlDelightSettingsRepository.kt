@@ -33,6 +33,7 @@ class SqlDelightSettingsRepository(private val database: ShogiSupplementDatabase
     ) {
         database.transaction {
             database.shogiSupplementQueries.insertOrIgnoreDefaultSettings()
+            val declaredAt = currentEpochSeconds()
             database.shogiSupplementQueries.updateRatingSettings(
                 // rating カラムは推定値保存用なのでここでは変更しない（既存値を維持するため現在値で上書き）
                 database.shogiSupplementQueries.getRating().executeAsOneOrNull() ?: 1750L,
@@ -40,8 +41,18 @@ class SqlDelightSettingsRepository(private val database: ShogiSupplementDatabase
                 ratingRaw?.toLong() ?: 0L,
                 ratingRule,
                 serviceAccountName,
-                currentEpochSeconds(),
+                declaredAt,
             )
+            // ルール別段級位はsaveRatingSettingsBundleが各ルールの値を追記する。
+            // ここでは単一値で表せる申告だけを記録し、未申告の解除は履歴に残さない。
+            if (service != null && ratingRaw != null) {
+                database.shogiSupplementQueries.insertRatingDeclarationHistory(
+                    rating_service = service,
+                    rating_raw = ratingRaw.toLong(),
+                    rating_rule = ratingRule,
+                    declared_at = declaredAt,
+                )
+            }
         }
     }
 
@@ -74,6 +85,32 @@ class SqlDelightSettingsRepository(private val database: ShogiSupplementDatabase
 
     override fun getRatingDeclaredAt(): Long? =
         database.shogiSupplementQueries.getRatingDeclaredAt().executeAsOneOrNull()?.rating_declared_at
+
+    override fun getRatingDeclarationsAtOrBefore(epochSeconds: Long): List<RatingDeclaration> =
+        database.shogiSupplementQueries.getRatingDeclarationsAtOrBefore(epochSeconds)
+            .executeAsList()
+            .map {
+                RatingDeclaration(
+                    service = it.rating_service,
+                    ratingRaw = it.rating_raw?.toInt(),
+                    ratingRule = it.rating_rule,
+                    declaredAt = it.declared_at,
+                )
+            }
+
+    override fun saveRatingDeclarationHistory(
+        service: String?,
+        ratingRaw: Int?,
+        ratingRule: String?,
+        declaredAt: Long,
+    ) {
+        database.shogiSupplementQueries.insertRatingDeclarationHistory(
+            rating_service = service,
+            rating_raw = ratingRaw?.toLong(),
+            rating_rule = ratingRule,
+            declared_at = declaredAt,
+        )
+    }
 
     /** 保存されたレートを返す。未設定なら 1750。 */
     override fun getRating(): Int {

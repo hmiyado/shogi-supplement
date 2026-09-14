@@ -1,0 +1,7 @@
+CREATE TABLE rating_declaration_history (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    rating_service TEXT,
+    rating_raw INTEGER,
+    rating_rule TEXT,
+    declared_at INTEGER NOT NULL
+);

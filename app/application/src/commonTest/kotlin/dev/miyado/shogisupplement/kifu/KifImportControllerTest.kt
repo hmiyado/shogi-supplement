@@ -1,5 +1,6 @@
 package dev.miyado.shogisupplement.kifu
 
+import dev.miyado.shogisupplement.db.RatingDeclaration
 import dev.miyado.shogisupplement.rating.ShogiRank
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineExceptionHandler
@@ -31,6 +32,18 @@ class KifImportControllerTest {
     private val warsKif = """
         場所：将棋ウォーズ
         持ち時間：10分切れ負け
+        手合割：平手
+        先手：miyado
+        後手：相手
+        手数----指手---------消費時間--
+        1 ７六歩(77)
+        2 ３四歩(33)
+        3 投了
+    """.trimIndent()
+
+    private val datedLishogiKif = """
+        開始日時：2026/01/01 12:00
+        場所：https://lishogi.org/abcd1234
         手合割：平手
         先手：miyado
         後手：相手
@@ -159,6 +172,57 @@ class KifImportControllerTest {
         assertEquals("lishogi", recorder.last.ratingService)
         assertEquals(1600L, recorder.last.ratingRaw)
         assertTrue(recorder.last.ratingDeclaredAt != null)
+    }
+
+    @Test
+    fun `日時つき棋譜には対局時点で有効だった申告棋力を記録する`() {
+        val settings = FakeSettingsRepository(
+            service = "lishogi",
+            ratingRaw = 1800,
+            hasSavedRatingSettings = true,
+            serviceAccounts = mutableMapOf("lishogi" to "miyado"),
+        )
+        settings.ratingDeclarations += RatingDeclaration(
+            service = "lishogi",
+            ratingRaw = 1600,
+            ratingRule = null,
+            declaredAt = parseKifStartAtJst("2025/12/31 12:00")!!,
+        )
+        settings.ratingDeclarations += RatingDeclaration(
+            service = "lishogi",
+            ratingRaw = 1800,
+            ratingRule = null,
+            declaredAt = parseKifStartAtJst("2026/01/02 12:00")!!,
+        )
+        val (controller, recorder) = build(settings)
+
+        controller.beginFromFile("game.kif", datedLishogiKif)
+        controller.confirmSide("sente", skipNext = false)
+
+        assertEquals(1600L, recorder.last.ratingRaw)
+        assertEquals(parseKifStartAtJst("2025/12/31 12:00"), recorder.last.ratingDeclaredAt)
+    }
+
+    @Test
+    fun `日時つき棋譜には未来の申告棋力を遡って記録しない`() {
+        val settings = FakeSettingsRepository(
+            serviceAccounts = mutableMapOf("lishogi" to "miyado"),
+            hasSavedRatingSettings = true,
+        )
+        settings.ratingDeclarations += RatingDeclaration(
+            service = "lishogi",
+            ratingRaw = 1800,
+            ratingRule = null,
+            declaredAt = parseKifStartAtJst("2026/01/02 12:00")!!,
+        )
+        val (controller, recorder) = build(settings)
+
+        controller.beginFromFile("game.kif", datedLishogiKif)
+        controller.confirmSide("sente", skipNext = false)
+
+        assertNull(recorder.last.ratingService)
+        assertNull(recorder.last.ratingRaw)
+        assertNull(recorder.last.ratingDeclaredAt)
     }
 
     @Test

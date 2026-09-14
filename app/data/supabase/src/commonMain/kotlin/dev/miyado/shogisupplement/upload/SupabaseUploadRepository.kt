@@ -48,6 +48,8 @@ class SupabaseUploadRepository(
             val kEnc = TransferSecretKeys.deriveEncKey(secrets.encSecret)
             val aad = game.contentHash.encodeToByteArray()
             val privateEncBytes = PrivateEncCodec.encrypt(kEnc, decomposed.private, aad)
+            val ratingService = game.ratingService
+            val ratingDeclaredAt = game.ratingDeclaredAt
 
             val payload = UploadedGamePayload(
                 userId = userId,
@@ -59,10 +61,10 @@ class SupabaseUploadRepository(
                 sourcePlace = decomposed.public.source.wireValue,
                 side = game.userSide,
                 privateEnc = Base64.encode(privateEncBytes),
-                ratingService = game.ratingService,
+                ratingService = ratingService,
                 ratingRaw = game.ratingRaw?.toInt(),
-                ratingRule = game.ratingRule,
-                ratingDeclaredAt = game.ratingDeclaredAt?.let { Instant.fromEpochSeconds(it).toString() },
+                ratingRule = game.ratingRule.orEmpty(),
+                ratingDeclaredAt = ratingDeclaredAt?.let { Instant.fromEpochSeconds(it).toString() },
                 userRank = UploadDerivedColumns.rankFor(decomposed.public.headers, game.userSide, own = true),
                 opponentRank = UploadDerivedColumns.rankFor(decomposed.public.headers, game.userSide, own = false),
                 startedAt = UploadDerivedColumns.parseStartedAtJst(decomposed.public.headers["開始日時"]),
@@ -74,6 +76,20 @@ class SupabaseUploadRepository(
                 coefVersion = game.coefVersion,
                 analysisJson = reports.map { it.toJson() },
             )
+            if (ratingDeclaredAt != null && ratingService != null) {
+                supabase.from("rating_declarations").upsert(
+                    RatingDeclarationPayload(
+                        userId = userId,
+                        ratingService = ratingService,
+                        ratingRaw = game.ratingRaw?.toInt(),
+                        ratingRule = game.ratingRule.orEmpty(),
+                        declaredAt = Instant.fromEpochSeconds(ratingDeclaredAt).toString(),
+                    ),
+                ) {
+                    onConflict = "user_id,declared_at,rating_service,rating_rule"
+                    ignoreDuplicates = true
+                }
+            }
             supabase.from("uploaded_games").insert(payload)
             UploadResult.Success
         } catch (e: CancellationException) {
@@ -210,7 +226,7 @@ class SupabaseUploadRepository(
         @SerialName("private_enc") val privateEnc: String,
         @SerialName("rating_service") val ratingService: String?,
         @SerialName("rating_raw") val ratingRaw: Int?,
-        @SerialName("rating_rule") val ratingRule: String?,
+        @SerialName("rating_rule") val ratingRule: String,
         @SerialName("rating_declared_at") val ratingDeclaredAt: String?,
         @SerialName("user_rank") val userRank: String?,
         @SerialName("opponent_rank") val opponentRank: String?,
@@ -222,6 +238,15 @@ class SupabaseUploadRepository(
         @SerialName("move_count") val moveCount: Long,
         @SerialName("coef_version") val coefVersion: String,
         @SerialName("analysis_json") val analysisJson: List<BlunderReportJson>,
+    )
+
+    @Serializable
+    private data class RatingDeclarationPayload(
+        @SerialName("user_id") val userId: String,
+        @SerialName("rating_service") val ratingService: String,
+        @SerialName("rating_raw") val ratingRaw: Int?,
+        @SerialName("rating_rule") val ratingRule: String?,
+        @SerialName("declared_at") val declaredAt: String,
     )
 
     @Serializable

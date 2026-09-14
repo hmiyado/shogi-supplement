@@ -18,6 +18,9 @@ fun SettingsRepository.saveRatingSettingsBundle(
     for ((svc, rules) in serviceRanks) {
         for ((rule, rankRaw) in rules) {
             saveServiceRank(svc, rule, rankRaw)
+            getRatingDeclaredAt()?.let { declaredAt ->
+                saveRatingDeclarationHistory(svc, rankRaw, rule, declaredAt)
+            }
         }
     }
 }

@@ -32,6 +32,17 @@ interface SettingsRepository {
     /** 現在の棋力設定を保存した日時（Unix epoch秒）。未申告ならnull。 */
     fun getRatingDeclaredAt(): Long? = null
 
+    /** 指定時刻以前の申告履歴を新しい順で返す。履歴を持たない実装は空を返す。 */
+    fun getRatingDeclarationsAtOrBefore(epochSeconds: Long): List<RatingDeclaration> = emptyList()
+
+    /** 申告履歴を追記する。履歴を持たない実装では何もしない。 */
+    fun saveRatingDeclarationHistory(
+        service: String?,
+        ratingRaw: Int?,
+        ratingRule: String?,
+        declaredAt: Long,
+    ) = Unit
+
     /** 保存されたレートを返す。未設定なら 1750。 */
     fun getRating(): Int
 

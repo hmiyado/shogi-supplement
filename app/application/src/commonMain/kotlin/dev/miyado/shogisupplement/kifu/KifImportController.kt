@@ -1,5 +1,6 @@
 package dev.miyado.shogisupplement.kifu
 
+import dev.miyado.shogisupplement.db.RatingDeclaration
 import dev.miyado.shogisupplement.db.SettingsRepository
 import dev.miyado.shogisupplement.db.saveRatingSettingsBundle
 import dev.miyado.shogisupplement.rating.declaredRankForGame
@@ -187,31 +188,50 @@ class KifImportController(
 
     /** [Step.SideConfirm] の確定。[skipNext] はアカウント名一致で推定できたときだけ保存する。 */
     fun confirmSide(userSide: String?, skipNext: Boolean) {
-        val current = _step.value as? Step.SideConfirm ?: return
-        if (current.suggestion.matchedByAccount) settingsRepository.saveSkipSideConfirm(skipNext)
+        val currentStep = _step.value as? Step.SideConfirm ?: return
+        if (currentStep.suggestion.matchedByAccount) settingsRepository.saveSkipSideConfirm(skipNext)
         if (userSide != null) settingsRepository.saveLastUserSide(userSide)
         // 未申告なら記録しない。行の既定値（lishogi 1750）を申告値として棋譜に焼き付けないため。
-        val declared = settingsRepository.getRatingSettings()
+        val currentSettings = settingsRepository.getRatingSettings()
             .takeIf { settingsRepository.hasUserSavedRatingSettings() }
-        // 段級位制のサービスはルール別に申告するため、この棋譜のルールで引き直す。
+        val gameStartedAt = runCatching { KifParser().parse(currentStep.kif.kifText).headers["開始日時"] }
+            .getOrNull()
+            ?.let(::parseKifStartAtJst)
+        val history = gameStartedAt
+            ?.let { settingsRepository.getRatingDeclarationsAtOrBefore(it) }
+            ?.firstOrNull { declaration -> declarationMatchesGame(declaration, currentStep.kif) }
+        // 対局日時がある棋譜では、履歴に無い現在の申告を過去へ遡って付与しない。
+        val declared = when {
+            history != null -> history
+            gameStartedAt != null -> null
+            else -> currentSettings?.let {
+                RatingDeclaration(
+                    service = it.service,
+                    ratingRaw = it.ratingRaw,
+                    ratingRule = it.ratingRule,
+                    declaredAt = settingsRepository.getRatingDeclaredAt() ?: 0L,
+                )
+            }
+        }
+        // 日時のない棋譜では、段級位制のサービスだけ現在のルールから値を引き直す。
         val rank = declaredRankForGame(
-            service = declared?.service,
+            service = currentSettings?.service,
             serviceRanks = settingsRepository.getAllServiceRanks(),
-            sourcePlace = current.kif.sourcePlace,
-            timeControlRaw = current.kif.timeControlRaw,
-            byoyomiRaw = current.kif.byoyomiRaw,
-        )
-        val saving = Step.Saving(current.kif)
+            sourcePlace = currentStep.kif.sourcePlace,
+            timeControlRaw = currentStep.kif.timeControlRaw,
+            byoyomiRaw = currentStep.kif.byoyomiRaw,
+        ).takeIf { gameStartedAt == null }
+        val saving = Step.Saving(currentStep.kif)
         _step.value = saving
         val request = KifImportRequest(
-            kifText = current.kif.kifText,
-            fileName = current.kif.fileName,
+            kifText = currentStep.kif.kifText,
+            fileName = currentStep.kif.fileName,
             userSide = userSide,
             ratingService = declared?.service,
             // 段級位制のサービスでは単一値の申告が無く0が入っているため、値として送らない。
             ratingRaw = rank?.rankRaw?.toLong() ?: declared?.ratingRaw?.takeIf { it > 0 }?.toLong(),
             ratingRule = rank?.ruleId ?: declared?.ratingRule,
-            ratingDeclaredAt = declared?.let { settingsRepository.getRatingDeclaredAt() },
+            ratingDeclaredAt = declared?.declaredAt?.takeIf { it > 0 },
         )
         scope.launch {
             try {
@@ -225,5 +245,27 @@ class KifImportController(
 
     fun dismiss() {
         _step.value = Step.Idle
+    }
+
+    private fun declarationMatchesGame(declaration: RatingDeclaration, kif: ValidatedKif): Boolean {
+        val service = declaration.service ?: return false
+        val ratingRaw = declaration.ratingRaw ?: return false
+        val expectedSource = when (service) {
+            "shogi_wars" -> "wars"
+            "lishogi" -> "lishogi"
+            "shogi_quest" -> "shogi_quest"
+            "kiou" -> "kiou"
+            else -> null
+        }
+        if (expectedSource != null && kif.sourcePlace != expectedSource) return false
+        val ratingRule = declaration.ratingRule ?: return true
+        val rank = declaredRankForGame(
+            service = service,
+            serviceRanks = mapOf(service to mapOf(ratingRule to ratingRaw)),
+            sourcePlace = kif.sourcePlace,
+            timeControlRaw = kif.timeControlRaw,
+            byoyomiRaw = kif.byoyomiRaw,
+        )
+        return rank?.rankRaw == ratingRaw
     }
 }
