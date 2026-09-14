@@ -833,8 +833,11 @@ object AppStrings {
 
     /** 評価値グラフのカード見出し。ユーザーの先後で符号を反転済み（自分視点で統一）であることを明示する。 */
     const val EVAL_GRAPH_TITLE = "形勢の推移（自分視点）"
-    const val EVAL_GRAPH_TIME_LABEL = "消費時間"
-    const val EVAL_GRAPH_TIME_LEGEND = "朱＝悪手　—＝不明　棒の長さ＝秒数"
+    const val EVAL_GRAPH_REMAINING_TIME_LABEL = "持ち時間の残り"
+    const val EVAL_GRAPH_REMAINING_TIME_SELF_LEGEND = "自分の残り時間"
+    const val EVAL_GRAPH_REMAINING_TIME_LEGEND = "先手・後手の残り時間"
+    const val EVAL_GRAPH_BYOYOMI_TIME_LABEL = "秒読み"
+    const val EVAL_GRAPH_BYOYOMI_TIME_LEGEND = "1手の消費秒数　朱＝悪手"
     const val EVAL_GRAPH_TIME_NONE = "時間情報なし"
     const val EVAL_GRAPH_TIME_UNKNOWN = "—"
 

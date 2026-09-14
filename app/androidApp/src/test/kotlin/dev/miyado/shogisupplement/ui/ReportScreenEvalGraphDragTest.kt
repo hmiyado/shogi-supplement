@@ -55,6 +55,22 @@ class ReportScreenEvalGraphDragTest {
         PositionEvalRow(ply = 4, scoreCp = -300, mateIn = null),
     )
 
+    private fun timeControlGame() = sampleGame().copy(
+        moveCount = 4L,
+        movesUsi = listOf("7g7f", "3c3d", "2g2f", "4c4d"),
+        kifText = """
+            持ち時間：1分
+            秒読み：30秒
+            手数----指手---------消費時間--
+               1 ７六歩(77)   ( 0:30/00:00:30)
+               2 ３四歩(33)   ( 0:01/00:00:01)
+               3 ２六歩(27)   ( 0:31/00:01:01)
+               4 ４四歩(43)   ( 0:01/00:00:02)
+        """.trimIndent(),
+        timeControlRaw = "1分",
+        timeControlByoyomiRaw = "30秒",
+    )
+
     private fun sampleBlunder(ply: Long) = BlunderRecord(
         id = 1L,
         gameId = 1L,
@@ -133,6 +149,31 @@ class ReportScreenEvalGraphDragTest {
 
         // 悪手一覧へ切り替わっていない＝内側タブ（本譜/最善の変化）がまだ出ていない。
         composeRule.onNodeWithText(AppStrings.TAB_MAINLINE).assertDoesNotExist()
+    }
+
+    @Test
+    fun tappingTimeGraphMovesCurrentPly() {
+        composeRule.setContent {
+            ShogiTheme {
+                Surface {
+                    ReportScreen(
+                        game = timeControlGame(),
+                        reports = emptyList(),
+                        flip = false,
+                        onBack = {},
+                    )
+                }
+            }
+        }
+
+        composeRule.onNodeWithText(AppStrings.VIEWER_START_POSITION, substring = true).assertIsDisplayed()
+
+        composeRule.onNodeWithTag("remaining_time_graph_canvas").performTouchInput {
+            click(Offset(width - 1f, height / 2f))
+        }
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithText(AppStrings.VIEWER_START_POSITION, substring = true).assertDoesNotExist()
     }
 
     @Test

@@ -147,8 +147,19 @@ fun ReportScreen(
         buildEvalGraphPoints(positionEvals, userIsGote = game.userSide == "gote")
     }
     val blunderPlies = remember(reports) { reports.map { it.ply.toInt() }.toSet() }
-    val moveTimesSeconds = remember(game.kifText) {
-        game.kifText?.let { text -> runCatching { KifParser().parse(text).timesSeconds }.getOrNull() }.orEmpty()
+    val timeGraphData = remember(game.kifText, game.sourcePlace, game.timeControlRaw, game.timeControlByoyomiRaw, game.userSide) {
+        game.kifText?.let { text ->
+            runCatching {
+                val moveTimes = KifParser().parse(text).timesSeconds
+                buildTimeGraphData(
+                    sourcePlace = game.sourcePlace,
+                    timeControlRaw = game.timeControlRaw,
+                    timeControlByoyomiRaw = game.timeControlByoyomiRaw,
+                    moveTimesSeconds = moveTimes,
+                    userSide = game.userSide,
+                )
+            }.getOrNull()
+        }
     }
 
     val exitStudy: () -> Unit = exit@{
@@ -462,7 +473,7 @@ fun ReportScreen(
                                         evalGraphPoints = evalGraphPoints,
                                         maxPly = game.movesUsi.size,
                                         blunderPlies = blunderPlies,
-                                        moveTimesSeconds = moveTimesSeconds,
+                                        timeGraphData = timeGraphData,
                                         currentPly = clampedPly,
                                         onPlyTapped = { ply ->
                                             viewerMode = ViewerMode.MAINLINE
