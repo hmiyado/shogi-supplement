@@ -255,7 +255,7 @@ class StudyControllerTest {
     }
 
     @Test
-    fun `analyzeCurrentPositionはmovesが空のときは何もしない`() {
+    fun `analyzeCurrentPositionはmovesが空でも現在局面を解析する`() {
         val (controller, engine) = newController()
         controller.startStudy(
             baseSfen = startSfen,
@@ -267,8 +267,8 @@ class StudyControllerTest {
             origin = noOrigin,
         )
         controller.analyzeCurrentPosition()
-        assertEquals(0, engine.analyzeCallCount)
-        assertEquals(StudyEvalState.None, controller.studyState.value?.evalState)
+        assertEquals(1, engine.analyzeCallCount)
+        assertIs<StudyEvalState.Value>(controller.studyState.value?.evalState)
     }
 
     @Test
@@ -407,6 +407,25 @@ class StudyControllerTest {
         controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 6))
 
         assertEquals(0, engine.analyzeCallCount, "サーバークォータ保護のため着手だけでは解析しない")
+        assertEquals(StudyEvalState.Preparing, controller.studyState.value?.evalState)
+    }
+
+    @Test
+    fun `検討タブの初回評価もローカルエンジンの準備中はPreparingになる`() {
+        val (controller, engine) = newController(localEngineLikelyAvailable = { false })
+        controller.startStudy(
+            baseSfen = startSfen,
+            flip = false,
+            originIsBestPv = false,
+            originPlyIndex = 0,
+            originSelectedIdx = null,
+            originAbsolutePly = 0,
+            origin = noOrigin,
+        )
+
+        controller.autoAnalyzeCurrentPosition()
+
+        assertEquals(0, engine.analyzeCallCount, "ローカルエンジン準備中はサーバーへフォールバックしない")
         assertEquals(StudyEvalState.Preparing, controller.studyState.value?.evalState)
     }
 

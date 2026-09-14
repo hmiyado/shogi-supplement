@@ -48,6 +48,7 @@ interface WebStudyActions {
     fun onStudyBranchChipTapped(depth: Int)
     fun onStudyBranchPopupDismiss()
     fun onStudyBranchOptionSelected(depth: Int, moveUsi: String)
+    fun onStudyAutoAnalyze()
     fun onStudyAnalyze()
 
     fun onStudyCandidateSelected(moveUsi: String)
@@ -122,6 +123,7 @@ private fun AppContent(
             onStudyBranchChipTapped = { depth -> studyActions?.onStudyBranchChipTapped(depth) },
             onStudyBranchPopupDismiss = { studyActions?.onStudyBranchPopupDismiss() },
             onStudyBranchOptionSelected = { depth, moveUsi -> studyActions?.onStudyBranchOptionSelected(depth, moveUsi) },
+            onStudyAutoAnalyze = { studyActions?.onStudyAutoAnalyze() },
             onStudyAnalyze = { studyActions?.onStudyAnalyze() },
             onStudyCandidateSelected = { moveUsi -> studyActions?.onStudyCandidateSelected(moveUsi) },
             // Why not 読み筋延長を有効にしない理由: Web版のWorkerは任意局面からのPV延長を

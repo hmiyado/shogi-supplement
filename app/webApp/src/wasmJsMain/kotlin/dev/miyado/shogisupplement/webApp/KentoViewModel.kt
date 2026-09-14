@@ -157,6 +157,7 @@ class KentoViewModel(private val scope: CoroutineScope) : WebStudyActions {
     override fun onStudyBranchChipTapped(depth: Int) = studyController.onBranchChipTapped(depth)
     override fun onStudyBranchPopupDismiss() = studyController.onBranchPopupDismiss()
     override fun onStudyBranchOptionSelected(depth: Int, moveUsi: String) = studyController.onBranchOptionSelected(depth, moveUsi)
+    override fun onStudyAutoAnalyze() = studyController.autoAnalyzeCurrentPosition()
     override fun onStudyAnalyze() = studyController.analyzeCurrentPosition()
 
     override fun onStudyCandidateSelected(moveUsi: String) = studyController.onCandidateSelected(moveUsi)

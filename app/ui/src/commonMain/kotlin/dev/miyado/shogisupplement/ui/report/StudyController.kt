@@ -285,17 +285,20 @@ class StudyController(
     /** Why not 見込み判定を待たない理由: 明示再試行は engineFactory のフォールバックを許可する。 */
     fun analyzeCurrentPosition() {
         val s = _studyState.value ?: return
-        if (s.moves.isEmpty()) return
         pollJob?.cancel()
         pollJob = null
         startAnalysis(s.baseSfen, s.moves, s.flip)
+    }
+
+    /** 検討タブ表示時の初回評価。ローカルエンジンの準備待ちとクォータ保護を維持する。 */
+    fun autoAnalyzeCurrentPosition() {
+        maybeAutoAnalyze()
     }
 
     private fun maybeAutoAnalyze() {
         pollJob?.cancel()
         pollJob = null
         val s = _studyState.value ?: return
-        if (s.moves.isEmpty()) return
         if (s.evalState != StudyEvalState.None) return
         if (!localEngineLikelyAvailable()) {
             _studyState.update { it?.copy(evalState = StudyEvalState.Preparing) }

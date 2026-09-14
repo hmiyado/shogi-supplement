@@ -923,6 +923,7 @@ private fun IosReportScreenHost(
         onStudyBranchChipTapped = { depth -> controller.onStudyBranchChipTapped(depth) },
         onStudyBranchPopupDismiss = { controller.onStudyBranchPopupDismiss() },
         onStudyBranchOptionSelected = { depth, moveUsi -> controller.onStudyBranchOptionSelected(depth, moveUsi) },
+        onStudyAutoAnalyze = { controller.onStudyAutoAnalyze() },
         onStudyAnalyze = { controller.onStudyAnalyze() },
         onStudyCandidateSelected = { moveUsi -> controller.onStudyCandidateSelected(moveUsi) },
         // KIFコピー（トップバー⧉アイコン）。iOSはクリップボードへ直接書き込む

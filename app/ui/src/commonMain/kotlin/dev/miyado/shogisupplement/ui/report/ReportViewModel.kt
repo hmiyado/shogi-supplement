@@ -152,6 +152,7 @@ class ReportViewModel(
     fun onStudyBranchPopupDismiss() = studyController.onBranchPopupDismiss()
     fun onStudyBranchOptionSelected(depth: Int, moveUsi: String) = studyController.onBranchOptionSelected(depth, moveUsi)
     fun onStudyAnalyze() = studyController.analyzeCurrentPosition()
+    fun onStudyAutoAnalyze() = studyController.autoAnalyzeCurrentPosition()
 
     fun onStudyCandidateSelected(moveUsi: String) = studyController.onCandidateSelected(moveUsi)
 

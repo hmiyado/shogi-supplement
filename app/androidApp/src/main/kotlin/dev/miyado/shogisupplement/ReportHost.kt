@@ -80,6 +80,7 @@ fun ReportHost(vm: MainViewModel, state: MainUiState.ShowReport) {
         onStudyBranchPopupDismiss = { vm.onStudyBranchPopupDismiss() },
         onStudyBranchOptionSelected = { depth, moveUsi -> vm.onStudyBranchOptionSelected(depth, moveUsi) },
         onStudyAnalyze = { vm.onStudyAnalyze() },
+        onStudyAutoAnalyze = { vm.onStudyAutoAnalyze() },
         onStudyCandidateSelected = { moveUsi -> vm.onStudyCandidateSelected(moveUsi) },
         onCopyKif = { kifText ->
             val clip = ClipData.newPlainText("棋譜", kifText)

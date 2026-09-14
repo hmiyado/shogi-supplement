@@ -64,6 +64,7 @@ class ReportScreenStudyInteractionTest {
         setState: (StudyState?) -> Unit,
         game: GameRecord = sampleGame(),
         initialPlyIndex: Int = 0,
+        onStudyAutoAnalyze: () -> Unit = {},
     ) {
         composeRule.setContent {
             ShogiTheme {
@@ -92,6 +93,7 @@ class ReportScreenStudyInteractionTest {
                                 ),
                             )
                         },
+                        onStudyAutoAnalyze = onStudyAutoAnalyze,
                     )
                 }
             }
@@ -159,5 +161,22 @@ class ReportScreenStudyInteractionTest {
             "選択した持ち駒の合法な打ち先が legalDestinations に入ること",
             s.legalDestinations.isNotEmpty(),
         )
+    }
+
+    @Test
+    fun selectingStudyTabStartsEvaluationAtCurrentPosition() {
+        var studyState by mutableStateOf<StudyState?>(null)
+        var analyzeCalls = 0
+        setReportScreenContent(
+            { studyState },
+            { studyState = it },
+            onStudyAutoAnalyze = { analyzeCalls++ },
+        )
+
+        composeRule.onNodeWithText("検討").performClick()
+        composeRule.waitForIdle()
+
+        assertNotNull("検討タブで検討状態が開始されること", studyState)
+        assertEquals("検討タブを開いた時点で現在局面を評価すること", 1, analyzeCalls)
     }
 }

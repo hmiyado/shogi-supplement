@@ -101,6 +101,7 @@ fun ReportScreen(
     onStudyBranchChipTapped: (Int) -> Unit = {},
     onStudyBranchPopupDismiss: () -> Unit = {},
     onStudyBranchOptionSelected: (depth: Int, moveUsi: String) -> Unit = { _, _ -> },
+    onStudyAutoAnalyze: () -> Unit = {},
     onStudyAnalyze: () -> Unit = {},
     onStudyCandidateSelected: (String) -> Unit = {},
     onCopyKif: (String) -> Unit = {},
@@ -431,6 +432,7 @@ fun ReportScreen(
                                 clampedPly, selectedIdx,
                                 navInfo.studyOriginAbsolutePly, navInfo.studyOrigin, null, null,
                             )
+                            onStudyAutoAnalyze()
                         }
                     }
                 }

@@ -701,6 +701,7 @@ class IosMainController(
     fun onStudyBranchChipTapped(depth: Int) = reportViewModel.onStudyBranchChipTapped(depth)
     fun onStudyBranchPopupDismiss() = reportViewModel.onStudyBranchPopupDismiss()
     fun onStudyBranchOptionSelected(depth: Int, moveUsi: String) = reportViewModel.onStudyBranchOptionSelected(depth, moveUsi)
+    fun onStudyAutoAnalyze() = reportViewModel.onStudyAutoAnalyze()
     fun onStudyAnalyze() = reportViewModel.onStudyAnalyze()
 
     fun onStudyCandidateSelected(moveUsi: String) = reportViewModel.onStudyCandidateSelected(moveUsi)
