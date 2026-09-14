@@ -7,12 +7,13 @@
 #
 # エンジン（やねうら王 + Háo評価関数）の取り込みは engine-build / eval-fetch の
 # 2ステージで行う。ビルドスクリプトは server/worker/engine/ に分離している:
-#   engine/compile.sh         やねうら王(NNUE, v7.00)をAVX2向けにコンパイル
+#   engine/compile.sh         やねうら王(NNUE, v9.40)をAVX2向けにコンパイル
 #   engine/fetch_hao_eval.sh  Háo評価関数を取得しSHA-256照合
 # ステージを分けているのは、ソース取得元(ENGINE_REV)とHáoの版(ENGINE_EVAL_SHA256)が
 # 独立して変わりうるため（片方だけ更新したときに他方の層まで再ビルドさせないため）。
 
-ARG ENGINE_REV=v7.00
+ARG ENGINE_REV=v9.40
+ARG ENGINE_COMMIT=717da871e7a620702b8b9433bd8f9f181710435a
 ARG ENGINE_EVAL_SHA256=1141d275bceec911156801f27303dc9ff5beb24f4f59144cc069306c59e80782
 ARG SIMD_TARGET=avx2
 
@@ -25,14 +26,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 ARG ENGINE_REV
+ARG ENGINE_COMMIT
 RUN git clone --branch "${ENGINE_REV}" --depth 1 \
       https://github.com/yaneurao/YaneuraOu.git /src/upstream
+RUN test "$(git -C /src/upstream rev-parse HEAD)" = "${ENGINE_COMMIT}"
 
 COPY server/worker/engine/compile.sh /src/compile.sh
+COPY engine/yaneuraou-v940-sources.txt /src/yaneuraou-v940-sources.txt
 RUN chmod +x /src/compile.sh
 
 ARG SIMD_TARGET
-RUN mkdir -p /out && /src/compile.sh "${SIMD_TARGET}" /src/upstream/source /out
+RUN mkdir -p /out && SOURCE_LIST=/src/yaneuraou-v940-sources.txt /src/compile.sh "${SIMD_TARGET}" /src/upstream/source /out
 
 # ── eval fetch stage（Háo評価関数）──────────────────────────────────────
 FROM debian:bookworm-slim AS eval-fetch
@@ -61,7 +65,7 @@ COPY . .
 RUN ./gradlew :server:worker:installDist --no-daemon
 
 # ── runtime stage ────────────────────────────────────────────────────────
-FROM eclipse-temurin:25-jre AS runtime
+FROM --platform=linux/amd64 eclipse-temurin:25-jre AS runtime
 WORKDIR /app
 
 COPY --from=build /workspace/server/worker/build/install/worker /app
@@ -80,11 +84,12 @@ RUN chmod +x /opt/engine/yaneuraou
 # 実際に使ったビルド引数の値をそのままイメージのENVへ焼き込む（engine_metaとして
 # 解析結果に記録される値の来歴を、イメージ自身から追えるようにするため）。
 ARG ENGINE_REV
+ARG ENGINE_COMMIT
 ARG ENGINE_EVAL_SHA256
 ENV PORT=8080
 ENV ENGINE_PATH=/opt/engine/yaneuraou
 ENV ENGINE_EVAL_DIR=/opt/engine/eval_hao
-ENV ENGINE_REV=${ENGINE_REV}
+ENV ENGINE_REV=${ENGINE_REV}@${ENGINE_COMMIT}
 ENV ENGINE_EVAL_SHA256=${ENGINE_EVAL_SHA256}
 
 # 機微情報（SUPABASE_SERVICE_ROLE_KEY等）は実行時にCloud Run側でSecret Managerから注入する。

@@ -3,23 +3,25 @@
 # 上流ソース自体はコミットしない(このリポジトリはGPLv3全文をLICENSEに持つが、
 # 上流の全履歴を複製する必要はなく、pinned commitとpatchesがあれば復元可能なため)。
 #
-# 再現性のため、タグ(v7.00)ではなくそのタグが指すコミットSHAへ直接ピン止めする
+# 再現性のため、タグ(v9.40)ではなくそのタグが指すコミットSHAへ直接ピン止めする
 # (タグは理論上付け替え得るが、コミットSHAは不変)。
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 YANEURAOU_REPO="https://github.com/yaneurao/YaneuraOu.git"
-YANEURAOU_COMMIT="0640f43c7efb84630d657e99d6c8b5353062be1c"
+YANEURAOU_COMMIT="717da871e7a620702b8b9433bd8f9f181710435a"
 
 UPSTREAM_DIR="$SCRIPT_DIR/upstream/YaneuraOu"
 PATCH_DIR="$SCRIPT_DIR/patches"
 
-if [ ! -d "$UPSTREAM_DIR/.git" ]; then
+if [ ! -d "$UPSTREAM_DIR/.git" ] || ! git -C "$UPSTREAM_DIR" rev-parse --verify HEAD >/dev/null 2>&1; then
 	echo "=== YaneuraOu ${YANEURAOU_COMMIT} を取得 ==="
 	mkdir -p "$UPSTREAM_DIR"
 	git -C "$UPSTREAM_DIR" init -q
-	git -C "$UPSTREAM_DIR" remote add origin "$YANEURAOU_REPO"
+	if ! git -C "$UPSTREAM_DIR" remote get-url origin >/dev/null 2>&1; then
+		git -C "$UPSTREAM_DIR" remote add origin "$YANEURAOU_REPO"
+	fi
 	# GitHubはリーチャブルな任意のコミットSHAのfetchを許可している(パブリックリポジトリ)。
 	# タグ名でcloneしないのは、タグの指す先が将来変わっても検知できない構成を避けるため。
 	git -C "$UPSTREAM_DIR" fetch --depth 1 origin "$YANEURAOU_COMMIT"
@@ -68,4 +70,4 @@ if [ -f "$VERSION_FILE" ]; then
 	esac
 fi
 
-echo "=== 完了: $UPSTREAM_DIR (commit $ACTUAL_COMMIT・パッチ適用済み) ==="
+echo "=== 完了: $UPSTREAM_DIR (commit ${ACTUAL_COMMIT}・パッチ適用済み) ==="

@@ -1,5 +1,5 @@
 #!/bin/bash
-# YaneuraOu NNUE(v7.00)をiOS向け静的ライブラリ(libyaneuraou.a)としてビルドする。
+# YaneuraOu NNUE(v9.40)をiOS向け静的ライブラリ(libyaneuraou.a)としてビルドする。
 #
 # 使い方:
 #   ./build_ios.sh [sim|device]   # 既定=sim（iosSimulatorArm64）。deviceはiphoneos arm64向け（ビルド確認は未実施）
@@ -17,7 +17,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 UPSTREAM_URL="https://github.com/yaneurao/YaneuraOu.git"
-YANEURAOU_TAG="v7.00"
+YANEURAOU_TAG="v9.40"
+YANEURAOU_COMMIT="717da871e7a620702b8b9433bd8f9f181710435a"
 UPSTREAM_DIR="$SCRIPT_DIR/upstream"
 SRC="$UPSTREAM_DIR/source"
 
@@ -43,30 +44,29 @@ OUT_DIR="$SCRIPT_DIR/build/$TARGET"
 OBJ_DIR="$OUT_DIR/obj"
 mkdir -p "$OBJ_DIR"
 
-# --- 1. 上流ソース取得（未取得なら clone。既にあれば再利用） ---
+# --- 1. 上流ソース取得（コミットが違えば更新） ---
 if [ ! -d "$UPSTREAM_DIR/.git" ]; then
-  echo "=== Cloning YaneuraOu ($YANEURAOU_TAG) ==="
-  git clone --branch "$YANEURAOU_TAG" --depth 1 "$UPSTREAM_URL" "$UPSTREAM_DIR"
+	echo "=== Cloning YaneuraOu ($YANEURAOU_TAG) ==="
+	git clone --branch "$YANEURAOU_TAG" --depth 1 "$UPSTREAM_URL" "$UPSTREAM_DIR"
 else
-  echo "=== Using existing upstream checkout: $(git -C "$UPSTREAM_DIR" describe --tags 2>/dev/null || echo unknown) ==="
+	ACTUAL_COMMIT="$(git -C "$UPSTREAM_DIR" rev-parse HEAD)"
+	if [ "$ACTUAL_COMMIT" != "$YANEURAOU_COMMIT" ]; then
+		echo "=== Updating YaneuraOu checkout to $YANEURAOU_COMMIT ==="
+		# GitHubの公開リポジトリは任意SHAのshallow fetchを受け付けない場合があるため、
+		# タグを取得してから、下の固定SHA検証で意図したコミットか確認する。
+		git -C "$UPSTREAM_DIR" fetch --depth 1 "$UPSTREAM_URL" "refs/tags/$YANEURAOU_TAG"
+		git -C "$UPSTREAM_DIR" checkout -q FETCH_HEAD
+	else
+		echo "=== Using existing upstream checkout: $ACTUAL_COMMIT ==="
+	fi
 fi
 
-# --- 2. コンパイル対象（YANEURAOU_ENGINE_NNUE構成。Android版ビルドと同じ選定） ---
-SRCS=(
-  main.cpp types.cpp bitboard.cpp misc.cpp movegen.cpp position.cpp
-  usi.cpp usi_option.cpp thread.cpp tt.cpp movepick.cpp timeman.cpp
-  book/apery_book.cpp book/book.cpp
-  extra/bitop.cpp extra/long_effect.cpp extra/sfen_packer.cpp extra/super_sort.cpp
-  mate/mate.cpp mate/mate1ply_without_effect.cpp mate/mate1ply_with_effect.cpp mate/mate_solver.cpp
-  eval/evaluate_bona_piece.cpp eval/evaluate.cpp eval/evaluate_io.cpp eval/evaluate_mir_inv_tools.cpp
-  eval/material/evaluate_material.cpp
-  testcmd/benchmark.cpp testcmd/mate_test_cmd.cpp testcmd/normal_test_cmd.cpp testcmd/unit_test.cpp
-  eval/nnue/evaluate_nnue.cpp eval/nnue/evaluate_nnue_learner.cpp eval/nnue/nnue_test_command.cpp
-  eval/nnue/features/k.cpp eval/nnue/features/p.cpp eval/nnue/features/half_kp.cpp
-  eval/nnue/features/half_kp_vm.cpp eval/nnue/features/half_relative_kp.cpp
-  eval/nnue/features/half_kpe9.cpp eval/nnue/features/pe9.cpp
-  engine/yaneuraou-engine/yaneuraou-search.cpp
-)
+# --- 2. コンパイル対象（YANEURAOU_ENGINE_NNUE構成。全ネイティブ版で共通） ---
+SOURCE_LIST="$(cd "$SCRIPT_DIR/../../engine" && pwd)/yaneuraou-v940-sources.txt"
+SRCS=()
+while IFS= read -r src; do
+	[ -n "$src" ] && SRCS+=("$src")
+done < "$SOURCE_LIST"
 
 SDKROOT="$(xcrun --sdk "$SDK" --show-sdk-path)"
 CXX="xcrun --sdk $SDK clang++"

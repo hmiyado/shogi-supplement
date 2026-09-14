@@ -15,7 +15,7 @@
 
 | ファイル/ディレクトリ | 内容 |
 |---|---|
-| `patches/0001-wasm-build-fixes.patch` | やねうら王v7.00へのEmscripten向け最小パッチ（5ファイル・84行）。wasm32でのビット走査判定追加と、`-pthread`なしビルドのためのstd::thread同期実行フォールバック |
+| `patches/0001-wasm-build-fixes.patch` | やねうら王v9.40へのEmscripten向け最小パッチ。wasm32でのビット走査判定追加と、`-pthread`なしビルドのためのstd::thread同期実行フォールバック |
 | `VERSION` | エンジンビルドのバージョン識別子（後述）。`docs/kento/app.js`が実行時に読みに行く |
 | `fetch_upstream.sh` | やねうら王上流ソースを固定コミットへ取得し、パッチを適用する |
 | `build_wasm_browser.sh` | ブラウザ向けWASM（simd/nosimd 2変種）をビルドする。副産物としてスモークテスト専用のNode向けビルドも作る |
@@ -25,8 +25,8 @@
 
 ## VERSION（エンジンバージョン識別子）
 
-形式: `yo-<上流コミットSHA先頭7桁>-p<パッチ改訂番号>`。現在値は`yo-0640f43-p1`
-（上流コミット`0640f43c...`・パッチ改訂1）。上流コミットを変更した場合、または
+形式: `yo-<上流コミットSHA先頭7桁>-p<パッチ改訂番号>`。現在値は`yo-717da87-p1`
+（上流コミット`717da871...`・パッチ改訂1）。上流コミットを変更した場合、または
 `patches/`の中身に互換性のない変更を加えた場合は、この値を更新すること
 （`fetch_upstream.sh`が起動時に不整合を警告する）。パッチの文言修正など出力に
 影響しない変更では上げなくてよい。
@@ -43,17 +43,18 @@
 ## 上流バージョンとパッチ
 
 - リポジトリ: https://github.com/yaneurao/YaneuraOu
-- 固定コミット: `0640f43c7efb84630d657e99d6c8b5353062be1c`（タグ`v7.00`が指すコミット。
+- 固定コミット: `717da871e7a620702b8b9433bd8f9f181710435a`（タグ`v9.40`が指すコミット。
   タグ名ではなくコミットSHAへ直接ピン止めしている）
 - 構成: `YANEURAOU_ENGINE_NNUE`（NNUE型評価関数）
 - パッチの要旨:
   - `source/config.h`: `__EMSCRIPTEN__`かつ`-pthread`なし（`__EMSCRIPTEN_PTHREADS__`未定義）
     の場合にのみ有効になる`YO_WASM_NO_THREAD`マクロを追加
-  - `source/extra/bitop.h`: wasm32ではx86専用のビット走査命令が使えないため、
-    汎用スカラー実装を使うよう条件分岐を追加
-  - `source/misc.cpp` / `source/thread.cpp` / `source/usi.cpp`: `YO_WASM_NO_THREAD`
-    構成時、実スレッドを生成する3箇所（isreadyのkeep-aliveスレッド・置換表クリアの
-    並列化・探索本体のstd::thread）を、呼び出し元での同期実行に置き換え
+  - `source/eval/nnue/evaluate_nnue.cpp`: WASM向けの`EvalFile`オプションを登録し、
+    `EvalDir/nn.bin`の評価関数を読み込めるようにする
+  - `source/engine.cpp` / `source/thread.cpp` / `source/thread.h`: `YO_WASM_NO_THREAD`
+    構成時、isreadyのkeep-aliveスレッドと探索本体のstd::threadを呼び出し元で同期実行
+  - `source/misc.h` / `source/usi.cpp`: `callMain(argv)`へ渡したUSIコマンド列だけを
+    非ブロッキングに処理する
 
 パッチにより失われる挙動: `stop`/`go infinite`等、探索を非同期に中断する対話的
 シーケンスが動かない（`go nodes N`が完了するまでブロッキングする）。バッチ解析用途
