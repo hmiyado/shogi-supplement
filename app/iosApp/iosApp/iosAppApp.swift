@@ -1,6 +1,7 @@
 import SharedUi
 import Sentry
 import SwiftUI
+import UserNotifications
 
 /// アプリのエントリポイント。本体UIはCompose Multiplatform（MainViewController）が担い、
 /// Swift側は起動時初期化（Sentry・ファイルピッカー登録）とタブ切替のみを持つ。
@@ -26,6 +27,7 @@ struct iosAppApp: App {
         // WasmStudyHost の init で WasmStudyBridge へ実処理のクロージャを登録する
         // （対話的解析。WasmAnalysisHostと同じ理由で起動時に一度参照する）。
         _ = WasmStudyHost.shared
+        UNUserNotificationCenter.current().delegate = AnalysisNotificationDelegate.shared
         // 検討モード・ドリル等の対話的解析（単発局面）向けWASMバイナリのローカルキャッシュの取得を
         // 裏で開始する（進捗UIは無し。準備できるまで対話的解析はサーバーへ向かう。
         // KentoAssetCache KDoc参照）。エンジン入り版でも起動コストは無視できるため常に呼ぶ

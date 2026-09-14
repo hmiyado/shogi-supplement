@@ -2,6 +2,7 @@ package dev.miyado.shogisupplement.engine
 
 import dev.miyado.shogisupplement.pipeline.InProgressAnalysisRegistry
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -80,6 +81,22 @@ class AnalysisSessionCoordinatorTest {
             coordinator.run(session, analyze = { throw IllegalStateException("cancelled") })
         }
 
+        assertTrue(registry.sessions.value.isEmpty())
+    }
+
+    @Test
+    fun `CancellationExceptionでもセッションを除去する`() = runTest {
+        val registry = InProgressAnalysisRegistry()
+        val coordinator = AnalysisSessionCoordinator(registry)
+
+        var thrown = false
+        try {
+            coordinator.run(session, analyze = { throw CancellationException("cancelled") })
+        } catch (_: CancellationException) {
+            thrown = true
+        }
+
+        assertTrue(thrown)
         assertTrue(registry.sessions.value.isEmpty())
     }
 }

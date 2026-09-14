@@ -30,6 +30,7 @@ import dev.miyado.shogisupplement.engine.WasmStudyBridge
 import dev.miyado.shogisupplement.engine.WasmStudyEngine
 import dev.miyado.shogisupplement.engine.PvInfo
 import dev.miyado.shogisupplement.engine.selectAnalysisEngineRoute
+import dev.miyado.shogisupplement.engine.shouldResumeAnalysisAfterForeground
 import dev.miyado.shogisupplement.kifu.KifParser
 import dev.miyado.shogisupplement.db.saveRatingSettingsBundle
 import dev.miyado.shogisupplement.kifu.GameImportFlow
@@ -285,6 +286,16 @@ class IosMainController(
             null,
             NSOperationQueue.mainQueue,
         ) { onWillEnterForeground() }
+        NSNotificationCenter.defaultCenter.addObserverForName(
+            "shogi-supplement.analysis-notification-tapped",
+            null,
+            NSOperationQueue.mainQueue,
+        ) { notification ->
+            val gameId = (notification?.userInfo?.get("gameId") as? String)?.toLongOrNull()
+                ?: return@addObserverForName
+            _completedAnalysis.value = CompletedAnalysis(gameId = gameId, justCompleted = false)
+            IosAnalysisNotificationCenter.clearDeliveredNotifications()
+        }
     }
 
     /**
@@ -327,10 +338,16 @@ class IosMainController(
      * 再送すると二重POSTになるため。
      */
     private fun onWillEnterForeground() {
+        IosAnalysisNotificationCenter.clearDeliveredNotifications()
         // 強制アップデート判定は解析再開の無進捗しきい値とは無関係の独立した関心事のため、
         // 常に（無条件で）再チェックする。
         checkForceUpdate()
-        if (!shouldResumeAfterForeground(_importState.value, lastProgressAtEpochSeconds, currentEpochSeconds())) {
+        if (!shouldResumeAnalysisAfterForeground(
+                isAnalyzing = _importState.value is ImportState.Analyzing,
+                lastProgressAtEpochSeconds = lastProgressAtEpochSeconds,
+                nowEpochSeconds = currentEpochSeconds(),
+            )
+        ) {
             return
         }
         val pending = PendingAnalysisStore.load() ?: return
@@ -458,6 +475,7 @@ class IosMainController(
     /** 3経路（通常取込・フォアグラウンド復帰・起動時再開）が共通で通る。既存ジョブは先にキャンセルするため二重に走らない。 */
     private fun launchAnalysis(pending: PendingAnalysis) {
         currentAnalysisJob?.cancel()
+        IosAnalysisNotificationCenter.requestAuthorization()
         lastProgressAtEpochSeconds = currentEpochSeconds()
         val moves = runCatching { KifParser().parse(pending.kifText).moves }.getOrElse { emptyList() }
         // idは保存時のcontent_hashと同一。
@@ -496,6 +514,9 @@ class IosMainController(
                     uploadOrchestrator?.maybeAutoUpload(outcome.gameId)
                     reloadHome()
                     PendingAnalysisStore.clear()
+                    if (!IosAnalysisNotificationCenter.isAppActive()) {
+                        IosAnalysisNotificationCenter.notifyCompleted(outcome.gameId)
+                    }
                     if (wasWatching) {
                         _importState.value = ImportState.Idle
                         _completedAnalysis.value = CompletedAnalysis(
@@ -510,8 +531,10 @@ class IosMainController(
                     if (wasWatching) {
                         _importState.value = ImportState.Error(outcome.message)
                     } else {
-                        // 失敗の通知自体は画面が無いため出さない（Androidの通知に相当するものが
-                        // iOS側に無い＝既存挙動のまま）。ホームの解析中カードを消すためだけに
+                        if (!IosAnalysisNotificationCenter.isAppActive()) {
+                            IosAnalysisNotificationCenter.notifyFailed(outcome.message)
+                        }
+                        // 通知でエラーを知らせるため、ホームの解析中カードを消すためだけに
                         // リロードする（新規UIは作らない）。
                         reloadHome()
                     }
@@ -733,19 +756,5 @@ class IosMainController(
         private const val STUDY_ANALYSIS_REQUEST_TIMEOUT_MS = 30_000L
         private const val STUDY_ANALYSIS_SOCKET_TIMEOUT_MS = 30_000L
 
-        /** 閾値秒。大きくすると二重POSTのリスクは下がるが、プロセス死亡時の復旧が遅れる。 */
-        internal const val FOREGROUND_RESUME_IDLE_THRESHOLD_SECONDS = 5L
     }
-}
-
-/** 純粋関数として切り出し、IosMainController本体のインスタンス化なしに単体テストできるようにする。 */
-internal fun shouldResumeAfterForeground(
-    importState: IosMainController.ImportState,
-    lastProgressAtEpochSeconds: Long?,
-    nowEpochSeconds: Long,
-    idleThresholdSeconds: Long = IosMainController.FOREGROUND_RESUME_IDLE_THRESHOLD_SECONDS,
-): Boolean {
-    if (importState !is IosMainController.ImportState.Analyzing) return false
-    if (lastProgressAtEpochSeconds == null) return false
-    return nowEpochSeconds - lastProgressAtEpochSeconds >= idleThresholdSeconds
 }
