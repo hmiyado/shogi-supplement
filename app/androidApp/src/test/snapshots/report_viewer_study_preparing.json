@@ -1,0 +1,10 @@
+{
+  "kind": "screen",
+  "kindLabel": "画面（Screen）",
+  "category": "report",
+  "categoryLabel": "レポート",
+  "screen": "検討・preparing",
+  "screenLabel": "検討・preparing",
+  "state": "標準状態",
+  "stateLabel": "標準状態"
+}

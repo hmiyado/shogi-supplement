@@ -1,0 +1,10 @@
+{
+  "kind": "screen",
+  "kindLabel": "画面（Screen）",
+  "category": "game",
+  "categoryLabel": "棋譜管理",
+  "screen": "一覧・絞り込み・sheet",
+  "screenLabel": "一覧・絞り込み・sheet",
+  "state": "多い棋譜・持ち時間・controls",
+  "stateLabel": "多い棋譜・持ち時間・controls"
+}

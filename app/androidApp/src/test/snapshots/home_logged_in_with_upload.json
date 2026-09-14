@@ -1,0 +1,10 @@
+{
+  "kind": "screen",
+  "kindLabel": "画面（Screen）",
+  "category": "home",
+  "categoryLabel": "ホーム",
+  "screen": "ホーム",
+  "screenLabel": "ホーム",
+  "state": "ログイン済み・in・表示あり・アップロード導線",
+  "stateLabel": "ログイン済み・in・表示あり・アップロード導線"
+}

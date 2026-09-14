@@ -1,0 +1,10 @@
+{
+  "kind": "screen",
+  "kindLabel": "画面（Screen）",
+  "category": "account",
+  "categoryLabel": "アカウント",
+  "screen": "アカウント",
+  "screenLabel": "アカウント",
+  "state": "未ログイン・ログイン済み・in",
+  "stateLabel": "未ログイン・ログイン済み・in"
+}

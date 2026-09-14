@@ -1,0 +1,10 @@
+{
+  "kind": "screen",
+  "kindLabel": "画面（Screen）",
+  "category": "game",
+  "categoryLabel": "棋譜管理",
+  "screen": "一覧",
+  "screenLabel": "一覧",
+  "state": "空状態",
+  "stateLabel": "空状態"
+}

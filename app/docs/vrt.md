@@ -40,6 +40,40 @@ git diff --stat androidApp/src/test/snapshots
 テストJVMのメモリは画像の枚数に比例して逼迫する。追加後に一括実行がOOMで落ちるように
 なったら、`androidApp/build.gradle.kts` の `maxHeapSize` と `setForkEvery` を見直す。
 
+## UIカタログを確認するとき
+
+goldenを画面・表示条件・テスト元と一緒に一覧できる自己完結HTMLを生成する。
+画像はHTMLへ埋め込まれるため、生成後はファイル単体でブラウザから開ける。
+各画像のメタデータは同じbasenameのJSONとして画像の隣に置く。
+
+```text
+home_empty.png
+home_empty.json
+```
+
+JSONには`kind`・`category`・`screen`・`state`と、それぞれの表示ラベルを指定する。
+画像に対応するJSONがない場合、カタログ生成は失敗して追加漏れを知らせる。
+
+```json
+{
+  "kind": "screen",
+  "kindLabel": "画面（Screen）",
+  "category": "home",
+  "categoryLabel": "ホーム",
+  "screen": "home",
+  "screenLabel": "ホーム",
+  "state": "empty",
+  "stateLabel": "棋譜なし"
+}
+```
+
+```sh
+./gradlew :androidApp:generateUiCatalog
+open androidApp/build/ui-catalog/index.html
+```
+
+`recordRoborazziDebug`を実行した場合も、完了後に同じカタログが自動更新される。
+
 **スピナーなど終わらないアニメーションを含む状態は `createComposeRule` で撮る**
 （`GameRestoreScreenScreenshotTest` や `ReportViewerScreenshotTest.captureViaComposeRule` が例）。
 ラムダ版の `captureRoboImage { }` はメインルーパーがidleになるまで待つため、

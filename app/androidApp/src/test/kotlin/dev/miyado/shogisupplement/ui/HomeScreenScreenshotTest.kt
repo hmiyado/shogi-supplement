@@ -99,6 +99,26 @@ class HomeScreenScreenshotTest {
     }
 
     @Test
+    fun home_empty() {
+        captureRoboImage(
+            filePath = "src/test/snapshots/home_empty.png",
+            roborazziOptions = screenshotRoborazziOptions,
+        ) {
+            ShogiTheme {
+                Surface {
+                    HomeScreen(
+                        pastGames = emptyList(),
+                        isLoggedIn = false,
+                        onOpenKif = {},
+                        onGameClick = {},
+                        onStartDrill = {},
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
     fun home_withStrengthCard() {
         captureRoboImage(
             filePath = "src/test/snapshots/home_with_strength_card.png",

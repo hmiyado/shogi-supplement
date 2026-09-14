@@ -1,0 +1,10 @@
+{
+  "kind": "screen",
+  "kindLabel": "画面（Screen）",
+  "category": "transfer",
+  "categoryLabel": "引き継ぎコード",
+  "screen": "code・再生成・confirm",
+  "screenLabel": "code・再生成・confirm",
+  "state": "標準状態",
+  "stateLabel": "標準状態"
+}

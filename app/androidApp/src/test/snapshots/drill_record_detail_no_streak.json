@@ -1,0 +1,10 @@
+{
+  "kind": "screen",
+  "kindLabel": "画面（Screen）",
+  "category": "learning_record",
+  "categoryLabel": "学習の記録",
+  "screen": "学習の記録",
+  "screenLabel": "学習の記録",
+  "state": "なし／未設定・streak",
+  "stateLabel": "なし／未設定・streak"
+}

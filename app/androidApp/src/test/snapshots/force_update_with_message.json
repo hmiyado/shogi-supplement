@@ -1,0 +1,10 @@
+{
+  "kind": "screen",
+  "kindLabel": "画面（Screen）",
+  "category": "force",
+  "categoryLabel": "強制アップデート",
+  "screen": "update",
+  "screenLabel": "update",
+  "state": "表示あり・message",
+  "stateLabel": "表示あり・message"
+}

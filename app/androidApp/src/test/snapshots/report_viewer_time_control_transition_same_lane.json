@@ -1,0 +1,10 @@
+{
+  "kind": "screen",
+  "kindLabel": "画面（Screen）",
+  "category": "report",
+  "categoryLabel": "レポート",
+  "screen": "持ち時間・持ち時間設定・秒読みへの切り替え・same・lane",
+  "screenLabel": "持ち時間・持ち時間設定・秒読みへの切り替え・same・lane",
+  "state": "標準状態",
+  "stateLabel": "標準状態"
+}

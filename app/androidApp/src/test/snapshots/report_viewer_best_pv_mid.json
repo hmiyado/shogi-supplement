@@ -1,0 +1,10 @@
+{
+  "kind": "screen",
+  "kindLabel": "画面（Screen）",
+  "category": "report",
+  "categoryLabel": "レポート",
+  "screen": "best・読み筋表示・読み筋の途中",
+  "screenLabel": "best・読み筋表示・読み筋の途中",
+  "state": "標準状態",
+  "stateLabel": "標準状態"
+}

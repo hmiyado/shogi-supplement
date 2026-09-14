@@ -1,0 +1,10 @@
+{
+  "kind": "screen",
+  "kindLabel": "画面（Screen）",
+  "category": "home",
+  "categoryLabel": "ホーム",
+  "screen": "ホーム",
+  "screenLabel": "ホーム",
+  "state": "表示あり・strength・カード",
+  "stateLabel": "表示あり・strength・カード"
+}

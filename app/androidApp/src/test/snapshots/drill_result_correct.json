@@ -1,0 +1,10 @@
+{
+  "kind": "screen",
+  "kindLabel": "画面（Screen）",
+  "category": "drill",
+  "categoryLabel": "次の一手",
+  "screen": "結果・正解",
+  "screenLabel": "結果・正解",
+  "state": "標準状態",
+  "stateLabel": "標準状態"
+}

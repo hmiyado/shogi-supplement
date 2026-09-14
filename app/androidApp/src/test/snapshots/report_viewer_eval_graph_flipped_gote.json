@@ -1,0 +1,10 @@
+{
+  "kind": "screen",
+  "kindLabel": "画面（Screen）",
+  "category": "report",
+  "categoryLabel": "レポート",
+  "screen": "評価値あり・グラフ",
+  "screenLabel": "評価値あり・グラフ",
+  "state": "後手視点・gote",
+  "stateLabel": "後手視点・gote"
+}

@@ -1,0 +1,10 @@
+{
+  "kind": "screen",
+  "kindLabel": "画面（Screen）",
+  "category": "report",
+  "categoryLabel": "レポート",
+  "screen": "レポート",
+  "screenLabel": "レポート",
+  "state": "medium幅",
+  "stateLabel": "medium幅"
+}

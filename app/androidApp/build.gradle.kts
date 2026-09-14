@@ -13,6 +13,34 @@ tasks.matching { it.name.startsWith("prepareLibraryDefinitions") }.configureEach
     enabled = false
 }
 
+// Why not画像をdocsへ複製する: goldenの更新元はVRT側に一つだけ置き、
+// UIカタログはローカル確認用の自己完結HTMLとして都度生成する。
+val generateUiCatalog by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "RoborazziのスクリーンショットからUIカタログを生成する"
+    val repositoryRoot = rootProject.projectDir.parentFile
+    val snapshots = file("src/test/snapshots")
+    val tests = file("src/test/kotlin")
+    val output = layout.buildDirectory.file("ui-catalog/index.html").get().asFile
+    inputs.dir(snapshots)
+    inputs.dir(tests)
+    inputs.file(repositoryRoot.resolve("tools/generate_ui_catalog.py"))
+    inputs.dir(repositoryRoot.resolve("docs/assets/fonts"))
+    outputs.file(output)
+    workingDir(repositoryRoot)
+    commandLine(
+        "python3",
+        "tools/generate_ui_catalog.py",
+        "--snapshots", snapshots.absolutePath,
+        "--tests", tests.absolutePath,
+        "--output", output.absolutePath,
+    )
+}
+
+tasks.matching { it.name == "recordRoborazziDebug" }.configureEach {
+    finalizedBy(generateUiCatalog)
+}
+
 // Why not Androidビルド時生成: Android/iOSで同じ確定済みJSONを使い、
 // 依存更新とアプリビルドを分離する。
 aboutLibraries {

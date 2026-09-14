@@ -1,0 +1,10 @@
+{
+  "kind": "screen",
+  "kindLabel": "画面（Screen）",
+  "category": "report",
+  "categoryLabel": "レポート",
+  "screen": "検討",
+  "screenLabel": "検討",
+  "state": "選択中・chip・ダークテーマ",
+  "stateLabel": "選択中・chip・ダークテーマ"
+}

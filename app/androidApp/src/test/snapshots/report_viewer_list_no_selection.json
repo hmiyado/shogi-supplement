@@ -1,0 +1,10 @@
+{
+  "kind": "screen",
+  "kindLabel": "画面（Screen）",
+  "category": "report",
+  "categoryLabel": "レポート",
+  "screen": "一覧",
+  "screenLabel": "一覧",
+  "state": "なし／未設定・選択状態",
+  "stateLabel": "なし／未設定・選択状態"
+}
