@@ -18,6 +18,7 @@ class GameImporter(private val repository: GameRepository) {
         ratingService: String? = null,
         ratingRaw: Long? = null,
         ratingRule: String? = null,
+        ratingDeclaredAt: Long? = null,
         contentHash: String? = null,
         sourcePlaceOverride: String? = null,
     ): Outcome = try {
@@ -38,6 +39,7 @@ class GameImporter(private val repository: GameRepository) {
             ratingService = ratingService,
             ratingRaw = ratingRaw,
             ratingRule = ratingRule,
+            ratingDeclaredAt = ratingDeclaredAt,
             sourcePlace = sourcePlaceOverride ?: source.wireValue,
             gameWinner = game.winner,
             endReason = game.endReason,

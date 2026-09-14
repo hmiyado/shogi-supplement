@@ -123,11 +123,15 @@ class SupabaseGameDownloadService(
                 ratingService = row.ratingService,
                 ratingRaw = row.ratingRaw?.toLong(),
                 ratingRule = row.ratingRule,
+                ratingDeclaredAt = row.ratingDeclaredAt?.let { parseEpochSeconds(it) },
                 // "other" は出典分類が増える前の暫定値であり得るため強制しない
                 // （再構成KIFの棋戦・場所ヘッダから現行の分類器で判定させる）。
                 sourcePlaceOverride = row.sourcePlace?.takeIf { it != KifuSource.OTHER.wireValue },
             ),
         )
     }
+
+    private fun parseEpochSeconds(iso: String): Long? =
+        runCatching { kotlin.time.Instant.parse(iso).epochSeconds }.getOrNull()
 
 }

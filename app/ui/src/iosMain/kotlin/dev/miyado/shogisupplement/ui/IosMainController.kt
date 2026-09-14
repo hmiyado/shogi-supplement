@@ -430,6 +430,7 @@ class IosMainController(
             ratingService = request.ratingService,
             ratingRaw = request.ratingRaw,
             ratingRule = request.ratingRule,
+            ratingDeclaredAt = request.ratingDeclaredAt,
         )
         when (next) {
             is GameImportFlow.Next.Analyze -> analyzeStoredGame(next.game)
@@ -561,6 +562,7 @@ class IosMainController(
             ratingService = game.ratingService,
             ratingRaw = game.ratingRaw,
             ratingRule = game.ratingRule,
+            ratingDeclaredAt = game.ratingDeclaredAt,
             contentHash = game.contentHash,
             sourcePlaceOverride = game.sourcePlaceOverride,
         )

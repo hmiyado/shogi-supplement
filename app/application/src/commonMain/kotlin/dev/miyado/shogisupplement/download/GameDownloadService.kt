@@ -28,6 +28,7 @@ data class ReconstructedGame(
     val ratingService: String?,
     val ratingRaw: Long?,
     val ratingRule: String?,
+    val ratingDeclaredAt: Long? = null,
     val sourcePlaceOverride: String?,
 )
 

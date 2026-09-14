@@ -15,6 +15,7 @@ class FakeSettingsRepository(
     var savedSkipSideConfirm: Boolean = false,
     var accountDeclined: Boolean = false,
 ) : SettingsRepository {
+    private var ratingDeclaredAt: Long? = null
     val serviceRanks: MutableMap<String, MutableMap<String, Int>> = mutableMapOf()
     var savedServiceAccountName: String? = null
         private set
@@ -38,12 +39,15 @@ class FakeSettingsRepository(
         this.ratingRule = ratingRule
         this.savedServiceAccountName = serviceAccountName
         hasSavedRatingSettings = true
+        ratingDeclaredAt = 1L
     }
 
     override fun getRatingSettings(): RatingSettings =
         RatingSettings(rating, service, ratingRaw, ratingRule, savedServiceAccountName)
 
     override fun hasUserSavedRatingSettings(): Boolean = hasSavedRatingSettings
+
+    override fun getRatingDeclaredAt(): Long? = ratingDeclaredAt
 
     override fun getRating(): Int = rating
 

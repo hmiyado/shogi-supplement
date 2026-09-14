@@ -39,6 +39,7 @@ data class KifImportRequest(
     val ratingService: String?,
     val ratingRaw: Long?,
     val ratingRule: String?,
+    val ratingDeclaredAt: Long?,
 )
 
 /**
@@ -210,6 +211,7 @@ class KifImportController(
             // 段級位制のサービスでは単一値の申告が無く0が入っているため、値として送らない。
             ratingRaw = rank?.rankRaw?.toLong() ?: declared?.ratingRaw?.takeIf { it > 0 }?.toLong(),
             ratingRule = rank?.ruleId ?: declared?.ratingRule,
+            ratingDeclaredAt = declared?.let { settingsRepository.getRatingDeclaredAt() },
         )
         scope.launch {
             try {

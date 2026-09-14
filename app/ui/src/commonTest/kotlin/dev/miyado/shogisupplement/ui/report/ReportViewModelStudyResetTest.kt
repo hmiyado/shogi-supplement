@@ -41,6 +41,7 @@ class ReportViewModelStudyResetTest {
             ratingService: String?,
             ratingRaw: Long?,
             ratingRule: String?,
+            ratingDeclaredAt: Long?,
             sourcePlace: String?,
             gameWinner: String?,
             endReason: String?,

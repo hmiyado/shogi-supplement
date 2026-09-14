@@ -350,6 +350,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 ratingService = request.ratingService,
                 ratingRaw = request.ratingRaw,
                 ratingRule = request.ratingRule,
+                ratingDeclaredAt = request.ratingDeclaredAt,
             )
         }
         when (next) {

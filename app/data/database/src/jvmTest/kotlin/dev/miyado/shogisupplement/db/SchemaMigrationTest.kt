@@ -348,6 +348,9 @@ class SchemaMigrationTest {
     @Test
     fun `11sqmの移行は段級位だけを申告した端末を日時不明の申告済みにする`() {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        createV10GameTable(driver)
+        driver.execute(null, "ALTER TABLE game ADD COLUMN time_control_raw TEXT", 0)
+        driver.execute(null, "ALTER TABLE game ADD COLUMN time_control_byoyomi_raw TEXT", 0)
         createV10UserSettingsTable(driver)
         createRankTables(driver)
         // 選択中サービスが既定（lishogi/1750）のまま、段級位だけ入れた端末。
@@ -370,6 +373,9 @@ class SchemaMigrationTest {
     @Test
     fun `11sqmの移行は何も申告していない端末を未申告のままにする`() {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        createV10GameTable(driver)
+        driver.execute(null, "ALTER TABLE game ADD COLUMN time_control_raw TEXT", 0)
+        driver.execute(null, "ALTER TABLE game ADD COLUMN time_control_byoyomi_raw TEXT", 0)
         createV10UserSettingsTable(driver)
         createRankTables(driver)
         // テーマ保存などで行だけができた端末。

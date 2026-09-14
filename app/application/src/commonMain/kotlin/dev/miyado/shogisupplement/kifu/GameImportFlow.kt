@@ -28,6 +28,7 @@ class GameImportFlow(private val gameRepository: GameRepository) {
         ratingService: String? = null,
         ratingRaw: Long? = null,
         ratingRule: String? = null,
+        ratingDeclaredAt: Long? = null,
     ): Next = when (
         val outcome = GameImporter(gameRepository).importGame(
             kifContent = kifContent,
@@ -36,6 +37,7 @@ class GameImportFlow(private val gameRepository: GameRepository) {
             ratingService = ratingService,
             ratingRaw = ratingRaw,
             ratingRule = ratingRule,
+            ratingDeclaredAt = ratingDeclaredAt,
         )
     ) {
         is GameImporter.Outcome.Failed -> Next.Failed(outcome.message)

@@ -29,6 +29,9 @@ interface SettingsRepository {
     /** ユーザーが棋力設定を一度でも保存したかどうか（デフォルト値と区別するため）。 */
     fun hasUserSavedRatingSettings(): Boolean
 
+    /** 現在の棋力設定を保存した日時（Unix epoch秒）。未申告ならnull。 */
+    fun getRatingDeclaredAt(): Long? = null
+
     /** 保存されたレートを返す。未設定なら 1750。 */
     fun getRating(): Int
 

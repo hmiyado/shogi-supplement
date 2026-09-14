@@ -31,6 +31,8 @@ data class GameRecord(
     val ratingService: String? = null,
     val ratingRaw: Long? = null,
     val ratingRule: String? = null,
+    /** 申告棋力を保存した日時（Unix epoch秒）。日時不明の移行データは0。 */
+    val ratingDeclaredAt: Long? = null,
     /**
      * 出典サービスの正規化値（[dev.miyado.shogisupplement.kifu.KifuSource.wireValue]。
      * "wars"/"lishogi"/"kiou"/"other"）。生の「場所」ヘッダ値は含まない

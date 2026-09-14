@@ -158,6 +158,7 @@ class KifImportControllerTest {
 
         assertEquals("lishogi", recorder.last.ratingService)
         assertEquals(1600L, recorder.last.ratingRaw)
+        assertTrue(recorder.last.ratingDeclaredAt != null)
     }
 
     @Test

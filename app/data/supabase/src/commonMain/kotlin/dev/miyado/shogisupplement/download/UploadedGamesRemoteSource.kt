@@ -54,6 +54,7 @@ internal data class UploadedGameRow(
     @SerialName("rating_service") val ratingService: String? = null,
     @SerialName("rating_raw") val ratingRaw: Int? = null,
     @SerialName("rating_rule") val ratingRule: String? = null,
+    @SerialName("rating_declared_at") val ratingDeclaredAt: String? = null,
     @SerialName("move_count") val moveCount: Int? = null,
     @SerialName("started_at") val startedAt: String? = null,
     @SerialName("created_at") val createdAt: String? = null,

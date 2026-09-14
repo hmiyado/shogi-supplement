@@ -72,6 +72,9 @@ class SqlDelightSettingsRepository(private val database: ShogiSupplementDatabase
     override fun hasUserSavedRatingSettings(): Boolean =
         database.shogiSupplementQueries.getRatingDeclaredAt().executeAsOneOrNull()?.rating_declared_at != null
 
+    override fun getRatingDeclaredAt(): Long? =
+        database.shogiSupplementQueries.getRatingDeclaredAt().executeAsOneOrNull()?.rating_declared_at
+
     /** 保存されたレートを返す。未設定なら 1750。 */
     override fun getRating(): Int {
         return database.shogiSupplementQueries

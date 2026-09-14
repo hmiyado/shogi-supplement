@@ -137,6 +137,22 @@ class GameRepositoryTest {
     }
 
     @Test
+    fun `申告日時がnullならゲームにもnullを保存する`() {
+        val repo = newRepository()
+        val gameId = repo.saveAnalysis(
+            fileName = "undeclared.kif",
+            contentHash = "hash-rating-declared-at-null",
+            moves = listOf("7g7f"),
+            headers = emptyMap(),
+            reports = emptyList(),
+            rating = 1750,
+            coefVersion = "hao_v1",
+        )
+
+        assertNull(repo.getGameById(gameId)?.ratingDeclaredAt)
+    }
+
+    @Test
     fun `未解析棋譜として保存した持ち時間ヘッダは解析完了後も引き継がれる`() {
         val repo = newRepository()
         val gameId = repo.savePendingGame(

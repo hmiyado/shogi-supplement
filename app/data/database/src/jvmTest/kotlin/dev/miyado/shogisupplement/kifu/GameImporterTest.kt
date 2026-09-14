@@ -89,4 +89,32 @@ class GameImporterTest {
         val game = repository.getGameById(outcome.gameId)
         assertEquals("5分+30秒", game?.timeControlRaw)
     }
+
+    @Test
+    fun `取込時の申告日時をゲームへ保存し復元できる`() {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        ShogiSupplementDatabase.Schema.create(driver)
+        val repository = SqlDelightGameRepository(ShogiSupplementDatabase(driver))
+        val kif = """
+            手合割：平手
+            先手：miyado
+            後手：相手
+            手数----指手---------消費時間--
+            1 ７六歩(77)
+            2 投了
+        """.trimIndent()
+
+        val outcome = assertIs<GameImporter.Outcome.Imported>(
+            GameImporter(repository).importGame(
+                kifContent = kif,
+                fileName = "game.kif",
+                userSide = "sente",
+                ratingService = "lishogi",
+                ratingRaw = 1600,
+                ratingDeclaredAt = 1_780_000_000L,
+            ),
+        )
+
+        assertEquals(1_780_000_000L, repository.getGameById(outcome.gameId)?.ratingDeclaredAt)
+    }
 }
