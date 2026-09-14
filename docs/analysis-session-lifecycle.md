@@ -41,5 +41,5 @@ iOSはアプリが停止・サスペンドされると任意の解析処理を�
 - `AnalysisSessionCoordinatorTest`: 開始、局面進捗、完了、失敗、`CancellationException`後の後始末
 - `AnalysisSessionPolicyTest`: 復帰時の再問い合わせ条件
 - `AnalysisEngineSelectionTest`: サーバー、ネイティブ、WASMの選択優先順位
-- Android: Foreground Serviceの進捗・完了・失敗通知、通知タップの`gameId`復帰（実機未接続のため動的確認は未実施）
-- iOS: ローカル通知の完了・失敗、通知タップのレポート復帰、バックグラウンド後のpending再問い合わせ（シミュレータ起動とビルドのみ確認。実機はDeveloper Disk Image未対応のため動的確認は未実施）
+- Android: Pixel_8_API_36_Maestroで完了通知の表示・通知タップによる`gameId`付き起動を確認。APK同梱エンジンはAVD上で`usiok`応答を確認。KIF取込からの解析再実行はAVDのSystem UI/アプリANRで未確認。
+- iOS: iPhone 16eシミュレータでKIF取込→解析→レポート自動遷移のE2Eを確認。ローカル通知の完了・失敗、通知タップのレポート復帰、バックグラウンド後のpending再問い合わせは未確認。接続済みiPhone 16eはロック中のためDeveloper Disk Imageをマウントできず、実機動的確認は未実施。
