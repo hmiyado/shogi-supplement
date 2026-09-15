@@ -1,19 +1,13 @@
 package dev.miyado.shogisupplement
 
-import android.Manifest
 import android.content.ClipData
 import android.content.ClipboardManager
-import android.content.pm.PackageManager
-import android.os.Build
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
-import androidx.core.content.ContextCompat
 import dev.miyado.shogisupplement.db.GameAnalysisStatus
 import dev.miyado.shogisupplement.ui.MainUiState
 import dev.miyado.shogisupplement.ui.MainViewModel
@@ -26,19 +20,7 @@ fun ReportHost(vm: MainViewModel, state: MainUiState.ShowReport) {
     val studyState by vm.studyState.collectAsState()
     val context = LocalContext.current
     val view = LocalView.current
-    val analyzeLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
-        vm.analyzeStoredGame(state.report.game)
-    }
-    val analyze: () -> Unit = {
-        val needsPermission = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
-            PackageManager.PERMISSION_GRANTED
-        if (needsPermission) {
-            analyzeLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        } else {
-            vm.analyzeStoredGame(state.report.game)
-        }
-    }
+    val analyze: () -> Unit = { vm.analyzeStoredGame(state.report.game) }
     ReportScreen(
         game = state.report.game,
         reports = state.report.reports,

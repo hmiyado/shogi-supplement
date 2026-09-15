@@ -50,7 +50,7 @@ sealed class MainUiState {
         val evalDisplay: String = "cp",
         /**
          * この画面遷移が[AnalyzingReport]からの解析完了直後かどうか。trueのときだけ
-         * 完了通知バナーを一度出す（通知タップ・棋譜一覧経由の表示ではfalseのまま）。
+         * 解析完了バナーを一度出す（棋譜一覧経由の表示ではfalseのまま）。
          */
         val justCompleted: Boolean = false,
     ) : MainUiState()

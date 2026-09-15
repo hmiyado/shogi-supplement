@@ -286,16 +286,6 @@ class IosMainController(
             null,
             NSOperationQueue.mainQueue,
         ) { onWillEnterForeground() }
-        NSNotificationCenter.defaultCenter.addObserverForName(
-            "shogi-supplement.analysis-notification-tapped",
-            null,
-            NSOperationQueue.mainQueue,
-        ) { notification ->
-            val gameId = (notification?.userInfo?.get("gameId") as? String)?.toLongOrNull()
-                ?: return@addObserverForName
-            _completedAnalysis.value = CompletedAnalysis(gameId = gameId, justCompleted = false)
-            IosAnalysisNotificationCenter.clearDeliveredNotifications()
-        }
     }
 
     /**
@@ -338,7 +328,6 @@ class IosMainController(
      * 再送すると二重POSTになるため。
      */
     private fun onWillEnterForeground() {
-        IosAnalysisNotificationCenter.clearDeliveredNotifications()
         // 強制アップデート判定は解析再開の無進捗しきい値とは無関係の独立した関心事のため、
         // 常に（無条件で）再チェックする。
         checkForceUpdate()
@@ -475,7 +464,6 @@ class IosMainController(
     /** 3経路（通常取込・フォアグラウンド復帰・起動時再開）が共通で通る。既存ジョブは先にキャンセルするため二重に走らない。 */
     private fun launchAnalysis(pending: PendingAnalysis) {
         currentAnalysisJob?.cancel()
-        IosAnalysisNotificationCenter.requestAuthorization()
         lastProgressAtEpochSeconds = currentEpochSeconds()
         val moves = runCatching { KifParser().parse(pending.kifText).moves }.getOrElse { emptyList() }
         // idは保存時のcontent_hashと同一。
@@ -514,9 +502,6 @@ class IosMainController(
                     uploadOrchestrator?.maybeAutoUpload(outcome.gameId)
                     reloadHome()
                     PendingAnalysisStore.clear()
-                    if (!IosAnalysisNotificationCenter.isAppActive()) {
-                        IosAnalysisNotificationCenter.notifyCompleted(outcome.gameId)
-                    }
                     if (wasWatching) {
                         _importState.value = ImportState.Idle
                         _completedAnalysis.value = CompletedAnalysis(
@@ -531,11 +516,8 @@ class IosMainController(
                     if (wasWatching) {
                         _importState.value = ImportState.Error(outcome.message)
                     } else {
-                        if (!IosAnalysisNotificationCenter.isAppActive()) {
-                            IosAnalysisNotificationCenter.notifyFailed(outcome.message)
-                        }
-                        // 通知でエラーを知らせるため、ホームの解析中カードを消すためだけに
-                        // リロードする（新規UIは作らない）。
+                        // システム通知を使わないため、ホーム表示中もアプリ内ダイアログで知らせる。
+                        _importState.value = ImportState.Error(outcome.message)
                         reloadHome()
                     }
                 }
@@ -607,7 +589,6 @@ class IosMainController(
 
     fun analyzePendingGames() {
         if (currentAnalysisJob?.isActive == true) return
-        IosAnalysisNotificationCenter.requestAuthorization()
         currentAnalysisJob = scope.launch {
             for (game in gameRepository.getPendingGames()) {
                 val pending = game.toPendingAnalysis() ?: continue
@@ -620,14 +601,9 @@ class IosMainController(
                 when (outcome) {
                     is AnalysisOrchestrator.Outcome.Completed -> {
                         uploadOrchestrator?.maybeAutoUpload(outcome.gameId)
-                        if (!IosAnalysisNotificationCenter.isAppActive()) {
-                            IosAnalysisNotificationCenter.notifyCompleted(outcome.gameId)
-                        }
                     }
                     is AnalysisOrchestrator.Outcome.Failed -> {
-                        if (!IosAnalysisNotificationCenter.isAppActive()) {
-                            IosAnalysisNotificationCenter.notifyFailed(outcome.message)
-                        }
+                        _importState.value = ImportState.Error(outcome.message)
                     }
                 }
             }

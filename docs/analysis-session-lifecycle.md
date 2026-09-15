@@ -1,6 +1,6 @@
 # 解析セッションのライフサイクル
 
-1.13では、解析セッションのライフサイクルとエンジン選択を共通の規則で扱う。OS固有の実装は、通知、プロセスの生存、バックグラウンド復帰の入口に限定する。
+1.13では、解析セッションのライフサイクルとエンジン選択を共通の規則で扱う。OS固有の実装は、プロセスの生存とバックグラウンド復帰の入口に限定する。
 
 ## 共通の遷移
 
@@ -28,18 +28,17 @@
 | 観点 | Android | iOS |
 | --- | --- | --- |
 | 解析の実行主体 | Foreground Service | `IosMainController`のスコープ |
-| 解析中の表示 | `AnalysisServiceBus`と共通レジストリ | 共通レジストリと`ImportState` |
-| 解析中の通知 | Foreground通知で進捗を表示 | 解析開始時に通知権限を要求し、完了・失敗時に必要ならローカル通知 |
-| 完了通知 | `gameId`付きPendingIntentでレポートを開く | `gameId`を通知情報に持たせ、タップ時にComposeへ伝えてレポートを開く |
+| 解析中の表示 | Foreground Serviceの必須通知で進捗を表示 | 共通レジストリと`ImportState` |
+| 完了・失敗の通知 | 実装しない。ServiceBusで画面へ結果を伝える | 実装しない。画面を再表示した時に保存状態を読み直す |
 | バックグラウンド復帰 | Foreground Serviceが解析を継続する | `PendingAnalysisStore`を起動時・フォアグラウンド復帰時に読み、必要なら同じ入力で再問い合わせ |
 | キャンセル | Serviceのジョブキャンセル時にCoordinatorが後始末 | 現在の解析Jobをキャンセルし、Coordinatorが後始末 |
 
-iOSはアプリが停止・サスペンドされると任意の解析処理を継続できないため、`PendingAnalysisStore`を解析開始前に保存する。解析結果が保存済みなら再起動時にpendingだけを破棄し、未保存なら同じ入力で再問い合わせする。通知権限が拒否されても、解析の保存と復帰には影響しない。
+iOSはアプリが停止・サスペンドされると任意の解析処理を継続できないため、`PendingAnalysisStore`を解析開始前に保存する。解析結果が保存済みなら再起動時にpendingだけを破棄し、未保存なら同じ入力で再問い合わせする。
 
 ## 検証
 
 - `AnalysisSessionCoordinatorTest`: 開始、局面進捗、完了、失敗、`CancellationException`後の後始末
 - `AnalysisSessionPolicyTest`: 復帰時の再問い合わせ条件
 - `AnalysisEngineSelectionTest`: サーバー、ネイティブ、WASMの選択優先順位
-- Android: Pixel_8_API_36_Maestroで完了通知の表示・通知タップによる`gameId`付き起動を確認。APK同梱エンジンはAVD上で`usiok`応答を確認。KIF取込からの解析再実行はAVDのSystem UI/アプリANRで未確認。
-- iOS: iPhone 16eシミュレータでKIF取込→解析→レポート自動遷移のE2Eを確認。ローカル通知の完了・失敗、通知タップのレポート復帰、バックグラウンド後のpending再問い合わせは未確認。接続済みiPhone 16eはロック中のためDeveloper Disk Imageをマウントできず、実機動的確認は未実施。
+- Android: APK同梱エンジンはAVD上で`usiok`応答を確認。KIF取込からの解析再実行はAVDのSystem UI/アプリANRで未確認。
+- iOS: iPhone 16eシミュレータでKIF取込→解析→レポート自動遷移のE2Eを確認。バックグラウンド後のpending再問い合わせは未確認。接続済みiPhone 16eはロック中のためDeveloper Disk Imageをマウントできず、実機動的確認は未実施。

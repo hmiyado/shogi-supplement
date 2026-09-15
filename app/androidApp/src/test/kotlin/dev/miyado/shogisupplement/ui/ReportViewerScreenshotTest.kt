@@ -751,7 +751,7 @@ class ReportViewerScreenshotTest {
 
     // AlertDialogは別ウィンドウに描画されるため、対局情報VRTはcaptureScreenRoboImage側で扱う。
 
-    /** justCompleted=true の遷移直後。ナビ行スロットが完了通知バナーに排他入替される。 */
+    /** justCompleted=true の遷移直後。ナビ行スロットが解析完了バナーに排他入替される。 */
     @Test
     fun report_viewer_completion_banner() {
         captureRoboImage(

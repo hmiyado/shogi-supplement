@@ -65,6 +65,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _state = MutableStateFlow<MainUiState>(MainUiState.Loading)
     val state: StateFlow<MainUiState> = _state
 
+    /** 解析画面を離れた後も確認できる、未確認の解析失敗。 */
+    private val _analysisError = MutableStateFlow<String?>(null)
+    val analysisError: StateFlow<String?> = _analysisError
+
     private val _manualKifRequest = MutableStateFlow<ManualKifRequest?>(null)
     val manualKifRequest: StateFlow<ManualKifRequest?> = _manualKifRequest
 
@@ -76,6 +80,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _manualKifRequest.value = null
     }
 
+    fun clearAnalysisError() {
+        _analysisError.value = null
+    }
+
     private val appSettings = AppSettingsController(settingsRepository, viewModelScope)
 
     /** テーマモード（'system' / 'light' / 'dark'）。 */
@@ -85,12 +93,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val evalDisplay: StateFlow<String> = appSettings.evalDisplay
 
     val skipSideConfirm: StateFlow<Boolean> = appSettings.skipSideConfirm
-
-    /**
-     * 通知タップから起動した場合の gameId。
-     * これが設定されている間は loadHome() の結果で上書きしない。
-     */
-    private var pendingNotificationGameId: Long? = null
 
     /** ホーム画面（games一覧・推定棋力カード・今日の1問）のロードを担う協力オブジェクト。 */
     private val homeViewModel: HomeViewModel by lazy {
@@ -161,20 +163,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /**
-     * 通知タップで起動したとき、gameId のレポートを直接表示する。
-     * onCreate/onNewIntent から呼ぶ。
-     */
-    fun handleNotificationIntent(gameId: Long) {
-        pendingNotificationGameId = gameId
-        showReport(gameId)
-    }
-
     /** ホーム画面（過去の解析一覧）を読み込む。 */
     fun loadHome() {
         viewModelScope.launch {
-            // 通知タップ pending がある場合は loadHome の結果で上書きしない
-            if (pendingNotificationGameId != null) return@launch
             val isLoggedIn = app.authRepository.currentUser.value != null
             val result = homeViewModel.loadHomeData()
             _state.value = MainUiState.Home(
@@ -379,11 +370,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** @param justCompleted trueなら完了通知バナーを一度だけ表示する。 */
+    /** @param justCompleted trueなら解析完了バナーを一度だけ表示する。 */
     fun showReport(gameId: Long, justCompleted: Boolean = false) {
         viewModelScope.launch {
             val report = reportViewModel.loadReport(gameId).toScreenState()
-            pendingNotificationGameId = null
             _state.value = if (report != null) {
                 MainUiState.ShowReport(report, appSettings.evalDisplay.value, justCompleted)
             } else {
@@ -495,7 +485,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val wasWatching = _state.value is MainUiState.AnalyzingReport
         if (wasWatching) {
             // alreadyExisted=true は重複KIFの再取込（実際には何も解析していない）ため、
-            // 完了通知バナーは出さない。
+            // 解析完了バナーは出さない。
             showReport(gameId, justCompleted = !alreadyExisted)
         } else if (_state.value is MainUiState.Home) {
             loadHome()
@@ -511,10 +501,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 _state.value = MainUiState.Error(message, games)
             }
-        } else if (_state.value is MainUiState.Home) {
-            // 失敗はシステム通知で既に伝わっている。ここではホームの解析中カードを
-            // 消すためだけにリロードする（新規UIは作らない）。
-            loadHome()
+        } else {
+            // システム通知を使わないため、解析画面以外にいる場合も
+            // 画面状態とは独立して保持し、アプリ内ダイアログで知らせる。
+            _analysisError.value = message
+            if (_state.value is MainUiState.Home) {
+                loadHome()
+            }
         }
     }
 

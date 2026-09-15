@@ -184,19 +184,13 @@ object AppStrings {
      */
     fun analyzingProgress(currentMove: Int, totalMoves: Int): String = "解析中... $currentMove / $totalMoves 手"
 
-    /**
-     * レポート画面の進捗バナーと同じスロットに完了直後だけ表示する一時メッセージ。
-     * 通知タイトル（[NOTIF_DONE_TITLE]="解析完了"）とは別文言にする
-     * （画面内の一時表示と通知を語感で混同させないため）。
-     */
+    /** レポート画面の進捗バナーと同じスロットに完了直後だけ表示する一時メッセージ。 */
     const val ANALYSIS_COMPLETED_BANNER = "解析が完了しました"
+    const val ANALYSIS_FAILED_DIALOG_TITLE = "解析に失敗しました"
 
     const val NOTIF_ANALYZING_TITLE = "棋譜解析中"
     fun notifProgress(done: Int, total: Int, progressPct: Int): String = "$done / $total 局面 ($progressPct%)"
     const val NOTIF_PREPARING = "準備中..."
-    const val NOTIF_DONE_TITLE = "解析完了"
-    const val NOTIF_DONE_TEXT = "棋譜の解析が完了しました。タップしてレポートを確認"
-    const val NOTIF_ERROR_TITLE = "解析エラー"
     const val UNKNOWN_ERROR = "不明なエラー"
 
 
@@ -605,9 +599,6 @@ object AppStrings {
 
     /** レポート画面の駒台配置を左右にする実機評価用トグル。 */
 
-    /** DebugScreen の「完了通知を送付」ボタン。 */
-    const val DEBUG_SEND_NOTIFICATION = "完了通知を送付"
-
     /** iOS専用デバッグ画面（WASMバイナリの配信元URL切替）のタイトル。 */
     const val DEBUG_SCREEN_TITLE = "デバッグ: 配信元URL"
 
@@ -833,7 +824,7 @@ object AppStrings {
 
     /** 評価値グラフのカード見出し。ユーザーの先後で符号を反転済み（自分視点で統一）であることを明示する。 */
     const val EVAL_GRAPH_TITLE = "形勢の推移（自分視点）"
-    const val EVAL_GRAPH_REMAINING_TIME_LABEL = "持ち時間の残り"
+    const val EVAL_GRAPH_REMAINING_TIME_LABEL = "持ち時間"
     const val EVAL_GRAPH_REMAINING_TIME_SELF_LEGEND = "自分の残り時間"
     const val EVAL_GRAPH_REMAINING_TIME_LEGEND = "先手・後手の残り時間"
     const val EVAL_GRAPH_BYOYOMI_TIME_LABEL = "秒読み"

@@ -2,7 +2,6 @@ package dev.miyado.shogisupplement.service
 
 import android.app.Notification
 import android.app.NotificationManager
-import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.net.Uri
@@ -10,7 +9,6 @@ import android.os.IBinder
 import android.provider.OpenableColumns
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import dev.miyado.shogisupplement.MainActivity
 import dev.miyado.shogisupplement.ShogiApp
 import dev.miyado.shogisupplement.crash.SentryCrashReporter
 import dev.miyado.shogisupplement.crash.isAlreadyReported
@@ -151,8 +149,6 @@ class AnalysisService : Service() {
                         "Analysis completed: gameId=${outcome.gameId} alreadyExisted=${outcome.alreadyExisted}",
                     )
                     AnalysisServiceBus.emit(ServiceEvent.Completed(outcome.gameId, outcome.alreadyExisted))
-                    showCompletionNotification(outcome.gameId)
-
                     if (!outcome.alreadyExisted) {
                         // 子コルーチンはstopSelf後にキャンセルされるため、直接完了を待つ。
                         try {
@@ -168,7 +164,6 @@ class AnalysisService : Service() {
                 is AnalysisOrchestrator.Outcome.Failed -> {
                     Log.e(TAG, "Analysis failed: ${outcome.message}")
                     AnalysisServiceBus.emit(ServiceEvent.Failed(outcome.message))
-                    showErrorNotification(outcome.message)
                 }
             }
         } catch (e: Exception) {
@@ -178,7 +173,6 @@ class AnalysisService : Service() {
                 crashReporter.captureException(e)
             }
             AnalysisServiceBus.emit(ServiceEvent.Failed(e.message ?: AppStrings.UNKNOWN_ERROR))
-            showErrorNotification(e.message ?: AppStrings.UNKNOWN_ERROR)
         } finally {
             stopSelf()
         }
@@ -223,35 +217,6 @@ class AnalysisService : Service() {
         notificationManager.notify(NOTIF_ID, buildProgressNotification(done, total))
     }
 
-    private fun showCompletionNotification(gameId: Long) {
-        val intent = Intent(this, MainActivity::class.java).apply {
-            putExtra(MainActivity.EXTRA_GAME_ID, gameId)
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-        }
-        val pendingIntent = PendingIntent.getActivity(
-            this, 0, intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-        val notif = NotificationCompat.Builder(this, ShogiApp.CHANNEL_ANALYSIS)
-            .setContentTitle(AppStrings.NOTIF_DONE_TITLE)
-            .setContentText(AppStrings.NOTIF_DONE_TEXT)
-            .setSmallIcon(android.R.drawable.ic_menu_info_details)
-            .setAutoCancel(true)
-            .setContentIntent(pendingIntent)
-            .build()
-        notificationManager.notify(NOTIF_COMPLETE_ID, notif)
-    }
-
-    private fun showErrorNotification(message: String) {
-        val notif = NotificationCompat.Builder(this, ShogiApp.CHANNEL_ANALYSIS)
-            .setContentTitle(AppStrings.NOTIF_ERROR_TITLE)
-            .setContentText(message)
-            .setSmallIcon(android.R.drawable.ic_dialog_alert)
-            .setAutoCancel(true)
-            .build()
-        notificationManager.notify(NOTIF_ERROR_ID, notif)
-    }
-
     override fun onDestroy() {
         job.cancel()
         super.onDestroy()
@@ -265,7 +230,5 @@ class AnalysisService : Service() {
         const val EXTRA_RATING_SERVICE = "rating_service"
         const val EXTRA_RATING_RAW = "rating_raw"
         const val EXTRA_RATING_RULE = "rating_rule"
-        private const val NOTIF_COMPLETE_ID = 1002
-        private const val NOTIF_ERROR_ID = 1003
     }
 }
