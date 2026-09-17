@@ -16,7 +16,6 @@ CREATE TABLE game (
     rating_service TEXT,
     rating_raw INTEGER,
     rating_rule TEXT,
-    rating_declared_at INTEGER,
     source_place TEXT,
     game_winner TEXT,
     end_reason TEXT,
@@ -34,6 +33,7 @@ CREATE TABLE game (
     -- ヘッダが無ければNULL。表示ラベルへの変換は表示側（対局サービス依存）で行う。
     time_control_raw TEXT,
     time_control_byoyomi_raw TEXT,
+    rating_declared_at INTEGER,
     engine_meta_json TEXT
 );
 
