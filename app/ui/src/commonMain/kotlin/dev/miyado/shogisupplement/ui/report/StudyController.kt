@@ -9,6 +9,7 @@ import dev.miyado.shogisupplement.board.ShogiMove
 import dev.miyado.shogisupplement.board.ShogiSquare
 import dev.miyado.shogisupplement.board.Side
 import dev.miyado.shogisupplement.engine.Engine
+import dev.miyado.shogisupplement.engine.EngineInvariants
 import dev.miyado.shogisupplement.engine.PvInfo
 import dev.miyado.shogisupplement.engine.StudyEngine
 import dev.miyado.shogisupplement.notation.JapaneseNotation
@@ -21,9 +22,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-
-/** 解析予算は 200,000 nodes。 */
-private const val STUDY_ANALYSIS_NODES = 200_000
 
 private const val STUDY_LOCAL_ENGINE_POLL_INTERVAL_MS = 2_000L
 
@@ -346,7 +344,8 @@ class StudyController(
                 val pvs = engine.analyzeSfen(
                     baseSfen,
                     moves,
-                    nodes = STUDY_ANALYSIS_NODES,
+                    // 対話的解析も保存済み解析と同じ基準を使う。
+                    nodes = EngineInvariants.NODES,
                     multiPv = Engine.STUDY_MULTI_PV,
                 )
                 if (pvs.isEmpty()) terminalEvalLabel(baseSfen, moves, flip)

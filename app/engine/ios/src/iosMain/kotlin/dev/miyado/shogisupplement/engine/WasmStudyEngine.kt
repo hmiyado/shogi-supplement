@@ -19,7 +19,8 @@ class WasmStudyEngine : Engine {
     override fun analyze(moves: List<String>, nodes: Int): List<PvInfo> =
         analyzeSfen(ShogiBoard().toSfen(), moves, nodes)
 
-    // nodes: study-worker.js が本番不変条件のノード数を自前で固定するため受け取っても使わない。
+    // nodes: study-worker.js が EngineInvariants.DRILL_SECONDARY_NODES (=400k) を固定するため、
+    // 受け取っても使わない。
     override fun analyzeSfen(sfen: String, additionalMoves: List<String>, nodes: Int, multiPv: Int): List<PvInfo> {
         val start = WasmStudyBridge.analyzeHandler
             ?: throw WasmAnalysisException("常駐WKWebViewホスト（WasmStudyHost）が未初期化です")

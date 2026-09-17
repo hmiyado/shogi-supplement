@@ -4,6 +4,7 @@ import dev.miyado.shogisupplement.blunder.Score
 import dev.miyado.shogisupplement.board.ShogiBoard
 import dev.miyado.shogisupplement.engine.BlockingStudyEngine
 import dev.miyado.shogisupplement.engine.Engine
+import dev.miyado.shogisupplement.engine.EngineInvariants
 import dev.miyado.shogisupplement.engine.PvInfo
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -55,11 +56,14 @@ class StudyControllerTest {
     private class MultiPvEngine(private val pvs: List<Pair<Score, String>>) : Engine {
         var requestedMultiPv: Int? = null
             private set
+        var requestedNodes: Int? = null
+            private set
 
         override fun analyze(moves: List<String>, nodes: Int): List<PvInfo> = emptyList()
 
         override fun analyzeSfen(sfen: String, additionalMoves: List<String>, nodes: Int, multiPv: Int): List<PvInfo> {
             requestedMultiPv = multiPv
+            requestedNodes = nodes
             return pvs.take(multiPv).mapIndexed { index, (score, usi) ->
                 PvInfo(multipv = index + 1, score = score, pv = listOf(usi), nodes = 0L)
             }
@@ -720,6 +724,7 @@ class StudyControllerTest {
         controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 6))
 
         assertEquals(Engine.STUDY_MULTI_PV, engine.requestedMultiPv)
+        assertEquals(EngineInvariants.NODES, engine.requestedNodes)
         val value = assertIs<StudyEvalState.Value>(controller.studyState.value?.evalState)
         assertEquals(listOf("3c3d", "8c8d", "4a3b"), value.candidates.map { it.moveUsi })
         assertEquals(value.label, value.candidates.first().label, "先頭の候補手は局面の評価と同じ")

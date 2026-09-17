@@ -27,6 +27,7 @@ import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.drill.DrillJudge
 import dev.miyado.shogisupplement.drill.EngineDrillSecondaryJudge
 import dev.miyado.shogisupplement.engine.Engine
+import dev.miyado.shogisupplement.engine.EngineInvariants
 import dev.miyado.shogisupplement.engine.UsiEngineProcess
 import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.ShogiThinTopBar
@@ -48,7 +49,13 @@ private fun androidJudgeWithEngine(context: Context): suspend (BlunderRecord, St
             val evalDir = File(appContext.filesDir, "eval")
             val engine = UsiEngineProcess.create(appInfo, evalDir)
             try {
-                EngineDrillSecondaryJudge { sfen -> engine.analyzeSfen(sfen) }.judge(blunder, userMoveUsi)
+                EngineDrillSecondaryJudge { sfen ->
+                    engine.analyzeSfen(
+                        sfen,
+                        nodes = EngineInvariants.DRILL_SECONDARY_NODES,
+                        multiPv = EngineInvariants.DRILL_SECONDARY_MULTI_PV,
+                    )
+                }.judge(blunder, userMoveUsi)
             } finally {
                 engine.quit()
             }
