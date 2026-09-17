@@ -43,7 +43,7 @@ v9.40 の固定コミット `717da871e7a620702b8b9433bd8f9f181710435a` と、`YA
 | macOS arm64 ネイティブ | ビルド成功。`TARGET_CPU="APPLEM1"` と macOS target を指定した再ビルドも成功 | 一時成果物 `YaneuraOu-NNUE-m1`。旧 SHA-256 `8ca6eb694904acaa03406fa8c61cf6b8aa9ee9f5b43b0b2b8e938b91997894de`、新 SHA-256 `cf0e887643028987f753d85a0e2fec56377fb28902700dcbcb741e32d8e04074` |
 | iOS simulator/device | 静的ライブラリのビルド成功 | `build_ios.sh sim/device` |
 | Android arm64-v8a | ビルド成功 | SHA-256 `33574c5f5c4bc6d043cb1239b9acc7d85a55e86f747d097d8ab3274dc0bca58d` |
-| Linux x86_64 | 既存 ELF 成果物を確認 | Docker daemon が利用できず、この環境での実行比較は未実施 |
+| Linux x86_64 | 既存 ELF 成果物を確認。native x86_64での実行は未実施 | Apple Siliconのamd64 emulation試行は下記のとおり失敗 |
 
 再現条件は、Apple clang `21.0.0 (clang-2100.1.1.101)` と、固定コミット・ソース一覧・コンパイル条件を検証する `app/iosApp/engine/build_yaneura_v940_native.sh` を使うものとした。出力先を指定して `app/iosApp/engine/build_yaneura_v940_native.sh <output-dir>` を実行し、生成された新バイナリと既存の旧バイナリへ次の USI 入力を送る。`REPO_ROOT` は checkout のルートを指す。評価関数ファイルの SHA-256 は `1141d275bceec911156801f27303dc9ff5beb24f4f59144cc069306c59e80782` である。
 
@@ -68,6 +68,22 @@ printf '%s\n' \
 実行時確認では、旧 V7.00 macOS arm64 バイナリは評価関数を読み込み `readyok` に到達した。一方、v9.40 macOS arm64 バイナリは評価関数のロード開始メッセージを返したが、プロセス起動から 90 秒以内に `readyok` へ到達しなかった。この観測だけでは評価関数の非互換性までは確定できないため、v9.40 は現行評価関数での実行時互換性が未確認で、採用可能とは判定しない。
 
 この結果により、完遂時の受入条件 2 はビルド範囲に限って前進した。条件 3（解析キャッシュ・保存結果・同期結果への来歴付与、旧クライアントとロールバック対応）、条件 4（全プラットフォームの parity と実行時互換性）、条件 5（強さ・性能）、条件 6（較正）、条件 7（実機・混在環境）は未完了である。
+
+## 2026-09-17 の追加確認（Linux worker image）
+
+Docker daemonの稼働を確認し、既存の `shogi-supplement-worker-v940:check` imageを調べた。このimageは image ID `sha256:1a3449fc31fa2747d4a06f651ad99790779fb7fe57620cf6d75435d15eee0585` の `linux/amd64` で、`ENGINE_REV=v9.40@717da871e7a620702b8b9433bd8f9f181710435a` と上記の評価関数SHAを持つ。image内の `/opt/engine/yaneuraou` を、次のコマンドでUSI起動した。
+
+```sh
+printf '%s\n' 'usi' 'setoption name USI_OwnBook value false' \
+  'setoption name Threads value 1' 'setoption name USI_Hash value 128' \
+  'setoption name MultiPV value 2' 'setoption name NetworkDelay value 0' \
+  'setoption name NetworkDelay2 value 0' 'isready' 'quit' \
+  | timeout 120 docker run --rm -i --platform linux/amd64 \
+      --entrypoint /opt/engine/yaneuraou \
+      sha256:1a3449fc31fa2747d4a06f651ad99790779fb7fe57620cf6d75435d15eee0585
+```
+
+入力は `usi` から `isready`、`quit` まで送った。Apple Silicon上のamd64エミュレーションでは、エンジン起動直後に `qemu: uncaught target signal 4 (Illegal instruction)` となり、`usiok`/`readyok`へ到達しなかった。Docker clientはtimeout後も終了しなかったため、対象プロセスを手動停止した（shellの終了状態は143）。これはエンジンと評価関数の互換性を示す実行結果ではなく、エミュレーションCPUの命令セット制約である。したがって、Linux native x86_64または同等の命令セットを提供する実行環境での再確認が必要であり、#101の受入条件 4〜7は未完了のままとする。
 
 参照:
 
