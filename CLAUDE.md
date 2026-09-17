@@ -23,3 +23,7 @@ QA・レビュー時は DESIGN.md に合わない実装をフラグする。
 
 バージョンを出すときは app/docs/release-checklist.md に従う。
 バージョン名・ビルド番号の値源は app/gradle.properties だけ。
+
+## Issue管理
+
+- `shogi-supplement` ではGitHub issueを新規作成しない。
