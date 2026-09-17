@@ -64,6 +64,9 @@ class SupabaseGameDownloadServiceTest {
     ) : GameRepository {
         val uploadedAtCalls = mutableListOf<Long>()
 
+        override fun saveAnalysisAtomically(request: GameRepository.AnalysisSaveRequest): Long =
+            error("not used by SupabaseGameDownloadService")
+
         override fun saveAnalysis(
             fileName: String, contentHash: String, moves: List<String>, headers: Map<String, String>,
             reports: List<BlunderReport>, rating: Int, ratingSampleMoves: Int?, coefVersion: String,

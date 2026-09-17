@@ -14,6 +14,55 @@ import kotlinx.serialization.json.Json
 /** 棋譜・悪手レポート・局面評価値のDB永続化リポジトリ（[GameRepository]のSQLDelight実装）。 */
 class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : GameRepository {
 
+    /**
+     * game・悪手・局面評価を同じSQLDelightトランザクションに含める。
+     * saveAnalysis側のトランザクションはSQLDelightのネストしたトランザクションとして
+     * 外側へ参加するため、局面評価の挿入失敗時も解析本体を残さない。
+     */
+    override fun saveAnalysisAtomically(request: GameRepository.AnalysisSaveRequest): Long =
+        database.transactionWithResult {
+            val gameId = saveAnalysis(
+                fileName = request.fileName,
+                contentHash = request.contentHash,
+                moves = request.moves,
+                headers = request.headers,
+                reports = request.reports,
+                rating = request.rating,
+                ratingSampleMoves = request.ratingSampleMoves,
+                coefVersion = request.coefVersion,
+                analyzedAt = request.analyzedAt,
+                kifText = request.kifText,
+                userSide = request.userSide,
+                ratingService = request.ratingService,
+                ratingRaw = request.ratingRaw,
+                ratingRule = request.ratingRule,
+                ratingDeclaredAt = request.ratingDeclaredAt,
+                sourcePlace = request.sourcePlace,
+                gameWinner = request.gameWinner,
+                endReason = request.endReason,
+                openingStyle = request.openingStyle,
+                openingCastle = request.openingCastle,
+                openingTags = request.openingTags,
+                senteRating = request.senteRating,
+                goteRating = request.goteRating,
+                timeControlRaw = request.timeControlRaw,
+                timeControlByoyomiRaw = request.timeControlByoyomiRaw,
+            )
+            request.positionEvalRows.forEach { row ->
+                database.shogiSupplementQueries.insertPositionEval(
+                    game_id = gameId,
+                    ply = row.ply.toLong(),
+                    score_cp = row.scoreCp?.toLong(),
+                    mate_in = row.mateIn?.toLong(),
+                    best_usi = row.bestUsi,
+                    second_score_cp = row.secondScoreCp?.toLong(),
+                    second_mate_in = row.secondMateIn?.toLong(),
+                    second_usi = row.secondUsi,
+                )
+            }
+            gameId
+        }
+
     override fun savePendingGame(
         fileName: String,
         contentHash: String,

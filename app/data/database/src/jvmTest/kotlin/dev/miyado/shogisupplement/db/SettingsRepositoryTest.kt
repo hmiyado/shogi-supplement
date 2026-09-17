@@ -94,13 +94,14 @@ class SettingsRepositoryTest {
         val repo = newRepository()
         val first = SavedGameFilter(name = "ウォーズ", source = "wars", periodDays = 7)
         val updated = first.copy(timeControl = "10分", periodDays = 30)
-        val second = SavedGameFilter(name = "後手", userSide = "gote")
+        val second = SavedGameFilter(name = "後手", userSide = "gote", periodDays = null)
 
         assertEquals(emptyList(), repo.getSavedGameFilters())
         repo.saveGameFilter(first)
         repo.saveGameFilter(second)
         repo.saveGameFilter(updated)
         assertEquals(listOf(updated, second), repo.getSavedGameFilters())
+        assertEquals(null, repo.getSavedGameFilters().last().periodDays)
 
         repo.deleteGameFilter("ウォーズ")
         assertEquals(listOf(second), repo.getSavedGameFilters())

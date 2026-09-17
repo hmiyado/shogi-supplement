@@ -261,9 +261,13 @@ fun GameListScreen(
             onClear = {
                 filter = GameListFilter()
                 draftFilter = GameListFilter()
+                filterNameToEdit = null
                 showFilterSheet = false
             },
-            onDismiss = { showFilterSheet = false },
+            onDismiss = {
+                filterNameToEdit = null
+                showFilterSheet = false
+            },
             savedFilters = localSavedFilters,
             onSelectSavedFilter = { saved ->
                 val current = saved.currentFilter(currentEpochSeconds())
@@ -284,6 +288,7 @@ fun GameListScreen(
             },
             onDeleteSavedFilter = { name ->
                 localSavedFilters = localSavedFilters.filterNot { it.name == name }
+                if (filterNameToEdit == name) filterNameToEdit = null
                 onDeleteSavedFilter?.invoke(name)
             },
         )

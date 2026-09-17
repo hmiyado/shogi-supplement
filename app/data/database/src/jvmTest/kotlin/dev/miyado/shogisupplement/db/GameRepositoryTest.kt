@@ -7,6 +7,7 @@ import dev.miyado.shogisupplement.judge.VerdictKind
 import dev.miyado.shogisupplement.pipeline.BlunderReport
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -623,6 +624,45 @@ class GameRepositoryTest {
         assertEquals(2, restored[2].ply)
         assertNull(restored[2].scoreCp)
         assertEquals(3, restored[2].mateIn)
+    }
+
+    @Test
+    fun `解析本体とposition_evalはposition_eval失敗時にまとめてロールバックされる`() {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        ShogiSupplementDatabase.Schema.create(driver)
+        driver.execute(
+            null,
+            """
+            CREATE TRIGGER fail_position_eval
+            BEFORE INSERT ON position_eval
+            WHEN NEW.best_usi = 'RAISE'
+            BEGIN
+                SELECT RAISE(ABORT, 'injected position_eval failure');
+            END;
+            """.trimIndent(),
+            0,
+        )
+        val repo = SqlDelightGameRepository(ShogiSupplementDatabase(driver))
+
+        assertFailsWith<Exception> {
+            repo.saveAnalysisAtomically(
+                GameRepository.AnalysisSaveRequest(
+                    fileName = "atomic.kif",
+                    contentHash = "hash-atomic-failure",
+                    moves = listOf("7g7f"),
+                    headers = emptyMap(),
+                    reports = emptyList(),
+                    rating = 1750,
+                    coefVersion = "hao_v1",
+                    positionEvalRows = listOf(
+                        PositionEvalRow(ply = 0, scoreCp = null, mateIn = null, bestUsi = "RAISE"),
+                    ),
+                ),
+            )
+        }
+
+        assertNull(repo.getByHash("hash-atomic-failure"))
+        assertTrue(repo.getAllGames().isEmpty())
     }
 
     @Test

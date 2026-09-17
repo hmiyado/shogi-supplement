@@ -267,6 +267,7 @@ object AppStrings {
     const val GAME_LIST_FILTER_OTHER = "その他"
     const val GAME_LIST_FILTER_PERIOD_7D = "直近7日"
     const val GAME_LIST_FILTER_PERIOD_30D = "直近30日"
+    const val GAME_LIST_FILTER_PERIOD_ALL = "全期間"
     const val GAME_LIST_FILTER_CLEAR = "絞り込みを解除"
     fun gameListFilteredCount(shown: Int, total: Int): String = "${shown} / ${total}件"
     fun gameListTotalCount(total: Int): String = "${total}件"
@@ -290,7 +291,11 @@ object AppStrings {
     const val GAME_LIST_FILTER_COMPARE_PREVIOUS = "前期"
     const val GAME_LIST_FILTER_COMPARE_GAMES = "対局数"
     const val GAME_LIST_FILTER_COMPARE_CLOSE = "閉じる"
-    fun gameListSavedFilterPeriod(days: Int): String = if (days == 7) GAME_LIST_FILTER_PERIOD_7D else GAME_LIST_FILTER_PERIOD_30D
+    fun gameListSavedFilterPeriod(days: Int?): String = when (days) {
+        null -> GAME_LIST_FILTER_PERIOD_ALL
+        7 -> GAME_LIST_FILTER_PERIOD_7D
+        else -> GAME_LIST_FILTER_PERIOD_30D
+    }
 
     /** 絞り込んだ集合の成績。割合が独り歩きしないよう分母を必ず併記する。 */
     fun gameListSummaryWinRate(pct: Int, wins: Int, decided: Int): String =

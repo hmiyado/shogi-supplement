@@ -387,6 +387,10 @@ class SqlDelightSettingsRepository(private val database: ShogiSupplementDatabase
     }
 
     private companion object {
-        val savedFilterJson = Json { ignoreUnknownKeys = true }
+        // nullの「期間なし」をJSONへ明示的に書き、期間項目がないJSONは既定30日で復元する。
+        val savedFilterJson = Json {
+            ignoreUnknownKeys = true
+            encodeDefaults = true
+        }
     }
 }

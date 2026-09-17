@@ -6,6 +6,36 @@ import dev.miyado.shogisupplement.util.currentEpochSeconds
 /** 棋譜・悪手レポート・局面評価の永続化。 */
 interface GameRepository {
 
+    /** 解析結果を一括して永続化するための入力。 */
+    data class AnalysisSaveRequest(
+        val fileName: String,
+        val contentHash: String,
+        val moves: List<String>,
+        val headers: Map<String, String>,
+        val reports: List<BlunderReport>,
+        val rating: Int,
+        val ratingSampleMoves: Int? = null,
+        val coefVersion: String,
+        val analyzedAt: Long = currentEpochSeconds(),
+        val kifText: String? = null,
+        val userSide: String? = null,
+        val ratingService: String? = null,
+        val ratingRaw: Long? = null,
+        val ratingRule: String? = null,
+        val ratingDeclaredAt: Long? = null,
+        val sourcePlace: String? = null,
+        val gameWinner: String? = null,
+        val endReason: String? = null,
+        val openingStyle: String? = null,
+        val openingCastle: String? = null,
+        val openingTags: String? = null,
+        val senteRating: Long? = null,
+        val goteRating: Long? = null,
+        val timeControlRaw: String? = null,
+        val timeControlByoyomiRaw: String? = null,
+        val positionEvalRows: List<PositionEvalRow> = emptyList(),
+    )
+
     fun savePendingGame(
         fileName: String,
         contentHash: String,
@@ -56,6 +86,9 @@ interface GameRepository {
         timeControlRaw: String? = null,
         timeControlByoyomiRaw: String? = null,
     ): Long
+
+    /** 解析本体と派生した局面評価を同一トランザクションで保存する。 */
+    fun saveAnalysisAtomically(request: AnalysisSaveRequest): Long
 
     /**
      * デモ/開発用フィクスチャ投入ヘルパー（iOSデモのドリルブートストラップ用）。

@@ -74,6 +74,7 @@ private const val SECONDS_PER_DAY = 24L * 60 * 60
 
 // 見出し・ボタン行・シート上下の余白がウィンドウに必ず残る配分。
 private const val AXES_MAX_HEIGHT_FRACTION = 0.5f
+private const val SAVED_FILTERS_MAX_HEIGHT_FRACTION = 0.3f
 
 /** 棋譜一覧の絞り込みヘッダー。条件の詳細を常設せず、行高を固定してno-jitterを保つ。 */
 @Composable
@@ -205,6 +206,9 @@ fun GameListFilterSheet(
     val maxAxesHeight = with(LocalDensity.current) {
         LocalWindowInfo.current.containerSize.height.toDp() * AXES_MAX_HEIGHT_FRACTION
     }
+    val maxSavedFiltersHeight = with(LocalDensity.current) {
+        LocalWindowInfo.current.containerSize.height.toDp() * SAVED_FILTERS_MAX_HEIGHT_FRACTION
+    }
     // 既定の半開きだと軸が5本を超えた時点でボタン行がシートの外に出る。全開で開く。
     ModalBottomSheet(
         modifier = Modifier.exposeTestTags(),
@@ -221,6 +225,9 @@ fun GameListFilterSheet(
             SavedGameFilterSection(
                 savedFilters = savedFilters,
                 allGames = allGames,
+                modifier = Modifier
+                    .heightIn(max = maxSavedFiltersHeight)
+                    .verticalScroll(rememberScrollState()),
                 onSelect = onSelectSavedFilter,
                 onEdit = onEditSavedFilter,
                 onDelete = onDeleteSavedFilter,
@@ -275,11 +282,12 @@ fun GameListFilterSheet(
 private fun SavedGameFilterSection(
     savedFilters: List<SavedGameFilter>,
     allGames: List<GameRecord>,
+    modifier: Modifier = Modifier,
     onSelect: (SavedGameFilter) -> Unit,
     onEdit: (SavedGameFilter) -> Unit,
     onDelete: (String) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             AppStrings.GAME_LIST_SAVED_FILTERS,
             style = MaterialTheme.typography.titleMedium,
@@ -374,7 +382,7 @@ internal fun SavedGameFilterComparisonSheet(
     onDismiss: () -> Unit,
 ) {
     val now = remember(saved) { currentEpochSeconds() }
-    val days = saved.periodDays.coerceAtLeast(1).toLong()
+    val days = (saved.periodDays ?: SavedGameFilter.DEFAULT_PERIOD_DAYS).coerceAtLeast(1).toLong()
     val current = games.filterGames(saved.conditionFilter().copy(dateFrom = now - days * SECONDS_PER_DAY))
     val previous = games.filterGames(
         saved.conditionFilter().copy(
@@ -389,7 +397,7 @@ internal fun SavedGameFilterComparisonSheet(
         ) {
             Text(saved.name, style = MaterialTheme.typography.headlineSmall)
             Text(
-                "${AppStrings.GAME_LIST_FILTER_COMPARE_TITLE}・${AppStrings.gameListSavedFilterPeriod(saved.periodDays)}",
+                "${AppStrings.GAME_LIST_FILTER_COMPARE_TITLE}・${AppStrings.gameListSavedFilterPeriod(days.toInt())}",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.shogiColors.ink2,
             )

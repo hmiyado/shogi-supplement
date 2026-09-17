@@ -21,15 +21,21 @@ class SavedGameFilterTest {
     }
 
     @Test
-    fun `7日条件を保存形式へ戻し、それ以外は30日へ丸める`() {
+    fun `期間条件を保存形式へ戻し、期間なしは期間なしを保つ`() {
         val now = 1_000_000L
         assertEquals(
             7,
             SavedGameFilter.fromFilter("7日", GameListFilter(dateFrom = now - 7 * 86_400L), now).periodDays,
         )
         assertEquals(
-            30,
+            null,
             SavedGameFilter.fromFilter("全期間", GameListFilter(), now).periodDays,
         )
+    }
+
+    @Test
+    fun `期間なしの保存条件は再適用時にも全期間になる`() {
+        val saved = SavedGameFilter(name = "全期間", periodDays = null)
+        assertEquals(GameListFilter(), saved.currentFilter(now = 1_000_000L))
     }
 }

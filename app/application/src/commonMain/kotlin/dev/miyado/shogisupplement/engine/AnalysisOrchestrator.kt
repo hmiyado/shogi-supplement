@@ -120,7 +120,7 @@ class AnalysisOrchestrator(
             // 選択肢を作るため、「未分類」を保存すると選べる項目として出てしまう。
             fun classified(value: String?): String? = value?.takeIf { it != OpeningClassifier.UNCLASSIFIED }
 
-            val gameId = repository.saveAnalysis(
+            val saveRequest = GameRepository.AnalysisSaveRequest(
                 fileName = fileName,
                 contentHash = effectiveContentHash,
                 moves = game.moves,
@@ -182,7 +182,9 @@ class AnalysisOrchestrator(
                     )
                 }
             }
-            repository.savePositionEvals(gameId, positionEvalRows)
+            val gameId = repository.saveAnalysisAtomically(
+                saveRequest.copy(positionEvalRows = positionEvalRows),
+            )
 
             Outcome.Completed(gameId, alreadyExisted = false)
         } catch (e: kotlinx.coroutines.CancellationException) {

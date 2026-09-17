@@ -26,6 +26,8 @@ class ReportViewModelStudyResetTest {
     }
 
     private class FakeGameRepository : GameRepository {
+        override fun saveAnalysisAtomically(request: GameRepository.AnalysisSaveRequest): Long = 0
+
         override fun saveAnalysis(
             fileName: String,
             contentHash: String,
