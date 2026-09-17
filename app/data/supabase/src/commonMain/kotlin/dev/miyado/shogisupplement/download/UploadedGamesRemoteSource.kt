@@ -5,6 +5,7 @@ import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Order
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
 
 internal const val UPLOADED_GAMES_TABLE = "uploaded_games"
 private const val PAGE_SIZE = 200L
@@ -61,6 +62,7 @@ internal data class UploadedGameRow(
     @SerialName("estimated_rating") val estimatedRating: Int? = null,
     @SerialName("coef_version") val coefVersion: String? = null,
     @SerialName("analysis_json") val analysisJson: List<BlunderReportJson>? = null,
+    @SerialName("engine_meta") val engineMeta: JsonElement? = null,
 )
 
 /**

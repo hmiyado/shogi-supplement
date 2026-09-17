@@ -54,6 +54,7 @@ class ReportViewModelStudyResetTest {
             goteRating: Long?,
             timeControlRaw: String?,
             timeControlByoyomiRaw: String?,
+            engineMetaJson: String?,
         ): Long = 0
 
         override fun seedFixtureBlunder(

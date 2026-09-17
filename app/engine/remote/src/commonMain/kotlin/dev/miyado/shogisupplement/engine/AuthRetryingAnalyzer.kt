@@ -14,7 +14,7 @@ class AuthRetryingAnalyzer(
         moves: List<String>,
         onPositionResult: ((ply: Int, pvs: List<PvInfo>) -> Unit)?,
         onProgress: ((done: Int, total: Int) -> Unit)?,
-    ): List<List<PvInfo>> {
+    ): GameAnalysisResult {
         return try {
             delegate.analyzeGame(moves, onPositionResult, onProgress)
         } catch (e: RemoteAnalysisException.Unauthorized) {

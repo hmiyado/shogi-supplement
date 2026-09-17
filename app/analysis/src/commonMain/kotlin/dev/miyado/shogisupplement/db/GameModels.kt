@@ -55,6 +55,8 @@ data class GameRecord(
     val timeControlRaw: String? = null,
     /** KIF「秒読み」ヘッダの原文。ヘッダが無ければnull。 */
     val timeControlByoyomiRaw: String? = null,
+    /** 解析に使ったエンジン条件のJSON。来歴を取得できないデータはnull。 */
+    val engineMetaJson: String? = null,
 )
 
 /** 悪手レポートのドメインモデル（UI用）。 */

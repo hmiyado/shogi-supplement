@@ -129,7 +129,17 @@ fun Application.module(config: WorkerConfig) {
                 fvScale = EngineInvariants.FV_SCALE,
             )
         },
-        cacheKeyPrefix = "${config.engineRev}|${config.evalSha256}",
+        // エンジン成果物だけでなく、結果を変えうる実行条件もキーへ含める。
+        // nodes等が異なる条件の結果を、同じrev/evalの結果として返さないため。
+        cacheKeyPrefix = buildString {
+            append(config.engineRev)
+            append('|').append(config.evalSha256)
+            append("|nodes=").append(EngineInvariants.NODES)
+            append("|threads=").append(EngineInvariants.THREADS)
+            append("|multi_pv=").append(EngineInvariants.MULTI_PV)
+            append("|usi_hash=").append(EngineInvariants.USI_HASH_MB)
+            append("|fv_scale=").append(EngineInvariants.FV_SCALE)
+        },
         analysisWorkers = config.analysisWorkers,
         positionDailyLimit = config.analysisPositionDailyLimit,
         staleRunningTimeoutMs = config.staleRunningTimeoutMs,

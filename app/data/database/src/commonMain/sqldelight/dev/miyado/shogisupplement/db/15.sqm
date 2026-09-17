@@ -1,0 +1,1 @@
+ALTER TABLE game ADD COLUMN engine_meta_json TEXT;

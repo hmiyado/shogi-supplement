@@ -62,6 +62,7 @@ class GameRepositoryTest {
             rating = 1750,
             coefVersion = "hao_v1",
             analyzedAt = 1_780_000_000L,
+            engineMetaJson = "{\"engine_rev\":\"rev\",\"nodes\":400000}",
         )
         assertTrue(gameId > 0)
 
@@ -74,6 +75,7 @@ class GameRepositoryTest {
         assertEquals("匿名", game.goteName)
         assertEquals(1750L, game.rating)
         assertEquals("hao_v1", game.coefVersion)
+        assertEquals("{\"engine_rev\":\"rev\",\"nodes\":400000}", game.engineMetaJson)
         assertEquals(1_780_000_000L, game.analyzedAt)
 
         val reports = repo.getReports(gameId)

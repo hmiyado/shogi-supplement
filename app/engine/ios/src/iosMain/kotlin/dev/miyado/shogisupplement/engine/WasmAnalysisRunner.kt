@@ -14,7 +14,7 @@ class WasmAnalysisRunner : GameAnalyzer {
         moves: List<String>,
         onPositionResult: ((ply: Int, pvs: List<PvInfo>) -> Unit)?,
         onProgress: ((done: Int, total: Int) -> Unit)?,
-    ): List<List<PvInfo>> {
+    ): GameAnalysisResult {
         val start = WasmAnalysisBridge.startHandler
             ?: throw WasmAnalysisException("WKWebViewホスト（WasmAnalysisHost）が未初期化です")
 
@@ -32,7 +32,7 @@ class WasmAnalysisRunner : GameAnalyzer {
                     done += 1
                     onProgress?.invoke(done, total)
                 },
-                onDone = { cont.resume(results.map { it ?: emptyList() }) },
+                onDone = { cont.resume(GameAnalysisResult(positions = results.map { it ?: emptyList() })) },
                 onError = { message -> cont.resumeWithException(WasmAnalysisException(message)) },
             )
             cont.invokeOnCancellation {

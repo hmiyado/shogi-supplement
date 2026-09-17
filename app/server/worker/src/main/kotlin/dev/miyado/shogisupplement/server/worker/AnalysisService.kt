@@ -295,7 +295,7 @@ class AnalysisService(
             crashReporter = NoopCrashReporter,
             engineFactory = engineFactory,
         )
-        val allPv: List<List<PvInfo>> = runner.analyzeGame(
+        val analyzed = runner.analyzeGame(
             input.movesUsi,
             // プログレッシブ解析表示向けの局面単位イベント。並列ワーカーの完了順のまま
             // ply順に揃えず送る（クライアント側のin-order watermarkアキュムレータが
@@ -308,7 +308,7 @@ class AnalysisService(
             emitLine(json.encodeToString(ProgressJson(done, total)) + "\n")
         }
         return AnalysisResultJson(
-            result = allPv.map { pvList -> pvList.map { it.toJson() } },
+            result = analyzed.positions.map { pvList -> pvList.map { it.toJson() } },
             engineMeta = engineMetaProvider(EngineInvariants.MULTI_PV),
         )
     }

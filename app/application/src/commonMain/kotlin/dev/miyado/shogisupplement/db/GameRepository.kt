@@ -33,6 +33,7 @@ interface GameRepository {
         val goteRating: Long? = null,
         val timeControlRaw: String? = null,
         val timeControlByoyomiRaw: String? = null,
+        val engineMetaJson: String? = null,
         val positionEvalRows: List<PositionEvalRow> = emptyList(),
     )
 
@@ -85,6 +86,7 @@ interface GameRepository {
         goteRating: Long? = null,
         timeControlRaw: String? = null,
         timeControlByoyomiRaw: String? = null,
+        engineMetaJson: String? = null,
     ): Long
 
     /** 解析本体と派生した局面評価を同一トランザクションで保存する。 */

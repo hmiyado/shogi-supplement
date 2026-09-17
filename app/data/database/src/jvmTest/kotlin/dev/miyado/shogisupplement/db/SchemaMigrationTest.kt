@@ -7,6 +7,7 @@ import dev.miyado.shogisupplement.judge.VerdictKind
 import dev.miyado.shogisupplement.pipeline.BlunderReport
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 /** version 1の実スキーマから最新までの移行と公開APIの往復を検証する。 */
 class SchemaMigrationTest {
@@ -173,7 +174,9 @@ class SchemaMigrationTest {
         )
 
         val repo = SqlDelightGameRepository(ShogiSupplementDatabase(driver))
-        assertEquals(GameAnalysisStatus.COMPLETED, repo.getGameById(1)!!.analysisStatus)
+        val migratedGame = repo.getGameById(1)!!
+        assertEquals(GameAnalysisStatus.COMPLETED, migratedGame.analysisStatus)
+        assertNull(migratedGame.engineMetaJson)
         val gameId = repo.saveAnalysis(
             fileName = "legacy.kif",
             contentHash = "legacy-hash",

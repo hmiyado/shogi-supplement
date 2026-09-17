@@ -47,6 +47,7 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
                 goteRating = request.goteRating,
                 timeControlRaw = request.timeControlRaw,
                 timeControlByoyomiRaw = request.timeControlByoyomiRaw,
+                engineMetaJson = request.engineMetaJson,
             )
             request.positionEvalRows.forEach { row ->
                 database.shogiSupplementQueries.insertPositionEval(
@@ -111,6 +112,7 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
             gote_rating = goteRating,
             time_control_raw = timeControlRaw,
             time_control_byoyomi_raw = timeControlByoyomiRaw,
+            engine_meta_json = null,
         )
         database.shogiSupplementQueries.getLastInsertRowId().executeAsOne()
     }
@@ -141,6 +143,7 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
         goteRating: Long?,
         timeControlRaw: String?,
         timeControlByoyomiRaw: String?,
+        engineMetaJson: String?,
     ): Long {
         // 全局面の SFEN を事前計算: sfenAtPly[i] = i 手目を指す直前の局面
         val sfenAtPly = buildSfenSequence(moves)
@@ -181,6 +184,7 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
                     gote_rating = goteRating,
                     time_control_raw = timeControlRaw,
                     time_control_byoyomi_raw = timeControlByoyomiRaw,
+                    engine_meta_json = engineMetaJson,
                 )
             } else {
                 database.shogiSupplementQueries.completePendingGame(
@@ -209,6 +213,7 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
                     gote_rating = goteRating,
                     time_control_raw = timeControlRaw,
                     time_control_byoyomi_raw = timeControlByoyomiRaw,
+                    engine_meta_json = engineMetaJson,
                     id = pendingId,
                 )
             }
@@ -291,6 +296,7 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
                 gote_rating = null,
                 time_control_raw = null,
                 time_control_byoyomi_raw = null,
+                engine_meta_json = null,
             )
             val gameId = database.shogiSupplementQueries.getLastInsertRowId().executeAsOne()
 
@@ -519,6 +525,7 @@ internal fun Game.toGameRecord() = GameRecord(
     goteRating = gote_rating,
     timeControlRaw = time_control_raw,
     timeControlByoyomiRaw = time_control_byoyomi_raw,
+    engineMetaJson = engine_meta_json,
 )
 
 /** user_sideがNULLでないことをSQL条件に含むクエリの生成型は専用型になるため、同じドメイン変換を明示する。 */
@@ -554,6 +561,7 @@ internal fun GetGamesWithUserSide.toGameRecord() = GameRecord(
     goteRating = gote_rating,
     timeControlRaw = time_control_raw,
     timeControlByoyomiRaw = time_control_byoyomi_raw,
+    engineMetaJson = engine_meta_json,
 )
 
 internal fun Blunder_report.toBlunderRecord() = BlunderRecord(

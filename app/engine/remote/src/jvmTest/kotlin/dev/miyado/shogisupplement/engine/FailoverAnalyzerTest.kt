@@ -12,7 +12,7 @@ import kotlin.test.assertTrue
 class FailoverAnalyzerTest {
 
     /** 呼び出しごとに [responses] を先頭から1つずつ消費して返す/投げる GameAnalyzer。 */
-    private class ScriptedAnalyzer(private val responses: List<() -> List<List<PvInfo>>>) : GameAnalyzer {
+    private class ScriptedAnalyzer(private val responses: List<() -> GameAnalysisResult>) : GameAnalyzer {
         var callCount: Int = 0
             private set
 
@@ -20,14 +20,16 @@ class FailoverAnalyzerTest {
             moves: List<String>,
             onPositionResult: ((ply: Int, pvs: List<PvInfo>) -> Unit)?,
             onProgress: ((done: Int, total: Int) -> Unit)?,
-        ): List<List<PvInfo>> {
+        ): GameAnalysisResult {
             val response = responses[callCount]
             callCount++
             return response()
         }
     }
 
-    private val fakeResult = listOf(listOf(PvInfo(multipv = 1, score = Score.Cp(0), pv = emptyList(), nodes = 0L)))
+    private val fakeResult = GameAnalysisResult(
+        positions = listOf(listOf(PvInfo(multipv = 1, score = Score.Cp(0), pv = emptyList(), nodes = 0L))),
+    )
 
     @Test
     fun `429クォータ超過ならフォールバックが発動する`() = runBlocking {

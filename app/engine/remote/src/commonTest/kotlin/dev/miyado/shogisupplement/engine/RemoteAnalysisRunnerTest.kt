@@ -88,7 +88,7 @@ class RemoteAnalysisRunnerTest {
                 }
             }
 
-            assertEquals(1, result.size)
+            assertEquals(1, result.positions.size)
         }
     }
 
@@ -110,11 +110,14 @@ class RemoteAnalysisRunnerTest {
         }
 
         assertEquals(listOf(1 to 2, 2 to 2), progressEvents)
-        assertEquals(1, result.size)
-        assertEquals(2, result[0].size)
-        assertEquals(30, (result[0][0].score as Score.Cp).value)
-        assertEquals(listOf("7g7f"), result[0][0].pv)
-        assertEquals(-3, (result[0][1].score as Score.Mate).plies)
+        assertEquals(1, result.positions.size)
+        assertEquals(2, result.positions[0].size)
+        assertEquals(30, (result.positions[0][0].score as Score.Cp).value)
+        assertEquals(listOf("7g7f"), result.positions[0][0].pv)
+        assertEquals(-3, (result.positions[0][1].score as Score.Mate).plies)
+        assertEquals("rev", result.engineMeta?.engineRev)
+        assertEquals(400000, result.engineMeta?.nodes)
+        assertEquals(2, result.engineMeta?.multiPv)
     }
 
     // ─── position行（プログレッシブ解析表示向けの局面単位中間結果） ──────────────
@@ -147,7 +150,7 @@ class RemoteAnalysisRunnerTest {
                 )
             }
 
-            assertEquals(1, result.size)
+            assertEquals(1, result.positions.size)
         }
     }
 
@@ -249,7 +252,7 @@ class RemoteAnalysisRunnerTest {
         val result = runner(HttpClient(engine)).analyzeGame(listOf("7g7f"))
 
         assertEquals(2, attempt)
-        assertEquals(10, (result[0][0].score as Score.Cp).value)
+        assertEquals(10, (result.positions[0][0].score as Score.Cp).value)
     }
 
     @Test

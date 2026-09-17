@@ -33,7 +33,8 @@ CREATE TABLE game (
     -- KIF「持ち時間」「秒読み」ヘッダの原文（表記はサービスにより異なる）。
     -- ヘッダが無ければNULL。表示ラベルへの変換は表示側（対局サービス依存）で行う。
     time_control_raw TEXT,
-    time_control_byoyomi_raw TEXT
+    time_control_byoyomi_raw TEXT,
+    engine_meta_json TEXT
 );
 
 CREATE TABLE blunder_report (
@@ -108,8 +109,8 @@ WHERE declared_at <= ?
 ORDER BY declared_at DESC, id DESC;
 
 insertGame:
-INSERT INTO game (file_name, content_hash, move_count, sente_name, gote_name, analyzed_at, rating, rating_sample_moves, coef_version, kif_text, moves_usi, user_side, rating_service, rating_raw, rating_rule, rating_declared_at, source_place, game_winner, end_reason, analysis_status, opening_style, opening_castle, opening_tags, sente_rating, gote_rating, time_control_raw, time_control_byoyomi_raw)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO game (file_name, content_hash, move_count, sente_name, gote_name, analyzed_at, rating, rating_sample_moves, coef_version, kif_text, moves_usi, user_side, rating_service, rating_raw, rating_rule, rating_declared_at, source_place, game_winner, end_reason, analysis_status, opening_style, opening_castle, opening_tags, sente_rating, gote_rating, time_control_raw, time_control_byoyomi_raw, engine_meta_json)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 completePendingGame:
 UPDATE game SET
@@ -118,7 +119,7 @@ UPDATE game SET
     user_side = ?, rating_service = ?, rating_raw = ?, rating_rule = ?, rating_declared_at = ?, source_place = ?,
     game_winner = ?, end_reason = ?, analysis_status = 'completed',
     opening_style = ?, opening_castle = ?, opening_tags = ?, sente_rating = ?, gote_rating = ?,
-    time_control_raw = ?, time_control_byoyomi_raw = ?
+    time_control_raw = ?, time_control_byoyomi_raw = ?, engine_meta_json = ?
 WHERE id = ? AND analysis_status = 'pending';
 
 getLastInsertRowId:

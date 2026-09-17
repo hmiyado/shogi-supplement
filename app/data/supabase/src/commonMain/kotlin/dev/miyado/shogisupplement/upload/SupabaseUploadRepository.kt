@@ -19,6 +19,8 @@ import kotlin.time.Instant
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
 
 /**
  * Why not KIF原文をそのまま送る: 対局者名等は運営者にも読ませない設計のため、
@@ -75,6 +77,7 @@ class SupabaseUploadRepository(
                 moveCount = game.moveCount,
                 coefVersion = game.coefVersion,
                 analysisJson = reports.map { it.toJson() },
+                engineMeta = game.engineMetaJson?.let(Json::parseToJsonElement),
             )
             if (ratingDeclaredAt != null && ratingService != null) {
                 supabase.from("rating_declarations").upsert(
@@ -238,6 +241,7 @@ class SupabaseUploadRepository(
         @SerialName("move_count") val moveCount: Long,
         @SerialName("coef_version") val coefVersion: String,
         @SerialName("analysis_json") val analysisJson: List<BlunderReportJson>,
+        @SerialName("engine_meta") val engineMeta: JsonElement? = null,
     )
 
     @Serializable

@@ -102,6 +102,7 @@ class SupabaseGameSummaryService(
             analyzedAt = parseEpochSeconds(startedAt ?: createdAt),
             rating = (estimatedRating ?: 0).toLong(),
             coefVersion = coefVersion.orEmpty(),
+            engineMetaJson = engineMeta?.toString(),
             kifText = kifText,
             movesUsi = movesUsi,
             userSide = side,

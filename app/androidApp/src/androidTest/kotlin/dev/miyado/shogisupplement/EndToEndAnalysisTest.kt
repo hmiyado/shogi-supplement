@@ -53,20 +53,20 @@ class EndToEndAnalysisTest {
         val elapsedSec = elapsedMs / 1000.0
 
         // 75局面（0〜74手）の結果があること
-        assertEquals("全75局面の結果", GAME_MOVES.size + 1, results.size)
-        results.forEachIndexed { i, pvList ->
+        assertEquals("全75局面の結果", GAME_MOVES.size + 1, results.positions.size)
+        results.positions.forEachIndexed { i, pvList ->
             assertTrue("局面$i に結果がある", pvList.isNotEmpty())
         }
 
-        android.util.Log.i("E2ETest", "=== E2E RESULT: ${GAME_MOVES.size}手 / ${results.size}局面 / ${String.format("%.1f", elapsedSec)}秒 ===")
+        android.util.Log.i("E2ETest", "=== E2E RESULT: ${GAME_MOVES.size}手 / ${results.positions.size}局面 / ${String.format("%.1f", elapsedSec)}秒 ===")
 
         val bundle = android.os.Bundle()
         bundle.putString("e2e_elapsed_sec", String.format("%.1f", elapsedSec))
-        bundle.putInt("e2e_positions", results.size)
+        bundle.putInt("e2e_positions", results.positions.size)
         InstrumentationRegistry.getInstrumentation().sendStatus(0, bundle)
 
         // 目標 60秒以内（実機スパイクの知見: 92局面≒35秒、75局面は余裕のはず）
         assertTrue("解析時間が90秒以内（目標60秒）", elapsedSec < 90.0)
-        println("=== E2E完了: ${results.size}局面 / ${String.format("%.1f", elapsedSec)}秒 ===")
+        println("=== E2E完了: ${results.positions.size}局面 / ${String.format("%.1f", elapsedSec)}秒 ===")
     }
 }

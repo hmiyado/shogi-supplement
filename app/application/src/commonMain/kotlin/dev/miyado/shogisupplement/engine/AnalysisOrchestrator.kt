@@ -19,6 +19,8 @@ import dev.miyado.shogisupplement.util.sha256Hex
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 /**
  * 判定ロジック・係数表・解析条件（go nodes 400000 / Threads=1 / MultiPV=2 / FV_SCALE=20）は
@@ -80,7 +82,7 @@ class AnalysisOrchestrator(
 
             // Why not 届いた順にそのまま渡す: 並列ワーカーの完了はまとまって届くため、
             // 盤が数手ぶん飛んでから止まる見え方になる。一定間隔で1手ずつ出す。
-            val allPv = if (onPositionResult == null) {
+            val analyzed = if (onPositionResult == null) {
                 analyzer.analyzeGame(moves = game.moves, onProgress = onProgress)
             } else {
                 coroutineScope {
@@ -96,6 +98,8 @@ class AnalysisOrchestrator(
                     analyzed
                 }
             }
+            val allPv = analyzed.positions
+            val engineMetaJson = analyzed.engineMeta?.let { Json.encodeToString(it) }
 
             // 再解析なしで第2候補まで判定できるよう、MultiPV=2の結果を保持する。
             val evals = allPv.map { pvList -> pvList.toPositionEval() }
@@ -149,6 +153,7 @@ class AnalysisOrchestrator(
                 goteRating = players.goteRating,
                 timeControlRaw = game.headers["持ち時間"],
                 timeControlByoyomiRaw = game.headers["秒読み"],
+                engineMetaJson = engineMetaJson,
             )
 
             // 評価値はsente視点に正規化し、後からの計算に必要な第2候補も保存する。
