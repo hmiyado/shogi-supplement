@@ -77,6 +77,7 @@ class AnalysisServiceTest {
         appPolicyGate: AppPolicyGate = AppPolicyGate.AlwaysAllow,
         appUsageRepository: FakeAppUsageRepository = FakeAppUsageRepository(),
         cacheKeyPrefix: String = "",
+        legacyCacheKeyPrefixes: List<String> = emptyList(),
     ) = AnalysisService(
         authVerifier = authVerifier,
         banRepository = banRepository,
@@ -94,6 +95,7 @@ class AnalysisServiceTest {
         appPolicyGate = appPolicyGate,
         appUsageRepository = appUsageRepository,
         cacheKeyPrefix = cacheKeyPrefix,
+        legacyCacheKeyPrefixes = legacyCacheKeyPrefixes,
     )
 
     private suspend fun AnalysisRequestOutcome.Stream.collectLines(): List<String> {
@@ -332,6 +334,183 @@ class AnalysisServiceTest {
             "engine revision and evaluation hash must distinguish cached results",
         )
         assertEquals(null, jobs.find("user-1", sha256Hex("7g7f")))
+    }
+
+    @Test
+    fun `legacy cache hit is reused only when engine conditions match`() = runTest {
+        val movesUsi = listOf("7g7f", "3c3d")
+        val legacyHash = sha256Hex(movesUsi.joinToString(" "))
+        val cachedResult = AnalysisResultJson(
+            result = List(3) {
+                listOf(PvInfoJson(1, ScoreJson("cp", 50), listOf("7g7f"), 400_000))
+            },
+            engineMeta = engineMeta(),
+        )
+        val jobs = FakeAnalysisJobRepository()
+        jobs.seed(
+            AnalysisJobRecord(
+                id = "legacy-done",
+                userId = "user-1",
+                movesHash = legacyHash,
+                status = AnalysisJobStatus.DONE,
+                resultJson = json.encodeToJsonElement(cachedResult.result),
+                engineMeta = json.encodeToJsonElement(cachedResult.engineMeta),
+                error = null,
+                createdAt = fixedInstant,
+            ),
+        )
+        val engine = FakeEngine()
+        val service = buildService(
+            analysisJobRepository = jobs,
+            engine = engine,
+            cacheKeyPrefix = "current|conditions",
+            legacyCacheKeyPrefixes = listOf(""),
+            quotaLimitRepository = FakeQuotaLimitRepository(mapOf("user-1" to 0)),
+        )
+
+        val outcome = service.handle("Bearer valid-token", AnalysisRequest(movesUsi = movesUsi))
+
+        assertIs<AnalysisRequestOutcome.Stream>(outcome)
+        assertEquals(cachedResult, json.decodeFromString(AnalysisResultJson.serializer(), outcome.collectLines().single()))
+        assertEquals(0, engine.analyzeCallCount, "条件一致の旧キャッシュはquota判定前に再利用するはず")
+    }
+
+    @Test
+    fun `legacy cache with mismatched engine conditions is not reused`() = runTest {
+        val movesUsi = listOf("7g7f", "3c3d")
+        val legacyHash = sha256Hex(movesUsi.joinToString(" "))
+        val jobs = FakeAnalysisJobRepository()
+        jobs.seed(
+            AnalysisJobRecord(
+                id = "legacy-mismatch",
+                userId = "user-1",
+                movesHash = legacyHash,
+                status = AnalysisJobStatus.DONE,
+                resultJson = json.encodeToJsonElement(listOf(listOf(PvInfoJson(1, ScoreJson("cp", 1), listOf("7g7f"), 200_000)))),
+                engineMeta = json.encodeToJsonElement(engineMeta().copy(nodes = 200_000)),
+                error = null,
+                createdAt = fixedInstant,
+            ),
+        )
+        val engine = FakeEngine()
+        val service = buildService(
+            analysisJobRepository = jobs,
+            engine = engine,
+            cacheKeyPrefix = "current|conditions",
+            legacyCacheKeyPrefixes = listOf(""),
+            quotaLimitRepository = FakeQuotaLimitRepository(mapOf("user-1" to 30)),
+        )
+
+        val outcome = service.handle("Bearer valid-token", AnalysisRequest(movesUsi = movesUsi))
+
+        assertIs<AnalysisRequestOutcome.Stream>(outcome)
+        outcome.collectLines()
+        assertTrue(engine.analyzeCallCount > 0, "条件不一致の旧結果は再利用せず現行条件で解析するはず")
+        assertTrue(jobs.find("user-1", sha256Hex("current|conditions|${movesUsi.joinToString(" ")}")) != null)
+    }
+
+    @Test
+    fun `legacy cache with incomplete result is not reused`() = runTest {
+        val movesUsi = listOf("7g7f", "3c3d")
+        val legacyHash = sha256Hex("test-rev|test-sha|${movesUsi.joinToString(" ")}")
+        val jobs = FakeAnalysisJobRepository()
+        jobs.seed(
+            AnalysisJobRecord(
+                id = "legacy-incomplete",
+                userId = "user-1",
+                movesHash = legacyHash,
+                status = AnalysisJobStatus.DONE,
+                // engine_metaは一致しているが、3局面分あるべきところが1局面しかない。
+                resultJson = json.encodeToJsonElement(
+                    listOf(listOf(PvInfoJson(1, ScoreJson("cp", 1), listOf("7g7f"), 400_000))),
+                ),
+                engineMeta = json.encodeToJsonElement(engineMeta()),
+                error = null,
+                createdAt = fixedInstant,
+            ),
+        )
+        val engine = FakeEngine()
+        val service = buildService(
+            analysisJobRepository = jobs,
+            engine = engine,
+            cacheKeyPrefix = "current|conditions",
+            legacyCacheKeyPrefixes = listOf("test-rev|test-sha"),
+            quotaLimitRepository = FakeQuotaLimitRepository(mapOf("user-1" to 0)),
+        )
+
+        val outcome = service.handle("Bearer valid-token", AnalysisRequest(movesUsi = movesUsi))
+
+        assertIs<AnalysisRequestOutcome.QuotaExceeded>(outcome)
+        assertEquals(0, engine.analyzeCallCount, "不完全な旧結果をquota前に返してはいけない")
+    }
+
+    @Test
+    fun `legacy position cache with incomplete result is not reused`() = runTest {
+        val sfen = "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1"
+        val moves = listOf("7g7f")
+        val legacyHash = sha256Hex("$sfen|${moves.joinToString(" ")}")
+        val jobs = FakeAnalysisJobRepository()
+        jobs.seed(
+            AnalysisJobRecord(
+                id = "legacy-position-incomplete",
+                userId = "user-1",
+                movesHash = legacyHash,
+                status = AnalysisJobStatus.DONE,
+                resultJson = json.encodeToJsonElement(emptyList<List<PvInfoJson>>()),
+                engineMeta = json.encodeToJsonElement(engineMeta()),
+                error = null,
+                createdAt = fixedInstant,
+            ),
+            mode = "position",
+        )
+        val engine = FakeEngine()
+        val service = buildService(
+            analysisJobRepository = jobs,
+            engine = engine,
+            cacheKeyPrefix = "current|conditions",
+            legacyCacheKeyPrefixes = listOf(""),
+            positionDailyLimit = 0,
+        )
+
+        val outcome = service.handle(
+            "Bearer valid-token",
+            AnalysisRequest(sfen = sfen, moves = moves),
+        )
+
+        assertIs<AnalysisRequestOutcome.QuotaExceeded>(outcome)
+        assertEquals(0, engine.analyzeCallCount, "不完全な旧局面結果をquota前に返してはいけない")
+    }
+
+    @Test
+    fun `legacy running job is not taken over before lease fencing exists`() = runTest {
+        val movesUsi = listOf("7g7f", "3c3d")
+        val legacyHash = sha256Hex(movesUsi.joinToString(" "))
+        val jobs = FakeAnalysisJobRepository()
+        jobs.seed(
+            AnalysisJobRecord(
+                id = "legacy-running",
+                userId = "user-1",
+                movesHash = legacyHash,
+                status = AnalysisJobStatus.RUNNING,
+                resultJson = null,
+                engineMeta = null,
+                error = null,
+                createdAt = fixedInstant,
+            ),
+        )
+        val engine = FakeEngine()
+        val service = buildService(
+            analysisJobRepository = jobs,
+            engine = engine,
+            cacheKeyPrefix = "current|conditions",
+            legacyCacheKeyPrefixes = listOf(""),
+            quotaLimitRepository = FakeQuotaLimitRepository(mapOf("user-1" to 0)),
+        )
+
+        val outcome = service.handle("Bearer valid-token", AnalysisRequest(movesUsi = movesUsi))
+
+        assertIs<AnalysisRequestOutcome.QuotaExceeded>(outcome)
+        assertEquals(0, engine.analyzeCallCount, "leaseなしの旧RUNNINGをresetしてquota bypassしてはいけない")
     }
 
     @Test

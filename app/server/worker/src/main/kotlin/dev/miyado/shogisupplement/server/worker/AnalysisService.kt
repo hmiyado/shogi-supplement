@@ -84,6 +84,9 @@ class AnalysisService(
     // エンジン版が変わっても結果を取り違えないため、解析キャッシュキーへ来歴を含める。
     // 空文字列ではprefixを付けず、保存済みキーの検索規則との互換性を保つ。
     private val cacheKeyPrefix: String = "",
+    // 条件をキーへ追加する前のprefix。旧キーは、保存されたengine_metaが現在条件と一致する
+    // 場合だけ再利用する。NULL/不一致の結果を返すと、条件の違う解析結果を混ぜるため再解析へ回す。
+    private val legacyCacheKeyPrefixes: List<String> = emptyList(),
     private val clock: Clock = Clock.systemUTC(),
     private val pollIntervalMs: Long = 500,
     private val pollTimeoutMs: Long = 280_000,
@@ -158,18 +161,21 @@ class AnalysisService(
 
         recordAppUsage(userId, platformHeader, buildHeader)
 
-        val cacheSeed = if (cacheKeyPrefix.isBlank()) {
-            input.hashSeed
-        } else {
-            "$cacheKeyPrefix|${input.hashSeed}"
-        }
-        val movesHash = sha256Hex(cacheSeed)
+        val movesHash = cacheHash(input)
 
         // Why not クォータ判定を先に: 既存ジョブの再取得は新規消費ではないため、
         // 冪等チェックはクォータ判定より前に行う（不変条件）。
         val existingBeforeQuota = analysisJobRepository.find(userId, movesHash)
         if (existingBeforeQuota != null) {
             return resolveExisting(userId, movesHash, existingBeforeQuota, input)
+        }
+
+        // 条件をキーへ追加した移行期間だけ、旧キーも確認する。旧ジョブをクォータ判定より
+        // 前に見ることで、同じ条件の完了済み結果を新規消費扱いにしない。旧RUNNINGは
+        // 排他を証明できないため触らず、条件不一致も安全性を優先して新キーへ進める。
+        val legacyExisting = findReusableLegacyJob(userId, input)
+        if (legacyExisting != null) {
+            return AnalysisRequestOutcome.Stream(cachedEmitter(legacyExisting.record))
         }
 
         // モードごとに完全に独立したクォータで判定する（1局解析=DB管理のquota_limits、
@@ -192,6 +198,62 @@ class AnalysisService(
                 // find()とcreateRunning()の間に別リクエストが行を作った競合。
                 resolveExisting(userId, movesHash, created.record, input)
         }
+    }
+
+    private data class LegacyJob(
+        val movesHash: String,
+        val record: AnalysisJobRecord,
+    )
+
+    private suspend fun findReusableLegacyJob(userId: String, input: EngineInput): LegacyJob? {
+        val currentHash = cacheHash(input)
+        val candidates = mutableListOf<LegacyJob>()
+        val visitedHashes = mutableSetOf<String>()
+        for (prefix in legacyCacheKeyPrefixes) {
+            val hash = sha256Hex(if (prefix.isBlank()) input.hashSeed else "$prefix|${input.hashSeed}")
+            if (hash == currentHash || !visitedHashes.add(hash)) continue
+            analysisJobRepository.find(userId, hash)?.let { candidates += LegacyJob(hash, it) }
+        }
+
+        // 旧RUNNINGは旧workerとの排他を証明できないため再利用しない。resetして新条件で
+        // 同じ行を走らせると、旧workerとの二重実行やquota bypassを起こし得るためである。
+        // 旧RUNNINGの待機・昇格はDBのlease/fencing設計が決まってから追加する。
+        return candidates.firstOrNull {
+            it.record.status == AnalysisJobStatus.DONE && isReusableLegacyDone(it.record, input)
+        }
+    }
+
+    private fun cacheHash(input: EngineInput): String {
+        val cacheSeed = if (cacheKeyPrefix.isBlank()) input.hashSeed else "$cacheKeyPrefix|${input.hashSeed}"
+        return sha256Hex(cacheSeed)
+    }
+
+    private fun isCurrentEngineResult(record: AnalysisJobRecord, input: EngineInput): Boolean {
+        val expected = when (input) {
+            is EngineInput.Game -> engineMetaProvider(EngineInvariants.MULTI_PV)
+            is EngineInput.Position -> engineMetaProvider(input.multiPv)
+        }
+        val actual = record.engineMeta?.let {
+            runCatching { json.decodeFromJsonElement(EngineMetaJson.serializer(), it) }.getOrNull()
+        }
+        return actual == expected
+    }
+
+    private fun isReusableLegacyDone(record: AnalysisJobRecord, input: EngineInput): Boolean {
+        if (!isCurrentEngineResult(record, input)) return false
+        val positions = record.resultJson?.let {
+            runCatching {
+                json.decodeFromJsonElement<List<List<PvInfoJson>>>(
+                    ListSerializer(ListSerializer(PvInfoJson.serializer())),
+                    it,
+                )
+            }.getOrNull()
+        } ?: return false
+        val expectedPositions = when (input) {
+            is EngineInput.Game -> input.movesUsi.size + 1
+            is EngineInput.Position -> 1
+        }
+        return positions.size == expectedPositions
     }
 
     /** find() または createRunning() の競合で見つかった既存行を、状態に応じて処理する。 */

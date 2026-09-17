@@ -140,6 +140,10 @@ fun Application.module(config: WorkerConfig) {
             append("|usi_hash=").append(EngineInvariants.USI_HASH_MB)
             append("|fv_scale=").append(EngineInvariants.FV_SCALE)
         },
+        legacyCacheKeyPrefixes = listOf(
+            "${config.engineRev}|${config.evalSha256}",
+            "",
+        ),
         analysisWorkers = config.analysisWorkers,
         positionDailyLimit = config.analysisPositionDailyLimit,
         staleRunningTimeoutMs = config.staleRunningTimeoutMs,
