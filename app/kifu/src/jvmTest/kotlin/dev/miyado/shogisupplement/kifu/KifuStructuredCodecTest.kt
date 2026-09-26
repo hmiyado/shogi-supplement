@@ -8,6 +8,46 @@ import kotlin.test.assertTrue
 
 class KifuStructuredCodecTest {
 
+    @Test
+    fun `暗号化用データの往復後もメモとしおりが元の局面に戻る`() {
+        val raw = "手合割：平手\n*開始\n1 ７六歩(77)\n*一手後\n&確認\n2 ３四歩(33)\n*二手後\n3 投了"
+        val original = KifParser().parse(raw)
+        val decomposed = KifuDecomposer.decompose(raw, original)
+        val restoredPrivate = PrivateKifuFields.fromJson(decomposed.private.toJson())
+        val restored = KifParser().parse(KifuReconstructor.reconstruct(decomposed.public, restoredPrivate))
+        assertEquals(original.positionNotes, restored.positionNotes)
+        val masked = KifParser().parse(KifuReconstructor.reconstruct(decomposed.public, null))
+        assertTrue(masked.positionNotes.isEmpty())
+    }
+
+    @Test
+    fun `旧形式のコメント一覧も復元できる`() {
+        val raw = "手合割：平手\n1 ７六歩(77)"
+        val parts = KifuDecomposer.decompose(raw, KifParser().parse(raw))
+        val legacy = parts.private.copy(comments = listOf("*旧コメント", "&旧しおり"), positionNotes = null)
+        val restored = KifParser().parse(KifuReconstructor.reconstruct(parts.public, legacy))
+        assertEquals(KifuPositionNotes(listOf("旧コメント"), listOf("旧しおり")), restored.positionNotes[0])
+    }
+
+    @Test
+    fun `局面メモキーのない旧JSONを復元できる`() {
+        val legacy = PrivateKifuFields.fromJson("""{"sente_name":null,"gote_name":null,"extra_headers":{},"comments":["*旧コメント","&旧しおり"]}""")
+        assertEquals(null, legacy.positionNotes)
+        val raw = "手合割：平手\n1 ７六歩(77)"
+        val parts = KifuDecomposer.decompose(raw, KifParser().parse(raw))
+        val restored = KifParser().parse(KifuReconstructor.reconstruct(parts.public, legacy))
+        assertEquals(KifuPositionNotes(listOf("旧コメント"), listOf("旧しおり")), restored.positionNotes[0])
+    }
+
+    @Test
+    fun `空の局面メモがあれば旧コメントを復活させない`() {
+        val private = PrivateKifuFields.fromJson("""{"sente_name":null,"gote_name":null,"extra_headers":{},"comments":["*旧コメント","&旧しおり"],"position_notes":{}}""")
+        val raw = "手合割：平手\n1 ７六歩(77)"
+        val parts = KifuDecomposer.decompose(raw, KifParser().parse(raw))
+        val restored = KifParser().parse(KifuReconstructor.reconstruct(parts.public, private))
+        assertTrue(restored.positionNotes.isEmpty())
+    }
+
     private val parser = KifParser()
 
     private fun resource(name: String): String =
@@ -37,6 +77,16 @@ class KifuStructuredCodecTest {
         "narigin_abbrev_game1.kif", "narikei_abbrev_game1.kif",
         "miyado_game1.kif", "miyado_game2.kif",
     )
+
+    @Test
+    fun `検討バックアップは全サンプルの基準原文を厳密に保持する`() {
+        for (name in allSampleFiles) {
+            val raw = resource(name)
+            val parts = StudyKifuBackup.decompose(raw, raw)
+            val decoded = PrivateKifuFields.fromJson(parts.private.toJson())
+            assertEquals(raw to raw, StudyKifuBackup.restore(parts.public, decoded), name)
+        }
+    }
 
     @Test
     fun `全実KIFサンプルで パース→分解→再構成→再パース の指し手が完全一致する（private込み）`() {

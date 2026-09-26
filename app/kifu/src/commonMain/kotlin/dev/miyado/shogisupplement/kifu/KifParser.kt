@@ -17,6 +17,7 @@ class KifParser : KifuParser {
         val moves = mutableListOf<String>()
         val times = mutableListOf<Int?>()
         val displayMoves = mutableListOf<String>()
+        val positionNotes = mutableMapOf<Int, KifuPositionNotes>()
         var prevDest: Square? = null
         var finished = false
         var endReason: String? = null
@@ -25,8 +26,18 @@ class KifParser : KifuParser {
             val line = rawLine.trimEnd()
             if (line.isBlank()) continue
             val trimmed = line.trim()
-            // コメント・棋譜コメント・しおり
-            if (trimmed.startsWith("*") || trimmed.startsWith("#") || trimmed.startsWith("&")) continue
+            // コメントは直前の指し手の局面に付く。初手前は開始局面（0）。
+            if (trimmed.startsWith("*") || trimmed.startsWith("&")) {
+                val annotation = rawLine.trimStart()
+                val note = positionNotes[moves.size] ?: KifuPositionNotes()
+                positionNotes[moves.size] = if (annotation.startsWith("*")) {
+                    note.copy(comments = note.comments + annotation.substring(1))
+                } else {
+                    note.copy(bookmarks = note.bookmarks + annotation.substring(1))
+                }
+                continue
+            }
+            if (trimmed.startsWith("#")) continue
             // 変化手順は対象外（本譜のみ）
             if (trimmed.startsWith("変化")) break
             // ヘッダ行（全角コロン区切り）
@@ -61,7 +72,7 @@ class KifParser : KifuParser {
 
         val winner = kifuWinner(endReason, moves.size)
 
-        return KifuGame(moves, times, headers, endReason, winner, displayMoves)
+        return KifuGame(moves, times, headers, endReason, winner, displayMoves, positionNotes)
     }
 
     // ---- 内部表現 ----
@@ -70,7 +81,7 @@ class KifParser : KifuParser {
         fun toUsi(): String = "$file${'a' + (rank - 1)}"
     }
 
-    private data class MoveLine(val moveText: String, val timeSeconds: Int?, val terminal: Boolean)
+    internal data class MoveLine(val moveText: String, val timeSeconds: Int?, val terminal: Boolean, val cumulativeTimeSeconds: Int? = null)
 
     private val terminalWords = setOf(
         "投了", "中断", "千日手", "持将棋", "入玉勝ち", "入玉宣言", "宣言勝ち",
@@ -78,7 +89,7 @@ class KifParser : KifuParser {
     )
 
     /** 手数行を「手数 / 指し手テキスト / 消費時間」に分解する。手数で始まらない行は null。 */
-    private fun parseMoveLine(line: String): MoveLine? {
+    internal fun parseMoveLine(line: String): MoveLine? {
         var i = 0
         // 手数（半角数字）
         val numStart = i
@@ -92,6 +103,7 @@ class KifParser : KifuParser {
         // 消費時間 "( 0:02/00:00:12)" を末尾から探す（移動元 "(77)" と区別: コロンを含む）
         var moveText = rest
         var timeSeconds: Int? = null
+        var cumulativeTimeSeconds: Int? = null
         val timeParen = rest.lastIndexOf('(')
         if (timeParen >= 0) {
             val closing = rest.indexOf(')', timeParen)
@@ -99,6 +111,7 @@ class KifParser : KifuParser {
                 val inside = rest.substring(timeParen + 1, closing)
                 if (inside.contains(':')) {
                     timeSeconds = parseMoveTime(inside)
+                    cumulativeTimeSeconds = if ('/' in inside) parseMoveTime(inside.substringAfter('/')) else null
                     moveText = rest.substring(0, timeParen).trim()
                 }
             }
@@ -106,10 +119,10 @@ class KifParser : KifuParser {
         moveText = moveText.trim()
         val head = moveText.takeWhile { !it.isWhitespace() && it != '(' }
         if (terminalWords.any { moveText.startsWith(it) }) {
-            return MoveLine(moveText, timeSeconds, terminal = true)
+            return MoveLine(moveText, timeSeconds, terminal = true, cumulativeTimeSeconds = cumulativeTimeSeconds)
         }
         if (head.isEmpty()) return null
-        return MoveLine(moveText, timeSeconds, terminal = false)
+        return MoveLine(moveText, timeSeconds, terminal = false, cumulativeTimeSeconds = cumulativeTimeSeconds)
     }
 
     /** "mm:ss/h:mm:ss" または "mm:ss" の前半（この手の消費時間）を秒に変換。 */
@@ -125,7 +138,7 @@ class KifParser : KifuParser {
     }
 
     /** KIF指し手テキストをUSIへ変換し、移動先を返して「同」を解決する。 */
-    private fun convertMove(moveText: String, prevDest: Square?, line: String): Pair<String, Square> {
+    internal fun convertMove(moveText: String, prevDest: Square?, line: String): Pair<String, Square> {
         var i = 0
         val dest: Square
         if (moveText.startsWith("同")) {
