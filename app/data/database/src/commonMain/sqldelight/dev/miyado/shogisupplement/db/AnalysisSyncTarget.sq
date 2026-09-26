@@ -1,0 +1,22 @@
+CREATE TABLE analysis_sync_target (
+    game_id INTEGER NOT NULL REFERENCES game(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL,
+    generation TEXT NOT NULL,
+    expected_generation TEXT,
+    study_kif TEXT,
+    study_revision INTEGER,
+    PRIMARY KEY (game_id, user_id, generation)
+);
+
+freezeTarget:
+INSERT OR IGNORE INTO analysis_sync_target(game_id, user_id, generation, expected_generation, study_kif, study_revision)
+VALUES (?, ?, ?, ?, ?, ?);
+
+getTarget:
+SELECT generation, expected_generation, study_kif, study_revision FROM analysis_sync_target WHERE game_id = ? AND user_id = ? AND generation = ?;
+
+deleteTargets:
+DELETE FROM analysis_sync_target WHERE game_id = ?;
+
+deleteAllTargets:
+DELETE FROM analysis_sync_target;

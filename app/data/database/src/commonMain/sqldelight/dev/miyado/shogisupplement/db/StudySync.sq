@@ -1,0 +1,27 @@
+CREATE TABLE study_sync (
+    game_id INTEGER NOT NULL PRIMARY KEY REFERENCES game(id) ON DELETE CASCADE,
+    revision INTEGER NOT NULL DEFAULT 1,
+    uploaded_revision INTEGER NOT NULL DEFAULT 0,
+    base_kif TEXT NOT NULL
+);
+
+initializeStudySync:
+INSERT OR IGNORE INTO study_sync(game_id, base_kif, revision) VALUES (?, ?, 0);
+
+recordStudyChange:
+UPDATE study_sync SET revision = revision + 1 WHERE game_id = ?;
+
+getPendingStudyUploads:
+SELECT game.id, game.content_hash, game.kif_text, game.study_kif,
+       study_sync.base_kif, study_sync.revision
+FROM study_sync JOIN game ON game.id = study_sync.game_id
+WHERE study_sync.revision > study_sync.uploaded_revision
+  AND game.uploaded_at IS NOT NULL
+  AND game.kif_text IS NOT NULL AND game.study_kif IS NOT NULL;
+
+getStudyRevision:
+SELECT revision FROM study_sync WHERE game_id = ?;
+
+acknowledgeStudyUpload:
+UPDATE study_sync SET uploaded_revision = ?, base_kif = ?
+WHERE game_id = ? AND uploaded_revision <= ? AND revision >= ?;

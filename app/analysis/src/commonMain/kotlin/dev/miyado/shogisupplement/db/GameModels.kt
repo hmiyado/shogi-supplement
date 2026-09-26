@@ -1,5 +1,7 @@
 package dev.miyado.shogisupplement.db
 
+import kotlinx.serialization.Serializable
+
 enum class GameAnalysisStatus(val wireValue: String) {
     PENDING("pending"),
     COMPLETED("completed"),
@@ -12,6 +14,7 @@ enum class GameAnalysisStatus(val wireValue: String) {
 }
 
 /** ゲームレコードのドメインモデル（UI用）。 */
+@Serializable
 data class GameRecord(
     val id: Long,
     val fileName: String,
@@ -57,9 +60,12 @@ data class GameRecord(
     val timeControlByoyomiRaw: String? = null,
     /** 解析に使ったエンジン条件のJSON。来歴を取得できないデータはnull。 */
     val engineMetaJson: String? = null,
+    /** 保存済み検討文書。取込原文とは区別し、バックアップ時は暗号化対象にのみ含める。 */
+    val studyKif: String? = null,
 )
 
 /** 悪手レポートのドメインモデル（UI用）。 */
+@Serializable
 data class BlunderRecord(
     val id: Long,
     val gameId: Long,
@@ -105,6 +111,7 @@ data class BlunderRecord(
  * - scoreCp: 評価値 cp。詰み局面は null にして mateIn を使う。
  * - mateIn: 詰みまでの手数（正 = 先手が詰ます、負 = 後手が詰ます）。非詰み局面は null。
  */
+@Serializable
 data class PositionEvalRow(
     val ply: Int,
     val scoreCp: Int?,

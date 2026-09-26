@@ -1,0 +1,9 @@
+CREATE TABLE study_sync (
+    game_id INTEGER NOT NULL PRIMARY KEY REFERENCES game(id) ON DELETE CASCADE,
+    revision INTEGER NOT NULL DEFAULT 1,
+    uploaded_revision INTEGER NOT NULL DEFAULT 0,
+    base_kif TEXT NOT NULL
+);
+
+INSERT INTO study_sync(game_id, base_kif)
+SELECT id, kif_text FROM game WHERE study_kif IS NOT NULL AND kif_text IS NOT NULL;

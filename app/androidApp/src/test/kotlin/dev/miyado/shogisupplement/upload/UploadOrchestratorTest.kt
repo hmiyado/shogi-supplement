@@ -28,6 +28,140 @@ import org.junit.Test
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class UploadOrchestratorTest {
+    @Test
+    fun `復元後の再解析は取得済み世代を比較元にし最新世代を上書きしない`() = runTest {
+        val built = buildOrchestrator()
+        val original = "1 ７六歩(77)\n2 投了"
+        val id = built.game.savePendingGame("restore.kif", "restored", listOf("7g7f"), emptyMap(), kifText = original, userSide = "sente")
+        built.game.confirmRestoredGame(id, "uid1", "restored-generation", 100)
+        built.game.saveAnalysisAtomically(GameRepository.AnalysisSaveRequest(
+            "restore.kif", "restored", listOf("7g7f"), emptyMap(), emptyList(), 1000, coefVersion = "local", kifText = original))
+        built.upload.remoteState = UploadRepository.AnalysisRemoteState("newer-remote", false)
+        built.upload.analysisOutcome = UploadRepository.AnalysisUploadOutcome.Conflict("newer-remote")
+        assertTrue(built.orchestrator.uploadGame(id) is UploadResult.Failure)
+        assertEquals(0, built.upload.remoteStateCalls)
+        assertEquals("restored-generation", built.upload.analysisTargets.single().expectedGeneration)
+        assertNull(built.game.getGameById(id)?.uploadedAt)
+    }
+
+    @Test
+    fun `解析状態取得中や送信中のアカウント切替では送信済みにしない`() = runTest {
+        for (duringState in listOf(true, false)) {
+            val auth = FakeAuthRepository(initialUser = AuthUser("owner-a"))
+            val built = buildOrchestrator(auth = auth)
+            val id = saveGame(built.game)
+            val switch: suspend () -> Unit = { auth.importSession("owner-b") }
+            if (duringState) built.upload.onRemoteState = switch else built.upload.onAnalysisResponse = switch
+            assertTrue(built.orchestrator.uploadGame(id) is UploadResult.Failure)
+            assertNull(built.game.getGameById(id)?.uploadedAt)
+            assertEquals(if (duringState) 0 else 1, built.upload.analysisSnapshots.size)
+        }
+    }
+
+    @Test
+    fun `初回応答喪失後の再送は元のメモだけを確認済みにして追記を残す`() = runTest {
+        val built = buildOrchestrator()
+        val original = "1 ７六歩(77)\n2 投了"
+        val id = built.game.savePendingGame("study.kif", "lost-reply", listOf("7g7f"), emptyMap(), kifText = original, userSide = "sente")
+        val first = "$original\n*初回メモ"
+        val second = "$original\n*初回メモ\n*追記"
+        assertTrue(built.game.saveStudyKif(id, original, first))
+        built.upload.analysisOutcome = UploadRepository.AnalysisUploadOutcome.Failure("reply lost")
+        assertTrue(built.orchestrator.uploadGame(id) is UploadResult.Failure)
+        assertTrue(built.game.saveStudyKif(id, first, second))
+        built.upload.analysisOutcome = UploadRepository.AnalysisUploadOutcome.Applied(true)
+        assertEquals(UploadResult.Success, built.orchestrator.uploadGame(id))
+        assertEquals(listOf(first, first), built.upload.analysisSnapshots.map { it.game.studyKif })
+        val pending = built.game.getPendingStudyUploads().single()
+        assertEquals(first, pending.expectedRemoteKif)
+        assertEquals(second, pending.studyKif)
+        assertEquals(second, built.game.getStudyKif(id))
+    }
+
+    @Test
+    fun `再送は固定した比較世代を使い競合や旧世代を送信済みにしない`() = runTest {
+        val (orch, upload, db, _, _) = buildOrchestrator()
+        val id = saveGame(db)
+        upload.remoteState = UploadRepository.AnalysisRemoteState("base", false)
+        upload.analysisOutcome = UploadRepository.AnalysisUploadOutcome.Failure("network")
+        assertTrue(orch.uploadGame(id) is UploadResult.Failure)
+        upload.remoteState = UploadRepository.AnalysisRemoteState("deleted-new", true)
+        upload.analysisOutcome = UploadRepository.AnalysisUploadOutcome.Conflict("deleted-new")
+        assertTrue(orch.uploadGame(id) is UploadResult.Failure)
+        upload.analysisOutcome = UploadRepository.AnalysisUploadOutcome.Superseded("newer")
+        assertTrue(orch.uploadGame(id) is UploadResult.Failure)
+        assertEquals(1, upload.remoteStateCalls)
+        assertTrue(upload.analysisTargets.all { it.expectedGeneration == "base" })
+        assertNull(db.getGameById(id)?.uploadedAt)
+        assertTrue(upload.drillProblemCalls.isEmpty())
+    }
+
+    @Test
+    fun `削除済み送信先は自動で再作成せず世代も固定しない`() = runTest {
+        val (orch, upload, db, _, _) = buildOrchestrator()
+        val id = saveGame(db)
+        upload.remoteState = UploadRepository.AnalysisRemoteState("deleted", true)
+        assertTrue(orch.uploadGame(id) is UploadResult.Failure)
+        assertTrue(upload.analysisSnapshots.isEmpty())
+        assertNull(db.getGameById(id)?.uploadedAt)
+        val generation = requireNotNull(db.getAnalysisUploadSnapshot(id)?.generation)
+        assertNull(db.getAnalysisSyncTarget(id, "user-1", generation))
+    }
+
+    @Test
+    fun `棋譜初回送信も送った検討版だけを確認済みにする`() = runTest {
+        val built = buildOrchestrator()
+        val original = "1 ７六歩(77)\n2 投了"
+        val id = built.game.savePendingGame("study.kif", "study", listOf("7g7f"), emptyMap(), kifText = original, userSide = "sente")
+        val first = "$original\n*初回に送る編集"
+        val next = "$original\n*送信中の編集"
+        assertTrue(built.game.saveStudyKif(id, original, first))
+        built.upload.onGameUpload = { assertTrue(built.game.saveStudyKif(id, first, next)) }
+        assertEquals(UploadResult.Success, built.orchestrator.uploadGame(id))
+        assertEquals(first, built.upload.calls.single().second.studyKif)
+        val pending = built.game.getPendingStudyUploads().single()
+        assertEquals(first, pending.expectedRemoteKif)
+        assertEquals(next, pending.studyKif)
+    }
+
+    @Test
+    fun `検討送信は問題と回答に触れず追加編集と競合を未送信に残す`() = runTest {
+        val built = buildOrchestrator()
+        val original = "1 ７六歩(77)\n2 投了"
+        val id = built.game.savePendingGame("study.kif", "study", listOf("7g7f"), emptyMap(), kifText = original, userSide = "sente")
+        built.game.updateUploadedAt(id, 100)
+        val first = "$original\n*先の編集"
+        val next = "$original\n*送信中の編集"
+        assertTrue(built.game.saveStudyKif(id, original, first))
+        built.upload.onStudyUpload = { assertTrue(built.game.saveStudyKif(id, first, next)) }
+        assertEquals(1 to 0, built.orchestrator.uploadPendingStudies())
+        assertEquals(next, built.game.getPendingStudyUploads().single().studyKif)
+        assertEquals(first, built.game.getPendingStudyUploads().single().expectedRemoteKif)
+        built.upload.onStudyUpload = null
+        built.upload.studyResult = UploadResult.Failure("conflict")
+        assertEquals(0 to 1, built.orchestrator.uploadPendingStudies())
+        assertEquals(1, built.game.getPendingStudyUploads().size)
+        built.upload.studyResult = UploadResult.Success
+        assertEquals(1 to 0, built.orchestrator.uploadPendingStudies())
+        assertEquals(0, built.game.getPendingStudyUploads().size)
+        assertTrue(built.upload.calls.isEmpty())
+        assertTrue(built.upload.drillProblemCalls.isEmpty())
+        assertTrue(built.upload.drillAttemptCalls.isEmpty())
+        assertEquals(100L, built.game.getGameById(id)?.uploadedAt)
+    }
+
+    @Test
+    fun `まとめて送信は検討の競合件数を結果へ含める`() = runTest {
+        val built = buildOrchestrator()
+        val original = "1 ７六歩(77)\n2 投了"
+        val id = built.game.savePendingGame("study.kif", "study", listOf("7g7f"), emptyMap(), kifText = original, userSide = "sente")
+        built.game.updateUploadedAt(id, 100)
+        assertTrue(built.game.saveStudyKif(id, original, "$original\n*メモ"))
+        built.upload.studyResult = UploadResult.Failure("conflict")
+        val result = built.orchestrator.uploadAll()
+        assertEquals(1, result.studyFailed)
+        assertEquals(1, built.game.getPendingStudyUploads().size)
+    }
 
     /** UploadOrchestrator と、同一DB上のリポジトリの組。 */
     private data class Built(
@@ -113,6 +247,26 @@ class UploadOrchestratorTest {
     // ─── uploadGame ──────────────────────────────────────────────────────────
 
     @Test
+    fun uploadGame_reanalysisDuringUpload_keepsSnapshotAndNewResultPending() = runTest {
+        val (orch, upload, db, drill, _) = buildOrchestrator()
+        val gameId = saveGame(db)
+        val oldProblems = drill.getDrillCandidatesByGame(gameId)
+        val oldReports = db.getReports(gameId)
+        assertTrue(oldProblems.isNotEmpty())
+        upload.onGameUpload = { saveGame(db) }
+
+        orch.uploadGame(gameId)
+
+        assertEquals(oldReports, upload.calls.single().third)
+        assertEquals(oldProblems, upload.analysisSnapshots.single().problems)
+        assertTrue(upload.drillProblemCalls.isEmpty())
+        assertNull(db.getGameById(gameId)?.uploadedAt)
+        upload.onGameUpload = null
+        orch.uploadGame(gameId)
+        assertNotNull(db.getGameById(gameId)?.uploadedAt)
+    }
+
+    @Test
     fun uploadGame_success_recordsUploadedAt() = runTest {
         val (orch, _, db, _, _) = buildOrchestrator()
         val gameId = saveGame(db)
@@ -125,14 +279,14 @@ class UploadOrchestratorTest {
     }
 
     @Test
-    fun uploadGame_duplicate_recordsUploadedAt() = runTest {
+    fun uploadGame_alreadyAppliedGeneration_recordsUploadedAt() = runTest {
         val upload = FakeUploadRepository(result = UploadResult.Duplicate)
         val (orch, _, db, _, _) = buildOrchestrator(upload = upload)
         val gameId = saveGame(db)
 
         val result = orch.uploadGame(gameId)
 
-        assertEquals(UploadResult.Duplicate, result)
+        assertEquals(UploadResult.Success, result)
         assertNotNull("uploaded_at should be set on duplicate too", db.getGameById(gameId)?.uploadedAt)
     }
 
@@ -176,7 +330,8 @@ class UploadOrchestratorTest {
 
     @Test
     fun deleteUploadedGame_whenLoggedIn_returnsTrue() = runTest {
-        val (orch, upload, _, _, _) = buildOrchestrator()
+        val (orch, upload, db, _, _) = buildOrchestrator()
+        saveGame(db, "hash-delete")
 
         val result = orch.deleteUploadedGame("hash-delete")
 
@@ -187,12 +342,17 @@ class UploadOrchestratorTest {
     @Test
     fun deleteUploadedGame_whenRepositoryFails_returnsFalse() = runTest {
         val upload = FakeUploadRepository(deleteResult = false)
-        val (orch, uploadRepository, _, _, _) = buildOrchestrator(upload = upload)
+        val (orch, uploadRepository, db, _, _) = buildOrchestrator(upload = upload)
+        saveGame(db, "hash-delete")
 
         val result = orch.deleteUploadedGame("hash-delete")
 
         assertTrue(!result)
         assertEquals(listOf("uid1" to "hash-delete"), uploadRepository.deleteCalls)
+        upload.remoteState = UploadRepository.AnalysisRemoteState("newer", false)
+        orch.deleteUploadedGame("hash-delete")
+        assertEquals(1, upload.remoteStateCalls)
+        assertEquals(upload.deletionTargets.first(), upload.deletionTargets.last())
     }
 
     @Test
@@ -221,12 +381,29 @@ class UploadOrchestratorTest {
         assertEquals(0, result.drillProblemSyncFailed)
         assertEquals(0, result.drillPendingRemaining)
         assertEquals(2, upload.calls.size)
-        // uploadGame自体が棋譜ごとに問題同期を済ませ、再同期ステップは今回アップロードした
-        // 棋譜を除外するため、2棋譜×1回になる（二重upsertを避ける）
-        assertEquals(2, upload.drillProblemCalls.size)
+        // 問題も解析snapshotで送信するため、別の問題同期は呼ばない。
+        assertEquals(2, upload.analysisSnapshots.size)
+        assertTrue(upload.drillProblemCalls.isEmpty())
         // uploaded_at が記録されていること
         assertNotNull(db.getGameById(id1)?.uploadedAt)
         assertNotNull(db.getGameById(id2)?.uploadedAt)
+    }
+
+    @Test
+    fun uploadAll_partialGameUploadFailsUntilProblemSyncSucceeds() = runTest {
+        val upload = FakeUploadRepository(drillProblemsResult = UploadResult.Failure("sync error"))
+        val (orch, _, db, _, _) = buildOrchestrator(upload = upload)
+        val gameId = saveGame(db)
+        val failed = orch.uploadAll()
+        assertEquals(0, failed.gameSuccess)
+        assertEquals(1, failed.gameFailed)
+        assertNull(db.getGameById(gameId)?.uploadedAt)
+        upload.setDrillProblemsResult(UploadResult.Success)
+        val retried = orch.uploadAll()
+        assertEquals(1, retried.gameSuccess)
+        assertEquals(0, retried.gameFailed)
+        assertNotNull(db.getGameById(gameId)?.uploadedAt)
+        assertEquals(2, upload.calls.size)
     }
 
     @Test
@@ -245,15 +422,13 @@ class UploadOrchestratorTest {
         assertEquals(0, result.drillProblemSyncFailed)
         assertEquals(0, result.drillPendingRemaining)
         assertEquals(1, upload.calls.size)
-        // newGameIdはuploadGame自体の問題同期のみ（再同期ステップは今回アップロードした
-        // 棋譜を除外）、uploadedGameIdは再同期ステップのみで計2回
-        assertEquals(2, upload.drillProblemCalls.size)
+        assertTrue(upload.drillProblemCalls.isEmpty())
         assertEquals(2, upload.drillAttemptCalls.size)
+        assertEquals(2, upload.attemptGenerations.size)
 
-        val firstProblem = upload.events.indexOfFirst { it.startsWith("problem:") }
         val firstAttempt = upload.events.indexOfFirst { it.startsWith("attempt:") }
-        assertTrue(firstProblem >= 0 && firstAttempt > firstProblem)
-        assertTrue(upload.events.take(firstProblem).all { it.startsWith("game:") })
+        assertTrue(firstAttempt > 0)
+        assertTrue(upload.events.take(firstAttempt).all { it.startsWith("analysis:") })
         assertTrue(upload.events.drop(firstAttempt).all { it.startsWith("attempt:") })
 
         db.getAllGames().forEach { game ->
@@ -397,17 +572,17 @@ class UploadOrchestratorTest {
     // ─── 失敗の集計 ─────────────────────────────────────────────────────────
 
     @Test
-    fun uploadAll_drillProblemSyncFails_countsProblemSyncFailed() = runTest {
+    fun uploadAll_uploadedGame_doesNotResendProblems() = runTest {
         val upload = FakeUploadRepository(drillProblemsResult = UploadResult.Failure("sync error"))
         val (orch, _, db, _, _) = buildOrchestrator(upload = upload)
         val gameId = saveGame(db)
-        db.updateUploadedAt(gameId, 1_780_000_000L)  // 再同期ループの対象にする
+        db.updateUploadedAt(gameId, 1_780_000_000L)
 
         val result = orch.uploadAll()
 
-        assertEquals(1, result.drillProblemSyncFailed)
+        assertEquals(0, result.drillProblemSyncFailed)
         assertEquals(0, result.drillPendingRemaining)
-        assertEquals("アップロード完了: 成功0局／次の一手の成績は1件送信できませんでした", result.resultMessage())
+        assertTrue(upload.drillProblemCalls.isEmpty())
     }
 
     @Test
@@ -430,7 +605,7 @@ class UploadOrchestratorTest {
     }
 
     @Test
-    fun uploadAll_problemSyncAndAttemptBothFail_countsEachOnce() = runTest {
+    fun uploadAll_onlyGenerationAttemptFails_countsOnce() = runTest {
         val upload = FakeUploadRepository(
             drillProblemsResult = UploadResult.Failure("sync error"),
             drillAttemptResult = UploadResult.Failure("attempt error"),
@@ -442,8 +617,9 @@ class UploadOrchestratorTest {
 
         val result = orch.uploadAll()
 
-        assertEquals(1, result.drillProblemSyncFailed)
+        assertEquals(0, result.drillProblemSyncFailed)
         assertEquals(1, result.drillPendingRemaining)
-        assertEquals("アップロード完了: 成功0局／次の一手の成績は2件送信できませんでした", result.resultMessage())
+        assertTrue(upload.drillProblemCalls.isEmpty())
+        assertEquals("アップロード完了: 成功0局／次の一手の成績は1件送信できませんでした", result.resultMessage())
     }
 }

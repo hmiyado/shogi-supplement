@@ -30,6 +30,7 @@ data class ReconstructedGame(
     val ratingRule: String?,
     val ratingDeclaredAt: Long? = null,
     val sourcePlaceOverride: String?,
+    val studyKif: String? = null,
 )
 
 /** 1局ぶんの取込コールバックの結果。 */

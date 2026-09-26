@@ -34,8 +34,31 @@ CREATE TABLE game (
     time_control_raw TEXT,
     time_control_byoyomi_raw TEXT,
     rating_declared_at INTEGER,
-    engine_meta_json TEXT
+    engine_meta_json TEXT,
+    analysis_revision INTEGER NOT NULL DEFAULT 0,
+    study_kif TEXT
 );
+
+CREATE TABLE applied_analysis_request (
+    content_hash TEXT NOT NULL,
+    request_id TEXT NOT NULL,
+    game_id INTEGER NOT NULL REFERENCES game(id) ON DELETE CASCADE,
+    PRIMARY KEY (content_hash, request_id)
+);
+
+getAppliedAnalysisRequest:
+SELECT game.id FROM applied_analysis_request
+JOIN game ON game.id = applied_analysis_request.game_id
+WHERE applied_analysis_request.content_hash = ? AND request_id = ?;
+
+insertAppliedAnalysisRequest:
+INSERT INTO applied_analysis_request (content_hash, request_id, game_id) VALUES (?, ?, ?);
+
+deleteAppliedAnalysisRequestsByGame:
+DELETE FROM applied_analysis_request WHERE game_id = ?;
+
+deleteAllAppliedAnalysisRequests:
+DELETE FROM applied_analysis_request;
 
 CREATE TABLE blunder_report (
     id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
@@ -122,6 +145,17 @@ UPDATE game SET
     time_control_raw = ?, time_control_byoyomi_raw = ?, engine_meta_json = ?
 WHERE id = ? AND analysis_status = 'pending';
 
+replaceAnalysisGame:
+UPDATE game SET
+    file_name = ?, move_count = ?, sente_name = ?, gote_name = ?, analyzed_at = ?,
+    rating = ?, rating_sample_moves = ?, coef_version = ?, kif_text = ?, moves_usi = ?,
+    user_side = ?, rating_service = ?, rating_raw = ?, rating_rule = ?, rating_declared_at = ?, source_place = ?,
+    game_winner = ?, end_reason = ?, analysis_status = 'completed',
+    opening_style = ?, opening_castle = ?, opening_tags = ?, sente_rating = ?, gote_rating = ?,
+    time_control_raw = ?, time_control_byoyomi_raw = ?, engine_meta_json = ?, uploaded_at = NULL,
+    analysis_revision = analysis_revision + 1
+WHERE id = ?;
+
 getLastInsertRowId:
 SELECT last_insert_rowid();
 
@@ -137,6 +171,12 @@ SELECT * FROM game ORDER BY analyzed_at DESC LIMIT ?;
 getGameById:
 SELECT * FROM game WHERE id = ?;
 
+getStudyKif:
+SELECT COALESCE(study_kif, kif_text) AS effective_kif FROM game WHERE id = ?;
+
+updateStudyKif:
+UPDATE game SET study_kif = ? WHERE id = ?;
+
 getGamesWithUserSide:
 SELECT * FROM game
 WHERE user_side IS NOT NULL AND analysis_status = 'completed'
@@ -147,6 +187,15 @@ SELECT * FROM game WHERE uploaded_at IS NULL AND analysis_status = 'completed' O
 
 updateUploadedAt:
 UPDATE game SET uploaded_at = ? WHERE id = ?;
+
+markRestoredPendingGameUploaded:
+UPDATE game SET uploaded_at = ? WHERE id = ? AND analysis_status = 'pending';
+
+getAnalysisRevision:
+SELECT analysis_revision FROM game WHERE id = ?;
+
+markAnalysisUploaded:
+UPDATE game SET uploaded_at = ? WHERE id = ? AND analysis_revision = ?;
 
 updateUserSide:
 UPDATE game SET user_side = ?, rating_service = ?, rating_raw = ? WHERE id = ?;

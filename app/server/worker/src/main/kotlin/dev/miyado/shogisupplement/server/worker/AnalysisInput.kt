@@ -1,6 +1,8 @@
 package dev.miyado.shogisupplement.server.worker
 
 import dev.miyado.shogisupplement.api.analysis.AnalysisRequest
+import dev.miyado.shogisupplement.api.analysis.PositionAnalysisPurpose
+import dev.miyado.shogisupplement.engine.EngineInvariants
 import dev.miyado.shogisupplement.engine.Engine
 
 /** 解析リクエストの入力上限。超える入力は解析にもDBアクセスにも進ませない。 */
@@ -25,23 +27,34 @@ private val SFEN_HAND = Regex("-|(?:[0-9]{0,2}[plnsgrbPLNSGRB]){1,14}")
 private const val INVALID_SFEN = "sfen の形式が不正です"
 
 private const val MULTI_PV_ON_GAME = "multi_pv は moves_usi と同時に指定できません"
+private const val INVALID_REANALYSIS_REQUEST = "再解析要求のrequest_idが不正です"
 
 /** AnalysisRequestを検証しつつEngineInputへ変換する。moves_usiを優先する。 */
 fun AnalysisRequest.toEngineInput(): EngineInputResult {
     val movesUsi = movesUsi
     val sfen = sfen
     if (movesUsi != null) {
+        if (purpose != null) return EngineInputResult.Invalid("purpose は単発局面解析専用です")
         // 1局まるごとの結果は保存して指標の元になるため、解析条件を動かさせない。
         val error = multiPv?.let { MULTI_PV_ON_GAME } ?: movesError(movesUsi, field = "moves_usi")
-        return if (error != null) EngineInputResult.Invalid(error) else {
-            EngineInputResult.Valid(EngineInput.Game(movesUsi))
+        val requestIdValue = requestId
+        val requestError = when {
+            forceReanalysis && requestIdValue.isNullOrBlank() -> INVALID_REANALYSIS_REQUEST
+            requestIdValue != null && !requestIdValue.matches(Regex("[A-Za-z0-9_-]{8,128}")) -> INVALID_REANALYSIS_REQUEST
+            else -> null
+        }
+        return if (error != null) EngineInputResult.Invalid(error)
+        else if (requestError != null) EngineInputResult.Invalid(requestError) else {
+            EngineInputResult.Valid(EngineInput.Game(movesUsi, forceReanalysis, requestIdValue))
         }
     }
     if (sfen != null) {
         val moves = moves ?: emptyList()
         val error = sfenError(sfen) ?: movesError(moves, field = "moves") ?: multiPvError(multiPv)
         return if (error != null) EngineInputResult.Invalid(error) else {
-            EngineInputResult.Valid(EngineInput.Position(sfen, moves, multiPv ?: Engine.MULTI_PV))
+            val fixedMultiPv = if (purpose == PositionAnalysisPurpose.DRILL) EngineInvariants.DRILL_SECONDARY_MULTI_PV
+                else multiPv ?: Engine.MULTI_PV
+            EngineInputResult.Valid(EngineInput.Position(sfen, moves, fixedMultiPv, purpose))
         }
     }
     return EngineInputResult.Invalid("moves_usi または sfen のいずれかが必要です")

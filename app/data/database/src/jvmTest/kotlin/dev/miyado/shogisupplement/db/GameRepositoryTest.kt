@@ -17,11 +17,302 @@ import kotlin.test.assertTrue
  * インメモリSQLiteで保存・重複検出・復元を検証する。
  */
 class GameRepositoryTest {
+    @Test
+    fun `19sqmは既存の検討編集を未送信として引き継ぐ`() {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        ShogiSupplementDatabase.Schema.create(driver)
+        driver.execute(null, "DROP TABLE study_sync", 0)
+        driver.execute(null, "DROP TABLE analysis_remote_base", 0)
+        driver.execute(null, "DROP TABLE analysis_delete_target", 0)
+        driver.execute(null, "DROP TABLE analysis_sync_generation", 0)
+        driver.execute(null, "DROP TABLE analysis_sync_target", 0)
+        val db = ShogiSupplementDatabase(driver)
+        val repo = SqlDelightGameRepository(db)
+        val original = "1 ７六歩(77)\n2 投了"
+        val id = repo.savePendingGame("old.kif", "old-study", listOf("7g7f"), emptyMap(), kifText = original, userSide = "sente")
+        val edited = "$original\n*移行前のメモ"
+        db.shogiSupplementQueries.updateStudyKif(edited, id)
+        repo.updateUploadedAt(id, 100)
+        ShogiSupplementDatabase.Schema.migrate(driver, 19, ShogiSupplementDatabase.Schema.version)
+        val snapshot = repo.getPendingStudyUploads().single()
+        assertEquals(original, snapshot.expectedRemoteKif)
+        assertEquals(edited, snapshot.studyKif)
+        assertEquals(1L, snapshot.revision)
+        assertEquals(100L, repo.getGameById(id)?.uploadedAt)
+        driver.close()
+    }
+
+    @Test
+    fun `検討送信中の追加編集は古い送信完了で消えず解析状態を変えない`() {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        ShogiSupplementDatabase.Schema.create(driver)
+        val repo = SqlDelightGameRepository(ShogiSupplementDatabase(driver))
+        val original = "1 ７六歩(77)\n2 投了"
+        val id = repo.savePendingGame("test.kif", "queue-test", listOf("7g7f"), emptyMap(), kifText = original, userSide = "sente")
+        val first = "$original\n*最初のメモ"
+        assertTrue(repo.saveStudyKif(id, original, first))
+        assertEquals(emptyList(), repo.getPendingStudyUploads())
+        repo.updateUploadedAt(id, 123)
+        val snapshot = repo.getPendingStudyUploads().single()
+        assertEquals(original, snapshot.expectedRemoteKif)
+        val second = "$original\n*追加のメモ"
+        assertTrue(repo.saveStudyKif(id, first, second))
+        repo.acknowledgeStudyUpload(id, snapshot.revision, first)
+        val pending = repo.getPendingStudyUploads().single()
+        assertEquals(second, pending.studyKif)
+        assertEquals(first, pending.expectedRemoteKif)
+        assertEquals(123L, repo.getGameById(id)?.uploadedAt)
+        repo.acknowledgeStudyUpload(id, pending.revision, second)
+        assertEquals(emptyList(), repo.getPendingStudyUploads())
+        val third = "$original\n*さらに追加"
+        assertTrue(repo.saveStudyKif(id, second, third))
+        repo.acknowledgeStudyUpload(id, snapshot.revision, first)
+        assertEquals(second, repo.getPendingStudyUploads().single().expectedRemoteKif)
+        assertEquals(original, repo.getGameById(id)?.kifText)
+        driver.close()
+    }
+
+
+    @Test
+    fun `検討保存で本譜の終局時間を変更できない`() {
+        val repo = newRepository()
+        val original = "1 ７六歩(77)\n2 投了 (0:12/00:00:12)"
+        val id = repo.saveAnalysisAtomically(GameRepository.AnalysisSaveRequest(
+            fileName = "terminal.kif", contentHash = "terminal", moves = listOf("7g7f"),
+            headers = emptyMap(), reports = emptyList(), rating = 1000, coefVersion = "v1", kifText = original,
+        ))
+        assertFailsWith<IllegalArgumentException> {
+            repo.saveStudyKif(id, original, original.replace("0:12", "0:34"))
+        }
+        assertEquals(original, repo.getStudyKif(id))
+        assertTrue(repo.saveStudyKif(id, original, "$original\n*終局後のメモ"))
+    }
+
+    @Test
+    fun `検討KIFは別リポジトリから復元でき解析原文と同期状態を変更しない`() {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        ShogiSupplementDatabase.Schema.create(driver)
+        val database = ShogiSupplementDatabase(driver)
+        val repo = SqlDelightGameRepository(database)
+        val original = "手合割：平手\n1 ７六歩(77)\n2 ３四歩(33)"
+        val id = repo.saveAnalysisAtomically(GameRepository.AnalysisSaveRequest(
+            fileName = "study.kif", contentHash = "study", moves = listOf("7g7f", "3c3d"),
+            headers = mapOf("手合割" to "平手"), reports = emptyList(), rating = 1500,
+            coefVersion = "v1", kifText = original,
+        ))
+        repo.updateUploadedAt(id, 123L)
+        val before = repo.getGameById(id)
+        val revision = repo.getAnalysisUploadSnapshot(id)?.revision
+        val edited = "$original\n*本譜メモ\n変化：2手\n2 ８四歩(83)\n&分岐"
+        assertEquals(original, repo.getStudyKif(id))
+        assertTrue(repo.saveStudyKif(id, original, edited))
+        val reopened = SqlDelightGameRepository(ShogiSupplementDatabase(driver))
+        assertEquals(edited, reopened.getStudyKif(id))
+        assertEquals(before?.copy(studyKif = edited), reopened.getGameById(id))
+        assertEquals(edited, reopened.getAnalysisUploadSnapshot(id)?.game?.studyKif)
+        assertEquals(original, reopened.getAnalysisUploadSnapshot(id)?.game?.kifText)
+        assertEquals(revision, reopened.getAnalysisUploadSnapshot(id)?.revision)
+        assertEquals(false, reopened.saveStudyKif(id, original, original))
+        assertEquals(edited, reopened.getStudyKif(id))
+        assertTrue(reopened.saveStudyKif(id, edited, original))
+        assertEquals(original, reopened.getStudyKif(id))
+        assertFailsWith<IllegalArgumentException> {
+            reopened.saveStudyKif(id, original, "手合割：平手\n1 ２六歩(27)")
+        }
+        assertEquals(original, reopened.getStudyKif(id))
+        reopened.deleteGame(id)
+        assertNull(reopened.getStudyKif(id))
+        assertEquals(false, reopened.saveStudyKif(id, original, edited))
+    }
+
+    @Test
+    fun `送信比較世代は利用者別に固定され再起動や再送で変わらない`() {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        ShogiSupplementDatabase.Schema.create(driver)
+        val database = ShogiSupplementDatabase(driver)
+        val repo = SqlDelightGameRepository(database)
+        val request = GameRepository.AnalysisSaveRequest(
+            fileName = "fenced.kif", contentHash = "fenced", moves = listOf("7g7f"),
+            headers = emptyMap(), reports = emptyList(), rating = 1000, coefVersion = "v1",
+        )
+        val id = repo.saveAnalysisAtomically(request)
+        val generation = assertNotNull(repo.getAnalysisUploadSnapshot(id)?.generation)
+        assertNull(repo.getAnalysisSyncTarget(id, "owner-a", generation))
+        assertEquals(GameRepository.AnalysisSyncTarget(null), repo.freezeAnalysisSyncTarget(id, "owner-a", generation, null))
+        assertEquals(GameRepository.AnalysisSyncTarget("remote-b"), repo.freezeAnalysisSyncTarget(id, "owner-b", generation, "remote-b"))
+        val reopened = SqlDelightGameRepository(ShogiSupplementDatabase(driver))
+        assertEquals(GameRepository.AnalysisSyncTarget(null), reopened.freezeAnalysisSyncTarget(id, "owner-a", generation, "new-remote"))
+        assertEquals(GameRepository.AnalysisSyncTarget("remote-b"), reopened.getAnalysisSyncTarget(id, "owner-b", generation))
+        repo.saveAnalysisAtomically(request.copy(coefVersion = "v2"))
+        val next = assertNotNull(repo.getAnalysisUploadSnapshot(id)?.generation)
+        assertNull(repo.freezeAnalysisSyncTarget(id, "owner-a", generation, "late"))
+        assertEquals(GameRepository.AnalysisSyncTarget("current-remote"), repo.freezeAnalysisSyncTarget(id, "owner-a", next, "current-remote"))
+        val deletion = GameRepository.AnalysisDeleteTarget("remote-delete", "request-delete")
+        assertEquals(deletion, repo.freezeAnalysisDeleteTarget(id, "owner-a", next, deletion))
+        assertEquals(deletion, reopened.freezeAnalysisDeleteTarget(id, "owner-a", next,
+            GameRepository.AnalysisDeleteTarget("later-remote", "later-request")))
+        assertNull(repo.getAnalysisDeleteTarget(id, "owner-b", next))
+        assertNull(repo.freezeAnalysisDeleteTarget(id, "owner-a", generation, deletion))
+        repo.deleteGame(id)
+        assertNull(reopened.getAnalysisDeleteTarget(id, "owner-a", next))
+        assertNull(repo.getAnalysisSyncTarget(id, "owner-a", next))
+        assertNull(repo.getAnalysisSyncTarget(id, "owner-b", generation))
+        driver.close()
+    }
 
     private fun newRepository(): GameRepository {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         ShogiSupplementDatabase.Schema.create(driver)
         return SqlDelightGameRepository(ShogiSupplementDatabase(driver))
+    }
+
+    @Test
+    fun `復元した世代はローカル解析と別に保持し再解析の比較元となる`() {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        ShogiSupplementDatabase.Schema.create(driver)
+        val repo = SqlDelightGameRepository(ShogiSupplementDatabase(driver))
+        val original = "1 ７六歩(77)\n2 投了"
+        val id = repo.savePendingGame("restore.kif", "restore-base", listOf("7g7f"), emptyMap(), kifText = original, userSide = "sente")
+        repo.confirmRestoredGame(id, "owner", "remote-before", 123)
+        val reopened = SqlDelightGameRepository(ShogiSupplementDatabase(driver))
+        assertEquals(GameRepository.AnalysisRemoteBase("remote-before"), reopened.getAnalysisRemoteBase(id, "owner"))
+        assertNull(reopened.getAnalysisRemoteBase(id, "other"))
+        assertTrue(reopened.getAnalysisUploadSnapshot(id)?.generation != "remote-before")
+        val request = GameRepository.AnalysisSaveRequest("restore.kif", "restore-base", listOf("7g7f"), emptyMap(), emptyList(), 1000, coefVersion = "local", kifText = original)
+        assertEquals(id, repo.saveAnalysisAtomically(request))
+        val snapshot = assertNotNull(repo.getAnalysisUploadSnapshot(id))
+        repo.confirmRestoredGame(id, "owner", "must-not-replace", 456)
+        assertEquals(GameRepository.AnalysisRemoteBase("remote-before"), repo.getAnalysisRemoteBase(id, "owner"))
+        assertNull(repo.getGameById(id)?.uploadedAt)
+        repo.acknowledgeAnalysisGeneration(id, "owner", assertNotNull(snapshot.generation), snapshot.revision, 789)
+        assertEquals(GameRepository.AnalysisRemoteBase(snapshot.generation), repo.getAnalysisRemoteBase(id, "owner"))
+        repo.saveAnalysisAtomically(request.copy(coefVersion = "next"))
+        repo.acknowledgeAnalysisGeneration(id, "owner", assertNotNull(snapshot.generation), snapshot.revision, 999)
+        assertNull(repo.getGameById(id)?.uploadedAt)
+        repo.deleteGame(id)
+        assertNull(repo.getAnalysisRemoteBase(id, "owner"))
+        driver.close()
+    }
+
+    @Test
+    fun `移行済み棋譜の解析世代は再読込で維持され削除で消える`() {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        ShogiSupplementDatabase.Schema.create(driver)
+        val database = ShogiSupplementDatabase(driver)
+        val repo = SqlDelightGameRepository(database)
+        val id = repo.savePendingGame("legacy.kif", "legacy-generation", listOf("7g7f"), emptyMap(), kifText = "1 ７六歩(77)", userSide = null)
+        driver.execute(null, "DROP TABLE analysis_sync_generation", 0)
+        driver.execute(null, "DROP TABLE analysis_sync_target", 0)
+        driver.execute(null, "DROP TABLE analysis_delete_target", 0)
+        driver.execute(null, "DROP TABLE analysis_remote_base", 0)
+        ShogiSupplementDatabase.Schema.migrate(driver, 20, ShogiSupplementDatabase.Schema.version)
+        assertNull(database.analysisSyncGenerationQueries.getGeneration(id).executeAsOneOrNull())
+        val generation = assertNotNull(repo.getAnalysisUploadSnapshot(id)?.generation)
+        assertTrue(generation.isNotBlank())
+        val reopened = SqlDelightGameRepository(ShogiSupplementDatabase(driver))
+        assertEquals(generation, reopened.getAnalysisUploadSnapshot(id)?.generation)
+        assertEquals(generation, repo.getAnalysisUploadSnapshot(id)?.generation)
+        reopened.deleteGame(id)
+        assertNull(database.analysisSyncGenerationQueries.getGeneration(id).executeAsOneOrNull())
+        assertNull(reopened.getAnalysisUploadSnapshot(id))
+        val newId = reopened.savePendingGame("legacy.kif", "legacy-generation", listOf("7g7f"), emptyMap(), kifText = "1 ７六歩(77)", userSide = null)
+        assertTrue(generation != assertNotNull(reopened.getAnalysisUploadSnapshot(newId)?.generation))
+        reopened.deleteAllLocalData()
+        assertNull(database.analysisSyncGenerationQueries.getGeneration(newId).executeAsOneOrNull())
+        driver.close()
+    }
+
+    @Test
+    fun `適用済み要求の再送は新しい解析結果を置換しない`() {
+        val repo = newRepository()
+        val first = GameRepository.AnalysisSaveRequest(
+            fileName = "retry.kif", contentHash = "retry-hash", moves = listOf("7g7f"),
+            headers = emptyMap(), reports = emptyList(), rating = 1000,
+            coefVersion = "first", requestId = "request-1",
+        )
+        val gameId = repo.saveAnalysisAtomically(first)
+        val firstGeneration = assertNotNull(repo.getAnalysisUploadSnapshot(gameId)?.generation)
+        repo.saveAnalysisAtomically(first.copy(rating = 2000, coefVersion = "second", requestId = "request-2"))
+        val secondGeneration = assertNotNull(repo.getAnalysisUploadSnapshot(gameId)?.generation)
+        assertTrue(firstGeneration != secondGeneration)
+        repo.updateUploadedAt(gameId, 123L)
+        assertEquals(gameId, repo.saveAnalysisAtomically(first))
+        assertEquals(secondGeneration, repo.getAnalysisUploadSnapshot(gameId)?.generation)
+        assertEquals("second", repo.getGameById(gameId)?.coefVersion)
+        assertEquals(123L, repo.getGameById(gameId)?.uploadedAt)
+        assertEquals(gameId, repo.getAppliedAnalysis("retry-hash", "request-1"))
+        assertNull(repo.getAppliedAnalysis("another-hash", "request-1"))
+    }
+
+    @Test
+    fun `棋譜削除後は同じ要求IDで再取込できる`() {
+        val repo = newRepository()
+        val request = GameRepository.AnalysisSaveRequest(
+            fileName = "reimport.kif", contentHash = "reimport-hash", moves = listOf("7g7f"),
+            headers = emptyMap(), reports = emptyList(), rating = 1000,
+            coefVersion = "v1", requestId = "same-request",
+        )
+        val firstId = repo.saveAnalysisAtomically(request)
+        repo.deleteGame(firstId)
+        assertNull(repo.getAppliedAnalysis(request.contentHash, "same-request"))
+        val secondId = repo.saveAnalysisAtomically(request)
+        assertTrue(secondId != firstId)
+        repo.deleteAllLocalData()
+        assertNull(repo.getAppliedAnalysis(request.contentHash, "same-request"))
+        assertNotNull(repo.getGameById(repo.saveAnalysisAtomically(request)))
+    }
+
+    @Test
+    fun `要求記録の保存失敗は置換前の結果と解答履歴を復元する`() {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        ShogiSupplementDatabase.Schema.create(driver)
+        val database = ShogiSupplementDatabase(driver)
+        val repo = SqlDelightGameRepository(database)
+        val drill = SqlDelightDrillRepository(database)
+        val request = GameRepository.AnalysisSaveRequest(
+            fileName = "rollback.kif", contentHash = "rollback-hash", moves = listOf("7g7f"),
+            headers = emptyMap(), reports = listOf(sampleReport().copy(ply = 1)), rating = 1000,
+            coefVersion = "old", requestId = "old-request",
+            positionEvalRows = listOf(PositionEvalRow(ply = 0, scoreCp = 10, mateIn = null)),
+        )
+        val gameId = repo.saveAnalysisAtomically(request)
+        val originalGeneration = assertNotNull(repo.getAnalysisUploadSnapshot(gameId)?.generation)
+        val problem = repo.getReports(gameId).single()
+        val attemptId = drill.saveDrillAttempt(problem.id, "7g7f", true, 0.0)
+        repo.updateUploadedAt(gameId, 123L)
+        driver.execute(null, """
+            CREATE TRIGGER fail_request BEFORE INSERT ON applied_analysis_request
+            WHEN NEW.request_id = 'new-request'
+            BEGIN SELECT RAISE(ABORT, 'injected request failure'); END;
+        """.trimIndent(), 0)
+        assertFailsWith<Exception> {
+            repo.saveAnalysisAtomically(request.copy(coefVersion = "new", requestId = "new-request"))
+        }
+        assertEquals("old", repo.getGameById(gameId)?.coefVersion)
+        assertEquals(originalGeneration, repo.getAnalysisUploadSnapshot(gameId)?.generation)
+        assertEquals(123L, repo.getGameById(gameId)?.uploadedAt)
+        assertEquals(problem.id, repo.getReports(gameId).single().id)
+        assertEquals(attemptId, drill.getDrillAttempts(problem.id).single().id)
+        assertEquals(gameId, repo.getAppliedAnalysis(request.contentHash, "old-request"))
+        assertNull(repo.getAppliedAnalysis(request.contentHash, "new-request"))
+    }
+
+    @Test
+    fun `古い送信完了は再解析後の結果を送信済みにしない`() {
+        val repo = newRepository()
+        val request = GameRepository.AnalysisSaveRequest(
+            fileName = "race.kif", contentHash = "race-hash", moves = listOf("7g7f"),
+            headers = emptyMap(), reports = emptyList(), rating = 1000, coefVersion = "v1",
+        )
+        val id = repo.saveAnalysisAtomically(request)
+        val oldRevision = assertNotNull(repo.getAnalysisRevision(id))
+        repo.saveAnalysisAtomically(request.copy(coefVersion = "v2"))
+        repo.markAnalysisUploaded(id, oldRevision, 123L)
+        assertNull(repo.getGameById(id)?.uploadedAt)
+        val newRevision = assertNotNull(repo.getAnalysisRevision(id))
+        assertTrue(newRevision > oldRevision)
+        repo.markAnalysisUploaded(id, newRevision, 456L)
+        assertEquals(456L, repo.getGameById(id)?.uploadedAt)
     }
 
     private fun sampleReport() = BlunderReport(
@@ -292,6 +583,8 @@ class GameRepositoryTest {
         assertEquals(listOf(gameId), repo.getPendingGames().map { it.id })
         assertTrue(repo.getGamesWithUserSide().isEmpty())
         assertTrue(repo.getNotUploadedGames().isEmpty())
+        repo.markRestoredPendingGameUploaded(gameId, 123L)
+        assertEquals(123L, repo.getGameById(gameId)!!.uploadedAt)
     }
 
     @Test
@@ -305,6 +598,10 @@ class GameRepositoryTest {
             kifText = "手合割：平手",
             userSide = "sente",
         )
+
+        val restoredRevision = repo.getAnalysisRevision(gameId)!!
+        repo.markRestoredPendingGameUploaded(gameId, 100L)
+        assertEquals(100L, repo.getGameById(gameId)!!.uploadedAt)
 
         val completedId = repo.saveAnalysis(
             fileName = "pending.kif",
@@ -321,6 +618,13 @@ class GameRepositoryTest {
         assertEquals(GameAnalysisStatus.COMPLETED, repo.getGameById(gameId)!!.analysisStatus)
         assertEquals(1800L, repo.getGameById(gameId)!!.rating)
         assertEquals(1, repo.getAllGames().size)
+        assertNull(repo.getGameById(gameId)!!.uploadedAt)
+        assertEquals(listOf(gameId), repo.getNotUploadedGames().map { it.id })
+        assertTrue(repo.getAnalysisRevision(gameId)!! > restoredRevision)
+        repo.markAnalysisUploaded(gameId, restoredRevision, 120L)
+        assertNull(repo.getGameById(gameId)!!.uploadedAt)
+        repo.markRestoredPendingGameUploaded(gameId, 123L)
+        assertNull(repo.getGameById(gameId)!!.uploadedAt)
     }
 
     @Test
@@ -651,6 +955,7 @@ class GameRepositoryTest {
                 GameRepository.AnalysisSaveRequest(
                     fileName = "atomic.kif",
                     contentHash = "hash-atomic-failure",
+                    requestId = "failed-request",
                     moves = listOf("7g7f"),
                     headers = emptyMap(),
                     reports = emptyList(),
@@ -664,6 +969,7 @@ class GameRepositoryTest {
         }
 
         assertNull(repo.getByHash("hash-atomic-failure"))
+        assertNull(repo.getAppliedAnalysis("hash-atomic-failure", "failed-request"))
         assertTrue(repo.getAllGames().isEmpty())
     }
 

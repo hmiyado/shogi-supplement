@@ -17,6 +17,37 @@ data class DrillAttemptUpload(
  * 実装: SupabaseUploadRepository（androidApp）、FakeUploadRepository（テスト）
  */
 interface UploadRepository {
+    data class AnalysisRemoteState(val generation: String?, val deleted: Boolean)
+
+    sealed interface AnalysisUploadOutcome {
+        data class Applied(val privateWritten: Boolean) : AnalysisUploadOutcome
+        data class Conflict(val currentGeneration: String?) : AnalysisUploadOutcome
+        data class Superseded(val currentGeneration: String?) : AnalysisUploadOutcome
+        data class Failure(val message: String) : AnalysisUploadOutcome
+    }
+
+    /** 通信失敗はnull。世代なしの既存棋譜はAnalysisRemoteState(null, false)。 */
+    suspend fun getAnalysisRemoteState(contentHash: String): AnalysisRemoteState? = null
+
+    /** 固定した比較世代で解析・問題を一括送信する。旧APIへのフォールバックは禁止。 */
+    suspend fun uploadAnalysis(
+        userId: String,
+        snapshot: dev.miyado.shogisupplement.db.GameRepository.AnalysisUploadSnapshot,
+        target: dev.miyado.shogisupplement.db.GameRepository.AnalysisSyncTarget,
+    ): AnalysisUploadOutcome = AnalysisUploadOutcome.Failure("解析の一括送信は未対応です")
+
+    suspend fun uploadGenerationAttempt(
+        userId: String, contentHash: String, generation: String, problem: BlunderRecord, attempt: DrillAttemptUpload,
+    ): UploadResult = UploadResult.Failure("世代付き回答送信は未対応です")
+
+    suspend fun deleteAnalysisGeneration(
+        userId: String, contentHash: String, target: dev.miyado.shogisupplement.db.GameRepository.AnalysisDeleteTarget,
+    ): Boolean = false
+
+    /** 解析結果・問題・回答を変更せず、競合を検出して検討文書だけを更新する。 */
+    suspend fun uploadStudy(userId: String, snapshot: dev.miyado.shogisupplement.db.GameRepository.StudyUploadSnapshot): UploadResult =
+        UploadResult.Failure("検討文書の送信は未対応です")
+
     /**
      * ゲームとレポートを uploaded_games テーブルにアップロードする。
      * @return UploadResult（成功 / 重複=成功扱い / 失敗）
@@ -38,6 +69,7 @@ interface UploadRepository {
         userId: String,
         contentHash: String,
         problems: List<BlunderRecord>,
+        replaceExisting: Boolean = false,
     ): UploadResult
 
     /** 指定問題に対するドリル解答を、クライアントIDで冪等に登録する。 */

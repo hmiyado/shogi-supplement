@@ -13,6 +13,7 @@ data class AnalysisEngineMeta(
     @SerialName("multi_pv") val multiPv: Int,
     @SerialName("usi_hash") val usiHash: Int,
     @SerialName("fv_scale") val fvScale: Int,
+    @SerialName("condition_name") val conditionName: String = "",
 )
 
 /** 1局の全局面解析と、その解析に使った来歴。 */
@@ -34,6 +35,8 @@ interface GameAnalyzer {
     /** @param moves 棋譜のUSI手列。 @param onPositionResult 局面ごとの結果。 @param onProgress 進捗。 @return 局面順のMultiPV結果と解析来歴。 */
     suspend fun analyzeGame(
         moves: List<String>,
+        forceReanalysis: Boolean = false,
+        requestId: String? = null,
         onPositionResult: ((ply: Int, pvs: List<PvInfo>) -> Unit)? = null,
         onProgress: ((done: Int, total: Int) -> Unit)? = null,
     ): GameAnalysisResult

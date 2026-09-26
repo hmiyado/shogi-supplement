@@ -8,6 +8,7 @@ data class AnalysisSession(
     val fileName: String,
     val moves: List<String>,
     val userSide: String?,
+    val requestId: String? = null,
 )
 
 /**
@@ -23,14 +24,15 @@ class AnalysisSessionCoordinator(
         analyze: suspend (onPositionResult: (Int, List<PvInfo>) -> Unit) -> AnalysisOrchestrator.Outcome,
         onPositionResult: (Int, List<PvInfo>) -> Unit = { _, _ -> },
     ): AnalysisOrchestrator.Outcome {
-        registry.start(session.id, session.fileName, session.moves, session.userSide)
+        val generation = registry.start(session.id, session.fileName, session.moves, session.userSide, session.requestId)
         return try {
             analyze { ply, pvs ->
-                registry.updatePosition(session.id, ply, pvs)
-                onPositionResult(ply, pvs)
+                if (registry.updatePosition(session.id, generation, ply, pvs)) {
+                    onPositionResult(ply, pvs)
+                }
             }
         } finally {
-            registry.finish(session.id)
+            registry.finish(session.id, generation)
         }
     }
 }

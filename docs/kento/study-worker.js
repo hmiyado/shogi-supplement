@@ -33,6 +33,7 @@
  *   （`"startpos"` または `"sfen <SFEN文字列>"`）。
  * @property {string} movesJson baseSfenArgの局面からさらに進めるUSI手列のJSON配列文字列。
  * @property {number | undefined} multiPv 候補手の本数。省略時は DEFAULT_MULTI_PV。
+ * @property {"drill" | null | undefined} purpose ドリルは物差しの条件を固定する。省略は従来の検討。
  *   公開済みアプリはこの項目を送らないため、省略時の値を変えると過去のバージョンの
  *   解析条件が動く。
  */
@@ -89,7 +90,7 @@ self.onmessage = async (ev) => {
       await prepareEngine(msg.variant, msg.assetDirUrl);
       post({ type: "prepared" });
     } else if (msg.type === "analyze") {
-      const result = await analyzeOnce(msg.baseSfenArg, msg.movesJson, msg.multiPv);
+      const result = await analyzeOnce(msg.baseSfenArg, msg.movesJson, msg.multiPv, msg.purpose);
       post({ type: "result", result });
     }
   } catch (err) {
@@ -140,6 +141,9 @@ const SETOPTIONS = [
 const GO_NODES = 400000;
 const DEFAULT_MULTI_PV = 2;
 const MAX_MULTI_PV = 3;
+// 検討条件を将来拡張しても、ドリルの物差しは変更しない。
+const DRILL_NODES = 400000;
+const DRILL_MULTI_PV = 2;
 
 let preparedModule = null;
 
@@ -217,9 +221,11 @@ function handleStdout(state, line) {
  * @param {AnalyzeMessage["baseSfenArg"]} baseSfenArg USIの position コマンドへそのまま連結される。
  * @param {AnalyzeMessage["movesJson"]} movesJson
  * @param {AnalyzeMessage["multiPv"]} multiPv
+ * @param {AnalyzeMessage["purpose"]} purpose
  * @returns {Promise<PositionResult>}
  */
-async function analyzeOnce(baseSfenArg, movesJson, multiPv) {
+async function analyzeOnce(baseSfenArg, movesJson, multiPv, purpose) {
+  if (purpose != null && purpose !== "drill") throw new Error("Unknown analysis purpose");
   if (!preparedModule) {
     throw new Error("study-worker: prepare前にanalyzeが呼ばれました");
   }
@@ -230,7 +236,7 @@ async function analyzeOnce(baseSfenArg, movesJson, multiPv) {
   const posArg = moves.length ? `${baseSfenArg} moves ${moves.join(" ")}` : baseSfenArg;
 
   const requestedMultiPv = Number(multiPv) || DEFAULT_MULTI_PV;
-  const effectiveMultiPv = Math.min(Math.max(requestedMultiPv, 1), MAX_MULTI_PV);
+  const effectiveMultiPv = purpose === "drill" ? DRILL_MULTI_PV : Math.min(Math.max(requestedMultiPv, 1), MAX_MULTI_PV);
 
   const lines = ["usi"];
   for (const [name, value] of SETOPTIONS) {
@@ -240,7 +246,7 @@ async function analyzeOnce(baseSfenArg, movesJson, multiPv) {
   lines.push("isready");
   lines.push("usinewgame");
   lines.push(`position ${posArg}`);
-  lines.push(`go nodes ${GO_NODES}`);
+  lines.push(`go nodes ${purpose === "drill" ? DRILL_NODES : GO_NODES}`);
   lines.push("quit");
 
   const argv = [];

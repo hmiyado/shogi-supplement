@@ -12,6 +12,7 @@ import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.kifu.KifuReconstructor
 import dev.miyado.shogisupplement.kifu.KifuSource
 import dev.miyado.shogisupplement.kifu.PublicKifuFields
+import dev.miyado.shogisupplement.kifu.StudyKifuBackup
 import dev.miyado.shogisupplement.kifu.kifuWinner
 import dev.miyado.shogisupplement.text.AppStrings
 import io.github.jan.supabase.SupabaseClient
@@ -62,7 +63,11 @@ class SupabaseGameSummaryService(
             return GameDetailOutcome.NetworkError(e.message ?: "communication failed")
         }
 
-        val game = row.toGameRecord(id = 1L, kEnc, includeKifText = true)
+        val game = try {
+            row.toGameRecord(id = 1L, kEnc, includeKifText = true)
+        } catch (_: IllegalArgumentException) {
+            return GameDetailOutcome.NetworkError(AppStrings.MYPAGE_ERROR_NO_SECRET)
+        }
         val reports = row.analysisJson.orEmpty().map { it.toBlunderRecord(row.movesUsi) }
         return GameDetailOutcome.Loaded(GameDetail(game, reports))
     }
@@ -80,7 +85,7 @@ class SupabaseGameSummaryService(
             }.getOrNull()
         }
         val effectiveMoveCount = moveCount ?: movesUsi.size
-        val kifText = if (includeKifText) {
+        val restored = if (includeKifText) {
             val public = PublicKifuFields(
                 movesUsi = movesUsi,
                 moveTimesSeconds = moveTimes.orEmpty(),
@@ -88,7 +93,8 @@ class SupabaseGameSummaryService(
                 result = result,
                 source = KifuSource.entries.firstOrNull { it.wireValue == sourcePlace } ?: KifuSource.OTHER,
             )
-            KifuReconstructor.reconstruct(public, privateFields, userSide = side)
+            if (privateFields?.studyKif != null) StudyKifuBackup.restore(public, privateFields)
+            else KifuReconstructor.reconstruct(public, privateFields, userSide = side) to null
         } else {
             null
         }
@@ -103,7 +109,8 @@ class SupabaseGameSummaryService(
             rating = (estimatedRating ?: 0).toLong(),
             coefVersion = coefVersion.orEmpty(),
             engineMetaJson = engineMeta?.toString(),
-            kifText = kifText,
+            kifText = restored?.first,
+            studyKif = restored?.second,
             movesUsi = movesUsi,
             userSide = side,
             ratingService = ratingService,

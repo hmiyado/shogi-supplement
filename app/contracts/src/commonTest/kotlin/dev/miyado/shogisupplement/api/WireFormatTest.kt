@@ -1,6 +1,7 @@
 package dev.miyado.shogisupplement.api
 
 import dev.miyado.shogisupplement.api.analysis.AnalysisRequest
+import dev.miyado.shogisupplement.api.analysis.PositionAnalysisPurpose
 import dev.miyado.shogisupplement.api.analysis.AnalysisResultJson
 import dev.miyado.shogisupplement.api.analysis.EngineMetaJson
 import dev.miyado.shogisupplement.api.analysis.ErrorJson
@@ -29,13 +30,21 @@ class WireFormatTest {
     private val json = Json { encodeDefaults = true }
 
     @Test
+    fun drillPurposeIsExplicitAndOldRequestsRemainReadable() {
+        assertEquals(null, json.decodeFromString<AnalysisRequest>("""{"sfen":"sfen"}""").purpose)
+        val request = AnalysisRequest(sfen = "sfen", multiPv = 2, purpose = PositionAnalysisPurpose.DRILL)
+        assertEquals(request, json.decodeFromString<AnalysisRequest>(json.encodeToString(request)))
+        kotlin.test.assertTrue(json.encodeToString(request).contains("\"purpose\":\"drill\""))
+    }
+
+    @Test
     fun 解析リクエストのキー名() {
         assertEquals(
-            """{"moves_usi":["7g7f","3c3d"],"sfen":null,"moves":null,"multi_pv":null}""",
+            """{"moves_usi":["7g7f","3c3d"],"sfen":null,"moves":null,"multi_pv":null,"force_reanalysis":false,"request_id":null}""",
             json.encodeToString(AnalysisRequest(movesUsi = listOf("7g7f", "3c3d"))),
         )
         assertEquals(
-            """{"moves_usi":null,"sfen":"sfen","moves":["7g7f"],"multi_pv":3}""",
+            """{"moves_usi":null,"sfen":"sfen","moves":["7g7f"],"multi_pv":3,"force_reanalysis":false,"request_id":null}""",
             json.encodeToString(AnalysisRequest(sfen = "sfen", moves = listOf("7g7f"), multiPv = 3)),
         )
     }
@@ -59,7 +68,7 @@ class WireFormatTest {
         assertEquals(
             """{"result":[[{"multipv":1,"score":{"type":"cp","value":42},"pv":["7g7f"],"nodes":400000}]],""" +
                 """"engine_meta":{"engine_rev":"rev","eval_sha256":"sha","nodes":400000,"threads":1,""" +
-                """"multi_pv":2,"usi_hash":128,"fv_scale":20}}""",
+                """"multi_pv":2,"usi_hash":128,"fv_scale":20,"condition_name":""}}""",
             json.encodeToString(result),
         )
     }

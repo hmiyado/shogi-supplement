@@ -21,6 +21,7 @@ class GameImporter(private val repository: GameRepository) {
         ratingDeclaredAt: Long? = null,
         contentHash: String? = null,
         sourcePlaceOverride: String? = null,
+        studyKif: String? = null,
     ): Outcome = try {
         val effectiveHash = contentHash ?: sha256Hex(kifContent)
         repository.getByHash(effectiveHash)?.let {
@@ -47,6 +48,7 @@ class GameImporter(private val repository: GameRepository) {
             goteRating = players.goteRating,
             timeControlRaw = game.headers["持ち時間"],
             timeControlByoyomiRaw = game.headers["秒読み"],
+            studyKif = studyKif,
         )
         Outcome.Imported(gameId, alreadyExisted = false)
     } catch (e: Exception) {

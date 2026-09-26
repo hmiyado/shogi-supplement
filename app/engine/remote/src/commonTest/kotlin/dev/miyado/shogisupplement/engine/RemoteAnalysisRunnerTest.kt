@@ -37,6 +37,26 @@ import kotlin.test.assertTrue
  */
 class RemoteAnalysisRunnerTest {
 
+    @Test
+    fun drillRequestIsIndependentOfStudyMultiPv() = runTest {
+        val requests = mutableListOf<String>()
+        val client = HttpClient(MockEngine { request ->
+            requests.add(request.bodyText())
+            respond(resultLine + "\n", HttpStatusCode.OK, ndjsonHeaders)
+        })
+        try {
+            val runner = runner(client)
+            runner.analyzePosition("sfen", multiPv = 3)
+            runner.analyzeDrillPosition("sfen")
+            val study = Json.parseToJsonElement(requests[0]).jsonObject
+            val drill = Json.parseToJsonElement(requests[1]).jsonObject
+            assertEquals("3", study["multi_pv"]?.jsonPrimitive?.content)
+            assertEquals(null, study["purpose"])
+            assertEquals("2", drill["multi_pv"]?.jsonPrimitive?.content)
+            assertEquals("drill", drill["purpose"]?.jsonPrimitive?.content)
+        } finally { client.close() }
+    }
+
     private val ndjsonHeaders = headersOf(HttpHeaders.ContentType, "application/x-ndjson")
 
     private val resultLine =

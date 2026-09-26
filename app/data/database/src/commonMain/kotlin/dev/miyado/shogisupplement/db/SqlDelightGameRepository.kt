@@ -4,6 +4,7 @@ import dev.miyado.shogisupplement.board.ShogiBoard
 import dev.miyado.shogisupplement.board.ShogiMove
 import dev.miyado.shogisupplement.kifu.KifuDecomposer
 import dev.miyado.shogisupplement.kifu.KifuSource
+import dev.miyado.shogisupplement.kifu.KifTreeParser
 import dev.miyado.shogisupplement.pipeline.BlunderReport
 import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.util.currentEpochSeconds
@@ -14,6 +15,107 @@ import kotlinx.serialization.json.Json
 /** 棋譜・悪手レポート・局面評価値のDB永続化リポジトリ（[GameRepository]のSQLDelight実装）。 */
 class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : GameRepository {
 
+    override fun getStudyKif(gameId: Long): String? =
+        database.shogiSupplementQueries.getStudyKif(gameId).executeAsOneOrNull()?.effective_kif
+
+    override fun saveStudyKif(gameId: Long, expectedKif: String, kif: String): Boolean =
+        database.transactionWithResult {
+            val current = getStudyKif(gameId) ?: return@transactionWithResult false
+            if (current != expectedKif) return@transactionWithResult false
+            val original = getGameById(gameId)?.kifText ?: return@transactionWithResult false
+            val baseline = KifTreeParser().parse(original)
+            val edited = KifTreeParser().parse(kif)
+            require(baseline.mainLineContent() == edited.mainLineContent() && baseline.headers == edited.headers) {
+                "Study edits must preserve the analyzed main line"
+            }
+            database.shogiSupplementQueries.updateStudyKif(kif, gameId)
+            if (kif != current) {
+                database.studySyncQueries.initializeStudySync(gameId, original)
+                database.studySyncQueries.recordStudyChange(gameId)
+            }
+            true
+        }
+
+    override fun getPendingStudyUploads(): List<GameRepository.StudyUploadSnapshot> =
+        database.studySyncQueries.getPendingStudyUploads().executeAsList().map {
+            GameRepository.StudyUploadSnapshot(it.id, it.content_hash, checkNotNull(it.kif_text),
+                checkNotNull(it.study_kif), it.base_kif, it.revision)
+        }
+
+    override fun acknowledgeStudyUpload(gameId: Long, revision: Long, uploadedKif: String) {
+        database.studySyncQueries.acknowledgeStudyUpload(revision, uploadedKif, gameId, revision, revision)
+    }
+
+    @OptIn(kotlin.uuid.ExperimentalUuidApi::class)
+    override fun getAnalysisUploadSnapshot(gameId: Long): GameRepository.AnalysisUploadSnapshot? =
+        database.transactionWithResult {
+            val game = getGameById(gameId) ?: return@transactionWithResult null
+            database.analysisSyncGenerationQueries.initializeGeneration(gameId, kotlin.uuid.Uuid.random().toString())
+            GameRepository.AnalysisUploadSnapshot(
+                game = game,
+                reports = getReports(gameId),
+                problems = SqlDelightDrillRepository(database).getDrillCandidatesByGame(gameId),
+                revision = checkNotNull(getAnalysisRevision(gameId)),
+                studyRevision = database.studySyncQueries.getStudyRevision(gameId).executeAsOneOrNull() ?: 0,
+                generation = database.analysisSyncGenerationQueries.getGeneration(gameId).executeAsOne(),
+            )
+        }
+
+    override fun getAnalysisSyncTarget(gameId: Long, userId: String, generation: String): GameRepository.AnalysisSyncTarget? =
+        database.analysisSyncTargetQueries.getTarget(gameId, userId, generation)
+            .executeAsOneOrNull()?.let {
+                GameRepository.AnalysisSyncTarget(it.expected_generation,
+                    if (it.study_kif != null && it.study_revision != null) GameRepository.FrozenStudy(it.study_kif, it.study_revision) else null)
+            }
+
+    override fun freezeAnalysisSyncTarget(
+        gameId: Long, userId: String, generation: String, expectedGeneration: String?,
+        study: GameRepository.FrozenStudy?,
+    ): GameRepository.AnalysisSyncTarget? = database.transactionWithResult {
+        if (database.analysisSyncGenerationQueries.getGeneration(gameId).executeAsOneOrNull() != generation) {
+            return@transactionWithResult null
+        }
+        database.analysisSyncTargetQueries.freezeTarget(gameId, userId, generation, expectedGeneration, study?.kif, study?.revision)
+        getAnalysisSyncTarget(gameId, userId, generation)
+    }
+
+    override fun getAnalysisDeleteTarget(gameId: Long, userId: String, generation: String): GameRepository.AnalysisDeleteTarget? =
+        database.analysisDeleteTargetQueries.getTarget(gameId, userId, generation).executeAsOneOrNull()?.let {
+            GameRepository.AnalysisDeleteTarget(it.expected_generation, it.request_id)
+        }
+
+    override fun freezeAnalysisDeleteTarget(
+        gameId: Long, userId: String, generation: String, target: GameRepository.AnalysisDeleteTarget,
+    ): GameRepository.AnalysisDeleteTarget? = database.transactionWithResult {
+        if (database.analysisSyncGenerationQueries.getGeneration(gameId).executeAsOneOrNull() != generation) return@transactionWithResult null
+        database.analysisDeleteTargetQueries.freezeTarget(gameId, userId, generation, target.expectedGeneration, target.requestId)
+        getAnalysisDeleteTarget(gameId, userId, generation)
+    }
+
+    override fun getAnalysisRemoteBase(gameId: Long, userId: String): GameRepository.AnalysisRemoteBase? =
+        database.analysisRemoteBaseQueries.getBase(gameId, userId).executeAsOneOrNull()?.let {
+            GameRepository.AnalysisRemoteBase(it.generation)
+        }
+
+    override fun confirmRestoredGame(gameId: Long, userId: String, generation: String?, epochSeconds: Long) {
+        database.transaction {
+            if (getGameById(gameId)?.analysisStatus != GameAnalysisStatus.PENDING) return@transaction
+            database.analysisRemoteBaseQueries.saveBase(gameId, userId, generation)
+            markRestoredPendingGameUploaded(gameId, epochSeconds)
+        }
+    }
+
+    override fun acknowledgeAnalysisGeneration(gameId: Long, userId: String, generation: String, revision: Long, epochSeconds: Long) {
+        database.transaction {
+            if (database.analysisSyncGenerationQueries.getGeneration(gameId).executeAsOneOrNull() != generation || getAnalysisRevision(gameId) != revision) return@transaction
+            database.analysisRemoteBaseQueries.saveBase(gameId, userId, generation)
+            markAnalysisUploaded(gameId, revision, epochSeconds)
+        }
+    }
+
+    override fun getAppliedAnalysis(contentHash: String, requestId: String): Long? =
+        database.shogiSupplementQueries.getAppliedAnalysisRequest(contentHash, requestId).executeAsOneOrNull()
+
     /**
      * game・悪手・局面評価を同じSQLDelightトランザクションに含める。
      * saveAnalysis側のトランザクションはSQLDelightのネストしたトランザクションとして
@@ -21,6 +123,9 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
      */
     override fun saveAnalysisAtomically(request: GameRepository.AnalysisSaveRequest): Long =
         database.transactionWithResult {
+            request.requestId?.let { requestId ->
+                getAppliedAnalysis(request.contentHash, requestId)?.let { return@transactionWithResult it }
+            }
             val gameId = saveAnalysis(
                 fileName = request.fileName,
                 contentHash = request.contentHash,
@@ -61,6 +166,9 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
                     second_usi = row.secondUsi,
                 )
             }
+            request.requestId?.let {
+                database.shogiSupplementQueries.insertAppliedAnalysisRequest(request.contentHash, it, gameId)
+            }
             gameId
         }
 
@@ -83,6 +191,7 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
         goteRating: Long?,
         timeControlRaw: String?,
         timeControlByoyomiRaw: String?,
+        studyKif: String?,
     ): Long = database.transactionWithResult {
         database.shogiSupplementQueries.insertGame(
             file_name = fileName,
@@ -114,9 +223,16 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
             time_control_byoyomi_raw = timeControlByoyomiRaw,
             engine_meta_json = null,
         )
-        database.shogiSupplementQueries.getLastInsertRowId().executeAsOne()
+        val gameId = database.shogiSupplementQueries.getLastInsertRowId().executeAsOne()
+        if (studyKif != null) {
+            check(saveStudyKif(gameId, kifText, studyKif)) { "Study restore failed" }
+            val revision = database.studySyncQueries.getStudyRevision(gameId).executeAsOneOrNull() ?: 0
+            acknowledgeStudyUpload(gameId, revision, studyKif)
+        }
+        gameId
     }
 
+    @OptIn(kotlin.uuid.ExperimentalUuidApi::class)
     override fun saveAnalysis(
         fileName: String,
         contentHash: String,
@@ -151,11 +267,9 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
         val movesUsiJson = Json.encodeToString(moves)
 
         return database.transactionWithResult {
-            val pendingId = database.shogiSupplementQueries.getGameByHash(contentHash)
-                .executeAsOneOrNull()
-                ?.takeIf { it.analysis_status == GameAnalysisStatus.PENDING.wireValue }
-                ?.id
-            if (pendingId == null) {
+            val existing = database.shogiSupplementQueries.getGameByHash(contentHash).executeAsOneOrNull()
+            val replaceId = existing?.id
+            if (replaceId == null) {
                 database.shogiSupplementQueries.insertGame(
                     file_name = fileName,
                     content_hash = contentHash,
@@ -187,7 +301,12 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
                     engine_meta_json = engineMetaJson,
                 )
             } else {
-                database.shogiSupplementQueries.completePendingGame(
+                // 再解析は同じgameを正本として上書きする。先に派生結果とドリル履歴を
+                // 消すことで、旧解析の問題・解答が新版結果へ混ざらないようにする。
+                database.shogiSupplementQueries.deleteDrillAttemptsByGameId(replaceId)
+                database.shogiSupplementQueries.deleteBlunderReportsByGameId(replaceId)
+                database.shogiSupplementQueries.deletePositionEvalsByGameId(replaceId)
+                database.shogiSupplementQueries.replaceAnalysisGame(
                     file_name = fileName,
                     move_count = moves.size.toLong(),
                     sente_name = headers["先手"],
@@ -202,7 +321,7 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
                     rating_service = ratingService,
                     rating_raw = ratingRaw,
                     rating_rule = ratingRule,
-                    rating_declared_at = ratingDeclaredAt,
+                    rating_declared_at = ratingDeclaredAt ?: existing.rating_declared_at,
                     source_place = sourcePlace,
                     game_winner = gameWinner,
                     end_reason = endReason,
@@ -214,10 +333,11 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
                     time_control_raw = timeControlRaw,
                     time_control_byoyomi_raw = timeControlByoyomiRaw,
                     engine_meta_json = engineMetaJson,
-                    id = pendingId,
+                    id = replaceId,
                 )
             }
-            val gameId = pendingId ?: database.shogiSupplementQueries.getLastInsertRowId().executeAsOne()
+            val gameId = replaceId ?: database.shogiSupplementQueries.getLastInsertRowId().executeAsOne()
+            database.analysisSyncGenerationQueries.replaceGeneration(gameId, kotlin.uuid.Uuid.random().toString())
 
             reports.forEach { report ->
                 // report.ply は 1 始まり。直前局面は sfenAtPly[report.ply - 1]
@@ -389,6 +509,17 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
         database.shogiSupplementQueries.updateUploadedAt(epochSeconds, gameId)
     }
 
+    override fun markRestoredPendingGameUploaded(gameId: Long, epochSeconds: Long) {
+        database.shogiSupplementQueries.markRestoredPendingGameUploaded(epochSeconds, gameId)
+    }
+
+    override fun getAnalysisRevision(gameId: Long): Long? =
+        database.shogiSupplementQueries.getAnalysisRevision(gameId).executeAsOneOrNull()
+
+    override fun markAnalysisUploaded(gameId: Long, revision: Long, epochSeconds: Long) {
+        database.shogiSupplementQueries.markAnalysisUploaded(epochSeconds, gameId, revision)
+    }
+
     /** ゲームの user_side / rating_service / rating_raw を更新する。 */
     override fun updateUserSide(gameId: Long, userSide: String?, ratingService: String?, ratingRaw: Long?) {
         database.shogiSupplementQueries.updateUserSide(userSide, ratingService, ratingRaw, gameId)
@@ -469,6 +600,11 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
 
     override fun deleteGame(gameId: Long) {
         database.transaction {
+            database.analysisSyncGenerationQueries.deleteGeneration(gameId)
+            database.analysisSyncTargetQueries.deleteTargets(gameId)
+            database.analysisDeleteTargetQueries.deleteTargets(gameId)
+            database.analysisRemoteBaseQueries.deleteBases(gameId)
+            database.shogiSupplementQueries.deleteAppliedAnalysisRequestsByGame(gameId)
             database.shogiSupplementQueries.deleteDrillAttemptsByGameId(gameId)
             database.shogiSupplementQueries.deleteBlunderReportsByGameId(gameId)
             database.shogiSupplementQueries.deletePositionEvalsByGameId(gameId)
@@ -478,6 +614,11 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
 
     override fun deleteAllLocalData() {
         database.transaction {
+            database.analysisSyncGenerationQueries.deleteAllGenerations()
+            database.analysisSyncTargetQueries.deleteAllTargets()
+            database.analysisDeleteTargetQueries.deleteAllTargets()
+            database.analysisRemoteBaseQueries.deleteAllBases()
+            database.shogiSupplementQueries.deleteAllAppliedAnalysisRequests()
             database.shogiSupplementQueries.deleteAllBlunderReports()
             database.shogiSupplementQueries.deleteAllPositionEvals()
             database.shogiSupplementQueries.deleteAllDrillAttempts()
@@ -526,6 +667,7 @@ internal fun Game.toGameRecord() = GameRecord(
     timeControlRaw = time_control_raw,
     timeControlByoyomiRaw = time_control_byoyomi_raw,
     engineMetaJson = engine_meta_json,
+    studyKif = study_kif,
 )
 
 /** user_sideがNULLでないことをSQL条件に含むクエリの生成型は専用型になるため、同じドメイン変換を明示する。 */
@@ -562,6 +704,7 @@ internal fun GetGamesWithUserSide.toGameRecord() = GameRecord(
     timeControlRaw = time_control_raw,
     timeControlByoyomiRaw = time_control_byoyomi_raw,
     engineMetaJson = engine_meta_json,
+    studyKif = study_kif,
 )
 
 internal fun Blunder_report.toBlunderRecord() = BlunderRecord(

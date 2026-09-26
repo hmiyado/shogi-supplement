@@ -15,15 +15,29 @@ class FailoverAnalyzer(
 ) : GameAnalyzer {
     override suspend fun analyzeGame(
         moves: List<String>,
+        forceReanalysis: Boolean,
+        requestId: String?,
         onPositionResult: ((ply: Int, pvs: List<PvInfo>) -> Unit)?,
         onProgress: ((done: Int, total: Int) -> Unit)?,
     ): GameAnalysisResult {
         return try {
-            delegate.analyzeGame(moves, onPositionResult, onProgress)
+            delegate.analyzeGame(
+                moves,
+                forceReanalysis = forceReanalysis,
+                requestId = requestId,
+                onPositionResult = onPositionResult,
+                onProgress = onProgress,
+            )
         } catch (e: RemoteAnalysisException) {
             if (!shouldFallback(e)) throw e
             try {
-                fallbackAnalyzer.analyzeGame(moves, onPositionResult, onProgress)
+                fallbackAnalyzer.analyzeGame(
+                    moves,
+                    forceReanalysis = forceReanalysis,
+                    requestId = requestId,
+                    onPositionResult = onPositionResult,
+                    onProgress = onProgress,
+                )
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (fallbackFailure: Exception) {

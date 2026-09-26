@@ -36,8 +36,73 @@ import kotlinx.coroutines.test.runTest
  */
 @OptIn(ExperimentalEncodingApi::class)
 class SupabaseGameDownloadServiceTest {
+    @Test
+    fun `Web詳細は検討と基準原文を分離して復元し一覧には全文を含めない`() = runTest {
+        val original = "1 ７六歩(77)\n2 投了"
+        val edited = "1 ７六歩(77)\n*Webでコピーするメモ\n2 投了"
+        val parts = dev.miyado.shogisupplement.kifu.StudyKifuBackup.decompose(original, edited)
+        val encoded = encryptedPrivateEnc("study-hash", parts.private)
+        val rows = """[{"id":"row-study","content_hash":"study-hash","moves_usi":["7g7f"],"move_times":[null],"headers":{},"result":"投了","source_place":"other","side":"sente","private_enc":"$encoded"}]"""
+        val client = createSupabaseClient("https://example.supabase.co", "anon-key") {
+            httpEngine = rowsResponseEngine(rows)
+            install(Postgrest)
+        }
+        try {
+            val summaries = SupabaseGameSummaryService(client, FakeTransferSecretStore(secret), FakeAuthRepository(true))
+            val detail = summaries.getDetail("study-hash") as GameDetailOutcome.Loaded
+            assertEquals(original, detail.detail.game.kifText)
+            assertEquals(edited, detail.detail.game.studyKif)
+            val list = summaries.listGames() as GameSummaryOutcome.Loaded
+            assertEquals(null, list.games.single().kifText)
+            assertEquals(null, list.games.single().studyKif)
+        } finally {
+            client.close()
+        }
+        val changedClient = createSupabaseClient("https://example.supabase.co", "anon-key") {
+            httpEngine = rowsResponseEngine(rows.replace("7g7f", "2g2f"))
+            install(Postgrest)
+        }
+        try {
+            val summaries = SupabaseGameSummaryService(changedClient, FakeTransferSecretStore(secret), FakeAuthRepository(true))
+            assertTrue(summaries.getDetail("study-hash") is GameDetailOutcome.NetworkError)
+        } finally {
+            changedClient.close()
+        }
+    }
+
+    @Test
+    fun `暗号化検討を原文と分けて取込へ渡す`() = runTest {
+        val original = "1 ７六歩(77)\n2 投了"
+        val edited = "1 ７六歩(77)\n*復元するメモ\n2 投了"
+        val parts = dev.miyado.shogisupplement.kifu.StudyKifuBackup.decompose(original, edited)
+        val encoded = encryptedPrivateEnc("study-hash", parts.private)
+        val rows = """[{"id":"row-study","content_hash":"study-hash","moves_usi":["7g7f"],"move_times":[null],"headers":{},"result":"投了","source_place":"other","side":"sente","private_enc":"$encoded"}]"""
+        var imported: ReconstructedGame? = null
+        val result = service(rowsResponseEngine(rows)).downloadAndImport {
+            imported = it
+            GameImportOutcome(true, 123)
+        }
+        assertEquals(GameDownloadOutcome.Completed(1, 1, 0), result)
+        assertEquals(original, imported?.kifText)
+        assertEquals(edited, imported?.studyKif)
+    }
 
     private val jsonHeaders = headersOf(HttpHeaders.ContentType, "application/json")
+
+    @Test
+    fun `復元元の所有者と解析世代を保存し既存棋譜では変更しない`() = runTest {
+        for (exists in listOf(false, true)) {
+            val repo = FakeGameRepository(if (exists) setOf("remote-hash") else emptySet())
+            val engine = MockEngine { request ->
+                assertTrue(request.url.encodedPath.endsWith("uploaded_games_current"))
+                assertEquals("eq.user-1", request.url.parameters["user_id"])
+                respond("""[{"id":"remote","content_hash":"remote-hash","moves_usi":["7g7f"],"analysis_generation":"remote-generation"}]""", HttpStatusCode.OK, jsonHeaders)
+            }
+            val result = service(engine, gameRepository = repo).downloadAndImport { GameImportOutcome(true, 123) }
+            assertEquals(GameDownloadOutcome.Completed(1, 1, 0), result)
+            assertEquals(if (exists) emptyList() else listOf(Triple(123L, "user-1", "remote-generation")), repo.restoredBases)
+        }
+    }
     private val secret = ByteArray(16) { it.toByte() }
 
     private class FakeAuthRepository(loggedIn: Boolean) : AuthRepository {
@@ -63,6 +128,11 @@ class SupabaseGameDownloadServiceTest {
         private val existingHashes: Set<String> = emptySet(),
     ) : GameRepository {
         val uploadedAtCalls = mutableListOf<Long>()
+        val restoredBases = mutableListOf<Triple<Long, String, String?>>()
+        override fun confirmRestoredGame(gameId: Long, userId: String, generation: String?, epochSeconds: Long) {
+            restoredBases += Triple(gameId, userId, generation)
+            markRestoredPendingGameUploaded(gameId, epochSeconds)
+        }
 
         override fun saveAnalysisAtomically(request: GameRepository.AnalysisSaveRequest): Long =
             error("not used by SupabaseGameDownloadService")
@@ -91,6 +161,9 @@ class SupabaseGameDownloadServiceTest {
         override fun getUploadedGameCount(): Int = error("not used")
         override fun getGamesWithUserSide(): List<GameRecord> = error("not used")
         override fun updateUploadedAt(gameId: Long, epochSeconds: Long) {
+            error("Restore must not mark an arbitrary analysis as uploaded")
+        }
+        override fun markRestoredPendingGameUploaded(gameId: Long, epochSeconds: Long) {
             uploadedAtCalls += gameId
         }
         override fun updateUserSide(gameId: Long, userSide: String?, ratingService: String?, ratingRaw: Long?) =
@@ -265,7 +338,7 @@ class SupabaseGameDownloadServiceTest {
     // ─── downloadAndImport: 冪等スキップ・部分失敗 ───────────────────────────
 
     @Test
-    fun `既存content_hashはimportGameを呼ばずスキップしつつuploaded_atは確定させる`() = runTest {
+    fun `既存content_hashはスキップし未送信の解析結果を送信済みにしない`() = runTest {
         val contentHash = "already-local"
         val json = """
             [{"id":"row-3","content_hash":"$contentHash","moves_usi":["7g7f"],
@@ -281,7 +354,7 @@ class SupabaseGameDownloadServiceTest {
 
         assertEquals(GameDownloadOutcome.Completed(total = 1, succeeded = 1, failed = 0), result)
         assertTrue(!importCalled, "既存content_hashは再解析せずスキップするはず")
-        assertEquals(listOf(contentHash.hashCode().toLong()), repository.uploadedAtCalls)
+        assertTrue(repository.uploadedAtCalls.isEmpty())
     }
 
     @Test

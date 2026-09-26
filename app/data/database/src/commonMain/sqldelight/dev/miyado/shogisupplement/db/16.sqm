@@ -1,0 +1,6 @@
+CREATE TABLE applied_analysis_request (
+    content_hash TEXT NOT NULL,
+    request_id TEXT NOT NULL,
+    game_id INTEGER NOT NULL REFERENCES game(id) ON DELETE CASCADE,
+    PRIMARY KEY (content_hash, request_id)
+);

@@ -7,20 +7,21 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
-internal const val UPLOADED_GAMES_TABLE = "uploaded_games"
+internal const val UPLOADED_GAMES_TABLE = "uploaded_games_current"
 private const val PAGE_SIZE = 200L
 
-/** `uploaded_games`テーブルの取得。DB取込([SupabaseGameDownloadService])と一覧表示の両方から使う。 */
+/** 同じ棋譜に新旧両形式がある場合は、新形式を優先する読み取りビュー。 */
 internal class UploadedGamesRemoteSource(private val supabase: SupabaseClient) {
 
     /** created_at昇順で全ページを取得する。件数は日次50行上限があるため通常は1ページで収まる。 */
-    suspend fun fetchAllRows(): List<UploadedGameRow> {
+    suspend fun fetchAllRows(userId: String? = null): List<UploadedGameRow> {
         val rows = mutableListOf<UploadedGameRow>()
         var offset = 0L
         while (true) {
-            // RLSが自分の行だけに絞るため、user_idでの絞り込みは書かない。
+            // 復元では開始時の所有者にも絞り、ページ取得中のアカウント切替を防御する。
             val page = supabase.from(UPLOADED_GAMES_TABLE)
                 .select {
+                    if (userId != null) filter { eq("user_id", userId) }
                     order("created_at", Order.ASCENDING)
                     range(offset, offset + PAGE_SIZE - 1)
                 }
@@ -63,6 +64,7 @@ internal data class UploadedGameRow(
     @SerialName("coef_version") val coefVersion: String? = null,
     @SerialName("analysis_json") val analysisJson: List<BlunderReportJson>? = null,
     @SerialName("engine_meta") val engineMeta: JsonElement? = null,
+    @SerialName("analysis_generation") val analysisGeneration: String? = null,
 )
 
 /**

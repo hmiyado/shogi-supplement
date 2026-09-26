@@ -16,6 +16,7 @@ class AnalysisSessionCoordinatorTest {
         fileName = "game.kif",
         moves = listOf("7g7f"),
         userSide = "sente",
+        requestId = "request-id",
     )
 
     private fun outcome() = AnalysisOrchestrator.Outcome.Completed(gameId = 1L, alreadyExisted = false)
@@ -53,6 +54,7 @@ class AnalysisSessionCoordinatorTest {
 
         val current = registry.snapshot(session.id)
         assertEquals(session.fileName, current?.fileName)
+        assertEquals(session.requestId, current?.requestId)
         assertEquals(1, current?.progressive?.doneCount)
 
         release.complete(Unit)

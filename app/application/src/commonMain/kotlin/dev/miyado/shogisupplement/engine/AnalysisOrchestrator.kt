@@ -66,15 +66,24 @@ class AnalysisOrchestrator(
         ratingRule: String? = null,
         contentHash: String? = null,
         sourcePlaceOverride: String? = null,
+        /** true only for an explicit user-requested reanalysis. */
+        forceReanalysis: Boolean = false,
+        /** One explicit request's stable id, reused after transport/session retry. */
+        requestId: String? = null,
         onProgress: (done: Int, total: Int) -> Unit = { _, _ -> },
         onPositionResult: ((ply: Int, pvs: List<PvInfo>) -> Unit)? = null,
     ): Outcome {
         return try {
             val effectiveContentHash = contentHash ?: sha256Hex(kifContent)
+            requestId?.let { id ->
+                repository.getAppliedAnalysis(effectiveContentHash, id)?.let {
+                    return Outcome.Completed(it, alreadyExisted = true)
+                }
+            }
 
             val existingId = repository.getByHash(effectiveContentHash)
             val existing = existingId?.let(repository::getGameById)
-            if (existingId != null && existing?.analysisStatus == dev.miyado.shogisupplement.db.GameAnalysisStatus.COMPLETED) {
+            if (!forceReanalysis && existingId != null && existing?.analysisStatus == dev.miyado.shogisupplement.db.GameAnalysisStatus.COMPLETED) {
                 return Outcome.Completed(existingId, alreadyExisted = true)
             }
 
@@ -83,7 +92,12 @@ class AnalysisOrchestrator(
             // Why not 届いた順にそのまま渡す: 並列ワーカーの完了はまとまって届くため、
             // 盤が数手ぶん飛んでから止まる見え方になる。一定間隔で1手ずつ出す。
             val analyzed = if (onPositionResult == null) {
-                analyzer.analyzeGame(moves = game.moves, onProgress = onProgress)
+                analyzer.analyzeGame(
+                    moves = game.moves,
+                    onProgress = onProgress,
+                    forceReanalysis = forceReanalysis,
+                    requestId = requestId,
+                )
             } else {
                 coroutineScope {
                     val pacer = PositionRevealPacer(onPositionResult)
@@ -92,6 +106,8 @@ class AnalysisOrchestrator(
                         moves = game.moves,
                         onPositionResult = pacer::submit,
                         onProgress = onProgress,
+                        forceReanalysis = forceReanalysis,
+                        requestId = requestId,
                     )
                     pacing.cancelAndJoin()
                     pacer.revealRemaining()
@@ -125,6 +141,7 @@ class AnalysisOrchestrator(
             fun classified(value: String?): String? = value?.takeIf { it != OpeningClassifier.UNCLASSIFIED }
 
             val saveRequest = GameRepository.AnalysisSaveRequest(
+                requestId = requestId,
                 fileName = fileName,
                 contentHash = effectiveContentHash,
                 moves = game.moves,

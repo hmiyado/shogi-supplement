@@ -2,6 +2,7 @@ package dev.miyado.shogisupplement.engine
 
 import dev.miyado.shogisupplement.api.ApiHeaders
 import dev.miyado.shogisupplement.api.analysis.AnalysisRequest
+import dev.miyado.shogisupplement.api.analysis.PositionAnalysisPurpose
 import dev.miyado.shogisupplement.api.analysis.AnalysisResultJson
 import dev.miyado.shogisupplement.api.analysis.ErrorJson
 import dev.miyado.shogisupplement.api.analysis.PositionResultJson
@@ -26,6 +27,8 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.jsonObject
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 /**
  * @property platform `app_policy.platform`の語彙（"android" / "ios"）。
@@ -47,12 +50,19 @@ class RemoteAnalysisRunner(
      * `moves_hash`の冪等性を前提に、切断時だけ同じリクエストを再送する。
      * 認可・クォータ・不正・更新要求のHTTPエラーと終端error行は再送せず[RemoteAnalysisException]として伝播する。
      */
+    @OptIn(ExperimentalUuidApi::class)
     override suspend fun analyzeGame(
         moves: List<String>,
+        forceReanalysis: Boolean,
+        requestId: String?,
         onPositionResult: ((ply: Int, pvs: List<PvInfo>) -> Unit)?,
         onProgress: ((done: Int, total: Int) -> Unit)?,
     ): GameAnalysisResult = executeWithRetry(
-        AnalysisRequest(movesUsi = moves),
+        AnalysisRequest(
+            movesUsi = moves,
+            forceReanalysis = forceReanalysis,
+            requestId = requestId ?: Uuid.random().toString().takeIf { forceReanalysis },
+        ),
         onProgress = onProgress,
         onPositionResult = onPositionResult,
     )
@@ -69,6 +79,17 @@ class RemoteAnalysisRunner(
             onPositionResult = null,
         )
         return perPosition.positions.firstOrNull() ?: emptyList()
+    }
+
+    /** 検討設定を受け取らず、旧サーバーにも固定MultiPVを明示するドリル専用入口。 */
+    suspend fun analyzeDrillPosition(sfen: String): List<PvInfo> {
+        val result = executeWithRetry(
+            AnalysisRequest(sfen = sfen, moves = emptyList(), multiPv = EngineInvariants.DRILL_SECONDARY_MULTI_PV,
+                purpose = PositionAnalysisPurpose.DRILL),
+            onProgress = null,
+            onPositionResult = null,
+        )
+        return result.positions.firstOrNull() ?: emptyList()
     }
 
     private suspend fun executeWithRetry(
@@ -207,4 +228,5 @@ private fun dev.miyado.shogisupplement.api.analysis.EngineMetaJson.toAnalysisEng
         multiPv = multiPv,
         usiHash = usiHash,
         fvScale = fvScale,
+        conditionName = conditionName,
     )

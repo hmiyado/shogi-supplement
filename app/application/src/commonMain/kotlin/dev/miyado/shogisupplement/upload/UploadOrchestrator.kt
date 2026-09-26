@@ -8,6 +8,8 @@ import dev.miyado.shogisupplement.db.SettingsRepository
 import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.util.currentEpochSeconds
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
@@ -18,6 +20,8 @@ data class UploadAllResult(
     val drillProblemSyncFailed: Int,
     /** 送信できずに残っている解答の数。送信に失敗した解答もここに含まれる。 */
     val drillPendingRemaining: Int,
+    val studySuccess: Int = 0,
+    val studyFailed: Int = 0,
 )
 
 /**
@@ -26,7 +30,7 @@ data class UploadAllResult(
  * [drillPendingRemaining] に既に入っているため、同じ1件を2件として見せてしまう。
  */
 fun UploadAllResult.resultMessage(): String =
-    AppStrings.accountUploadResult(gameSuccess, gameFailed, drillPendingRemaining + drillProblemSyncFailed)
+    AppStrings.accountUploadResult(gameSuccess + studySuccess, gameFailed + studyFailed, drillPendingRemaining + drillProblemSyncFailed)
 
 /** アップロードのオーケストレーター。constructor injectionでテスト可能（fakeを注入できる）。 */
 class UploadOrchestrator(
@@ -37,6 +41,9 @@ class UploadOrchestrator(
     private val settingsRepository: SettingsRepository,
 ) : DrillAttemptSync {
 
+    /** 自動送信と手動送信が同時に同じ棋譜を置換し、解答履歴をcascade削除する競合を防ぐ。 */
+    private val uploadMutex = Mutex()
+
     override suspend fun syncPendingAttempts() = maybeAutoUploadDrillAttempts()
 
     /**
@@ -44,38 +51,92 @@ class UploadOrchestrator(
      * 実行しなかった場合は null。
      */
     suspend fun uploadGame(gameId: Long): UploadResult? {
-        val user = authRepository.currentUser.value ?: return null  // 未ログイン
-        val game = dbRepository.getGameById(gameId) ?: return null
-        if (game.uploadedAt != null) return UploadResult.Duplicate  // 既アップロード
-        val reports = dbRepository.getReports(gameId)
-        val result = uploadRepository.uploadGame(user.id, game, reports)
-        if (result is UploadResult.Success || result is UploadResult.Duplicate) {
-            dbRepository.updateUploadedAt(gameId, currentEpochSeconds())
-            syncDrillProblemsSilently(user.id, game.contentHash, gameId)
+        return uploadMutex.withLock {
+            val user = authRepository.currentUser.value ?: return@withLock null  // 未ログイン
+            val snapshot = dbRepository.getAnalysisUploadSnapshot(gameId) ?: return@withLock null
+            val revision = snapshot.revision
+            val game = snapshot.game
+            if (game.uploadedAt != null) return@withLock UploadResult.Duplicate  // 既アップロード
+            val generation = snapshot.generation ?: return@withLock UploadResult.Failure("解析世代がありません")
+            val target = dbRepository.getAnalysisSyncTarget(gameId, user.id, generation) ?: run {
+                val remote = dbRepository.getAnalysisRemoteBase(gameId, user.id)?.let {
+                    UploadRepository.AnalysisRemoteState(it.generation, false)
+                } ?: uploadRepository.getAnalysisRemoteState(game.contentHash)
+                    ?: return@withLock UploadResult.Failure("送信先の解析世代を確認できませんでした")
+                if (authRepository.currentUser.value?.id != user.id) return@withLock UploadResult.Failure("アカウントが変更されました")
+                // 削除済みの棋譜の再作成は、通常の自動再送からは許可しない。
+                if (remote.deleted) return@withLock UploadResult.Failure("送信先の棋譜は削除されています")
+                dbRepository.freezeAnalysisSyncTarget(gameId, user.id, generation, remote.generation,
+                    (game.studyKif ?: game.kifText)?.let { GameRepository.FrozenStudy(it, snapshot.studyRevision) })
+                    ?: return@withLock UploadResult.Failure("送信前に解析が更新されました")
+            }
+            if (authRepository.currentUser.value?.id != user.id) return@withLock UploadResult.Failure("アカウントが変更されました")
+            val sending = target.study?.let {
+                snapshot.copy(game = game.copy(studyKif = it.kif), studyRevision = it.revision)
+            } ?: snapshot
+            val outcome = uploadRepository.uploadAnalysis(user.id, sending, target)
+            if (authRepository.currentUser.value?.id != user.id) return@withLock UploadResult.Failure("アカウントが変更されました")
+            when (val result = outcome) {
+                is UploadRepository.AnalysisUploadOutcome.Applied -> {
+                    if (result.privateWritten) {
+                        target.study?.let {
+                            dbRepository.acknowledgeStudyUpload(gameId, it.revision, it.kif)
+                        }
+                    }
+                    dbRepository.acknowledgeAnalysisGeneration(gameId, user.id, generation, revision, currentEpochSeconds())
+                    UploadResult.Success
+                }
+                is UploadRepository.AnalysisUploadOutcome.Conflict -> UploadResult.Failure("別の端末で解析が更新されています")
+                is UploadRepository.AnalysisUploadOutcome.Superseded -> UploadResult.Failure("送信した解析は既に置き換えられています")
+                is UploadRepository.AnalysisUploadOutcome.Failure -> UploadResult.Failure(result.message)
+            }
         }
-        return result
     }
 
-    /**
-     * 棋譜1局分の次の一手候補を問題として同期する。失敗しても棋譜アップロード自体の
-     * 結果には影響させない（未登録の問題は手動再同期・解答送信時の1件同期で拾われる）。
-     */
-    private suspend fun syncDrillProblemsSilently(userId: String, contentHash: String, gameId: Long) {
-        try {
-            val problems = drillRepository.getDrillCandidatesByGame(gameId)
-            uploadRepository.syncDrillProblems(userId, contentHash, problems)
-        } catch (e: CancellationException) {
-            throw e
-        } catch (_: Exception) {
+    /** 検討だけの送信は問題の置換や回答の送信を呼ばない。 */
+    suspend fun uploadPendingStudies(): Pair<Int, Int> = uploadMutex.withLock {
+        val pending = dbRepository.getPendingStudyUploads()
+        val user = authRepository.currentUser.value ?: return@withLock 0 to pending.size
+        var succeeded = 0
+        var failed = 0
+        for (snapshot in pending) {
+            val result = try {
+                uploadRepository.uploadStudy(user.id, snapshot)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                UploadResult.Failure("検討文書を送信できませんでした")
+            }
+            if (result is UploadResult.Success) {
+                dbRepository.acknowledgeStudyUpload(snapshot.gameId, snapshot.revision, snapshot.studyKif)
+                succeeded++
+            } else {
+                failed++
+            }
         }
+        succeeded to failed
     }
 
     /**
      * サーバーに保存済みの棋譜を削除する。未ログインなら false。
      */
-    suspend fun deleteUploadedGame(contentHash: String): Boolean {
-        val user = authRepository.currentUser.value ?: return false
-        return uploadRepository.deleteGame(user.id, contentHash)
+    @OptIn(ExperimentalUuidApi::class)
+    suspend fun deleteUploadedGame(contentHash: String): Boolean = uploadMutex.withLock {
+        val user = authRepository.currentUser.value ?: return@withLock false
+        val gameId = dbRepository.getByHash(contentHash) ?: return@withLock false
+        val snapshot = dbRepository.getAnalysisUploadSnapshot(gameId) ?: return@withLock false
+        val generation = snapshot.generation ?: return@withLock false
+        val target = dbRepository.getAnalysisDeleteTarget(gameId, user.id, generation) ?: run {
+            val remote = uploadRepository.getAnalysisRemoteState(contentHash) ?: return@withLock false
+            if (authRepository.currentUser.value?.id != user.id) return@withLock false
+            // 他の要求で既に削除済みなら、サーバー側を再変更する必要はない。
+            if (remote.deleted) return@withLock true
+            dbRepository.freezeAnalysisDeleteTarget(gameId, user.id, generation,
+                GameRepository.AnalysisDeleteTarget(remote.generation, Uuid.random().toString())) ?: return@withLock false
+        }
+        if (authRepository.currentUser.value?.id != user.id) return@withLock false
+        val deleted = uploadRepository.deleteAnalysisGeneration(user.id, contentHash, target)
+        deleted && authRepository.currentUser.value?.id == user.id
     }
 
     /**
@@ -93,9 +154,7 @@ class UploadOrchestrator(
 
         var gameSuccess = 0
         var gameFailed = 0
-        // uploadGame自体が成功時に問題同期を済ませるため、ここでアップロードした棋譜は
-        // 下の再同期ループの対象から除く（二重の問題upsertを避ける）。
-        val justUploadedGameIds = mutableSetOf<Long>()
+        var drillProblemSyncFailed = 0
         dbRepository.getNotUploadedGames().forEach { game ->
             val result = (try {
                 uploadGame(game.id)
@@ -106,26 +165,13 @@ class UploadOrchestrator(
             }) ?: UploadResult.Failure("未ログイン")
             if (result is UploadResult.Success || result is UploadResult.Duplicate) {
                 gameSuccess++
-                justUploadedGameIds += game.id
+                if (dbRepository.getGameById(game.id)?.uploadedAt == null) {
+                    drillProblemSyncFailed++
+                }
             } else {
                 gameFailed++
             }
         }
-
-        var drillProblemSyncFailed = 0
-        dbRepository.getAllGames()
-            .filter { it.uploadedAt != null && it.id !in justUploadedGameIds }
-            .forEach { game ->
-                val result = try {
-                    val problems = drillRepository.getDrillCandidatesByGame(game.id)
-                    uploadRepository.syncDrillProblems(user.id, game.contentHash, problems)
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (_: Exception) {
-                    UploadResult.Failure("次の一手の問題同期に失敗")
-                }
-                if (result is UploadResult.Failure) drillProblemSyncFailed++
-            }
 
         drillRepository.getDrillAttemptsNotUploaded(Int.MAX_VALUE).forEach { attempt ->
             try {
@@ -138,11 +184,14 @@ class UploadOrchestrator(
             }
         }
 
+        val (studySuccess, studyFailed) = uploadPendingStudies()
         return UploadAllResult(
             gameSuccess = gameSuccess,
             gameFailed = gameFailed,
             drillProblemSyncFailed = drillProblemSyncFailed,
             drillPendingRemaining = drillRepository.getDrillAttemptsNotUploaded(Int.MAX_VALUE).size,
+            studySuccess = studySuccess,
+            studyFailed = studyFailed,
         )
     }
 
@@ -189,11 +238,17 @@ class UploadOrchestrator(
         }
         val problem = drillRepository.getBlunderById(attempt.blunderReportId)
             ?: return UploadResult.Failure("次の一手の問題が見つからない")
-        val game = dbRepository.getGameById(problem.gameId)
+        val snapshot = dbRepository.getAnalysisUploadSnapshot(problem.gameId)
             ?: return UploadResult.Failure("次の一手の棋譜が見つからない")
-        val result = uploadRepository.uploadDrillAttempt(
+        val game = snapshot.game
+        val generation = snapshot.generation ?: return UploadResult.Failure("解析世代がありません")
+        if (snapshot.problems.none { it.id == problem.id }) {
+            return UploadResult.Failure("回答元の解析は更新されています")
+        }
+        val result = uploadRepository.uploadGenerationAttempt(
             userId = userId,
             contentHash = game.contentHash,
+            generation = generation,
             problem = problem,
             attempt = DrillAttemptUpload(
                 syncId = syncId,
@@ -203,6 +258,7 @@ class UploadOrchestrator(
                 attemptedAt = attempt.attemptedAt,
             ),
         )
+        if (authRepository.currentUser.value?.id != userId) return UploadResult.Failure("アカウントが変更されました")
         if (result is UploadResult.Success || result is UploadResult.Duplicate) {
             drillRepository.updateDrillAttemptUploadedAt(attempt.id, currentEpochSeconds())
         }

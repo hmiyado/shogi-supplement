@@ -124,6 +124,18 @@ object AppStrings {
     const val RATING_FIELD_RANK = "段級位（任意）"
     const val RATING_FIELD_RATING = "レート"
     const val SAVE = "保存"
+    fun studyEvalPerspective(isGote: Boolean): String = if (isGote) "後手の評価値" else "先手の評価値"
+    const val STUDY_ACTIONS = "検討の操作"
+    const val STUDY_UNSAVED = "未保存の変更"
+    const val STUDY_SAVE = "検討を端末に保存"
+    const val STUDY_SAVING = "保存中…"
+    const val STUDY_SAVED = "端末に保存しました"
+    const val STUDY_SAVE_FAILED = "保存できませんでした。編集内容は画面に残っています。"
+    const val STUDY_OPEN_FAILED = "検討を開けませんでした。棋譜一覧からもう一度開いてください。"
+    const val STUDY_BROWSER_SAVE_NOTICE = "検討はこのブラウザに保存します。保存済みの検討がある場合は、その続きから開きます。"
+    const val STUDY_DELETE_BRANCH = "分岐を削除"
+    const val STUDY_DELETE_BRANCH_TITLE = "この分岐を削除しますか？"
+    const val STUDY_DELETE_BRANCH_BODY = "この手以降の検討を端末の保存内容からも削除します。この操作は取り消せません。"
     const val CANCEL = "キャンセル"
 
     /** サービス選択肢（ID to 表示ラベル）。 */
@@ -173,6 +185,8 @@ object AppStrings {
     const val PENDING_ANALYSIS_TITLE = "解析していない棋譜です"
     const val PENDING_ANALYSIS_BODY = "解析すると、悪手と推定棋力を確認できます。"
     const val ANALYZE_GAME = "解析する"
+    const val REANALYZE_GAME = "再解析する"
+    const val REANALYZE_GAME_BODY = "現在の解析結果を、新しい解析結果に置き換えます。"
 
     /** ホーム一覧の解析中カードに出すバッジ文言。 */
     const val ANALYZING_BADGE = "解析中"
@@ -392,6 +406,8 @@ object AppStrings {
     const val GAME_DELETE_SERVER_CHECKBOX_LABEL = "サーバーに保存した棋譜も削除する"
     const val GAME_DELETE_SERVER_ERROR =
         "サーバーからの削除に失敗しました。時間をおいてお試しください"
+    const val GAME_DELETE_LOCAL_ERROR =
+        "棋譜を削除できませんでした。一覧を開き直してお試しください。"
     const val GAME_DELETE_CONFIRM = "削除する"
     const val ACCOUNT_AUTO_UPLOAD_LABEL = "棋譜をサーバーに保存する"
     const val ACCOUNT_AUTO_UPLOAD_DESC =
@@ -877,6 +893,9 @@ object AppStrings {
 
     /** KIFの場所ヘッダが無い棋譜でレポート画面タイトルになる語。 */
     const val KENTO_PASTED_GAME_TITLE = "貼り付けた棋譜"
+    const val KENTO_RESUME_SAVED_REPORT = "前回の検討を開く"
+    const val STUDY_DISCARD_TITLE = "未保存の検討を破棄しますか？"
+    const val STUDY_DISCARD_BODY = "保存していない手順の変更は失われます。"
 
     const val KENTO_ERROR_GENERIC = "エラーが発生しました。ページを再読み込みしてからもう一度お試しください。"
     const val KENTO_ERROR_EMPTY_INPUT = "入力が空です"

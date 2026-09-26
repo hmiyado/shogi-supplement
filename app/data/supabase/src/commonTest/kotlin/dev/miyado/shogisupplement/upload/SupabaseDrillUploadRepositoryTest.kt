@@ -21,6 +21,211 @@ import kotlinx.coroutines.test.runTest
 
 /** [SupabaseUploadRepository] のドリル同期部分をPostgrest HTTPで検証する。 */
 class SupabaseDrillUploadRepositoryTest {
+    @Test
+    fun `旧方式では再解析の問題置換を送信しない`() = runTest {
+        val engine = MockEngine { error("旧テーブルを書き換えてはいけない") }
+        val result = repository(engine).syncDrillProblems("user", "hash", listOf(problem()), replaceExisting = true)
+        assertTrue(result is UploadResult.Failure)
+    }
+
+    @Test
+    fun `削除は所有者と固定要求をRPCに渡し失敗時に直接DELETEしない`() = runTest {
+        for (mode in listOf("success", "conflict", "failure")) {
+            var count = 0
+            val engine = MockEngine { request ->
+                count++
+                assertEquals(HttpMethod.Post, request.method)
+                assertTrue(request.url.encodedPath.endsWith("rpc/delete_analysis_generation"))
+                val body = kotlinx.serialization.json.Json.parseToJsonElement(request.bodyText()) as kotlinx.serialization.json.JsonObject
+                assertEquals(kotlinx.serialization.json.JsonPrimitive("owner"), body["p_expected_user_id"])
+                assertEquals(kotlinx.serialization.json.JsonPrimitive("base"), body["p_expected_generation"])
+                assertEquals(kotlinx.serialization.json.JsonPrimitive("request"), body["p_delete_generation"])
+                if (mode == "failure") respond("{}", HttpStatusCode.NotFound, jsonHeaders)
+                else respond((mode == "success").toString(), HttpStatusCode.OK, jsonHeaders)
+            }
+            assertEquals(mode == "success", repository(engine).deleteAnalysisGeneration("owner", "hash",
+                dev.miyado.shogisupplement.db.GameRepository.AnalysisDeleteTarget("base", "request")))
+            assertEquals(1, count)
+        }
+    }
+
+    @Test
+    fun `世代付き回答は問題を再登録せず拒否や通信失敗を未送信に残す`() = runTest {
+        for (mode in listOf("accepted", "rejected", "missing")) {
+            val requests = mutableListOf<HttpRequestData>()
+            val engine = MockEngine { request ->
+                requests += request
+                assertEquals(HttpMethod.Post, request.method)
+                assertTrue(request.url.encodedPath.endsWith("rpc/record_generation_attempt"))
+                val body = kotlinx.serialization.json.Json.parseToJsonElement(request.bodyText()) as kotlinx.serialization.json.JsonObject
+                assertEquals(kotlinx.serialization.json.JsonPrimitive("frozen-generation"), body["p_generation"])
+                assertEquals(kotlinx.serialization.json.JsonPrimitive(41), body["p_ply"])
+                val attempt = body["p_attempt"] as kotlinx.serialization.json.JsonObject
+                assertEquals(kotlinx.serialization.json.JsonPrimitive("attempt-id"), attempt["client_attempt_id"])
+                assertTrue("problem_id" !in attempt)
+                assertEquals(kotlinx.serialization.json.JsonPrimitive("user"), attempt["user_id"])
+                if (mode == "missing") respond("{}", HttpStatusCode.NotFound, jsonHeaders)
+                else respond((mode == "accepted").toString(), HttpStatusCode.OK, jsonHeaders)
+            }
+            val outcome = repository(engine).uploadGenerationAttempt("user", "hash", "frozen-generation", problem(),
+                DrillAttemptUpload("attempt-id", "2g2f", true, null, 1780000000))
+            if (mode == "accepted") assertEquals(UploadResult.Success, outcome)
+            else assertTrue(outcome is UploadResult.Failure)
+            assertEquals(1, requests.size)
+        }
+    }
+
+    @Test
+    fun `解析一括送信は固定世代を渡し競合や未対応RPCを成功扱いしない`() = runTest {
+        val generation = "20000000-0000-0000-0000-000000000001"
+        for (mode in listOf("applied", "already_applied", "conflict", "superseded", "wrong-generation", "unknown", "missing-rpc")) {
+            val requests = mutableListOf<HttpRequestData>()
+            val engine = MockEngine { request ->
+                requests += request
+                assertEquals(HttpMethod.Post, request.method)
+                assertTrue(request.url.encodedPath.endsWith("rpc/replace_analysis_generation"))
+                val body = kotlinx.serialization.json.Json.parseToJsonElement(request.bodyText()) as kotlinx.serialization.json.JsonObject
+                assertEquals(kotlinx.serialization.json.JsonPrimitive(generation), body["p_generation"])
+                assertEquals(kotlinx.serialization.json.JsonNull, body["p_expected_generation"])
+                assertTrue(body["p_game"] is kotlinx.serialization.json.JsonObject)
+                assertEquals(1, (body["p_problems"] as kotlinx.serialization.json.JsonArray).size)
+                assertTrue(!request.bodyText().contains("非公開名"))
+                if (mode == "missing-rpc") respond("""{"code":"PGRST202","message":"missing"}""", HttpStatusCode.NotFound, jsonHeaders)
+                else respond("""{"status":"${if (mode == "wrong-generation") "applied" else mode}","generation":"${if (mode == "wrong-generation") "different" else generation}","private_written":${mode == "applied"}}""", HttpStatusCode.OK, jsonHeaders)
+            }
+            val game = dev.miyado.shogisupplement.db.GameRecord(
+                id = 1, fileName = "test.kif", contentHash = "a".repeat(64), moveCount = 1,
+                senteName = null, goteName = null, analyzedAt = 1, rating = 1000, coefVersion = "v1",
+                kifText = "先手：非公開名\n1 ７六歩(77)\n2 投了",
+            )
+            val snapshot = dev.miyado.shogisupplement.db.GameRepository.AnalysisUploadSnapshot(game, emptyList(), listOf(problem()), 1, generation = generation)
+            val outcome = repository(engine).uploadAnalysis("user-1", snapshot,
+                dev.miyado.shogisupplement.db.GameRepository.AnalysisSyncTarget(null))
+            when (mode) {
+                "applied" -> assertEquals(UploadRepository.AnalysisUploadOutcome.Applied(true), outcome)
+                "already_applied" -> assertEquals(UploadRepository.AnalysisUploadOutcome.Applied(false), outcome)
+                "conflict" -> assertEquals(UploadRepository.AnalysisUploadOutcome.Conflict(generation), outcome)
+                "superseded" -> assertEquals(UploadRepository.AnalysisUploadOutcome.Superseded(generation), outcome)
+                else -> assertTrue(outcome is UploadRepository.AnalysisUploadOutcome.Failure, mode)
+            }
+            assertEquals(1, requests.size, mode)
+        }
+    }
+
+    @Test
+    fun `解析同期状態は世代なしと削除済みと取得失敗を区別する`() = runTest {
+        for (mode in listOf("legacy", "deleted", "failure")) {
+            val engine = MockEngine { request ->
+                assertTrue(request.url.encodedPath.endsWith("rpc/get_analysis_sync_state"))
+                if (mode == "failure") respond("{}", HttpStatusCode.InternalServerError, jsonHeaders)
+                else respond("""{"generation":${if (mode == "deleted") "\"tombstone\"" else "null"},"deleted":${mode == "deleted"}}""", HttpStatusCode.OK, jsonHeaders)
+            }
+            val result = repository(engine).getAnalysisRemoteState("hash")
+            assertEquals(when (mode) {
+                "legacy" -> UploadRepository.AnalysisRemoteState(null, false)
+                "deleted" -> UploadRepository.AnalysisRemoteState("tombstone", true)
+                else -> null
+            }, result)
+        }
+    }
+
+    @Test
+    fun `検討だけの送信は暗号文CASを使い競合時に成功扱いしない`() = runTest {
+        val secret = ByteArray(16) { it.toByte() }
+        val key = dev.miyado.shogisupplement.crypto.TransferSecretKeys.deriveEncKey(secret)
+        val store = object : TransferSecretStore {
+            override suspend fun load() = secret
+            override suspend fun save(secret: ByteArray) = error("must not replace keys")
+            override suspend fun clear() = Unit
+        }
+        for (mode in listOf("success", "cas-conflict", "remote-conflict", "already-saved", "legacy-empty", "legacy-notes", "legacy-variation", "variation-conflict", "original-note-conflict", "position-conflict", "long-ciphertext")) {
+            val original = (if (mode in listOf("legacy-notes", "position-conflict")) "*元からあるメモ\n" else "") + "1 ７六歩(77)\n2 投了" +
+                (if (mode in listOf("legacy-variation", "variation-conflict")) "\n変化：1手\n1 ２六歩(27)\n2 投了" else "")
+            val desired = "$original\n*新しい検討"
+            val remoteKif = when (mode) {
+                "remote-conflict" -> "$original\n*他端末の検討"
+                "already-saved" -> desired
+                "long-ciphertext" -> "$original\n*" + "あ".repeat(4096)
+                else -> null
+            }
+            val baseFields = dev.miyado.shogisupplement.kifu.StudyKifuBackup.decompose(original, remoteKif).private
+            val privateFields = when (mode) {
+                "legacy-empty", "legacy-notes" -> baseFields.copy(positionNotes = null)
+                "legacy-variation" -> baseFields.copy(positionNotes = null, variationKif = null)
+                "variation-conflict" -> baseFields.copy(variationKif = "変化：1手\n1 ５六歩(57)\n2 投了")
+                "original-note-conflict" -> baseFields.copy(comments = listOf("*別の原文メモ"))
+                "position-conflict" -> baseFields.copy(positionNotes = mapOf(1 to dev.miyado.shogisupplement.kifu.KifuPositionNotes(listOf("元からあるメモ"))))
+                else -> baseFields
+            }
+            val ciphertext = kotlin.io.encoding.Base64.encode(dev.miyado.shogisupplement.crypto.PrivateEncCodec.encrypt(key, privateFields, "hash".encodeToByteArray()))
+            val requests = mutableListOf<HttpRequestData>()
+            val engine = MockEngine { request ->
+                requests += request
+                if (request.method == HttpMethod.Get) {
+                    assertTrue(request.url.encodedPath.endsWith("uploaded_games_current"))
+                    respond("""[{"private_enc":"$ciphertext"}]""", HttpStatusCode.OK, jsonHeaders)
+                } else {
+                    assertEquals(HttpMethod.Post, request.method)
+                    assertTrue(request.url.encodedPath.endsWith("rpc/update_study_private_enc"))
+                    assertTrue(request.url.toString().length < 256)
+                    val json = kotlinx.serialization.json.Json.parseToJsonElement(request.bodyText()) as kotlinx.serialization.json.JsonObject
+                    assertEquals(setOf("p_private_enc", "p_expected_private_enc", "p_content_hash"), json.keys)
+                    assertEquals(ciphertext, (json.getValue("p_expected_private_enc") as kotlinx.serialization.json.JsonPrimitive).content)
+                    val encoded = json.getValue("p_private_enc") as kotlinx.serialization.json.JsonPrimitive
+                    val decoded = dev.miyado.shogisupplement.crypto.PrivateEncCodec.decrypt(key, kotlin.io.encoding.Base64.decode(encoded.content), "hash".encodeToByteArray())
+                    assertEquals(desired, decoded.studyKif)
+                    respond(if (mode == "cas-conflict") "false" else "true", HttpStatusCode.OK, jsonHeaders)
+                }
+            }
+            val client = createSupabaseClient("https://example.supabase.co", "anon-key") { httpEngine = engine; install(Postgrest) }
+            val result = SupabaseUploadRepository(client, store).uploadStudy("user",
+                dev.miyado.shogisupplement.db.GameRepository.StudyUploadSnapshot(1, "hash", original, desired, if (mode == "long-ciphertext") remoteKif!! else original, 1))
+            if (mode in listOf("success", "already-saved", "legacy-empty", "legacy-notes", "legacy-variation", "long-ciphertext")) assertEquals(UploadResult.Success, result, mode)
+            else assertTrue(result is UploadResult.Failure)
+            assertEquals(if (mode in listOf("remote-conflict", "already-saved", "original-note-conflict", "position-conflict", "variation-conflict")) 1 else 2, requests.size, mode)
+            client.close()
+        }
+    }
+
+    @Test
+    fun `棋譜アップロードは検討KIFを暗号化列だけへ含める`() = runTest {
+        val original = "先手：非公開名\n1 ７六歩(77)\n2 投了"
+        val edited = original.replace("2 投了", "*非公開の検討メモ\n2 投了")
+        var request: HttpRequestData? = null
+        val engine = MockEngine { received ->
+            request = received
+            respond(content = ByteReadChannel(""), status = HttpStatusCode.Created, headers = jsonHeaders)
+        }
+        val store = object : TransferSecretStore {
+            var bytes: ByteArray? = null
+            override suspend fun load() = bytes
+            override suspend fun save(secret: ByteArray) { bytes = secret }
+            override suspend fun clear() { bytes = null }
+        }
+        val client = createSupabaseClient("https://example.supabase.co", "anon-key") {
+            httpEngine = engine
+            install(Postgrest)
+        }
+        val game = dev.miyado.shogisupplement.db.GameRecord(
+            1, "test.kif", "test-hash", 1, null, null, 1, 1500,
+            coefVersion = "test", kifText = original, studyKif = edited,
+        )
+        assertEquals(UploadResult.Success, SupabaseUploadRepository(client, store).uploadGame("user-1", game, emptyList()))
+        val body = requireNotNull(request).bodyText()
+        assertTrue(!body.contains("非公開"))
+        assertTrue(!body.contains("study_kif"))
+        val root = kotlinx.serialization.json.Json.parseToJsonElement(body)
+        val payload = if (root is kotlinx.serialization.json.JsonArray) root.first() else root
+        val encoded = (payload as kotlinx.serialization.json.JsonObject).getValue("private_enc") as kotlinx.serialization.json.JsonPrimitive
+        val secrets = dev.miyado.shogisupplement.crypto.TransferSecretManager.getOrCreateSecrets(store)
+        val key = dev.miyado.shogisupplement.crypto.TransferSecretKeys.deriveEncKey(secrets.encSecret)
+        val restored = dev.miyado.shogisupplement.crypto.PrivateEncCodec.decrypt(
+            key, kotlin.io.encoding.Base64.decode(encoded.content), game.contentHash.encodeToByteArray(),
+        )
+        assertEquals(original, restored.studyOriginalKif)
+        assertEquals(edited, restored.studyKif)
+        client.close()
+    }
 
     private val jsonHeaders = headersOf(HttpHeaders.ContentType, "application/json")
 
@@ -81,7 +286,7 @@ class SupabaseDrillUploadRepositoryTest {
     }
 
     @Test
-    fun `問題upsertは複合キーのignore-duplicates指定と全ペイロードを送る`() = runTest {
+    fun `旧方式の問題upsertは複合キーで重複を無視し全ペイロードを送る`() = runTest {
         var request: HttpRequestData? = null
         val engine = MockEngine { received ->
             request = received

@@ -6,6 +6,60 @@ import dev.miyado.shogisupplement.util.currentEpochSeconds
 /** 棋譜・悪手レポート・局面評価の永続化。 */
 interface GameRepository {
 
+    /** 編集済みの検討KIF。未編集なら解析元のKIFを返す。 */
+    fun getStudyKif(gameId: Long): String? = error("Study persistence is not supported")
+
+    /** 読込時のKIFと一致する場合だけ保存する。本譜・解析結果は変更しない。 */
+    fun saveStudyKif(gameId: Long, expectedKif: String, kif: String): Boolean = error("Study persistence is not supported")
+
+    data class StudyUploadSnapshot(
+        val gameId: Long,
+        val contentHash: String,
+        val originalKif: String,
+        val studyKif: String,
+        val expectedRemoteKif: String,
+        val revision: Long,
+    )
+
+    /** 解析・ドリルとは独立した未送信の検討文書。 */
+    fun getPendingStudyUploads(): List<StudyUploadSnapshot> = emptyList()
+    fun acknowledgeStudyUpload(gameId: Long, revision: Long, uploadedKif: String) = Unit
+
+    data class AnalysisUploadSnapshot(
+        val game: GameRecord,
+        val reports: List<BlunderRecord>,
+        val problems: List<BlunderRecord>,
+        val revision: Long,
+        val studyRevision: Long = 0,
+        val generation: String? = null,
+    )
+
+    /** 棋譜・レポート・問題・更新番号を同一DBトランザクションで取得する。 */
+    fun getAnalysisUploadSnapshot(gameId: Long): AnalysisUploadSnapshot? = null
+
+    /** null世代を確認済みであることと、まだ送信先を確認していないことを区別する。 */
+    data class FrozenStudy(val kif: String, val revision: Long)
+    data class AnalysisRemoteBase(val generation: String?)
+    fun getAnalysisRemoteBase(gameId: Long, userId: String): AnalysisRemoteBase? = null
+    fun confirmRestoredGame(gameId: Long, userId: String, generation: String?, epochSeconds: Long) {
+        markRestoredPendingGameUploaded(gameId, epochSeconds)
+    }
+    fun acknowledgeAnalysisGeneration(gameId: Long, userId: String, generation: String, revision: Long, epochSeconds: Long) {
+        markAnalysisUploaded(gameId, revision, epochSeconds)
+    }
+    data class AnalysisDeleteTarget(val expectedGeneration: String?, val requestId: String)
+    fun getAnalysisDeleteTarget(gameId: Long, userId: String, generation: String): AnalysisDeleteTarget? = null
+    fun freezeAnalysisDeleteTarget(gameId: Long, userId: String, generation: String, target: AnalysisDeleteTarget): AnalysisDeleteTarget? = null
+    data class AnalysisSyncTarget(val expectedGeneration: String?, val study: FrozenStudy? = null)
+
+    fun getAnalysisSyncTarget(gameId: Long, userId: String, generation: String): AnalysisSyncTarget? = null
+
+    /** 最初の送信前に比較対象を固定する。再送で変更せず、古いローカル世代は拒否する。 */
+    fun freezeAnalysisSyncTarget(
+        gameId: Long, userId: String, generation: String, expectedGeneration: String?,
+        study: FrozenStudy? = null,
+    ): AnalysisSyncTarget? = null
+
     /** 解析結果を一括して永続化するための入力。 */
     data class AnalysisSaveRequest(
         val fileName: String,
@@ -35,6 +89,7 @@ interface GameRepository {
         val timeControlByoyomiRaw: String? = null,
         val engineMetaJson: String? = null,
         val positionEvalRows: List<PositionEvalRow> = emptyList(),
+        val requestId: String? = null,
     )
 
     fun savePendingGame(
@@ -56,6 +111,7 @@ interface GameRepository {
         goteRating: Long? = null,
         timeControlRaw: String? = null,
         timeControlByoyomiRaw: String? = null,
+        studyKif: String? = null,
     ): Long = error("Pending games are not supported by this repository")
 
     /** 解析結果を保存し、新しい game_id を返す。 */
@@ -91,6 +147,9 @@ interface GameRepository {
 
     /** 解析本体と派生した局面評価を同一トランザクションで保存する。 */
     fun saveAnalysisAtomically(request: AnalysisSaveRequest): Long
+
+    /** 保存済み要求の再送では解析・派生履歴の置換を繰り返さない。 */
+    fun getAppliedAnalysis(contentHash: String, requestId: String): Long? = null
 
     /**
      * デモ/開発用フィクスチャ投入ヘルパー（iOSデモのドリルブートストラップ用）。
@@ -138,6 +197,16 @@ interface GameRepository {
 
     /** アップロード成功時刻を記録する（Unix epoch 秒）。 */
     fun updateUploadedAt(gameId: Long, epochSeconds: Long)
+
+    /** 復元した未解析棋譜のみ送信済みにする。解析完了後の結果には触れない。 */
+    fun markRestoredPendingGameUploaded(gameId: Long, epochSeconds: Long): Unit =
+        error("Restored pending games are not supported by this repository")
+
+    /** 送信対象を読み込む前に取得する、ローカル解析結果の更新番号。 */
+    fun getAnalysisRevision(gameId: Long): Long? = null
+
+    /** 送信開始後に解析結果が置換された場合は送信済みにしない。 */
+    fun markAnalysisUploaded(gameId: Long, revision: Long, epochSeconds: Long) {}
 
     /** ゲームの user_side / rating_service / rating_raw を更新する。 */
     fun updateUserSide(gameId: Long, userSide: String?, ratingService: String?, ratingRaw: Long?)

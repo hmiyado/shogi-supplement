@@ -170,10 +170,15 @@ class AnalysisService(
             return resolveExisting(userId, movesHash, existingBeforeQuota, input)
         }
 
-        // 条件をキーへ追加した移行期間だけ、旧キーも確認する。旧ジョブをクォータ判定より
+        // 条件をキーへ追加した移行期間だけ、旧キーも確認する。強制再解析は新しいrequest_id
+        // で別ジョブにするため、旧結果を再利用しない。旧ジョブをクォータ判定より
         // 前に見ることで、同じ条件の完了済み結果を新規消費扱いにしない。旧RUNNINGは
         // 排他を証明できないため触らず、条件不一致も安全性を優先して新キーへ進める。
-        val legacyExisting = findReusableLegacyJob(userId, input)
+        val legacyExisting = if (input is EngineInput.Game && input.forceReanalysis) {
+            null
+        } else {
+            findReusableLegacyJob(userId, input)
+        }
         if (legacyExisting != null) {
             return AnalysisRequestOutcome.Stream(cachedEmitter(legacyExisting.record))
         }
@@ -236,7 +241,15 @@ class AnalysisService(
         val actual = record.engineMeta?.let {
             runCatching { json.decodeFromJsonElement(EngineMetaJson.serializer(), it) }.getOrNull()
         }
-        return actual == expected
+        // condition_name は表示用の短縮名であり、旧結果には存在しないため、
+        // キャッシュ再利用の互換判定から除外する。
+        return actual != null && actual.engineRev == expected.engineRev &&
+            actual.evalSha256 == expected.evalSha256 &&
+            actual.nodes == expected.nodes &&
+            actual.threads == expected.threads &&
+            actual.multiPv == expected.multiPv &&
+            actual.usiHash == expected.usiHash &&
+            actual.fvScale == expected.fvScale
     }
 
     private fun isReusableLegacyDone(record: AnalysisJobRecord, input: EngineInput): Boolean {
@@ -262,7 +275,8 @@ class AnalysisService(
         movesHash: String,
         existing: AnalysisJobRecord,
         input: EngineInput,
-    ): AnalysisRequestOutcome = when (existing.status) {
+    ): AnalysisRequestOutcome {
+        return when (existing.status) {
         AnalysisJobStatus.DONE -> AnalysisRequestOutcome.Stream(cachedEmitter(existing))
         AnalysisJobStatus.RUNNING -> {
             val ageMs = Duration.between(existing.createdAt, clock.instant()).toMillis()
@@ -283,6 +297,7 @@ class AnalysisService(
             // エラー後の再試行は同じ行を running に戻して使う（新規行を作ると unique制約に阻まれるため）。
             analysisJobRepository.resetToRunning(existing.id)
             AnalysisRequestOutcome.Stream(runEmitter(existing.id, input))
+        }
         }
     }
 
@@ -382,7 +397,7 @@ class AnalysisService(
         emitLine(json.encodeToString(ProgressJson(0, 1)) + "\n")
         val engine = engineFactory()
         val pvList = try {
-            engine.analyzeSfen(input.sfen, input.moves, multiPv = input.multiPv)
+            engine.analyzeSfen(input.sfen, input.moves, nodes = EngineInvariants.NODES, multiPv = input.multiPv)
         } finally {
             runCatching { engine.quit() }
         }
@@ -426,6 +441,8 @@ private fun EngineInput.toStoragePayload(): JsonElement = when (this) {
     is EngineInput.Game -> buildJsonObject {
         put("mode", "game")
         put("moves_usi", JsonArray(movesUsi.map { JsonPrimitive(it) }))
+        put("force_reanalysis", forceReanalysis)
+        requestId?.let { put("request_id", it) }
     }
     is EngineInput.Position -> buildJsonObject {
         put("mode", "position")

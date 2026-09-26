@@ -69,6 +69,9 @@ jobs:
 
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
 
+      - name: 対話的WASM解析の用途・不変条件を検証
+        run: node --test engine-wasm/study_worker_test.mjs
+
       # docs/copy-kento-assets.sh が内部で :webApp:wasmJsBrowserDistribution (Gradle)を
       # 実行するために必要。JDKバージョンはapp/gradle/libs.versions.toml の
       # jvm-toolchain と合わせる。Node.jsはGitHub Actions Ubuntuランナーに

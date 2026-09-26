@@ -44,7 +44,7 @@ class SupabaseGameDownloadService(
         onProgress: (done: Int, total: Int) -> Unit,
         importGame: suspend (ReconstructedGame) -> GameImportOutcome,
     ): GameDownloadOutcome {
-        if (authRepository.currentUser.value == null) return GameDownloadOutcome.NotAuthenticated
+        val owner = authRepository.currentUser.value?.id ?: return GameDownloadOutcome.NotAuthenticated
         // getOrCreateではなくload: 未生成のSでK_encを新規生成してしまうと、行ごとに
         // 「復号鍵が違うので全滅する」という分かりにくい失敗（failedの積み上がり）になる。
         // NoSecretという別種の結果として区別できるよう、生成せず即座に打ち切る。
@@ -53,7 +53,7 @@ class SupabaseGameDownloadService(
         val kEnc = TransferSecretKeys.deriveEncKey(secrets.encSecret)
 
         val rows = try {
-            remoteSource.fetchAllRows()
+            remoteSource.fetchAllRows(owner)
         } catch (e: Exception) {
             return GameDownloadOutcome.NetworkError(e.message ?: "communication failed")
         }
@@ -64,16 +64,17 @@ class SupabaseGameDownloadService(
         var failed = 0
         onProgress(done, total)
         for (row in rows) {
+            if (authRepository.currentUser.value?.id != owner) return GameDownloadOutcome.NotAuthenticated
             val existingId = gameRepository.getByHash(row.contentHash)
             if (existingId != null) {
-                // 既にこの端末へ取込済み（前回の途中中断からの再開、または復元前の手動取込との
-                // 重複）。再アップロード対象に回さないよう、ここでも uploaded_at を確定させる。
-                markUploaded(existingId)
+                // 棋譜の一致は解析結果の一致を意味しない。未送信の再解析結果を
+                // 送信済みにしないよう、既存棋譜の uploaded_at は変更しない。
                 succeeded++
             } else {
                 val outcome = runCatching { importRow(row, kEnc, importGame) }.getOrNull()
                 if (outcome != null && outcome.success) {
-                    outcome.gameId?.let { markUploaded(it) }
+                    if (authRepository.currentUser.value?.id != owner) return GameDownloadOutcome.NotAuthenticated
+                    outcome.gameId?.let { gameRepository.confirmRestoredGame(it, owner, row.analysisGeneration, currentEpochSeconds()) }
                     succeeded++
                 } else {
                     // 復号失敗・KIF再構成失敗・保存失敗のいずれも1局の失敗として扱い、
@@ -85,10 +86,6 @@ class SupabaseGameDownloadService(
             onProgress(done, total)
         }
         return GameDownloadOutcome.Completed(total = total, succeeded = succeeded, failed = failed)
-    }
-
-    private fun markUploaded(gameId: Long) {
-        gameRepository.updateUploadedAt(gameId, currentEpochSeconds())
     }
 
     /**
@@ -113,10 +110,15 @@ class SupabaseGameDownloadService(
             result = row.result,
             source = KifuSource.entries.firstOrNull { it.wireValue == row.sourcePlace } ?: KifuSource.OTHER,
         )
-        val kifText = KifuReconstructor.reconstruct(public, privateFields, userSide = row.side)
+        val (kifText, studyKif) = if (privateFields?.studyKif != null) {
+            dev.miyado.shogisupplement.kifu.StudyKifuBackup.restore(public, privateFields)
+        } else {
+            KifuReconstructor.reconstruct(public, privateFields, userSide = row.side) to null
+        }
         return importGame(
             ReconstructedGame(
                 kifText = kifText,
+                studyKif = studyKif,
                 fileName = AppStrings.restoredGameFileName(public.headers["開始日時"]),
                 contentHash = row.contentHash,
                 userSide = row.side,

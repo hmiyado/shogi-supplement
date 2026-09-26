@@ -2,6 +2,7 @@ package dev.miyado.shogisupplement.server.worker
 
 import dev.miyado.shogisupplement.api.ApiHeaders
 import dev.miyado.shogisupplement.api.analysis.EngineMetaJson
+import dev.miyado.shogisupplement.api.analysis.engineConditionName
 import dev.miyado.shogisupplement.engine.EngineInvariants
 import dev.miyado.shogisupplement.engine.IsolatedEngine
 import dev.miyado.shogisupplement.engine.UsiEngineSubprocess
@@ -127,6 +128,15 @@ fun Application.module(config: WorkerConfig) {
                 multiPv = multiPv,
                 usiHash = EngineInvariants.USI_HASH_MB,
                 fvScale = EngineInvariants.FV_SCALE,
+                conditionName = engineConditionName(
+                    engineRev = config.engineRev,
+                    evalSha256 = config.evalSha256,
+                    nodes = EngineInvariants.NODES,
+                    threads = EngineInvariants.THREADS,
+                    multiPv = multiPv,
+                    usiHash = EngineInvariants.USI_HASH_MB,
+                    fvScale = EngineInvariants.FV_SCALE,
+                ),
             )
         },
         // エンジン成果物だけでなく、結果を変えうる実行条件もキーへ含める。

@@ -12,6 +12,8 @@ class WasmAnalysisRunner : GameAnalyzer {
 
     override suspend fun analyzeGame(
         moves: List<String>,
+        forceReanalysis: Boolean,
+        requestId: String?,
         onPositionResult: ((ply: Int, pvs: List<PvInfo>) -> Unit)?,
         onProgress: ((done: Int, total: Int) -> Unit)?,
     ): GameAnalysisResult {

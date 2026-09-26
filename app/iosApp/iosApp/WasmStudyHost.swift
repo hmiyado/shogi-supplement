@@ -41,13 +41,14 @@ final class WasmStudyHost: NSObject {
 
     private override init() {
         super.init()
-        WasmStudyBridge.shared.analyzeHandler = { [weak self] requestId, baseSfenArg, movesJson, multiPv in
+        WasmStudyBridge.shared.analyzeHandler = { [weak self] requestId, baseSfenArg, movesJson, multiPv, purpose in
             self?.beginAnalyze(
                 requestId: requestId,
                 baseSfenArg: baseSfenArg,
                 movesJson: movesJson,
                 // Kotlinのクロージャ引数のIntはボックス化されてKotlinIntで渡ってくる。
-                multiPv: multiPv.int32Value
+                multiPv: multiPv.int32Value,
+                purpose: purpose
             )
                 ?? KotlinBoolean(bool: false)
         }
@@ -88,7 +89,7 @@ final class WasmStudyHost: NSObject {
     /// （メインスレッドで直列化する。同期実行にする狙いは、呼び出し元へ受理可否を
     /// その場で返せるようにするため——非同期にすると受理可否の通知に別経路が要る）。
     private func beginAnalyze(
-        requestId: String, baseSfenArg: String, movesJson: String, multiPv: Int32
+        requestId: String, baseSfenArg: String, movesJson: String, multiPv: Int32, purpose: String?
     ) -> KotlinBoolean {
         var accepted = false
         DispatchQueue.main.sync {
@@ -99,12 +100,13 @@ final class WasmStudyHost: NSObject {
             busyRequestId = requestId
             accepted = true
             webView.callAsyncJavaScript(
-                "window.__analyzePosition(requestId, baseSfenArg, movesJson, multiPv);",
+                "window.__analyzePosition(requestId, baseSfenArg, movesJson, multiPv, purpose);",
                 arguments: [
                     "requestId": requestId,
                     "baseSfenArg": baseSfenArg,
                     "movesJson": movesJson,
                     "multiPv": Int(multiPv),
+                    "purpose": purpose as Any? ?? NSNull(),
                 ],
                 in: nil,
                 in: .page
