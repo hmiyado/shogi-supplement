@@ -1,5 +1,9 @@
 package dev.miyado.shogisupplement.ui
 
+import dev.miyado.shogisupplement.navigation.AppDestination
+import dev.miyado.shogisupplement.navigation.NavigationEvent
+import dev.miyado.shogisupplement.navigation.NavigationMachine
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Box
@@ -289,6 +293,23 @@ private sealed class DemoRoute {
     object GameRestore : DemoRoute()
 }
 
+private val DemoRoute.destination: AppDestination
+    get() = when (this) {
+        DemoRoute.Home -> AppDestination.HOME
+        is DemoRoute.Report -> AppDestination.REPORT
+        DemoRoute.Drill -> AppDestination.DRILL
+        DemoRoute.Settings -> AppDestination.SETTINGS
+        DemoRoute.Licenses -> AppDestination.LICENSES
+        DemoRoute.Account -> AppDestination.ACCOUNT
+        DemoRoute.TransferCode -> AppDestination.TRANSFER_CODE
+        DemoRoute.GameList -> AppDestination.GAME_LIST
+        DemoRoute.ManualKifu -> AppDestination.MANUAL_KIFU
+        DemoRoute.Debug -> AppDestination.DEBUG
+        is DemoRoute.StrengthDetail -> AppDestination.STRENGTH_DETAIL
+        is DemoRoute.DrillRecordDetail -> AppDestination.DRILL_RECORD_DETAIL
+        DemoRoute.GameRestore -> AppDestination.GAME_RESTORE
+    }
+
 @OptIn(ExperimentalNativeApi::class)
 @Composable
 private fun DemoApp(
@@ -300,6 +321,12 @@ private fun DemoApp(
     analysisBaseUrl: String? = null,
 ) {
     var route by remember { mutableStateOf<DemoRoute>(DemoRoute.Home) }
+    fun navigate(target: DemoRoute, event: NavigationEvent = NavigationEvent.Open(target.destination)) {
+        if (NavigationMachine.resolve(route.destination, event) == target.destination) {
+            controller.invalidateCompletedNavigation()
+            route = target
+        }
+    }
     // 「棋譜を追加する」タップで最初に出す、ファイル/クリップボードの選択ダイアログ。
     var showKifSourceDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -336,8 +363,9 @@ private fun DemoApp(
     val completedAnalysis by controller.completedAnalysis.collectAsState()
     LaunchedEffect(completedAnalysis) {
         completedAnalysis?.let { completed ->
-            route = DemoRoute.Report(completed.gameId, justCompleted = completed.justCompleted)
-            controller.consumeCompletedAnalysis()
+            if (controller.consumeCompletedAnalysis(completed)) {
+                route = DemoRoute.Report(completed.gameId, justCompleted = completed.justCompleted)
+            }
         }
     }
 
@@ -423,7 +451,7 @@ private fun DemoApp(
             },
             onPickManual = {
                 showKifSourceDialog = false
-                route = DemoRoute.ManualKifu
+                navigate(DemoRoute.ManualKifu)
             },
             onDismiss = { showKifSourceDialog = false },
         )
@@ -462,22 +490,22 @@ private fun DemoApp(
                     drillRecordCard = data.drillRecordCard,
                     analyzingSessions = analyzingSessions.values.toList(),
                     onOpenKif = { showKifSourceDialog = true },
-                    onGameClick = { game -> route = DemoRoute.Report(game.id) },
+                    onGameClick = { game -> navigate(DemoRoute.Report(game.id)) },
                     onAnalyzingClick = { session -> controller.resumeAnalyzing(session.id) },
-                    onStartDrill = { route = DemoRoute.Drill },
-                    onOpenSettings = { route = DemoRoute.Settings },
-                    onViewAllGames = { route = DemoRoute.GameList },
+                    onStartDrill = { navigate(DemoRoute.Drill) },
+                    onOpenSettings = { navigate(DemoRoute.Settings) },
+                    onViewAllGames = { navigate(DemoRoute.GameList) },
                     onOpenStrengthHelp = { openUrl(IOS_HELP_STRENGTH_URL) },
                     onOpenDrillRecordDetail = {
                         scope.launch {
                             drillRecordDetailViewModel.loadDrillRecordDetail()?.let {
-                                route = DemoRoute.DrillRecordDetail(it)
+                                navigate(DemoRoute.DrillRecordDetail(it))
                             }
                         }
                     },
                     onOpenStrengthDetail = {
                         scope.launch {
-                            strengthDetailViewModel.loadStrengthDetail()?.let { route = DemoRoute.StrengthDetail(it) }
+                            strengthDetailViewModel.loadStrengthDetail()?.let { navigate(DemoRoute.StrengthDetail(it)) }
                         }
                     },
                 )
@@ -487,14 +515,14 @@ private fun DemoApp(
             // route切替をsave直後ではなく保存確定後（Analyzing/Reportへの遷移）に遅らせる
             // （直後に切り替えると、「自分の側」キャンセル時に入力を復元する手段がなくなるため）。
             ManualKifuScreen(
-                onClose = { route = DemoRoute.Home },
+                onClose = { navigate(DemoRoute.Home, NavigationEvent.Back) },
                 onSave = { draft ->
                     controller.beginManualImport(draft.toKifText())
                 },
             )
         }
         is DemoRoute.DrillRecordDetail -> {
-            DrillRecordDetailScreen(data = r.data, onBack = { route = DemoRoute.Home }, onShare = ::shareCurrentScreen)
+            DrillRecordDetailScreen(data = r.data, onBack = { navigate(DemoRoute.Home, NavigationEvent.Back) }, onShare = ::shareCurrentScreen)
         }
         is DemoRoute.StrengthDetail -> {
             // 対局サービスの編集ダイアログはこの画面専用（Settings画面の棋力入力は廃止済み）。
@@ -518,7 +546,7 @@ private fun DemoApp(
             }
             EstimatedStrengthDetailScreen(
                 data = r.data,
-                onBack = { route = DemoRoute.Home },
+                onBack = { navigate(DemoRoute.Home, NavigationEvent.Back) },
                 onEditAccounts = { showEditDialog = true },
                 onShare = ::shareCurrentScreen,
             )
@@ -528,7 +556,7 @@ private fun DemoApp(
                 gameId = r.gameId,
                 justCompleted = r.justCompleted,
                 controller = controller,
-                onBack = { route = DemoRoute.Home },
+                onBack = { navigate(DemoRoute.Home, NavigationEvent.Back) },
                 onShare = ::shareCurrentScreen,
             )
         }
@@ -538,7 +566,7 @@ private fun DemoApp(
                 analysisBaseUrl = analysisBaseUrl,
                 services = supabaseServices,
                 onBack = {
-                    route = DemoRoute.Home
+                    navigate(DemoRoute.Home, NavigationEvent.Back)
                     controller.reloadHome()
                 },
             )
@@ -546,32 +574,32 @@ private fun DemoApp(
         DemoRoute.Settings -> {
             IosSettingsScreenHost(
                 controller = controller,
-                onBack = { route = DemoRoute.Home },
-                onOpenLicenses = { route = DemoRoute.Licenses },
+                onBack = { navigate(DemoRoute.Home, NavigationEvent.Back) },
+                onOpenLicenses = { navigate(DemoRoute.Licenses) },
                 onOpenAccount = if (supabaseServices != null) {
-                    { route = DemoRoute.Account }
+                    { navigate(DemoRoute.Account) }
                 } else {
                     null
                 },
                 onOpenTransferCode = if (supabaseServices != null) {
-                    { route = DemoRoute.TransferCode }
+                    { navigate(DemoRoute.TransferCode) }
                 } else {
                     null
                 },
                 // Kotlin/NativeにBuildConfig相当が無いため、DEBUGビルド判定はPlatform.isDebugBinaryで行う。
                 onOpenDebug = if (Platform.isDebugBinary) {
-                    { route = DemoRoute.Debug }
+                    { navigate(DemoRoute.Debug) }
                 } else {
                     null
                 },
                 services = supabaseServices,
                 analysisBaseUrl = analysisBaseUrl,
-                onRestoreSuccess = { route = DemoRoute.GameRestore },
+                onRestoreSuccess = { navigate(DemoRoute.GameRestore, NavigationEvent.RestoreAuthenticated) },
             )
         }
         DemoRoute.Debug -> {
             IosDebugScreenHost(
-                onBack = { route = DemoRoute.Settings },
+                onBack = { navigate(DemoRoute.Settings, NavigationEvent.Back) },
                 gameRepository = gameRepository,
                 services = supabaseServices,
             )
@@ -580,7 +608,7 @@ private fun DemoApp(
             val libraries = remember { loadBundledLibraries() }
             LicenseInfoScreen(
                 libraries = libraries,
-                onBack = { route = DemoRoute.Settings },
+                onBack = { navigate(DemoRoute.Settings, NavigationEvent.Back) },
                 onOpenSourceRepo = { openUrl(IOS_SOURCE_REPO_URL) },
             )
         }
@@ -588,13 +616,13 @@ private fun DemoApp(
             val services = supabaseServices
             if (services == null) {
                 // 設定なしでこのルートには到達しない（導線自体が非表示）が、念のため戻す。
-                route = DemoRoute.Settings
+                navigate(DemoRoute.Settings, NavigationEvent.Back)
             } else {
                 IosAccountScreenHost(
                     services = services,
                     gameRepository = gameRepository,
                     settingsRepository = settingsRepository,
-                    onBack = { route = DemoRoute.Settings },
+                    onBack = { navigate(DemoRoute.Settings, NavigationEvent.Back) },
                 )
             }
         }
@@ -602,11 +630,11 @@ private fun DemoApp(
             val services = supabaseServices
             if (services == null) {
                 // 設定なしでこのルートには到達しない（導線自体が非表示）が、念のため戻す。
-                route = DemoRoute.Settings
+                navigate(DemoRoute.Settings, NavigationEvent.Back)
             } else {
                 IosTransferCodeScreenHost(
                     services = services,
-                    onBack = { route = DemoRoute.Settings },
+                    onBack = { navigate(DemoRoute.Settings, NavigationEvent.Back) },
                 )
             }
         }
@@ -616,8 +644,8 @@ private fun DemoApp(
                 services = supabaseServices,
                 settingsRepository = settingsRepository,
                 controller = controller,
-                onBack = { route = DemoRoute.Home },
-                onGameClick = { game -> route = DemoRoute.Report(game.id) },
+                onBack = { navigate(DemoRoute.Home, NavigationEvent.Back) },
+                onGameClick = { game -> navigate(DemoRoute.Report(game.id)) },
             )
         }
         DemoRoute.GameRestore -> {
@@ -625,13 +653,13 @@ private fun DemoApp(
             if (services == null) {
                 // 設定なしでこのルートには到達しない（引き継ぎコード自体がSupabase設定必須）が、
                 // 念のため戻す。
-                route = DemoRoute.Home
+                navigate(DemoRoute.Home, NavigationEvent.Back)
             } else {
                 IosGameRestoreScreenHost(
                     services = services,
                     controller = controller,
                     onFinish = {
-                        route = DemoRoute.Home
+                        navigate(DemoRoute.Home, NavigationEvent.Back)
                         controller.reloadHome()
                     },
                 )
@@ -876,6 +904,8 @@ private fun IosReportScreenHost(
         blunderRateDisplayText = current.blunderRateDisplayText,
         analysisPending = g.analysisStatus == GameAnalysisStatus.PENDING,
         onAnalyze = { controller.analyzeStoredGame(g) },
+        onReanalyze = { controller.analyzeStoredGame(g, forceReanalysis = true) },
+        hasUnsavedStudy = controller::hasUnsavedStudy,
         onDeleteGame = { deleteServer, onResult ->
             scope.launch {
                 val outcome = controller.deleteGame(g, deleteServer)
@@ -919,6 +949,8 @@ private fun IosReportScreenHost(
         onStudyStepBack = { controller.studyStepBack() },
         onStudyResetToStart = { controller.studyResetToStart() },
         onStudyEnd = { controller.endStudy() },
+        onSaveStudy = controller::saveStudy,
+        onDeleteStudyBranch = controller::deleteStudyBranch,
         onStudyChipTapped = { depth -> controller.onStudyChipTapped(depth) },
         onStudyBranchChipTapped = { depth -> controller.onStudyBranchChipTapped(depth) },
         onStudyBranchPopupDismiss = { controller.onStudyBranchPopupDismiss() },
@@ -928,7 +960,7 @@ private fun IosReportScreenHost(
         onStudyCandidateSelected = { moveUsi -> controller.onStudyCandidateSelected(moveUsi) },
         // KIFコピー（トップバー⧉アイコン）。iOSはクリップボードへ直接書き込む
         // （Android版 ReportHost.kt の ClipboardManager 相当・snackbar表示は ReportScreen 側）。
-        onCopyKif = { kifText -> UIPasteboard.generalPasteboard.string = kifText },
+        onCopyKif = { kifText -> UIPasteboard.generalPasteboard.string = controller.savedKifForExport(g.id) ?: kifText },
         onShare = onShare,
     )
 }

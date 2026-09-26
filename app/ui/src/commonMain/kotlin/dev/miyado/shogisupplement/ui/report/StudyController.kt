@@ -36,17 +36,20 @@ private const val STUDY_LOCAL_ENGINE_PREPARE_TIMEOUT_MS = 30_000L
  */
 class StudyController(
     private val scope: CoroutineScope,
-    private val studyEngineFactory: () -> StudyEngine,
+    private val studyEngineFactory: suspend () -> StudyEngine,
     private val evalDisplayProvider: () -> String,
     private val localEngineLikelyAvailable: () -> Boolean = { true },
+    private val onTreeChanged: () -> Unit = {},
 ) {
 
     private val _studyState = MutableStateFlow<StudyState?>(null)
     val studyState: StateFlow<StudyState?> = _studyState.asStateFlow()
 
+    private var saveFailed = false
     private var studyEngine: StudyEngine? = null
 
     private var studyBoard: ShogiBoard? = null
+    private var protectedMainline: List<String>? = null
 
     /**
      * Why not blunderId で識別しない理由: 検討は任意の手から開始できるため。
@@ -54,7 +57,7 @@ class StudyController(
      */
     private val treesByOrigin = mutableMapOf<String, StudyTree>()
 
-    private var nextNodeIdCounter = 1L
+    private var nextNodeIdCounter = Int.MAX_VALUE.toLong() + 1L
     private fun nextNodeId(): Long = nextNodeIdCounter++
 
     /** 自動発火と手動再試行をまたぐ単一実行ガード。 */
@@ -76,10 +79,19 @@ class StudyController(
         origin: StudyOrigin,
         tappedSquare: ShogiSquare? = null,
         tappedHandPieceType: PieceType? = null,
+        initialTree: StudyTree? = null,
+        protectedMoves: List<String>? = null,
     ) {
         val board = runCatching { ShogiBoard.fromSfen(baseSfen) }.getOrNull() ?: return
         studyBoard = board
-        treesByOrigin.getOrPut(baseSfen) { StudyTree() }
+        protectedMainline = protectedMoves
+        if (initialTree != null) {
+            treesByOrigin[baseSfen] = initialTree
+            fun maxId(nodes: List<StudyNode>): Long = nodes.maxOfOrNull { maxOf(it.id, maxId(it.children)) } ?: 0L
+            nextNodeIdCounter = maxOf(nextNodeIdCounter, maxId(initialTree.rootChildren) + 1L)
+        } else {
+            treesByOrigin.getOrPut(baseSfen) { StudyTree() }
+        }
         _studyState.value = buildInitialStudyState(
             baseSfen = baseSfen,
             flip = flip,
@@ -91,7 +103,35 @@ class StudyController(
             tappedSquare = tappedSquare,
             board = board,
             tappedHandPieceType = tappedHandPieceType,
+        ).copy(
+            saveFailed = saveFailed,
+            evalState = treesByOrigin.getValue(baseSfen).rootEvalState,
+            displayLine = treesByOrigin.getValue(baseSfen).continuation(emptyList()),
         )
+        val initialState = requireNotNull(_studyState.value)
+        val display = initialState.displayLine
+        _studyState.value = initialState.copy(branchFlags = treesByOrigin.getValue(baseSfen).branchFlags(display),
+            chipEvalStates = treesByOrigin.getValue(baseSfen).evalStatesAlong(display))
+    }
+
+    fun currentTree(): StudyTree? = _studyState.value?.let { treesByOrigin[it.baseSfen] }
+    fun treeAtOrigin(baseSfen: String): StudyTree? = treesByOrigin[baseSfen]
+
+    fun setSaveFailed(failed: Boolean) {
+        saveFailed = failed
+        _studyState.update { it?.copy(saveFailed = failed) }
+    }
+
+    fun deleteBranchForPosition(baseSfen: String, moves: List<String>, nodeId: Long? = null): Boolean {
+        val current = _studyState.value ?: return false
+        if (nodeId != null && current.nodeId != nodeId) return false
+        if (current.baseSfen != baseSfen || current.moves != moves || !current.canDeleteBranch) return false
+        val tree = treesByOrigin[baseSfen] ?: return false
+        treesByOrigin[baseSfen] = tree.withoutBranch(moves)
+        val parent = moves.dropLast(1)
+        applyMoves(current.copy(displayLine = parent), parent)
+        onTreeChanged()
+        return true
     }
 
     fun onStudySquareTapped(sq: ShogiSquare) {
@@ -235,7 +275,8 @@ class StudyController(
             StudyBranchOption(
                 moveUsi = node.moveUsi,
                 evalState = node.evalState,
-                isCurrent = node.moveUsi == s.displayLine[depth],
+                isCurrent = node.id == tree.nodesAtPath(tree.pathForMoves(s.displayLine.take(depth + 1))).lastOrNull()?.id,
+                nodeId = node.id,
             )
         }
         _studyState.value = s.copy(openBranchPopupDepth = depth, branchPopupOptions = options)
@@ -262,6 +303,17 @@ class StudyController(
         applyMoves(s, s.displayLine.take(depth) + moveUsi)
     }
 
+    fun onBranchNodeSelected(depth: Int, nodeId: Long) {
+        if (depth < 0) return
+        val state = _studyState.value ?: return
+        if (depth !in state.displayLine.indices) return
+        val tree = treesByOrigin[state.baseSfen] ?: return
+        val parent = state.displayLine.take(depth)
+        val node = tree.siblingsAtDepth(state.displayLine, depth).firstOrNull { it.id == nodeId } ?: return
+        treesByOrigin[state.baseSfen] = tree.selectChild(parent, node.id)
+        applyMoves(state.copy(displayLine = emptyList()), parent + node.moveUsi)
+    }
+
     fun endStudy() {
         pollJob?.cancel()
         pollJob = null
@@ -278,6 +330,7 @@ class StudyController(
         studyEngine?.quit()
         studyEngine = null
         treesByOrigin.clear()
+        saveFailed = false
     }
 
     /** Why not 見込み判定を待たない理由: 明示再試行は engineFactory のフォールバックを許可する。 */
@@ -310,7 +363,7 @@ class StudyController(
                     waitedMs += STUDY_LOCAL_ENGINE_POLL_INTERVAL_MS
                     val cur = _studyState.value
                     // 局面変更または明示再試行後のループは結果を反映しない。
-                    if (cur == null || cur.baseSfen != baseSfen || cur.moves != moves) return@launch
+                    if (cur == null || cur.baseSfen != baseSfen || cur.moves != moves || cur.nodeId != s.nodeId) return@launch
                     if (cur.evalState != StudyEvalState.Preparing) return@launch
                     // Why not 判定を1回に減らさない理由: iOS実装（WasmStudyHost）では
                     // この呼び出し自体がウォームアップの起点を兼ねる。
@@ -334,6 +387,8 @@ class StudyController(
      * 完了結果は元局面へ常にキャッシュし、表示状態は現在局面が一致するときだけ更新する。
      */
     private fun startAnalysis(baseSfen: String, moves: List<String>, flip: Boolean) {
+        val selected = treesByOrigin[baseSfen]?.selectedChildren.orEmpty()
+        val analyzedNodeId = _studyState.value?.nodeId
         if (studyEvalRunning) return
         studyEvalRunning = true
         _studyState.update { it?.copy(evalState = StudyEvalState.Loading) }
@@ -357,13 +412,17 @@ class StudyController(
             }
             studyEvalRunning = false
 
-            val tree = (treesByOrigin[baseSfen] ?: StudyTree()).withEvalState(moves, evalResult)
+            val currentTree = treesByOrigin[baseSfen] ?: StudyTree()
+            val target = currentTree.copy(selectedChildren = selected)
+            val stillExists = target.nodesAtPath(target.pathForMoves(moves)).lastOrNull()?.id ?: 0L
+            val tree = if (stillExists == analyzedNodeId) target.withEvalState(moves, evalResult)
+                .copy(selectedChildren = currentTree.selectedChildren) else currentTree
             treesByOrigin[baseSfen] = tree
 
             val latest = _studyState.value
             when {
                 latest == null -> Unit
-                latest.baseSfen == baseSfen && latest.moves == moves -> {
+                latest.baseSfen == baseSfen && latest.moves == moves && latest.nodeId == analyzedNodeId -> {
                     _studyState.update {
                         it?.copy(evalState = evalResult, chipEvalStates = tree.evalStatesAlong(latest.displayLine))
                     }
@@ -388,6 +447,7 @@ class StudyController(
             null
         }
         var tree = treesByOrigin[s.baseSfen] ?: StudyTree()
+        val previousTree = tree
         if (addedMove != null) {
             tree = tree.withMovePlayed(s.moves, addedMove, newId = nextNodeId())
             treesByOrigin[s.baseSfen] = tree
@@ -400,7 +460,7 @@ class StudyController(
         ) {
             s.displayLine
         } else {
-            newMoves
+            tree.continuation(newMoves)
         }
         _studyState.value = s.copy(
             moves = newMoves,
@@ -415,8 +475,12 @@ class StudyController(
             showPromoteDialog = false,
             pendingPromoteMove = null,
             evalState = tree.evalStateAt(newMoves),
+            nodeId = tree.nodesAtPath(tree.pathForMoves(newMoves)).lastOrNull()?.id ?: 0L,
+            canDeleteBranch = newMoves.isNotEmpty() && protectedMainline != null && (protectedMainline?.take(newMoves.size) != newMoves ||
+                tree.pathForMoves(newMoves).any { it != 0 }),
             showTurnHint = false,
         )
+        if (tree.toKifu(emptyMap()) != previousTree.toKifu(emptyMap())) onTreeChanged()
         maybeAutoAnalyze()
     }
 

@@ -1,5 +1,10 @@
 package dev.miyado.shogisupplement.ui
 
+import dev.miyado.shogisupplement.navigation.AppDestination
+import dev.miyado.shogisupplement.navigation.NavigationMachine
+import dev.miyado.shogisupplement.navigation.NavigationCompletionGuard
+import dev.miyado.shogisupplement.db.GameAnalysisStatus
+
 import dev.miyado.shogisupplement.auth.AuthRepository
 import dev.miyado.shogisupplement.board.PieceType
 import dev.miyado.shogisupplement.board.ShogiSquare
@@ -70,6 +75,7 @@ import platform.Foundation.NSDate
 import platform.Foundation.NSDateFormatter
 import platform.Foundation.NSNotificationCenter
 import platform.Foundation.NSOperationQueue
+import platform.Foundation.NSUUID
 import platform.UIKit.UIApplicationWillEnterForegroundNotification
 import platform.UIKit.UIPasteboard
 
@@ -109,6 +115,7 @@ class IosMainController(
             val moves: List<String>,
             val userSide: String?,
             val progressive: ProgressiveReportState,
+            val requestId: String? = null,
         ) : ImportState()
 
         /** 保存または解析の失敗。 */
@@ -251,16 +258,23 @@ class IosMainController(
      */
     data class CompletedAnalysis(
         val gameId: Long,
+        val navigationTicket: Any,
+        val requestId: String? = null,
         /** falseは重複KIFの再取込（何も解析していない）。 */
         val justCompleted: Boolean,
     )
 
     private val _completedAnalysis = MutableStateFlow<CompletedAnalysis?>(null)
     val completedAnalysis: StateFlow<CompletedAnalysis?> = _completedAnalysis.asStateFlow()
+    private val completionGuard = NavigationCompletionGuard()
 
-    fun consumeCompletedAnalysis() {
+    fun invalidateCompletedNavigation() {
+        completionGuard.invalidate()
         _completedAnalysis.value = null
     }
+
+    fun consumeCompletedAnalysis(expected: CompletedAnalysis): Boolean =
+        _completedAnalysis.compareAndSet(expected, null) && completionGuard.consume(expected.navigationTicket)
 
     /** テーマモード（'system'/'light'/'dark'）。 */
     val themeMode: StateFlow<String> = appSettings.themeMode
@@ -314,7 +328,9 @@ class IosMainController(
     fun resumeIfPending() {
         scope.launch {
             val pending = PendingAnalysisStore.load() ?: return@launch
-            if (gameRepository.getByHash(sha256Hex(pending.kifText)) != null) {
+            val contentHash = pending.contentHash ?: sha256Hex(pending.kifText)
+            val existing = gameRepository.getByHash(contentHash)?.let(gameRepository::getGameById)
+            if (!pending.forceReanalysis && existing?.analysisStatus == GameAnalysisStatus.COMPLETED) {
                 PendingAnalysisStore.clear()
                 return@launch
             }
@@ -409,11 +425,13 @@ class IosMainController(
      */
     fun resumeAnalyzing(id: String) {
         val session = InProgressAnalysisRegistry.shared.snapshot(id) ?: return
+        invalidateCompletedNavigation()
         _importState.value = ImportState.Analyzing(
             fileName = session.fileName,
             moves = session.progressive.moves,
             userSide = session.userSide,
             progressive = session.progressive,
+            requestId = session.requestId,
         )
     }
 
@@ -425,6 +443,7 @@ class IosMainController(
 
     /** 解析中の画面から離れる。解析自体は続くため再開情報は残す。 */
     fun leaveAnalyzingView() {
+        invalidateCompletedNavigation()
         _importState.value = ImportState.Idle
     }
 
@@ -449,20 +468,23 @@ class IosMainController(
             is GameImportFlow.Next.OpenReport -> {
                 _importState.value = ImportState.Idle
                 reloadHome()
-                _completedAnalysis.value = CompletedAnalysis(next.gameId, justCompleted = false)
+                _completedAnalysis.value = CompletedAnalysis(next.gameId, completionGuard.snapshot(), justCompleted = false)
             }
             is GameImportFlow.Next.Failed -> _importState.value = ImportState.Error(next.message)
         }
     }
 
-    fun analyzeStoredGame(game: dev.miyado.shogisupplement.db.GameRecord) {
-        val pending = game.toPendingAnalysis() ?: return
+    fun analyzeStoredGame(game: dev.miyado.shogisupplement.db.GameRecord, forceReanalysis: Boolean = false) {
+        val pending = game.toPendingAnalysis(forceReanalysis) ?: return
         PendingAnalysisStore.save(pending)
         launchAnalysis(pending)
     }
 
     /** 3経路（通常取込・フォアグラウンド復帰・起動時再開）が共通で通る。既存ジョブは先にキャンセルするため二重に走らない。 */
-    private fun launchAnalysis(pending: PendingAnalysis) {
+    private fun launchAnalysis(input: PendingAnalysis) {
+        invalidateCompletedNavigation()
+        val pending = if (input.requestId == null) input.copy(requestId = NSUUID().UUIDString) else input
+        PendingAnalysisStore.save(pending)
         currentAnalysisJob?.cancel()
         lastProgressAtEpochSeconds = currentEpochSeconds()
         val moves = runCatching { KifParser().parse(pending.kifText).moves }.getOrElse { emptyList() }
@@ -475,15 +497,17 @@ class IosMainController(
             moves = moves,
             userSide = pending.userSide,
             progressive = ProgressiveReportState.initial(moves),
+            requestId = pending.requestId,
         )
 
         currentAnalysisJob = scope.launch {
             val outcome = analysisSessionCoordinator.run(
-                session = AnalysisSession(id, pending.fileName, moves, pending.userSide),
+                session = AnalysisSession(id, pending.fileName, moves, pending.userSide, pending.requestId),
                 analyze = { onPositionResult -> runAnalysis(pending, onPositionResult) },
                 onPositionResult = { ply, pvs ->
                     val current = _importState.value
-                    if (current is ImportState.Analyzing) {
+                    if (current is ImportState.Analyzing && NavigationMachine.acceptsAnalysisEvent(
+                            AppDestination.ANALYZING, current.requestId, pending.requestId)) {
                         _importState.value = current.copy(progressive = current.progressive.withPosition(ply, pvs))
                     }
                 },
@@ -494,18 +518,26 @@ class IosMainController(
             // 解析中レポート画面を実際に見ているときだけ完了・失敗を画面へ反映する。
             // ホーム等の他画面にいる間に裏で完了しても、その画面から強制的に連れ去らない
             // （画面はレジストリの購読者に過ぎず、遷移は「見ている」ときの一度きりの体験でよい）。
-            val wasWatching = _importState.value is ImportState.Analyzing
+            fun isWatching(): Boolean {
+                val current = _importState.value as? ImportState.Analyzing ?: return false
+                return NavigationMachine.acceptsAnalysisEvent(AppDestination.ANALYZING, current.requestId, pending.requestId)
+            }
             when (outcome) {
                 is AnalysisOrchestrator.Outcome.Completed -> {
                     // 自動アップロード設定ON＋ログイン中のときだけ実行される
                     // （androidApp の AnalysisService と同じ配線・失敗はサイレント）。
                     uploadOrchestrator?.maybeAutoUpload(outcome.gameId)
+                    if (!isActive) return@launch
                     reloadHome()
-                    PendingAnalysisStore.clear()
-                    if (wasWatching) {
+                    if (!isActive) return@launch
+                    if (PendingAnalysisStore.load()?.requestId == pending.requestId) PendingAnalysisStore.clear()
+                    val navigationTicket = completionGuard.snapshot()
+                    if (isWatching()) {
                         _importState.value = ImportState.Idle
                         _completedAnalysis.value = CompletedAnalysis(
                             gameId = outcome.gameId,
+                            navigationTicket = navigationTicket,
+                            requestId = pending.requestId,
                             justCompleted = !outcome.alreadyExisted,
                         )
                     }
@@ -513,7 +545,7 @@ class IosMainController(
                 is AnalysisOrchestrator.Outcome.Failed -> {
                     // Why not pendingをここで消す: 失敗ダイアログを閉じるまで「再開すべき解析」
                     // として残しておくことで、切断が実は継続中でも後で再問い合わせできる。
-                    if (wasWatching) {
+                    if (isWatching()) {
                         _importState.value = ImportState.Error(outcome.message)
                     } else {
                         // システム通知を使わないため、ホーム表示中もアプリ内ダイアログで知らせる。
@@ -558,6 +590,8 @@ class IosMainController(
             ratingRule = pending.ratingRule,
             contentHash = pending.contentHash,
             sourcePlaceOverride = pending.sourcePlaceOverride,
+            forceReanalysis = pending.forceReanalysis,
+            requestId = pending.requestId,
             // NDJSONのprogress行は無進捗判定だけを更新し、局面状態とは分離する。
             onProgress = { _, _ -> lastProgressAtEpochSeconds = currentEpochSeconds() },
             onPositionResult = onPositionResult,
@@ -580,6 +614,7 @@ class IosMainController(
             ratingDeclaredAt = game.ratingDeclaredAt,
             contentHash = game.contentHash,
             sourcePlaceOverride = game.sourcePlaceOverride,
+            studyKif = game.studyKif,
         )
         return when (outcome) {
             is GameImporter.Outcome.Imported -> GameImportOutcome(success = true, gameId = outcome.gameId)
@@ -595,7 +630,7 @@ class IosMainController(
                 val id = game.contentHash
                 lastProgressAtEpochSeconds = currentEpochSeconds()
                 val outcome = analysisSessionCoordinator.run(
-                    session = AnalysisSession(id, game.fileName, game.movesUsi, game.userSide),
+                    session = AnalysisSession(id, game.fileName, game.movesUsi, game.userSide, pending.requestId),
                     analyze = { onPositionResult -> runAnalysis(pending, onPositionResult) },
                 )
                 when (outcome) {
@@ -611,7 +646,7 @@ class IosMainController(
         }
     }
 
-    private fun dev.miyado.shogisupplement.db.GameRecord.toPendingAnalysis(): PendingAnalysis? {
+    private fun dev.miyado.shogisupplement.db.GameRecord.toPendingAnalysis(forceReanalysis: Boolean = false): PendingAnalysis? {
         val text = kifText ?: return null
         return PendingAnalysis(
             kifText = text,
@@ -622,6 +657,8 @@ class IosMainController(
             ratingRule = ratingRule,
             contentHash = contentHash,
             sourcePlaceOverride = sourcePlace,
+            forceReanalysis = forceReanalysis,
+            requestId = NSUUID().UUIDString,
             createdAtEpochSeconds = currentEpochSeconds(),
         )
     }
@@ -721,10 +758,15 @@ class IosMainController(
     fun studyStepBack() = reportViewModel.studyStepBack()
     fun studyResetToStart() = reportViewModel.studyResetToStart()
     fun endStudy() = reportViewModel.endStudy()
+    fun saveStudy(onResult: (Boolean) -> Unit) = reportViewModel.saveStudy(onResult)
+    fun savedKifForExport(gameId: Long): String? = reportViewModel.savedKifForExport(gameId)
+    fun hasUnsavedStudy(): Boolean = reportViewModel.hasUnsavedStudy()
+    fun deleteStudyBranch(baseSfen: String, moves: List<String>, nodeId: Long? = null): Boolean = reportViewModel.deleteStudyBranch(baseSfen, moves, nodeId)
+
     fun onStudyChipTapped(depth: Int) = reportViewModel.onStudyChipTapped(depth)
     fun onStudyBranchChipTapped(depth: Int) = reportViewModel.onStudyBranchChipTapped(depth)
     fun onStudyBranchPopupDismiss() = reportViewModel.onStudyBranchPopupDismiss()
-    fun onStudyBranchOptionSelected(depth: Int, moveUsi: String) = reportViewModel.onStudyBranchOptionSelected(depth, moveUsi)
+    fun onStudyBranchOptionSelected(depth: Int, nodeId: Long) = reportViewModel.onStudyBranchOptionSelected(depth, nodeId)
     fun onStudyAutoAnalyze() = reportViewModel.onStudyAutoAnalyze()
     fun onStudyAnalyze() = reportViewModel.onStudyAnalyze()
 

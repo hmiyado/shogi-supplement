@@ -335,7 +335,7 @@ fun GameListScreen(
             val targets = dialogTargets
             scope.launch {
                 val result = deleteSelectedGames(targets, deleteServer, onDeleteGame)
-                if (result.outcome == DeleteGameOutcome.ServerFailed) {
+                if (result.outcome != DeleteGameOutcome.Success) {
                     selectedIds = result.remainingIds
                     // ダイアログを閉じずに再確定された場合、失敗分だけを再送するようにする
                     // （dialogTargetsを開いた時点のままにすると、成功済みの分まで再送してしまう）。
@@ -367,20 +367,20 @@ internal suspend fun deleteSelectedGames(
     ) -> Unit,
 ): BulkDeleteResult {
     val remaining = mutableSetOf<Long>()
-    var anyFailed = false
+    var failure: DeleteGameOutcome? = null
     for (target in targets) {
         val outcome = suspendCancellableCoroutine<DeleteGameOutcome> { cont ->
             onDeleteGame(target, deleteServer) {
                 if (cont.isActive) cont.resumeWith(Result.success(it))
             }
         }
-        if (outcome == DeleteGameOutcome.ServerFailed) {
-            anyFailed = true
+        if (outcome != DeleteGameOutcome.Success) {
+            failure = outcome
             remaining += target.id
         }
     }
     return BulkDeleteResult(
         remainingIds = remaining,
-        outcome = if (anyFailed) DeleteGameOutcome.ServerFailed else DeleteGameOutcome.Success,
+        outcome = failure ?: DeleteGameOutcome.Success,
     )
 }

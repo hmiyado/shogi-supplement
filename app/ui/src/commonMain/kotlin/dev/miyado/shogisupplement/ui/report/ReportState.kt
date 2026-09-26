@@ -50,10 +50,12 @@ data class StudyCandidate(
  */
 data class StudyOrigin(val label: String, val userCp: Int?)
 
+
 data class StudyBranchOption(
     val moveUsi: String,
     val evalState: StudyEvalState,
     val isCurrent: Boolean,
+    val nodeId: Long = 0,
 )
 
 /** 検討モードの状態。 @param baseSfen 開始局面。 @param moves 現在局面までのUSI手列。 @param displayLine 表示用のUSI手列。 @param chipEvalStates チップ用評価結果。 @param origin 分岐元情報。 @param branchFlags 兄弟変化の有無。 @param openBranchPopupDepth 開いたポップアップの深さ。 @param branchPopupOptions 兄弟変化一覧。 @param originIsBestPv 開始タブ。 @param originPlyIndex 開始手数。 @param originSelectedIdx 開始時の悪手インデックス。 @param originAbsolutePly 本譜上の開始手数。 @param flip 盤面の反転状態。 */
@@ -78,6 +80,9 @@ data class StudyState(
     val pendingPromoteMove: ShogiMove? = null,
     val evalState: StudyEvalState = StudyEvalState.None,
     val showTurnHint: Boolean = false,
+    val canDeleteBranch: Boolean = false,
+    val saveFailed: Boolean = false,
+    val nodeId: Long = 0,
 )
 
 /**

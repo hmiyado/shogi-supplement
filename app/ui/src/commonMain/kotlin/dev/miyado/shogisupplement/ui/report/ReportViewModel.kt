@@ -24,6 +24,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * レポート画面（棋譜ビューア）の表示状態。
@@ -39,13 +43,24 @@ class ReportViewModel(
     private val ioDispatcher: CoroutineDispatcher = defaultIoDispatcher,
     private val localEngineLikelyAvailable: () -> Boolean = { true },
 ) {
+    private var studyDocument: StudyDocument? = null
+    private var studyGame: GameRecord? = null
+    private var studyPositionEvals: List<PositionEvalRow> = emptyList()
+    private var studyReports: List<BlunderRecord> = emptyList()
+    private var studyOriginMoves: List<String>? = null
+    private var studyEditBaselines = mutableMapOf<List<String>, StudyTree>()
+    private val studyCachedOrigins = mutableMapOf<String, List<String>>()
+    private val studySaveMutex = Mutex()
+    private val savedKifExport = MutableStateFlow<Pair<Long, String>?>(null)
+    private var reportLoadGeneration = 0L
 
     /** Why not engineFactoryをそのまま渡す: 同期のエンジンは待てる実行文脈へ隔離する必要がある。 */
     val studyController = StudyController(
         scope,
-        { BlockingStudyEngine(engineFactory(), ioDispatcher) },
+        { withContext(ioDispatcher) { BlockingStudyEngine(engineFactory(), ioDispatcher) } },
         evalDisplayProvider,
         localEngineLikelyAvailable,
+        onTreeChanged = { saveStudy {} },
     )
     val studyState: StateFlow<StudyState?> get() = studyController.studyState
 
@@ -67,6 +82,9 @@ class ReportViewModel(
             try {
                 val newPv = withContext(ioDispatcher) {
                     PvExtensionRunner.extend(blunderId, sfenAtLineEnd, currentPvStr, repository, engineFactory)
+                }
+                studyReports = studyReports.map { report ->
+                    if (report.id == blunderId) report.copy(bestPv = newPv) else report
                 }
                 onUpdated(blunderId, newPv)
                 _pvExtState.update { it - blunderId }
@@ -90,23 +108,45 @@ class ReportViewModel(
     )
 
     /** Why not 検討状態を残す: 別の棋譜を開いても前の検討が前面に出るため、開き直しで畳む。 */
-    suspend fun loadReport(gameId: Long): ReportResult = withContext(ioDispatcher) {
+    suspend fun loadReport(gameId: Long): ReportResult = withContext(scope.coroutineContext.minusKey(Job)) {
+        val generation = ++reportLoadGeneration
+        savedKifExport.value = null
         studyController.endStudy()
-        val games = repository.getAllGames()
-        val g = games.firstOrNull { it.id == gameId }
-        val r = if (g != null) repository.getReports(gameId) else emptyList()
-        val fl = g?.userSide == "gote"
-        val st = if (g?.userSide != null) computeSingleGameStrengthText(g) else null
-        val pe = if (g != null) repository.getPositionEvals(gameId) else emptyList()
-        // 悪手率・一致率は同じ分母（n=エンジン評価が使えた自分の手数）を共有するため、
-        // 一致率の算出は1回だけ呼んで両方を導出する。
-        val mrResult = if (g != null) EngineMatchRate.compute(g.movesUsi, pe, g.userSide) else null
-        val mr = mrResult?.let { AppStrings.matchRateValue((it.rate * 100).roundToInt(), it.matched, it.sampleMoves) }
-        val br = mrResult?.takeIf { it.sampleMoves > 0 }?.let {
-            val pct = (r.size.toDouble() / it.sampleMoves * 100).roundToInt()
-            AppStrings.blunderRateValue(pct, r.size, it.sampleMoves)
+        studyController.dispose()
+        studyGame = null
+        studyDocument = null
+        studyReports = emptyList()
+        studyPositionEvals = emptyList()
+        studyOriginMoves = null
+        studyEditBaselines = mutableMapOf()
+        studyCachedOrigins.clear()
+        val (result, loadedDocument) = withContext(ioDispatcher) {
+            val games = repository.getAllGames()
+            val g = games.firstOrNull { it.id == gameId }
+            val r = if (g != null) repository.getReports(gameId) else emptyList()
+            val loadedDocument = if (g?.kifText != null) {
+                try { StudyDocument.load(repository, gameId) } catch (e: CancellationException) { throw e } catch (_: Exception) { null }
+            } else null
+            val fl = g?.userSide == "gote"
+            val st = if (g?.userSide != null) computeSingleGameStrengthText(g) else null
+            val pe = if (g != null) repository.getPositionEvals(gameId) else emptyList()
+            // 悪手率・一致率は同じ分母（n=エンジン評価が使えた自分の手数）を共有するため、
+            // 一致率の算出は1回だけ呼んで両方を導出する。
+            val mrResult = if (g != null) EngineMatchRate.compute(g.movesUsi, pe, g.userSide) else null
+            val mr = mrResult?.let { AppStrings.matchRateValue((it.rate * 100).roundToInt(), it.matched, it.sampleMoves) }
+            val br = mrResult?.takeIf { it.sampleMoves > 0 }?.let {
+                val pct = (r.size.toDouble() / it.sampleMoves * 100).roundToInt()
+                AppStrings.blunderRateValue(pct, r.size, it.sampleMoves)
+            }
+            ReportResult(g, r, fl, st, pe, mr, br) to loadedDocument
         }
-        ReportResult(g, r, fl, st, pe, mr, br)
+        if (generation != reportLoadGeneration) throw CancellationException("Report load superseded")
+        studyGame = result.game
+        studyReports = result.reports
+        studyPositionEvals = result.positionEvals
+        studyDocument = loadedDocument
+        savedKifExport.value = loadedDocument?.savedKif?.let { gameId to it }
+        result
     }
 
     /** Why not 悪手レポート一覧から再計算: v2の6特徴量は再現できず、解析時に計算済みの値を使う。 */
@@ -136,10 +176,79 @@ class ReportViewModel(
         origin: StudyOrigin,
         tappedSquare: ShogiSquare? = null,
         tappedHandPieceType: PieceType? = null,
-    ) = studyController.startStudy(
-        baseSfen, flip, originIsBestPv, originPlyIndex, originSelectedIdx, originAbsolutePly, origin,
-        tappedSquare, tappedHandPieceType,
-    )
+    ) {
+        val game = studyGame
+        val blunder = originSelectedIdx?.let { studyReports.getOrNull(it) }
+        val moves = when {
+            game == null -> null
+            !originIsBestPv && originAbsolutePly in 0..game.movesUsi.size -> game.movesUsi.take(originAbsolutePly)
+            originIsBestPv && blunder != null -> {
+                val pv = blunder.bestPv?.split(" ")?.filter { it.isNotBlank() }.orEmpty()
+                if (originPlyIndex !in 0..pv.size) null
+                else game.movesUsi.take((blunder.ply.toInt() - 1).coerceAtLeast(0)) + pv.take(originPlyIndex)
+            }
+            else -> null
+        }
+        studyOriginMoves = moves?.takeIf {
+            runCatching { computeSfenAtStep(null, it, it.size) == baseSfen }.getOrDefault(false)
+        }
+        val path = studyOriginMoves
+        val cached = if (path != null && studyCachedOrigins[baseSfen] == path) studyController.treeAtOrigin(baseSfen) else null
+        val initial = (cached ?: path?.let { studyDocument?.tree?.subtree(it) } ?: StudyTree()).let { tree ->
+            if (path != null && game != null) tree.withSavedMainlineEvaluations(
+                game.movesUsi, path, studyPositionEvals, flip, evalDisplayProvider(),
+            ) else tree
+        }
+        if (path != null) {
+            if (cached == null) studyEditBaselines[path] = initial
+            studyCachedOrigins[baseSfen] = path
+        }
+        studyController.startStudy(
+            baseSfen, flip, originIsBestPv, originPlyIndex, originSelectedIdx, originAbsolutePly, origin,
+            tappedSquare, tappedHandPieceType, initialTree = initial,
+            protectedMoves = if (path == null || game == null) null else if (game.movesUsi.take(path.size) == path) game.movesUsi.drop(path.size) else emptyList(),
+        )
+    }
+
+    /** 別棋譜のロード中に前の編集セッションをコピーしない。 */
+    fun savedKifForExport(gameId: Long): String? =
+        savedKifExport.value?.takeIf { it.first == gameId }?.second
+
+    fun hasUnsavedStudy(): Boolean = studyDocument?.isDirty == true || studyCachedOrigins.any { (sfen, path) ->
+        val baseline = studyEditBaselines[path]
+        val current = studyController.treeAtOrigin(sfen)
+        baseline != null && current != null && current.toKifu(emptyMap()) != baseline.toKifu(emptyMap())
+    }
+
+    fun saveStudy(onResult: (Boolean) -> Unit) {
+        val gameId = studyGame?.id
+        val document = studyDocument
+        val origin = studyOriginMoves
+        val tree = studyController.currentTree()
+        if (document == null || origin == null || tree == null) { onResult(false); return }
+        val edits = studyCachedOrigins.mapNotNull { (sfen, path) ->
+            studyController.treeAtOrigin(sfen)?.let { StudyDocument.Edit(path, it, studyEditBaselines[path]) }
+        }
+        val baselines = studyEditBaselines
+        scope.launch {
+            studySaveMutex.withLock {
+                val saved = try {
+                    val rebased = edits.map { it.copy(baseline = baselines[it.originMoves]) }
+                    withContext(ioDispatcher) { document.updateAll(rebased); document.save() }
+                } catch (e: CancellationException) { throw e } catch (_: Exception) { false }
+                if (saved) edits.forEach { baselines[it.originMoves] = it.tree }
+                if (studyDocument === document) {
+                    if (saved) {
+                        gameId?.let { savedKifExport.value = it to document.savedKif }
+                    }
+                    studyController.setSaveFailed(!saved)
+                }
+                onResult(saved)
+            }
+        }
+    }
+
+    fun deleteStudyBranch(baseSfen: String, moves: List<String>, nodeId: Long? = null): Boolean = studyController.deleteBranchForPosition(baseSfen, moves, nodeId)
 
     fun onStudySquareTapped(sq: ShogiSquare) = studyController.onStudySquareTapped(sq)
     fun onStudyHandPieceTapped(pieceType: PieceType) = studyController.onStudyHandPieceTapped(pieceType)
@@ -150,7 +259,7 @@ class ReportViewModel(
     fun onStudyChipTapped(depth: Int) = studyController.onChipTapped(depth)
     fun onStudyBranchChipTapped(depth: Int) = studyController.onBranchChipTapped(depth)
     fun onStudyBranchPopupDismiss() = studyController.onBranchPopupDismiss()
-    fun onStudyBranchOptionSelected(depth: Int, moveUsi: String) = studyController.onBranchOptionSelected(depth, moveUsi)
+    fun onStudyBranchOptionSelected(depth: Int, nodeId: Long) = studyController.onBranchNodeSelected(depth, nodeId)
     fun onStudyAnalyze() = studyController.analyzeCurrentPosition()
     fun onStudyAutoAnalyze() = studyController.autoAnalyzeCurrentPosition()
 
@@ -158,6 +267,8 @@ class ReportViewModel(
 
     /** リーク厳禁: 呼び出し元（MainViewModel）の onCleared 相当のタイミングで呼ぶこと。 */
     fun dispose() {
+        reportLoadGeneration++
+        savedKifExport.value = null
         studyController.dispose()
     }
 }

@@ -82,6 +82,9 @@ fun DeleteGameConfirmDialog(
                             DeleteGameOutcome.ServerFailed -> {
                                 errorText = AppStrings.GAME_DELETE_SERVER_ERROR
                             }
+                            DeleteGameOutcome.LocalFailed -> {
+                                errorText = AppStrings.GAME_DELETE_LOCAL_ERROR
+                            }
                         }
                     }
                 },

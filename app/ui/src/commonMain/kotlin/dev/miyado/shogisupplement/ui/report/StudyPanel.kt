@@ -25,8 +25,16 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.Card
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -39,6 +47,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -59,13 +70,14 @@ import dev.miyado.shogisupplement.ui.theme.TextStyleDataMove
 import dev.miyado.shogisupplement.ui.theme.shogiColors
 
 /**
- * 検討中のナビ行。進む先はチップ列で選ぶので、ここは戻る操作と終了だけを持つ。
+ * 検討中のナビ行。表示中の本譜・分岐に沿って一手ずつ前後へ移動する。
  */
 @Composable
 internal fun StudyNavRow(
     studyState: StudyState,
     studySenteToMove: Boolean,
     onStudyStepBack: () -> Unit,
+    onStudyStepForward: () -> Unit,
     onStudyExit: (() -> Unit)?,
 ) {
     Row(
@@ -95,10 +107,9 @@ internal fun StudyNavRow(
             maxLines = 1,
             overflow = TextOverflow.MiddleEllipsis,
         )
-        // 進む側は形を保つためだけに置く。押せる操作はチップ列にある。
         TextButton(
-            onClick = {},
-            enabled = false,
+            onClick = onStudyStepForward,
+            enabled = studyState.moves.size < studyState.displayLine.size,
             modifier = Modifier.height(36.dp).widthIn(min = 36.dp),
             contentPadding = PaddingValues(horizontal = 2.dp),
         ) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "1手進む") }
@@ -123,58 +134,67 @@ internal fun StudyPanel(
     onChipTapped: (Int) -> Unit,
     onBranchChipTapped: (Int) -> Unit,
     onBranchPopupDismiss: () -> Unit,
-    onBranchOptionSelected: (depth: Int, moveUsi: String) -> Unit,
+    onBranchOptionSelected: (depth: Int, nodeId: Long) -> Unit,
     onAnalyze: () -> Unit,
     onCandidateTapped: (String) -> Unit,
     modifier: Modifier = Modifier,
+    onSave: (((Boolean) -> Unit) -> Unit)? = null,
+    onDeleteBranch: ((String, List<String>, Long?) -> Boolean)? = null,
 ) {
     val shogiColors = MaterialTheme.shogiColors
+    var actionsExpanded by remember(studyState.baseSfen, studyState.moves, studyState.nodeId) { mutableStateOf(false) }
+    val snackbar = remember { SnackbarHostState() }
+    var retryAttempt by remember { mutableStateOf(0) }
+    var deletingBranch by remember(studyState.baseSfen, studyState.moves, studyState.nodeId) { mutableStateOf(false) }
+    LaunchedEffect(studyState.saveFailed, retryAttempt) {
+        if (studyState.saveFailed) {
+            val result = snackbar.showSnackbar(
+                AppStrings.STUDY_SAVE_FAILED,
+                actionLabel = AppStrings.GAME_RESTORE_RETRY_BUTTON,
+                duration = androidx.compose.material3.SnackbarDuration.Indefinite,
+            )
+            if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) {
+                onSave?.invoke { if (!it) retryAttempt++ }
+            }
+        }
+    }
+    if (deletingBranch && onDeleteBranch != null) {
+        AlertDialog(
+            onDismissRequest = { deletingBranch = false },
+            title = { Text(AppStrings.STUDY_DELETE_BRANCH_TITLE) },
+            text = { Text(AppStrings.STUDY_DELETE_BRANCH_BODY) },
+            confirmButton = {
+                OutlinedButton(
+                    onClick = { onDeleteBranch(studyState.baseSfen, studyState.moves, studyState.nodeId); deletingBranch = false },
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) { Text(AppStrings.STUDY_DELETE_BRANCH) }
+            },
+            dismissButton = { TextButton(onClick = { deletingBranch = false }) { Text(AppStrings.CANCEL) } },
+        )
+    }
     val notations = remember(studyState.baseSfen, studyState.displayLine) {
         buildMoveNotations(studyState.baseSfen, studyState.displayLine)
     }
 
+    Box(modifier = modifier.fillMaxSize()) {
     Card(
-        modifier = modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
     ) {
         Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
-            // ── 見出し行: 「検討中」＋分岐元行（「42手目 ▲３四飛（−320）から分岐」）。
-            // タイトルは幅固定で省略しない、分岐元行が残り幅を使って maxLines=1 + ellipsis になる。
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text(
-                    text = AppStrings.STUDY_PANEL_TITLE,
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontFamily = ShipporiMinchoFamily,
-                        fontWeight = FontWeight.Bold,
-                    ),
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.alignByBaseline(),
-                )
-                Text(
-                    text = AppStrings.studyOriginLine(studyState.origin.label),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = shogiColors.ink2,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f).alignByBaseline(),
-                )
-            }
-
-            Spacer(Modifier.height(8.dp))
-
             // 評価スロットは固定高さとし、手動再試行はError状態だけに限定する。
             // Preparingは自動回復待ちのためLoadingと同じ表示にする。
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
+                    .height(48.dp),
                 contentAlignment = Alignment.CenterStart,
             ) {
+                Box(Modifier.fillMaxWidth().padding(end = if (onSave != null || onDeleteBranch != null) 56.dp else 0.dp)) {
                 when (val es = studyState.evalState) {
                     StudyEvalState.None -> Unit
                     StudyEvalState.Preparing -> {
@@ -213,16 +233,51 @@ internal fun StudyPanel(
                                     else -> MaterialTheme.colorScheme.onSurface
                                 },
                             )
-                            if (es.candidates.isNotEmpty()) {
-                                Spacer(Modifier.width(10.dp))
-                                StudyCandidateRow(
-                                    candidates = es.candidates,
-                                    onCandidateTapped = onCandidateTapped,
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    AppStrings.studyEvalPerspective(studyState.flip),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = shogiColors.ink2,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    AppStrings.studyOriginLine(studyState.origin.label),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = shogiColors.ink2,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
                                 )
                             }
                         }
                     }
                 }
+                }
+                if (onSave != null || onDeleteBranch != null) {
+                    Box(Modifier.align(Alignment.CenterEnd)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = { actionsExpanded = true }) {
+                                Icon(Icons.Default.MoreHoriz, contentDescription = AppStrings.STUDY_ACTIONS)
+                            }
+                        }
+                        DropdownMenu(expanded = actionsExpanded, onDismissRequest = { actionsExpanded = false }) {
+                            if (onDeleteBranch != null) {
+                                DropdownMenuItem(
+                                    text = { Text(AppStrings.STUDY_DELETE_BRANCH,
+                                        color = if (studyState.canDeleteBranch) MaterialTheme.colorScheme.error else shogiColors.ink3) },
+                                    enabled = studyState.canDeleteBranch,
+                                    onClick = { actionsExpanded = false; deletingBranch = true },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            Box(Modifier.fillMaxWidth().height(44.dp), contentAlignment = Alignment.CenterStart) {
+                val candidates = (studyState.evalState as? StudyEvalState.Value)?.candidates.orEmpty()
+                if (candidates.isNotEmpty()) StudyCandidateRow(candidates, onCandidateTapped)
             }
 
             HorizontalDivider(color = shogiColors.line)
@@ -267,7 +322,7 @@ internal fun StudyPanel(
                                 expanded = true,
                                 onDismissRequest = onBranchPopupDismiss,
                             ) {
-                                studyState.branchPopupOptions.forEach { option ->
+                                studyState.branchPopupOptions.forEachIndexed { optionIndex, option ->
                                     val optionNotation = popupBoard?.let { board ->
                                         runCatching { JapaneseNotation.format(option.moveUsi, board) }.getOrNull()
                                     } ?: option.moveUsi
@@ -276,13 +331,13 @@ internal fun StudyPanel(
                                     DropdownMenuItem(
                                         text = {
                                             Text(
-                                                "$optionNotation  $optionEvalText" +
+                                                "${optionIndex + 1}. $optionNotation  $optionEvalText" +
                                                     if (option.isCurrent) AppStrings.STUDY_BRANCH_CURRENT_SUFFIX else "",
-                                                style = MaterialTheme.typography.bodySmall,
+                                                style = TextStyleDataMove,
                                             )
                                         },
                                         onClick = {
-                                            if (!option.isCurrent) onBranchOptionSelected(depth, option.moveUsi)
+                                            if (!option.isCurrent) onBranchOptionSelected(depth, option.nodeId)
                                             onBranchPopupDismiss()
                                         },
                                     )
@@ -293,6 +348,8 @@ internal fun StudyPanel(
                 }
             }
         }
+    }
+    SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
     }
 }
 

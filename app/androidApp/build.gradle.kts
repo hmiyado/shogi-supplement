@@ -13,6 +13,12 @@ tasks.matching { it.name.startsWith("prepareLibraryDefinitions") }.configureEach
     enabled = false
 }
 
+tasks.register("generateNavigationDiagram") {
+    group = "verification"
+    description = "共通状態機械から画面遷移図を生成する"
+    dependsOn(":application:generateNavigationDiagram")
+}
+
 // Why not画像をdocsへ複製する: goldenの更新元はVRT側に一つだけ置き、
 // UIカタログはローカル確認用の自己完結HTMLとして都度生成する。
 val generateUiCatalog by tasks.registering(Exec::class) {

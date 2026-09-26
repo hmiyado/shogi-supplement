@@ -17,8 +17,10 @@ import dev.miyado.shogisupplement.strength.StrengthEstimator
 import dev.miyado.shogisupplement.strength.toDisplayString
 import dev.miyado.shogisupplement.text.AppStrings
 import kotlin.math.roundToInt
+import kotlinx.serialization.Serializable
 
-/** ReportScreen へそのまま渡せる表示状態一式。DBを持たないWeb版はセッション内メモリのみで保持する。 */
+/** ReportScreenへ渡す解析時点の表示状態。再読込時も再判定せず保存した結果を表示する。 */
+@Serializable
 data class WebReportData(
     val game: GameRecord,
     val reports: List<BlunderRecord>,
@@ -59,9 +61,7 @@ fun buildWebReport(
         moveCount = moves.size.toLong(),
         senteName = players.headers["先手"],
         goteName = players.headers["後手"],
-        // Web版はDB永続化を持たず「解析した時刻」という概念がないため0（日時不明の
-        // センチネル）を渡す。
-        analyzedAt = 0L,
+        analyzedAt = dev.miyado.shogisupplement.util.currentEpochSeconds(),
         rating = analysisResult.estimatedRating.toLong(),
         ratingSampleMoves = analysisResult.ratingSampleMoves.toLong(),
         coefVersion = coef.version,

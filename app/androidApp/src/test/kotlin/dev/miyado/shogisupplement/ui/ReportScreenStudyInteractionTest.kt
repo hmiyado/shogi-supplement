@@ -4,11 +4,16 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.onRoot
+import com.github.takahirom.roborazzi.captureRoboImage
 import dev.miyado.shogisupplement.board.PieceType
 import dev.miyado.shogisupplement.board.ShogiBoard
 import dev.miyado.shogisupplement.board.ShogiSquare
@@ -98,6 +103,125 @@ class ReportScreenStudyInteractionTest {
                 }
             }
         }
+    }
+
+    @Test
+    fun failedAutomaticSaveOffersRetry() {
+        var attempts = 0
+        var study by mutableStateOf(StudyState(
+            baseSfen = ShogiBoard().toSfen(), flip = false, originIsBestPv = false,
+            originPlyIndex = 0, originSelectedIdx = null, originAbsolutePly = 0,
+            origin = dev.miyado.shogisupplement.ui.report.StudyOrigin("開始", null),
+            saveFailed = true,
+        ))
+        composeRule.setContent {
+            ShogiTheme {
+                ReportScreen(
+                    game = sampleGame(), reports = emptyList(), flip = false, onBack = {},
+                    studyState = study,
+                    onSaveStudy = { callback ->
+                        attempts++
+                        study = study.copy(saveFailed = attempts < 2)
+                        callback(attempts >= 2)
+                    },
+                )
+            }
+        }
+        composeRule.onNodeWithText(AppStrings.STUDY_SAVE_FAILED).assertIsDisplayed()
+        composeRule.onNodeWithText(AppStrings.GAME_RESTORE_RETRY_BUTTON).performClick()
+        composeRule.runOnIdle { assertEquals(1, attempts) }
+        composeRule.onNodeWithText(AppStrings.GAME_RESTORE_RETRY_BUTTON).performClick()
+        composeRule.runOnIdle { assertEquals(2, attempts) }
+        composeRule.onNodeWithText(AppStrings.STUDY_SAVE_FAILED).assertDoesNotExist()
+        composeRule.onNodeWithText(AppStrings.STUDY_SAVE).assertDoesNotExist()
+    }
+
+    @Test
+    fun studyArrowsNavigateDisplayedLineAndDisableAtBoundaries() {
+        val line = listOf("7g7f", "3c3d")
+        var state by mutableStateOf(StudyState(
+            baseSfen = ShogiBoard().toSfen(),
+            flip = false,
+            originIsBestPv = false,
+            originPlyIndex = 0,
+            originSelectedIdx = null,
+            displayLine = line,
+            originAbsolutePly = 0,
+            origin = dev.miyado.shogisupplement.ui.report.StudyOrigin("開始", null),
+        ))
+        composeRule.setContent {
+            ShogiTheme {
+                Surface {
+                    ReportScreen(
+                        game = sampleGame(),
+                        reports = emptyList(),
+                        flip = false,
+                        onBack = {},
+                        studyState = state,
+                        onStudyChipTapped = { state = state.copy(moves = line.take(it)) },
+                        onStudyStepBack = { state = state.copy(moves = state.moves.dropLast(1)) },
+                    )
+                }
+            }
+        }
+        val back = composeRule.onNodeWithContentDescription("1手戻る")
+        val next = composeRule.onNodeWithContentDescription("1手進む")
+        back.assertIsNotEnabled()
+        next.assertIsEnabled().performClick()
+        composeRule.runOnIdle { assertEquals(line.take(1), state.moves) }
+        back.assertIsEnabled()
+        next.performClick()
+        composeRule.runOnIdle { assertEquals(line, state.moves) }
+        next.assertIsNotEnabled()
+        back.performClick()
+        next.assertIsEnabled().performClick()
+        composeRule.runOnIdle { assertEquals(line, state.moves) }
+        back.performClick()
+        back.performClick()
+        back.assertIsNotEnabled()
+        next.assertIsEnabled()
+    }
+
+    @Test
+    fun branchActionsRemainWithoutNotesOrBookmarksAtPhoneWidth() {
+        var saved = false
+        var deleted = false
+        val study = StudyState(
+            baseSfen = ShogiBoard().toSfen(), origin = dev.miyado.shogisupplement.ui.report.StudyOrigin("開始", null),
+            evalState = dev.miyado.shogisupplement.ui.report.StudyEvalState.Value(
+                dev.miyado.shogisupplement.blunder.PositionEvalDisplay.EvalLabel("+128", 1),
+                candidates = listOf("3c3d" to "△３四歩", "8c8d" to "△８四歩", "4c4d" to "△４四歩").map {
+                    dev.miyado.shogisupplement.ui.report.StudyCandidate(it.first, it.second,
+                        dev.miyado.shogisupplement.blunder.PositionEvalDisplay.EvalLabel("+128", 1))
+                },
+            ),
+            moves = listOf("7g7f"), displayLine = listOf("7g7f", "3c3d", "2g2f"), canDeleteBranch = true,
+            originIsBestPv = false, originPlyIndex = 0, originSelectedIdx = null, originAbsolutePly = 0, flip = false,
+        )
+        composeRule.setContent {
+            ShogiTheme {
+                ReportScreen(
+                    game = sampleGame(), reports = emptyList(), flip = false, onBack = {}, studyState = study,
+                    onDeleteStudyBranch = { _, _, _ -> deleted = true; true },
+                    onSaveStudy = { saved = true; it(true) },
+                )
+            }
+        }
+        composeRule.onRoot().captureRoboImage(filePath = "build/outputs/issue89-phone.png")
+        composeRule.onNodeWithText(AppStrings.studyEvalPerspective(false)).assertIsDisplayed()
+        composeRule.onNodeWithText(AppStrings.studyOriginLine("開始")).assertIsDisplayed()
+        composeRule.onNodeWithText("メモ・しおり").assertDoesNotExist()
+        composeRule.onNodeWithText("しおり").assertDoesNotExist()
+        composeRule.onNodeWithText(AppStrings.STUDY_DELETE_BRANCH).assertDoesNotExist()
+        composeRule.onNodeWithText(AppStrings.STUDY_SAVE).assertDoesNotExist()
+        composeRule.onNodeWithContentDescription(AppStrings.STUDY_ACTIONS).performClick()
+        composeRule.onNodeWithText(AppStrings.STUDY_SAVE).assertDoesNotExist()
+        assertEquals(false, saved)
+        composeRule.onNodeWithText(AppStrings.STUDY_DELETE_BRANCH).assertIsDisplayed().performClick()
+        composeRule.onNodeWithText(AppStrings.STUDY_DELETE_BRANCH_TITLE).assertIsDisplayed()
+        assertEquals(false, deleted)
+        composeRule.onNodeWithText(AppStrings.CANCEL).performClick()
+        assertEquals(false, deleted)
     }
 
     @Test

@@ -25,7 +25,9 @@ import dev.miyado.shogisupplement.service.AnalysisServiceBus.ServiceEvent
 import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.util.sha256Hex
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
@@ -39,6 +41,7 @@ class AnalysisService : Service() {
 
     private val job = SupervisorJob()
     private val scope = CoroutineScope(Dispatchers.Default + job)
+    private var activeAnalysisJob: Job? = null
 
     private lateinit var notificationManager: NotificationManager
 
@@ -61,11 +64,18 @@ class AnalysisService : Service() {
         val ratingService = intent.getStringExtra(EXTRA_RATING_SERVICE)
         val ratingRaw = intent.getIntExtra(EXTRA_RATING_RAW, -1).takeIf { it >= 0 }
         val ratingRule = intent.getStringExtra(EXTRA_RATING_RULE)
+        val forceReanalysis = intent.getBooleanExtra(EXTRA_FORCE_REANALYSIS, false)
+        val requestId = intent.getStringExtra(EXTRA_REQUEST_ID)
 
         startForeground(NOTIF_ID, buildProgressNotification(0, 0))
 
-        scope.launch(Dispatchers.IO) {
-            runAnalysis(uriString, gameId, userSide, ratingService, ratingRaw?.toLong(), ratingRule)
+        // 同じ棋譜の再解析で古いworkerの完了が後から保存されないよう、旧セッションを先に止める。
+        activeAnalysisJob?.cancel()
+        activeAnalysisJob = scope.launch(Dispatchers.IO) {
+            runAnalysis(
+                uriString, gameId, userSide, ratingService, ratingRaw?.toLong(), ratingRule,
+                forceReanalysis, requestId, startId,
+            )
         }
 
         return START_NOT_STICKY
@@ -78,6 +88,9 @@ class AnalysisService : Service() {
         ratingService: String? = null,
         ratingRaw: Long? = null,
         ratingRule: String? = null,
+        forceReanalysis: Boolean = false,
+        requestId: String? = null,
+        startId: Int,
     ) {
         try {
             val repository = AppDatabase.gameRepository(this)
@@ -118,7 +131,7 @@ class AnalysisService : Service() {
             )
 
             val outcome = AnalysisSessionCoordinator(InProgressAnalysisRegistry.shared).run(
-                session = AnalysisSession(id, fileName, moves, effectiveUserSide),
+                session = AnalysisSession(id, fileName, moves, effectiveUserSide, requestId),
                 analyze = { onPositionResult ->
                     orchestrator.analyzeAndSave(
                         kifContent = kifContent,
@@ -129,6 +142,8 @@ class AnalysisService : Service() {
                         ratingRule = effectiveRatingRule,
                         contentHash = storedGame?.contentHash,
                         sourcePlaceOverride = storedGame?.sourcePlace,
+                        forceReanalysis = forceReanalysis,
+                        requestId = requestId,
                         onProgress = { done, total ->
                             if (done % 5 == 0 || done == total) {
                                 updateProgressNotification(done, total)
@@ -138,7 +153,7 @@ class AnalysisService : Service() {
                     )
                 },
                 onPositionResult = { ply, pvs ->
-                    AnalysisServiceBus.emit(ServiceEvent.PositionResult(ply, pvs))
+                    AnalysisServiceBus.emit(ServiceEvent.PositionResult(ply, pvs, requestId))
                 },
             )
 
@@ -148,7 +163,7 @@ class AnalysisService : Service() {
                         TAG,
                         "Analysis completed: gameId=${outcome.gameId} alreadyExisted=${outcome.alreadyExisted}",
                     )
-                    AnalysisServiceBus.emit(ServiceEvent.Completed(outcome.gameId, outcome.alreadyExisted))
+                    AnalysisServiceBus.emit(ServiceEvent.Completed(outcome.gameId, outcome.alreadyExisted, requestId))
                     if (!outcome.alreadyExisted) {
                         // 子コルーチンはstopSelf後にキャンセルされるため、直接完了を待つ。
                         try {
@@ -163,18 +178,22 @@ class AnalysisService : Service() {
                 }
                 is AnalysisOrchestrator.Outcome.Failed -> {
                     Log.e(TAG, "Analysis failed: ${outcome.message}")
-                    AnalysisServiceBus.emit(ServiceEvent.Failed(outcome.message))
+                    AnalysisServiceBus.emit(ServiceEvent.Failed(outcome.message, requestId))
                 }
             }
+        } catch (e: CancellationException) {
+            // 再解析開始時に旧ジョブを止めた場合、旧結果を失敗通知へ変換しない。
+            throw e
         } catch (e: Exception) {
             // AnalysisOrchestrator 内部で捕捉されない例外（URI読み込み失敗等）
             Log.e(TAG, "Analysis failed (outer)", e)
             if (!e.isAlreadyReported()) {
                 crashReporter.captureException(e)
             }
-            AnalysisServiceBus.emit(ServiceEvent.Failed(e.message ?: AppStrings.UNKNOWN_ERROR))
+            AnalysisServiceBus.emit(ServiceEvent.Failed(e.message ?: AppStrings.UNKNOWN_ERROR, requestId))
         } finally {
-            stopSelf()
+            // 旧startIdの終了処理で、後から始まった再解析を止めない。
+            stopSelf(startId)
         }
     }
 
@@ -218,6 +237,7 @@ class AnalysisService : Service() {
     }
 
     override fun onDestroy() {
+        activeAnalysisJob?.cancel()
         job.cancel()
         super.onDestroy()
     }
@@ -230,5 +250,7 @@ class AnalysisService : Service() {
         const val EXTRA_RATING_SERVICE = "rating_service"
         const val EXTRA_RATING_RAW = "rating_raw"
         const val EXTRA_RATING_RULE = "rating_rule"
+        const val EXTRA_FORCE_REANALYSIS = "force_reanalysis"
+        const val EXTRA_REQUEST_ID = "request_id"
     }
 }

@@ -21,6 +21,96 @@ import kotlin.test.assertTrue
 /** 検討木の永続化・分岐操作を保証する。 */
 @OptIn(ExperimentalCoroutinesApi::class)
 class StudyControllerTest {
+    @Test
+    fun `同じ指し手の兄弟へ移動しても遅延解析は元のノードへ反映する`() {
+        val engine = FakeEngine(score = Score.Cp(50))
+        val controller = StudyController(
+            scope = testScope,
+            studyEngineFactory = { BlockingStudyEngine(engine, StandardTestDispatcher(testScope.testScheduler)) },
+            evalDisplayProvider = { "cp" },
+        )
+        val tree = StudyTree(rootChildren = listOf(StudyNode(1, "7g7f"), StudyNode(2, "7g7f")))
+        controller.startStudy(startSfen, false, false, 0, null, 0, noOrigin, initialTree = tree)
+        controller.onChipTapped(1)
+        assertEquals(StudyEvalState.Loading, controller.studyState.value!!.evalState)
+        controller.onBranchNodeSelected(0, 2)
+        assertEquals(2L, controller.studyState.value!!.nodeId)
+        testScope.testScheduler.advanceUntilIdle()
+        assertEquals(2, engine.analyzeCallCount)
+        controller.currentTree()!!.rootChildren.forEach { assertIs<StudyEvalState.Value>(it.evalState) }
+        assertEquals(2L, controller.studyState.value!!.nodeId)
+        controller.dispose()
+    }
+
+    @Test
+    fun `同じ指し手の兄弟は別々に選択でき古い分岐削除を拒否する`() {
+        val parsed = dev.miyado.shogisupplement.kifu.KifTreeParser().parse(
+            "1 ７六歩(77)\n2 ３四歩(33)\n*本譜\n変化：2手\n2 ３四歩(33)\n*別分岐\n&再確認\n3 ６八銀(79)")
+        val initial = StudyTree.fromKifu(parsed)
+        val siblings = initial.rootChildren.single().children
+        val (controller, _) = newController()
+        controller.startStudy(startSfen, false, false, 0, null, 0, noOrigin,
+            initialTree = initial, protectedMoves = listOf("7g7f", "3c3d"))
+        controller.onChipTapped(2)
+        val oldId = controller.studyState.value!!.nodeId
+        assertFalse(controller.studyState.value!!.canDeleteBranch)
+        controller.onBranchNodeSelected(1, siblings[1].id)
+        assertEquals(listOf("別分岐"), controller.currentTree()!!.notesAt(controller.studyState.value!!.moves)?.comments)
+        assertTrue(controller.studyState.value!!.canDeleteBranch)
+        assertEquals(listOf("7g7f", "3c3d", "7i6h"), controller.studyState.value!!.displayLine)
+        assertFalse(controller.deleteBranchForPosition(startSfen, listOf("7g7f", "3c3d"), oldId))
+        controller.studyResetToStart()
+        controller.onBranchNodeSelected(1, siblings[1].id)
+        assertEquals(siblings[1].id, controller.studyState.value!!.nodeId)
+        assertEquals(listOf("別分岐"), controller.currentTree()!!.notesAt(controller.studyState.value!!.moves)?.comments)
+        assertTrue(controller.deleteBranchForPosition(startSfen, listOf("7g7f", "3c3d"), siblings[1].id))
+        assertEquals(listOf("本譜"), controller.currentTree()!!.rootChildren.single().children.single().notes.comments)
+        controller.dispose()
+    }
+
+    @Test
+    fun `本譜は削除できず検討枝の削除後は親局面へ戻る`() {
+        val initial = StudyTree().withMovePlayed(emptyList(), "7g7f", 1)
+            .withMovePlayed(emptyList(), "2g2f", 2)
+            .withMovePlayed(listOf("2g2f"), "8c8d", 3)
+        val (controller, _) = newController()
+        controller.startStudy(startSfen, false, false, 0, null, 0, noOrigin, initialTree = initial, protectedMoves = listOf("7g7f"))
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 7))
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 6))
+        assertFalse(controller.studyState.value!!.canDeleteBranch)
+        assertFalse(controller.deleteBranchForPosition(startSfen, listOf("7g7f")))
+        controller.studyStepBack()
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(2, 7))
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(2, 6))
+        assertTrue(controller.studyState.value!!.canDeleteBranch)
+        assertTrue(controller.deleteBranchForPosition(startSfen, listOf("2g2f")))
+        assertEquals(emptyList(), controller.studyState.value?.moves)
+        assertEquals(emptyList(), controller.studyState.value?.displayLine)
+        assertNull(controller.currentTree()?.notesAt(listOf("2g2f", "8c8d")))
+        assertNotNull(controller.currentTree()?.notesAt(listOf("7g7f")))
+        assertFalse(controller.deleteBranchForPosition(startSfen, listOf("2g2f")))
+        controller.dispose()
+    }
+    @Test
+    fun `保存済みツリーを読み込んで着手編集を保存用に取り出せる`() {
+        val initial = StudyTree().withMovePlayed(emptyList(), "7g7f", 500)
+            .withNotes(listOf("7g7f"), dev.miyado.shogisupplement.kifu.KifuPositionNotes(listOf("保存済み")))
+        val (controller, _) = newController()
+        controller.startStudy(startSfen, false, false, 0, null, 0, noOrigin, initialTree = initial)
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 7))
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 6))
+        assertEquals(listOf("保存済み"), controller.currentTree()?.notesAt(controller.studyState.value!!.moves)?.comments)
+        controller.studyStepBack()
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(2, 7))
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(2, 6))
+        val edited = assertNotNull(controller.currentTree())
+        assertEquals(listOf("7g7f", "2g2f"), edited.rootChildren.map { it.moveUsi })
+        assertTrue(edited.rootChildren.last().id > 500)
+        assertEquals(500L, edited.rootChildren.first().id)
+        assertEquals(initial.rootChildren.single().notes, edited.rootChildren.first().notes)
+        controller.dispose()
+    }
+
 
     private class NoPvEngine : Engine {
         override fun analyze(moves: List<String>, nodes: Int): List<PvInfo> = emptyList()

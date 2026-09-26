@@ -3,6 +3,9 @@ package dev.miyado.shogisupplement.webApp
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
@@ -47,11 +50,15 @@ interface WebStudyActions {
     fun onStudyChipTapped(depth: Int)
     fun onStudyBranchChipTapped(depth: Int)
     fun onStudyBranchPopupDismiss()
-    fun onStudyBranchOptionSelected(depth: Int, moveUsi: String)
+    fun onStudyBranchOptionSelected(depth: Int, nodeId: Long)
     fun onStudyAutoAnalyze()
     fun onStudyAnalyze()
 
     fun onStudyCandidateSelected(moveUsi: String)
+    fun saveStudy(onResult: (Boolean) -> Unit)
+    fun savedKifForExport(original: String): String? = null
+
+    fun deleteStudyBranch(baseSfen: String, moves: List<String>, nodeId: Long? = null): Boolean
 }
 
 @Composable
@@ -63,10 +70,34 @@ fun App(
     onCancel: () -> Unit,
     onConfirmSide: (userSide: String?) -> Unit,
     onCancelSideSelection: () -> Unit,
+    onReanalyze: () -> Unit = {},
+    onResumeSavedReport: () -> Unit = {},
+    onShowSavedReports: () -> Unit = {},
+    onCloseSavedReports: () -> Unit = {},
+    onOpenSavedReport: (dev.miyado.shogisupplement.db.GameRecord) -> Unit = {},
+    onDeleteSavedReport: ((dev.miyado.shogisupplement.db.GameRecord, Boolean, (dev.miyado.shogisupplement.upload.DeleteGameOutcome) -> Unit) -> Unit)? = null,
+    onCopyKif: (String) -> Unit = {},
+    onDiscardStudy: () -> Unit = {},
+    onCancelDiscardStudy: () -> Unit = {},
     studyActions: WebStudyActions? = null,
 ) {
     ShogiTheme {
         WebAppSurface {
+            if (state.confirmDiscardStudy) {
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = onCancelDiscardStudy,
+                    title = { Text(AppStrings.STUDY_DISCARD_TITLE) },
+                    text = { Text(AppStrings.STUDY_DISCARD_BODY) },
+                    confirmButton = {
+                        androidx.compose.material3.TextButton(onClick = onDiscardStudy) {
+                            Text(AppStrings.MANUAL_KIFU_DISCARD, color = MaterialTheme.colorScheme.error)
+                        }
+                    },
+                    dismissButton = {
+                        androidx.compose.material3.TextButton(onClick = onCancelDiscardStudy) { Text(AppStrings.CANCEL) }
+                    },
+                )
+            }
             AppContent(
                 state = state,
                 onBack = onBack,
@@ -75,6 +106,13 @@ fun App(
                 onCancel = onCancel,
                 onConfirmSide = onConfirmSide,
                 onCancelSideSelection = onCancelSideSelection,
+                onReanalyze = onReanalyze,
+                onResumeSavedReport = onResumeSavedReport,
+                onShowSavedReports = onShowSavedReports,
+                onCloseSavedReports = onCloseSavedReports,
+                onOpenSavedReport = onOpenSavedReport,
+                onDeleteSavedReport = onDeleteSavedReport,
+                onCopyKif = onCopyKif,
                 studyActions = studyActions,
             )
         }
@@ -90,12 +128,37 @@ private fun AppContent(
     onCancel: () -> Unit,
     onConfirmSide: (userSide: String?) -> Unit,
     onCancelSideSelection: () -> Unit,
+    onReanalyze: () -> Unit,
+    onResumeSavedReport: () -> Unit,
+    onShowSavedReports: () -> Unit,
+    onCloseSavedReports: () -> Unit,
+    onOpenSavedReport: (dev.miyado.shogisupplement.db.GameRecord) -> Unit,
+    onDeleteSavedReport: ((dev.miyado.shogisupplement.db.GameRecord, Boolean, (dev.miyado.shogisupplement.upload.DeleteGameOutcome) -> Unit) -> Unit)?,
+    onCopyKif: (String) -> Unit,
     studyActions: WebStudyActions?,
 ) {
     val report = state.report
-    if (report != null) {
+    val savedGames = state.savedGames
+    if (savedGames != null && report == null && !state.analyzing) {
+        dev.miyado.shogisupplement.ui.gamelist.GameListScreen(
+            games = savedGames,
+            canDelete = onDeleteSavedReport != null,
+            onBack = onCloseSavedReports,
+            onGameClick = onOpenSavedReport,
+            onDeleteGame = { game, server, result -> onDeleteSavedReport?.invoke(game, server, result) },
+        )
+        return
+    }
+    if (report != null && !state.analyzing) {
         val studyState = studyActions?.studyState?.collectAsState()?.value
-        ReportScreen(
+        Column(modifier = Modifier.fillMaxSize()) {
+            if (state.restoredReport) {
+                Text(AppStrings.STUDY_BROWSER_SAVE_NOTICE, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(8.dp))
+            }
+            state.reanalysisError?.let { error ->
+                Text(error, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(12.dp))
+            }
+            ReportScreen(
             game = report.game,
             reports = report.reports,
             flip = report.game.userSide == "gote",
@@ -105,6 +168,9 @@ private fun AppContent(
             matchRateDisplayText = report.matchRateText,
             blunderRateDisplayText = report.blunderRateText,
             canEdit = false,
+            canDelete = false,
+            onReanalyze = onReanalyze,
+            onCopyKif = { original -> onCopyKif(studyActions?.savedKifForExport(original) ?: original) },
             onBack = onBack,
             studyState = studyState,
             onStartStudy = { baseSfen, flip, originIsBestPv, originPlyIndex, originSelectedIdx, originAbsolutePly, origin, tappedSquare, tappedHandPieceType ->
@@ -126,10 +192,13 @@ private fun AppContent(
             onStudyAutoAnalyze = { studyActions?.onStudyAutoAnalyze() },
             onStudyAnalyze = { studyActions?.onStudyAnalyze() },
             onStudyCandidateSelected = { moveUsi -> studyActions?.onStudyCandidateSelected(moveUsi) },
+            onSaveStudy = studyActions?.let { actions -> { callback -> actions.saveStudy(callback) } },
+            onDeleteStudyBranch = studyActions?.let { actions -> { sfen, moves, nodeId -> actions.deleteStudyBranch(sfen, moves, nodeId) } },
             // Why not 読み筋延長を有効にしない理由: Web版のWorkerは任意局面からのPV延長を
             // 実行する経路を持たないため。
-            pvExtensionEnabled = false,
-        )
+                pvExtensionEnabled = false,
+            )
+        }
     } else {
         KentoInputScreen(
             state = state,
@@ -137,6 +206,8 @@ private fun AppContent(
             onKifTextChange = onKifTextChange,
             onStart = onStart,
             onCancel = onCancel,
+            onResumeSavedReport = onResumeSavedReport,
+            onShowSavedReports = onShowSavedReports,
         )
         // ダイアログはPopupのスクリムが背後の操作を塞ぐため、入力カードを隠さず表示したままにする。
         val pending = state.pendingSideSelection
@@ -161,6 +232,8 @@ private fun KentoInputScreen(
     onKifTextChange: (String) -> Unit,
     onStart: () -> Unit,
     onCancel: () -> Unit,
+    onResumeSavedReport: () -> Unit,
+    onShowSavedReports: () -> Unit,
 ) {
     // 低い viewport でもカード全体（解析開始ボタンまで）へ届くようにする。
     Column(
@@ -171,6 +244,14 @@ private fun KentoInputScreen(
             .padding(horizontal = 12.dp),
     ) {
         KentoTopBar(onBack = onBack)
+        OutlinedButton(onClick = onShowSavedReports, enabled = !state.analyzing) {
+            Text(AppStrings.GAME_LIST_TITLE)
+        }
+        Box(Modifier.height(48.dp)) {
+            OutlinedButton(onClick = onResumeSavedReport, enabled = state.savedReportAvailable && !state.analyzing) {
+                Text(AppStrings.KENTO_RESUME_SAVED_REPORT)
+            }
+        }
         when (state.assetsAvailable) {
             null -> Unit
             false -> Text(

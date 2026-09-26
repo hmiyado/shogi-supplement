@@ -1,5 +1,7 @@
 package dev.miyado.shogisupplement.webApp
 
+import dev.miyado.shogisupplement.navigation.AppDestination
+
 import dev.miyado.shogisupplement.webApp.report.ParsedInput
 import dev.miyado.shogisupplement.webApp.report.WebReportData
 
@@ -11,12 +13,26 @@ import dev.miyado.shogisupplement.webApp.report.WebReportData
  * - report: null=解析前/解析中、非null=結果表示中（ReportScreenへ切り替える）
  */
 data class KentoUiState(
+    val restoredReport: Boolean = false,
     val assetsAvailable: Boolean? = null,
     val kifText: String = "",
     val inputError: String? = null,
+    val reanalysisError: String? = null,
     val pendingSideSelection: ParsedInput? = null,
     val analyzing: Boolean = false,
     val progressDone: Int = 0,
     val progressTotal: Int = 0,
     val report: WebReportData? = null,
-)
+    val analysisRequestId: String? = null,
+    val savedReportAvailable: Boolean = false,
+    val savedGames: List<dev.miyado.shogisupplement.db.GameRecord>? = null,
+    val confirmDiscardStudy: Boolean = false,
+) {
+    val destination: AppDestination
+        get() = when {
+            analyzing -> AppDestination.ANALYZING
+            report != null -> AppDestination.REPORT
+            savedGames != null -> AppDestination.KENTO_LIBRARY
+            else -> AppDestination.KENTO_INPUT
+        }
+}

@@ -25,6 +25,7 @@ internal fun ReportSummaryBody(
     timeGraphData: TimeGraphData? = null,
     analysisPending: Boolean = false,
     onAnalyze: () -> Unit = {},
+    onReanalyze: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     // 縦に余裕が無い端末ではColumnが最後の子（悪手一覧ボタン）を潰すためスクロールさせる。
@@ -57,6 +58,12 @@ internal fun ReportSummaryBody(
                 blunderRateDisplayText = blunderRateDisplayText,
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             )
+            if (onReanalyze != null) {
+                ReanalysisCard(
+                    onReanalyze = onReanalyze,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                )
+            }
         }
     }
 }

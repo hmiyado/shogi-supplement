@@ -1,5 +1,7 @@
 package dev.miyado.shogisupplement.ui.report
 
+import androidx.compose.material3.Text
+
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -70,6 +72,8 @@ fun ReportScreen(
     blunderRateDisplayText: String? = null,
     analysisPending: Boolean = false,
     onAnalyze: () -> Unit = {},
+    onReanalyze: (() -> Unit)? = null,
+    hasUnsavedStudy: (() -> Boolean)? = null,
     canDelete: Boolean = true,
     /** 対局者名編集の可否。Web版はローカル保存を持たないためfalseで渡す。 */
     canEdit: Boolean = true,
@@ -97,10 +101,12 @@ fun ReportScreen(
     onStudyStepBack: () -> Unit = {},
     onStudyResetToStart: () -> Unit = {},
     onStudyEnd: () -> Unit = {},
+    onSaveStudy: (((Boolean) -> Unit) -> Unit)? = null,
+    onDeleteStudyBranch: ((String, List<String>, Long?) -> Boolean)? = null,
     onStudyChipTapped: (Int) -> Unit = {},
     onStudyBranchChipTapped: (Int) -> Unit = {},
     onStudyBranchPopupDismiss: () -> Unit = {},
-    onStudyBranchOptionSelected: (depth: Int, moveUsi: String) -> Unit = { _, _ -> },
+    onStudyBranchOptionSelected: (depth: Int, nodeId: Long) -> Unit = { _, _ -> },
     onStudyAutoAnalyze: () -> Unit = {},
     onStudyAnalyze: () -> Unit = {},
     onStudyCandidateSelected: (String) -> Unit = {},
@@ -117,6 +123,29 @@ fun ReportScreen(
     initialBodyModeList: Boolean = false,
     justCompleted: Boolean = false,
 ) {
+    var pendingDiscard by remember(game.id) { mutableStateOf<(() -> Unit)?>(null) }
+    fun guarded(action: () -> Unit) {
+        if (hasUnsavedStudy?.invoke() == true) pendingDiscard = action else action()
+    }
+    val guardedBack: () -> Unit = { guarded(onBack) }
+    ReportBackHandler(enabled = hasUnsavedStudy != null && studyState == null) { guardedBack() }
+    if (pendingDiscard != null) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { pendingDiscard = null },
+            title = { Text(AppStrings.STUDY_DISCARD_TITLE) },
+            text = { Text(AppStrings.STUDY_DISCARD_BODY) },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    val action = pendingDiscard
+                    pendingDiscard = null
+                    action?.invoke()
+                }) { Text(AppStrings.MANUAL_KIFU_DISCARD, color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { pendingDiscard = null }) { Text(AppStrings.CANCEL) }
+            },
+        )
+    }
     var viewerMode by remember {
         mutableStateOf(if (initialViewerModeBestPv) ViewerMode.BEST_PV else ViewerMode.MAINLINE)
     }
@@ -272,7 +301,7 @@ fun ReportScreen(
 
                 ReportTopBar(
                     title = AppStrings.sourcePlaceLabel(game.sourcePlace) ?: game.fileName,
-                    onBack = onBack,
+                    onBack = guardedBack,
                     onInfoClick = { showGameInfoDialog = true },
                     kifText = game.kifText,
                     onCopyKifClick = {
@@ -366,6 +395,9 @@ fun ReportScreen(
                                 studyState = studyState,
                                 studySenteToMove = studySenteToMove,
                                 onStudyStepBack = onStudyStepBack,
+                                onStudyStepForward = {
+                                    studyState?.let { onStudyChipTapped(it.moves.size + 1) }
+                                },
                                 // 終了はタブで行う（サマリー/悪手一覧を選べば検討から出る）。
                                 onStudyExit = null,
                                 navLabelAnnotated = navInfo.navLabelAnnotated,
@@ -466,6 +498,8 @@ fun ReportScreen(
                                 onBranchOptionSelected = onStudyBranchOptionSelected,
                                 onAnalyze = onStudyAnalyze,
                                 onCandidateTapped = onStudyCandidateSelected,
+                                onSave = onSaveStudy,
+                                onDeleteBranch = onDeleteStudyBranch,
                                 modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 4.dp),
                             )
                         } else {
@@ -497,6 +531,7 @@ fun ReportScreen(
                                         blunderRateDisplayText = blunderRateDisplayText,
                                         analysisPending = analysisPending,
                                         onAnalyze = onAnalyze,
+                                        onReanalyze = onReanalyze?.let { action -> { guarded(action) } },
                                         modifier = Modifier.fillMaxSize(),
                                     )
                                 }
@@ -587,7 +622,7 @@ fun ReportScreen(
     } // BoxWithConstraints
 } // ReportScreen
 
-internal fun computeSfenAtStep(startSfen: String?, moves: List<String>, steps: Int): String {
+fun computeSfenAtStep(startSfen: String?, moves: List<String>, steps: Int): String {
     val board = if (startSfen != null) {
         runCatching { ShogiBoard.fromSfen(startSfen) }.getOrElse { ShogiBoard() }
     } else {

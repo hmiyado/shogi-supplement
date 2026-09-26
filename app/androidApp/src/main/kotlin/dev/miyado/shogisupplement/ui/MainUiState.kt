@@ -12,6 +12,7 @@ import dev.miyado.shogisupplement.ui.home.StrengthCardData
 import dev.miyado.shogisupplement.ui.home.TodaysDrillHint
 import dev.miyado.shogisupplement.ui.drillrecord.DrillRecordDetailData
 import dev.miyado.shogisupplement.ui.strength.StrengthDetailData
+import dev.miyado.shogisupplement.navigation.AppDestination
 
 /** メイン画面のUI状態。 */
 sealed class MainUiState {
@@ -29,6 +30,8 @@ sealed class MainUiState {
          * AnalyzingReport画面へ再接続する。
          */
         val analyzingSessions: List<InProgressAnalysis> = emptyList(),
+        /** 同じホーム表示中のデータ更新と、別の画面からの再入場を区別する。 */
+        val visitId: Any = Any(),
     ) : MainUiState()
 
     /**
@@ -43,6 +46,7 @@ sealed class MainUiState {
         val moves: List<String>,
         val userSide: String?,
         val progressive: ProgressiveReportState,
+        val requestId: String? = null,
     ) : MainUiState()
     data class ShowReport(
         val report: ReportScreenState,
@@ -82,3 +86,19 @@ sealed class MainUiState {
         val savedFilters: List<SavedGameFilter> = emptyList(),
     ) : MainUiState()
 }
+
+/** 表示用データを持つAndroid状態を、共通の遷移先へ対応付ける。 */
+internal val MainUiState.destination: AppDestination
+    get() = when (this) {
+        MainUiState.Loading, is MainUiState.Home, is MainUiState.Error -> AppDestination.HOME
+        is MainUiState.AnalyzingReport -> AppDestination.ANALYZING
+        is MainUiState.ShowReport -> AppDestination.REPORT
+        MainUiState.Drill -> AppDestination.DRILL
+        MainUiState.Account -> AppDestination.ACCOUNT
+        MainUiState.Licenses -> AppDestination.LICENSES
+        MainUiState.Settings -> AppDestination.SETTINGS
+        is MainUiState.StrengthDetail -> AppDestination.STRENGTH_DETAIL
+        is MainUiState.DrillRecordDetail -> AppDestination.DRILL_RECORD_DETAIL
+        MainUiState.Debug -> AppDestination.DEBUG
+        is MainUiState.GameList -> AppDestination.GAME_LIST
+    }

@@ -32,6 +32,8 @@ fun ReportHost(vm: MainViewModel, state: MainUiState.ShowReport) {
         blunderRateDisplayText = state.report.blunderRateDisplayText,
         analysisPending = state.report.game.analysisStatus == GameAnalysisStatus.PENDING,
         onAnalyze = analyze,
+        onReanalyze = { vm.analyzeStoredGame(state.report.game, forceReanalysis = true) },
+        hasUnsavedStudy = vm::hasUnsavedStudy,
         onDeleteGame = { deleteServer, onResult ->
             vm.deleteGame(state.report.game, deleteServer, onResult)
         },
@@ -57,6 +59,8 @@ fun ReportHost(vm: MainViewModel, state: MainUiState.ShowReport) {
         onStudyStepBack = { vm.studyStepBack() },
         onStudyResetToStart = { vm.studyResetToStart() },
         onStudyEnd = { vm.endStudy() },
+        onSaveStudy = vm::saveStudy,
+        onDeleteStudyBranch = vm::deleteStudyBranch,
         onStudyChipTapped = { depth -> vm.onStudyChipTapped(depth) },
         onStudyBranchChipTapped = { depth -> vm.onStudyBranchChipTapped(depth) },
         onStudyBranchPopupDismiss = { vm.onStudyBranchPopupDismiss() },
@@ -65,7 +69,7 @@ fun ReportHost(vm: MainViewModel, state: MainUiState.ShowReport) {
         onStudyAutoAnalyze = { vm.onStudyAutoAnalyze() },
         onStudyCandidateSelected = { moveUsi -> vm.onStudyCandidateSelected(moveUsi) },
         onCopyKif = { kifText ->
-            val clip = ClipData.newPlainText("棋譜", kifText)
+            val clip = ClipData.newPlainText("棋譜", vm.savedKifForExport(state.report.game.id) ?: kifText)
             context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(clip)
         },
         onShare = { shareScreen(context, view) },

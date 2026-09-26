@@ -788,6 +788,7 @@ private fun DrillStudyArea(
                     SfenPosition.parse(studyCurrentSfen).isBlackTurn
                 },
                 onStudyStepBack = { study?.studyStepBack() },
+                onStudyStepForward = { study?.onChipTapped(studyState.moves.size + 1) },
                 onStudyExit = onExitStudy,
             )
         }
@@ -799,7 +800,7 @@ private fun DrillStudyArea(
                 onChipTapped = { study?.onChipTapped(it) },
                 onBranchChipTapped = { study?.onBranchChipTapped(it) },
                 onBranchPopupDismiss = { study?.onBranchPopupDismiss() },
-                onBranchOptionSelected = { depth, moveUsi -> study?.onBranchOptionSelected(depth, moveUsi) },
+                onBranchOptionSelected = { depth, moveUsi -> study?.onBranchNodeSelected(depth, moveUsi) },
                 onAnalyze = { study?.analyzeCurrentPosition() },
                 onCandidateTapped = { moveUsi -> study?.onCandidateSelected(moveUsi) },
                 modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 4.dp),

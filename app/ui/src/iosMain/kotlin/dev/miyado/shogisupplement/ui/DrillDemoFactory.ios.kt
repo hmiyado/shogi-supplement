@@ -11,7 +11,7 @@ import dev.miyado.shogisupplement.drill.DrillJudge
 import dev.miyado.shogisupplement.drill.EngineDrillSecondaryJudge
 import dev.miyado.shogisupplement.drill.RemoteDrillSecondaryJudge
 import dev.miyado.shogisupplement.engine.Engine
-import dev.miyado.shogisupplement.engine.EngineInvariants
+import dev.miyado.shogisupplement.engine.InvariantDrillEngine
 import dev.miyado.shogisupplement.engine.FailoverEngine
 import dev.miyado.shogisupplement.engine.IosEngineHost
 import dev.miyado.shogisupplement.engine.RemoteAnalysisRunner
@@ -140,16 +140,10 @@ object DrillDemoFactory {
                 appCheckTokenProvider = AppCheckTokenBridge::getToken,
             )
             val remoteJudge = RemoteDrillSecondaryJudge {
-                sfen -> runner.analyzePosition(sfen, multiPv = EngineInvariants.DRILL_SECONDARY_MULTI_PV)
+                sfen -> runner.analyzeDrillPosition(sfen)
             }
             // 判定単位で切り替え、サーバー側の解析回数を1回に抑える。
-            val wasmJudge = EngineDrillSecondaryJudge { sfen ->
-                WasmStudyEngine().analyzeSfen(
-                    sfen,
-                    nodes = EngineInvariants.DRILL_SECONDARY_NODES,
-                    multiPv = EngineInvariants.DRILL_SECONDARY_MULTI_PV,
-                )
-            }
+            val wasmJudge = EngineDrillSecondaryJudge(WasmStudyEngine.drillEvaluationEngine())
             return { blunder, userMoveUsi ->
                 // フォールバック後もJWTを保証するため、判定前に認証する。
                 if (authRepository.currentUser.value == null) {
@@ -177,13 +171,7 @@ object DrillDemoFactory {
         return { blunder, userMoveUsi ->
             val engine = IosEngineHost.getOrCreate()
             if (engine != null) {
-                EngineDrillSecondaryJudge { sfen ->
-                    engine.analyzeSfen(
-                        sfen,
-                        nodes = EngineInvariants.DRILL_SECONDARY_NODES,
-                        multiPv = EngineInvariants.DRILL_SECONDARY_MULTI_PV,
-                    )
-                }.judge(blunder, userMoveUsi)
+                EngineDrillSecondaryJudge(InvariantDrillEngine(engine)).judge(blunder, userMoveUsi)
             } else {
                 DrillJudge.DrillResult(
                     isCorrect = false,

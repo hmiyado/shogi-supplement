@@ -65,7 +65,7 @@ fun MyPageScreen(
             canDelete = false,
             canEdit = false,
             onBack = onBackFromDetail,
-            onCopyKif = onCopyKif,
+            onCopyKif = { original -> onCopyKif(state.detail.game.studyKif ?: original) },
         )
         is MyPageUiState.Error -> ErrorView(
             message = state.message,
