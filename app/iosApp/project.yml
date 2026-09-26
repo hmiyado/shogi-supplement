@@ -96,7 +96,10 @@ targets:
         # SWIFT_OBJC_BRIDGING_HEADER/HEADER_SEARCH_PATHSは不要。
         # -ObjC はFirebase（Objective-Cカテゴリを含む静的ライブラリ）を正しくロードするために
         # 必須（Firebase公式README・「Integration Instructions」手順8）。
-        OTHER_LDFLAGS: "-framework SharedUi -lsqlite3 -lc++ -lshogiengine -ObjC"
+        # 通常の-lでは静的初期化だけのエンジン登録が欠落し、起動時にexit(1)する。
+        OTHER_LDFLAGS: '-framework SharedUi -lsqlite3 -lc++ -Wl,-force_load,"$(SRCROOT)/engine/build/$(SHOGI_ENGINE_TARGET)/libshogiengine.a" -ObjC'
+        "SHOGI_ENGINE_TARGET[sdk=iphoneos*]": device
+        "SHOGI_ENGINE_TARGET[sdk=iphonesimulator*]": sim
         # アプリアイコン（駒型二色カプセル。androidApp のアダプティブアイコンと同意匠）。
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         # App Attest（Firebase App Check）に必須のentitlements。無いとRelease実機で
@@ -128,7 +131,7 @@ targets:
           "FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]": "$(SRCROOT)/../ui/build/bin/iosSimulatorArm64/releaseFramework"
           "FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]": "$(SRCROOT)/../ui/build/bin/iosArm64/releaseFramework"
         # engineless: フレームワーク出力先はDebug/Releaseと同じ（:uiのGradleタスク名・出力パスは
-        # iosEngineless有無で変わらない。中身が違うだけ）。OTHER_LDFLAGSだけ -lshogiengine を外す
+        # iosEngineless有無で変わらない。中身が違うだけ）。OTHER_LDFLAGSからエンジンの強制リンクを外す
         # （リンク自体を外すのが目的のため、baseの値を丸ごと上書きする）。
         Debug-Engineless:
           PRODUCT_BUNDLE_IDENTIFIER: dev.miyado.shogisupplement.ios.debug

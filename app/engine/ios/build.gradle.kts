@@ -28,7 +28,8 @@ kotlin {
         val engineLinkerOpts = if (iosEngineless) {
             emptyList()
         } else {
-            listOf("-L${engineLibDir.absolutePath}", "-lshogiengine", "-lc++")
+            // 静的初期化で登録される探索本体は、通常の-lでは参照なしとして落ちる。
+            listOf("-Wl,-force_load,${engineLibDir.resolve("libshogiengine.a").absolutePath}", "-lc++")
         }
         iosTarget.binaries.getTest("DEBUG").linkerOpts.addAll(engineLinkerOpts)
 

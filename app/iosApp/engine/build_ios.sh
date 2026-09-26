@@ -62,6 +62,8 @@ else
 fi
 
 # --- 2. コンパイル対象（YANEURAOU_ENGINE_NNUE構成。全ネイティブ版で共通） ---
+python3 "$SCRIPT_DIR/prepare_source.py" "$SRC" "$OUT_DIR/source"
+SRC="$OUT_DIR/source"
 SOURCE_LIST="$(cd "$SCRIPT_DIR/../../engine" && pwd)/yaneuraou-v940-sources.txt"
 SRCS=()
 while IFS= read -r src; do
@@ -87,7 +89,7 @@ OBJS=()
 for src in "${SRCS[@]}"; do
   obj="$OBJ_DIR/${src//\//__}.o"
   OBJS+=("$obj")
-  if [ ! -f "$obj" ] || [ "$SRC/$src" -nt "$obj" ]; then
+  if [ ! -f "$obj" ] || [ "$SRC/.source-stamp" -nt "$obj" ]; then
     echo "  CC $src"
     $CXX $CXXFLAGS -c "$SRC/$src" -o "$obj"
   else

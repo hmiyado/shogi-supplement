@@ -26,6 +26,8 @@ if [ -n "$(git -C "$UPSTREAM_DIR" status --porcelain --untracked-files=all)" ]; 
 fi
 
 SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
+python3 "$SCRIPT_DIR/prepare_source.py" "$SRC" "$OUT_DIR/source"
+SRC="$OUT_DIR/source"
 mkdir -p "$OBJ_DIR"
 objects=()
 
