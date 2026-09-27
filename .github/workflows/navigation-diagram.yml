@@ -1,0 +1,67 @@
+name: Navigation Diagram
+
+on:
+  pull_request:
+    paths:
+      - "app/application/**"
+      - "tools/test_navigation_diagram.cjs"
+      - "tools/navigation-browser/**"
+      - "app/webApp/**"
+      - ".github/workflows/navigation-diagram.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "app/application/**"
+      - "tools/test_navigation_diagram.cjs"
+      - "tools/navigation-browser/**"
+      - "app/webApp/**"
+      - ".github/workflows/navigation-diagram.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+
+      # Androidターゲットを持つモジュールはconfiguration時にSDKを要求する。
+      # Why not android-actions/setup-android: サードパーティのアクションはリポジトリの
+      # アクション許可設定に依存し、許可されていない環境ではジョブが起動しない（vrt.ymlと同じ）。
+      - name: Set up Android SDK
+        run: |
+          set -eu
+          SDK_ROOT="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"
+          SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            echo "sdkmanager が $SDKMANAGER に見つからない" >&2
+            exit 1
+          fi
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          "$SDKMANAGER" "platforms;android-37.0" "build-tools;37.0.0" > /dev/null
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+
+      - name: Generate and test navigation diagram
+        run: ./app/gradlew -p app :application:jvmTest
+
+      - name: Install browser test dependencies
+        working-directory: tools/navigation-browser
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Test in Chromium
+        working-directory: tools/navigation-browser
+        run: npm test

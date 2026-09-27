@@ -180,6 +180,9 @@ class KentoViewModel(private val scope: CoroutineScope) : WebStudyActions {
 
     /** 復元棋譜の検討はこのブラウザへ保存する。既存のローカル検討は上書きしない。 */
     suspend fun openRestoredReport(report: dev.miyado.shogisupplement.webApp.report.WebReportData): Boolean {
+        val event = NavigationEvent.Open(AppDestination.REPORT)
+        if (NavigationMachine.resolve(state.destination, event) != AppDestination.REPORT) return false
+        val revision = inputRevision
         return try {
             val original = requireNotNull(report.game.kifText)
             val existing = reportStore.version(original)
@@ -193,6 +196,7 @@ class KentoViewModel(private val scope: CoroutineScope) : WebStudyActions {
             }
             val saved = requireNotNull(reportStore.load(dev.miyado.shogisupplement.util.sha256Hex(original)))
             val study = BrowserStudyDocument.load(original)
+            if (revision != inputRevision || NavigationMachine.resolve(state.destination, event) != AppDestination.REPORT) return false
             studyController.endStudy()
             studyController.dispose()
             studyDocument = study
@@ -337,9 +341,8 @@ class KentoViewModel(private val scope: CoroutineScope) : WebStudyActions {
                 throw e
             } catch (e: Exception) {
                 if (!acceptsAnalysisEvent(requestId)) return@launch
+                if (!finishAnalysis(failed = true)) return@launch
                 state = state.copy(
-                    analyzing = false,
-                    analysisRequestId = null,
                     inputError = AppStrings.KENTO_ERROR_GENERIC,
                     reanalysisError = if (state.report != null) AppStrings.KENTO_ERROR_GENERIC else null,
                 )
@@ -348,8 +351,16 @@ class KentoViewModel(private val scope: CoroutineScope) : WebStudyActions {
     }
 
     fun cancelAnalysis() {
+        if (!finishAnalysis(failed = false)) return
         analysisJob?.cancel()
+    }
+
+    private fun finishAnalysis(failed: Boolean): Boolean {
+        val target = if (state.report == null) AppDestination.KENTO_INPUT else AppDestination.REPORT
+        val event = if (failed) NavigationEvent.AnalysisFailed(target) else NavigationEvent.AnalysisCancelled(target)
+        if (NavigationMachine.resolve(state.destination, event) != target) return false
         state = state.copy(analyzing = false, analysisRequestId = null)
+        return true
     }
 
     private fun acceptsAnalysisEvent(requestId: String): Boolean =

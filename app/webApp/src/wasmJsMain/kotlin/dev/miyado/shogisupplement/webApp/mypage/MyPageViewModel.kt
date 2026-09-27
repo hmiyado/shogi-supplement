@@ -9,6 +9,8 @@ import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.download.GameDetailOutcome
 import dev.miyado.shogisupplement.download.GameSummaryOutcome
 import dev.miyado.shogisupplement.download.GameSummaryService
+import dev.miyado.shogisupplement.navigation.NavigationEvent
+import dev.miyado.shogisupplement.navigation.NavigationMachine
 import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.transfercode.TransferCodeInputViewModel
 import kotlinx.coroutines.CoroutineScope
@@ -30,20 +32,33 @@ class MyPageViewModel(
     private val authRepository: AuthRepository = dependencies.authRepository
     private val transferSecretStore: TransferSecretStore = dependencies.transferSecretStore
     private val gameSummaryService: GameSummaryService = dependencies.gameSummaryService
+    private var requestGeneration = 0L
+
+    private fun navigate(target: MyPageUiState, event: NavigationEvent = NavigationEvent.Open(target.destination)): Boolean {
+        if (NavigationMachine.resolve(state.destination, event) != target.destination) return false
+        state = target
+        return true
+    }
 
     init {
         scope.launch {
             authRepository.currentUser.collect { user ->
-                if (user != null) loadGames() else state = MyPageUiState.LoggedOut
+                if (user != null) loadGames() else {
+                    requestGeneration++
+                    navigate(MyPageUiState.LoggedOut)
+                }
             }
         }
     }
 
     fun openGame(game: GameRecord) {
         val previousGames = (state as? MyPageUiState.GameList)?.games.orEmpty()
-        state = MyPageUiState.LoadingDetail
+        if (!navigate(MyPageUiState.LoadingDetail)) return
+        val generation = ++requestGeneration
         scope.launch {
-            state = when (val outcome = gameSummaryService.getDetail(game.contentHash)) {
+            val outcome = gameSummaryService.getDetail(game.contentHash)
+            if (generation != requestGeneration) return@launch
+            navigate(when (outcome) {
                 is GameDetailOutcome.Loaded -> MyPageUiState.GameDetailView(outcome.detail, previousGames)
                 GameDetailOutcome.NotAuthenticated -> MyPageUiState.LoggedOut
                 GameDetailOutcome.NoSecret ->
@@ -52,7 +67,7 @@ class MyPageViewModel(
                     MyPageUiState.Error(AppStrings.MYPAGE_ERROR_NOT_FOUND, previousGames)
                 is GameDetailOutcome.NetworkError ->
                     MyPageUiState.Error(AppStrings.MYPAGE_ERROR_NETWORK, previousGames)
-            }
+            })
         }
     }
 
@@ -66,7 +81,7 @@ class MyPageViewModel(
             is MyPageUiState.Error -> s.previousGames
             else -> null
         } ?: return
-        state = MyPageUiState.GameList(previousGames)
+        navigate(MyPageUiState.GameList(previousGames), NavigationEvent.Back)
     }
 
     /**
@@ -75,27 +90,31 @@ class MyPageViewModel(
      * （復号鍵は失敗時も先に消す。鍵さえ無ければこのページから棋譜は読めない）。
      */
     fun logout() {
+        requestGeneration++
         scope.launch {
             val result = authRepository.signOut()
             transferSecretStore.clear()
             transferCodeInputViewModel.dismissError()
-            state = if (result.isSuccess) {
+            navigate(if (result.isSuccess) {
                 MyPageUiState.LoggedOut
             } else {
                 MyPageUiState.Error(AppStrings.MYPAGE_ERROR_LOGOUT_FAILED)
-            }
+            })
         }
     }
 
     private fun loadGames() {
-        state = MyPageUiState.LoadingGames
+        if (!navigate(MyPageUiState.LoadingGames)) return
+        val generation = ++requestGeneration
         scope.launch {
-            state = when (val outcome = gameSummaryService.listGames()) {
+            val outcome = gameSummaryService.listGames()
+            if (generation != requestGeneration) return@launch
+            navigate(when (outcome) {
                 is GameSummaryOutcome.Loaded -> MyPageUiState.GameList(outcome.games)
                 GameSummaryOutcome.NotAuthenticated -> MyPageUiState.LoggedOut
                 GameSummaryOutcome.NoSecret -> MyPageUiState.Error(AppStrings.MYPAGE_ERROR_NO_SECRET)
                 is GameSummaryOutcome.NetworkError -> MyPageUiState.Error(AppStrings.MYPAGE_ERROR_NETWORK)
-            }
+            })
         }
     }
 }

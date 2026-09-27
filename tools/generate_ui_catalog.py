@@ -32,6 +32,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--snapshots", type=Path, required=True)
     parser.add_argument("--tests", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--navigation", type=Path, required=True)
     return parser.parse_args()
 
 
@@ -188,7 +189,7 @@ def render_filter_groups(screenshots: list[Screenshot]) -> str:
     return "".join(groups)
 
 
-def render(screenshots: list[Screenshot]) -> str:
+def render(screenshots: list[Screenshot], navigation: str) -> str:
     screen_count = len({(item.category_key, item.screen) for item in screenshots})
     return f'''<!doctype html>
 <html lang="ja">
@@ -252,6 +253,9 @@ def render(screenshots: list[Screenshot]) -> str:
       </div>
       <div class="stats"><div class="stat"><strong>{len(screenshots)}</strong><span>screenshots</span></div><div class="stat"><strong>{screen_count}</strong><span>screens</span></div></div>
     </header>
+    <details><summary>画面遷移図を開く</summary>
+      <iframe title="画面遷移図" srcdoc="{html.escape(navigation, quote=True)}" sandbox="allow-scripts" style="width:100%;height:85vh;border:1px solid var(--line)"></iframe>
+    </details>
     <div class="toolbar">
       <input class="search" type="search" placeholder="画面名・条件・ファイル名を検索" aria-label="UIカタログを検索">
       <button class="filter active" type="button" data-filter="all">すべて</button>
@@ -304,7 +308,7 @@ def main() -> None:
     if not screenshots:
         raise SystemExit(f"スクリーンショットがありません: {args.snapshots}")
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(render(screenshots), encoding="utf-8")
+    args.output.write_text(render(screenshots, args.navigation.read_text(encoding="utf-8")), encoding="utf-8")
     print(f"UI catalog: {len(screenshots)} screenshots -> {args.output}")
 
 

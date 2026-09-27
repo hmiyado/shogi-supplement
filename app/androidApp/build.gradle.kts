@@ -22,12 +22,15 @@ tasks.register("generateNavigationDiagram") {
 // Why not画像をdocsへ複製する: goldenの更新元はVRT側に一つだけ置き、
 // UIカタログはローカル確認用の自己完結HTMLとして都度生成する。
 val generateUiCatalog by tasks.registering(Exec::class) {
+    dependsOn(":application:generateNavigationDiagram")
     group = "verification"
     description = "RoborazziのスクリーンショットからUIカタログを生成する"
     val repositoryRoot = rootProject.projectDir.parentFile
     val snapshots = file("src/test/snapshots")
     val tests = file("src/test/kotlin")
     val output = layout.buildDirectory.file("ui-catalog/index.html").get().asFile
+    val navigation = layout.buildDirectory.file("navigation-diagram/index.html").get().asFile
+    inputs.file(navigation)
     inputs.dir(snapshots)
     inputs.dir(tests)
     inputs.file(repositoryRoot.resolve("tools/generate_ui_catalog.py"))
@@ -40,6 +43,7 @@ val generateUiCatalog by tasks.registering(Exec::class) {
         "--snapshots", snapshots.absolutePath,
         "--tests", tests.absolutePath,
         "--output", output.absolutePath,
+        "--navigation", navigation.absolutePath,
     )
 }
 

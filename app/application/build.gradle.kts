@@ -11,11 +11,24 @@ tasks.register<JavaExec>("generateNavigationDiagram") {
     description = "共通状態機械から自己完結した画面遷移図を生成する"
     val compilation = kotlin.targets.getByName("jvm").compilations.getByName("main")
     dependsOn(compilation.compileTaskProvider)
+    dependsOn("jvmProcessResources")
     classpath(compilation.output.allOutputs, compilation.runtimeDependencyFiles)
     mainClass.set("dev.miyado.shogisupplement.navigation.NavigationDiagramKt")
     val output = project(":androidApp").layout.buildDirectory.file("navigation-diagram/index.html")
     outputs.file(output)
-    args(output.get().asFile.absolutePath)
+    val fonts = rootProject.projectDir.parentFile.resolve("docs/assets/fonts")
+    inputs.dir(fonts)
+    args(output.get().asFile.absolutePath, fonts.absolutePath)
+}
+
+val testNavigationDiagram by tasks.registering(Exec::class) {
+    group = "verification"
+    dependsOn("generateNavigationDiagram")
+    workingDir(rootProject.projectDir.parentFile)
+    commandLine("node", "tools/test_navigation_diagram.cjs")
+}
+tasks.matching { it.name == "jvmTest" }.configureEach {
+    dependsOn(testNavigationDiagram)
 }
 
 // AndroidのversionCodeはgradle.propertiesが唯一の値源。ビルド時に定数として生成し、

@@ -74,6 +74,13 @@ open androidApp/build/ui-catalog/index.html
 
 `recordRoborazziDebug`を実行した場合も、完了後に同じカタログが自動更新される。
 
+カタログの「画面遷移図を開く」には、共通の `NavigationMachine.transitions` から生成した
+HTMLを埋め込む。ドラッグで移動、タッチまたはトラックパッドのピンチで拡縮できる。拡大率は20〜200%でスライダーと連動する。1枚の図に4つの機能枠を置き、枠内は左から右へ配置する。「全体を表示」で表示範囲に合わせられる。画面を選ぶと接続する矢印と遷移一覧を絞り込める。
+戻る・再試行・エラーの遷移はチェックボックスで表示する。同じ画面間の複数操作は矢印をまとめ、一覧には個別に表示する。
+図だけを生成する場合は `./gradlew :application:generateNavigationDiagram` を実行し、
+`androidApp/build/navigation-diagram/index.html` を開く。
+対象と追加方法は [画面遷移の設計](../../docs/navigation.md) を参照。
+
 **スピナーなど終わらないアニメーションを含む状態は `createComposeRule` で撮る**
 （`GameRestoreScreenScreenshotTest` や `ReportViewerScreenshotTest.captureViaComposeRule` が例）。
 ラムダ版の `captureRoboImage { }` はメインルーパーがidleになるまで待つため、

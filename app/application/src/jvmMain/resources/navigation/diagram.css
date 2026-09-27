@@ -1,0 +1,11 @@
+
+{{FONTS}}
+h1{font-family:"Shippori Mincho",serif}
+body{margin:24px;background:#F7F3EA;color:#211E1A;font-family:"IBM Plex Sans JP",sans-serif}
+button,input,select{font:inherit}select{margin:0 16px 0 8px;padding:6px;background:#FFFDF7;color:#211E1A;border:1px solid #DDD5C4}button{margin-right:8px;padding:6px 12px;border:1px solid #3A4B7C;background:#FFFDF7;color:#3A4B7C}
+#viewport{touch-action:none;user-select:none;cursor:grab;overflow:auto;border:1px solid #DDD5C4;height:70vh;background:#FFFDF7}
+#viewport.dragging,#viewport.dragging .node{cursor:grabbing}
+svg{display:block}svg text{font-family:"IBM Plex Mono",monospace;font-size:13px;fill:#211E1A}
+.node{cursor:pointer}.node rect{fill:#E4E8F2;stroke:#3A4B7C}.edge{fill:none;stroke:#8C857B;stroke-width:1.5}
+.edge.active{stroke:#3A4B7C;stroke-width:3}.dim{opacity:.18}.node.selected rect{fill:#F7EFC5;stroke-width:2}
+table{border-collapse:collapse;width:100%;margin-top:24px}th,td{text-align:left;border-bottom:1px solid #DDD5C4;padding:8px;font-family:"IBM Plex Mono",monospace}

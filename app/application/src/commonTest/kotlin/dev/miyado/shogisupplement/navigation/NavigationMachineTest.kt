@@ -5,6 +5,35 @@ import kotlin.test.assertEquals
 
 class NavigationMachineTest {
     @Test
+    fun webAnalysisCanCancelOrFailToItsPreviousScreen() {
+        listOf(AppDestination.KENTO_INPUT, AppDestination.REPORT).forEach { target ->
+            listOf(NavigationEvent.AnalysisCancelled(target), NavigationEvent.AnalysisFailed(target)).forEach { event ->
+                assertEquals(target, NavigationMachine.resolve(AppDestination.ANALYZING, event))
+                assertEquals(null, NavigationMachine.resolve(AppDestination.HOME, event))
+            }
+        }
+        assertEquals(null, NavigationMachine.resolve(AppDestination.ANALYZING,
+            NavigationEvent.AnalysisCancelled(AppDestination.SETTINGS)))
+    }
+
+    @Test
+    fun myPageLoginDetailAndReturnUseSharedTransitions() {
+        var current = AppDestination.MYPAGE_LOGIN
+        listOf(AppDestination.MYPAGE_LOADING, AppDestination.MYPAGE_GAMES,
+            AppDestination.MYPAGE_DETAIL_LOADING, AppDestination.MYPAGE_DETAIL).forEach {
+            current = NavigationMachine.next(current, NavigationEvent.Open(it))
+            assertEquals(it, current)
+        }
+        assertEquals(AppDestination.MYPAGE_GAMES, NavigationMachine.resolve(current, NavigationEvent.Back))
+        assertEquals(AppDestination.MYPAGE_LOGIN,
+            NavigationMachine.resolve(current, NavigationEvent.Open(AppDestination.MYPAGE_LOGIN)))
+        assertEquals(null, NavigationMachine.resolve(AppDestination.MYPAGE_LOGIN,
+            NavigationEvent.Open(AppDestination.MYPAGE_DETAIL)))
+        assertEquals(null, NavigationMachine.resolve(AppDestination.MYPAGE_LOGIN,
+            NavigationEvent.Open(AppDestination.MYPAGE_GAMES)))
+    }
+
+    @Test
     fun savedWebReportOpensWithoutAnalysis() {
         assertEquals(AppDestination.REPORT,
             NavigationMachine.resolve(AppDestination.KENTO_INPUT, NavigationEvent.Open(AppDestination.REPORT)))

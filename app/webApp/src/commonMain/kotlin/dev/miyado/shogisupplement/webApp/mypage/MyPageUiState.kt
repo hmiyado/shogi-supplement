@@ -2,9 +2,19 @@ package dev.miyado.shogisupplement.webApp.mypage
 
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.download.GameDetail
+import dev.miyado.shogisupplement.navigation.AppDestination
 
 /** 「マイページ」（引き継ぎコードでログインして自分の棋譜一覧を見る）の表示状態。 */
 sealed class MyPageUiState {
+    val destination: AppDestination
+        get() = when (this) {
+            LoggedOut -> AppDestination.MYPAGE_LOGIN
+            LoadingGames -> AppDestination.MYPAGE_LOADING
+            is GameList -> AppDestination.MYPAGE_GAMES
+            LoadingDetail -> AppDestination.MYPAGE_DETAIL_LOADING
+            is GameDetailView -> AppDestination.MYPAGE_DETAIL
+            is Error -> AppDestination.MYPAGE_ERROR
+        }
     data object LoggedOut : MyPageUiState()
     data object LoadingGames : MyPageUiState()
 
