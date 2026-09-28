@@ -68,7 +68,8 @@ UIが変わったリリースでは掲載画像も更新する。
 cd app && ./gradlew :androidApp:recordRoborazziDebug --tests "*StoreImageTest*" -Pshogi.storeImages=true --rerun-tasks
 ```
 
-- 書き出し先は `app/iosApp/fastlane/screenshots/ja/` の6枚（1290x2796・6.9インチ枠）。
+- 書き出し先は `app/iosApp/fastlane/screenshots/ja/`。6.9インチ枠（1290x2796）と
+  6.5インチ枠（1284x2778・ファイル名末尾 `_6.5`）を各6枚、同じ見出し・画面から生成する。
   差分を目で確認してから準備コミットに含める。
 - 1枚は「見出し＋端末モック」の組み。見出しの文言・画面の中身の数値はどちらも
   `StoreImageTest.kt` にある。見出しは2行までに収める（はみ出すと端末に被る）。
