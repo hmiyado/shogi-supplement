@@ -154,6 +154,19 @@ fun Application.module(config: WorkerConfig) {
             "${config.engineRev}|${config.evalSha256}",
             "",
         ),
+        studyEngineProfile = config.studyEngine?.let { studyConfig ->
+            studyConfig.verifyEvaluation()
+            StudyEngineProfile(studyConfig) { selected ->
+                val engine = UsiEngineSubprocess.create(
+                    enginePath = selected.enginePath,
+                    evalDir = selected.evalDir,
+                    fvScale = selected.fvScale,
+                    logLifecycle = engineLog::info,
+                    logIo = engineLog::debug,
+                )
+                if (config.isolatePositions) IsolatedEngine(engine) else engine
+            }
+        },
         analysisWorkers = config.analysisWorkers,
         positionDailyLimit = config.analysisPositionDailyLimit,
         staleRunningTimeoutMs = config.staleRunningTimeoutMs,

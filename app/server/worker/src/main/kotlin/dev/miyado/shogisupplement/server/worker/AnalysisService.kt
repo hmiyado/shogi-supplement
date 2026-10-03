@@ -5,6 +5,7 @@ import dev.miyado.shogisupplement.api.analysis.AnalysisResultJson
 import dev.miyado.shogisupplement.api.analysis.EngineMetaJson
 import dev.miyado.shogisupplement.api.analysis.PositionPayloadJson
 import dev.miyado.shogisupplement.api.analysis.PositionResultJson
+import dev.miyado.shogisupplement.api.analysis.PositionAnalysisPurpose
 import dev.miyado.shogisupplement.api.analysis.PvInfoJson
 import dev.miyado.shogisupplement.api.analysis.ProgressJson
 import dev.miyado.shogisupplement.api.analysis.toJson
@@ -87,6 +88,7 @@ class AnalysisService(
     // 条件をキーへ追加する前のprefix。旧キーは、保存されたengine_metaが現在条件と一致する
     // 場合だけ再利用する。NULL/不一致の結果を返すと、条件の違う解析結果を混ぜるため再解析へ回す。
     private val legacyCacheKeyPrefixes: List<String> = emptyList(),
+    private val studyEngineProfile: StudyEngineProfile? = null,
     private val clock: Clock = Clock.systemUTC(),
     private val pollIntervalMs: Long = 500,
     private val pollTimeoutMs: Long = 280_000,
@@ -211,6 +213,7 @@ class AnalysisService(
     )
 
     private suspend fun findReusableLegacyJob(userId: String, input: EngineInput): LegacyJob? {
+        if (input is EngineInput.Position && input.purpose == PositionAnalysisPurpose.STUDY) return null
         val currentHash = cacheHash(input)
         val candidates = mutableListOf<LegacyJob>()
         val visitedHashes = mutableSetOf<String>()
@@ -229,14 +232,18 @@ class AnalysisService(
     }
 
     private fun cacheHash(input: EngineInput): String {
-        val cacheSeed = if (cacheKeyPrefix.isBlank()) input.hashSeed else "$cacheKeyPrefix|${input.hashSeed}"
+        val prefix = studyProfile(input)?.cacheKeyPrefix ?: cacheKeyPrefix
+        val cacheSeed = if (prefix.isBlank()) input.hashSeed else "$prefix|${input.hashSeed}"
         return sha256Hex(cacheSeed)
     }
+
+    private fun studyProfile(input: EngineInput): StudyEngineProfile? =
+        studyEngineProfile.takeIf { input is EngineInput.Position && input.purpose == PositionAnalysisPurpose.STUDY }
 
     private fun isCurrentEngineResult(record: AnalysisJobRecord, input: EngineInput): Boolean {
         val expected = when (input) {
             is EngineInput.Game -> engineMetaProvider(EngineInvariants.MULTI_PV)
-            is EngineInput.Position -> engineMetaProvider(input.multiPv)
+            is EngineInput.Position -> studyProfile(input)?.meta(input.multiPv) ?: engineMetaProvider(input.multiPv)
         }
         val actual = record.engineMeta?.let {
             runCatching { json.decodeFromJsonElement(EngineMetaJson.serializer(), it) }.getOrNull()
@@ -395,7 +402,8 @@ class AnalysisService(
         emitLine: (String) -> Unit,
     ): AnalysisResultJson {
         emitLine(json.encodeToString(ProgressJson(0, 1)) + "\n")
-        val engine = engineFactory()
+        val profile = studyProfile(input)
+        val engine = profile?.create() ?: engineFactory()
         val pvList = try {
             engine.analyzeSfen(input.sfen, input.moves, nodes = EngineInvariants.NODES, multiPv = input.multiPv)
         } finally {
@@ -404,7 +412,7 @@ class AnalysisService(
         emitLine(json.encodeToString(ProgressJson(1, 1)) + "\n")
         return AnalysisResultJson(
             result = listOf(pvList.map { it.toJson() }),
-            engineMeta = engineMetaProvider(input.multiPv),
+            engineMeta = profile?.meta(input.multiPv) ?: engineMetaProvider(input.multiPv),
         )
     }
 
@@ -449,5 +457,6 @@ private fun EngineInput.toStoragePayload(): JsonElement = when (this) {
         put("sfen", sfen)
         put("moves", JsonArray(moves.map { JsonPrimitive(it) }))
         put("multi_pv", multiPv)
+        purpose?.let { put("purpose", Json.encodeToJsonElement(it)) }
     }
 }

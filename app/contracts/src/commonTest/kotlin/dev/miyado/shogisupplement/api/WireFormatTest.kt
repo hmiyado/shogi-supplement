@@ -30,6 +30,13 @@ class WireFormatTest {
     private val json = Json { encodeDefaults = true }
 
     @Test
+    fun studyPurposeIsExplicit() {
+        val request = AnalysisRequest(sfen = "sfen", multiPv = 3, purpose = PositionAnalysisPurpose.STUDY)
+        assertEquals(request, json.decodeFromString<AnalysisRequest>(json.encodeToString(request)))
+        kotlin.test.assertTrue(json.encodeToString(request).contains("\"purpose\":\"study\""))
+    }
+
+    @Test
     fun drillPurposeIsExplicitAndOldRequestsRemainReadable() {
         assertEquals(null, json.decodeFromString<AnalysisRequest>("""{"sfen":"sfen"}""").purpose)
         val request = AnalysisRequest(sfen = "sfen", multiPv = 2, purpose = PositionAnalysisPurpose.DRILL)

@@ -7,7 +7,7 @@ import java.io.PrintWriter
 
 /**
  * USIエンジンをサブプロセスで実行するEngine実装。
- * Androidとserverで実装を共有する。解析条件はEngineInvariantsを単一の定義とする。
+ * Androidとserverで実装を共有する。通常解析の既定条件はEngineInvariantsに従う。
  * Why not 実装を複製しない: 起動、ハンドシェイク、info行パースの乖離を防ぐため。
  */
 class UsiEngineSubprocess private constructor(
@@ -24,7 +24,9 @@ class UsiEngineSubprocess private constructor(
             evalDir: String,
             logLifecycle: (String) -> Unit = {},
             logIo: (String) -> Unit = {},
+            fvScale: Int = EngineInvariants.FV_SCALE,
         ): UsiEngineSubprocess {
+            require(fvScale > 0)
             logLifecycle("Starting engine: $enginePath")
 
             val process = ProcessBuilder(enginePath)
@@ -47,7 +49,7 @@ class UsiEngineSubprocess private constructor(
             engine.send("setoption name USI_OwnBook value false")
             engine.send("setoption name NetworkDelay value 0")
             engine.send("setoption name NetworkDelay2 value 0")
-            engine.send("setoption name FV_SCALE value ${EngineInvariants.FV_SCALE}")
+            engine.send("setoption name FV_SCALE value $fvScale")
             engine.send("setoption name EvalDir value $evalDir")
 
             engine.send("isready")

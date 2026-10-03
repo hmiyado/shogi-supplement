@@ -1,0 +1,60 @@
+{
+  "games": 300,
+  "players": 600,
+  "metrics": {
+    "hao_refit": {
+      "mae": 181.4549503195164,
+      "rmse": 230.90045192342578
+    },
+    "aoba_refit": {
+      "mae": 177.96559952984745,
+      "rmse": 226.6831014638189
+    },
+    "aoba_hao_coefficients": {
+      "mae": 177.33674025672323,
+      "rmse": 226.18315429328467
+    },
+    "constant": {
+      "mae": 195.09549305555555,
+      "rmse": 255.74959895971597
+    }
+  },
+  "comparisons_from_existing_evaluation": {
+    "hao_refit->aoba_refit": {
+      "mae_difference_new_minus_old": -3.489350789668946,
+      "bootstrap95": [
+        -8.116984648628474,
+        1.1347399684243507
+      ],
+      "relative_improvement_pct": 1.922984621540881,
+      "conclusion": "inconclusive",
+      "fold_mae_deltas": [
+        -7.238689659726905,
+        -2.2720971840137207,
+        -6.341394153442646,
+        0.2974709407420278,
+        -1.8920438919034874
+      ]
+    },
+    "aoba_hao_coefficients->aoba_refit": {
+      "mae_difference_new_minus_old": 0.6288592731242311,
+      "bootstrap95": [
+        -0.5032398631436525,
+        1.7631739472489438
+      ],
+      "relative_improvement_pct": -0.3546130780422923,
+      "conclusion": "inconclusive",
+      "fold_mae_deltas": [
+        1.822729535360753,
+        2.387157327325114,
+        -0.6506366918419644,
+        -0.055870692447859936,
+        -0.3590831127748875
+      ]
+    }
+  },
+  "verification": "Recomputed MAE/RMSE from existing OOF predictions and checked game/fold/player uniqueness; no engine rerun or model refit",
+  "prediction_sha256": "c64039d359e0a5626bba33cec5c0b04e48e49104d12f2257314aca673365767e",
+  "evaluation_sha256": "069e86e492c1eda9872e28e51694cee353db3a2c03a5d6b15cfbc8d88e6b5d17",
+  "rechecked_date": "2026-09-27"
+}

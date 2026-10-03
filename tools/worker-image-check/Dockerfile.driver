@@ -1,0 +1,5 @@
+FROM python:3.11-slim-bookworm
+RUN pip install --no-cache-dir 'PyJWT[crypto]==2.10.1' 'python-shogi==1.1.1'
+WORKDIR /checks
+COPY fixture.py /checks/fixture.py
+ENTRYPOINT ["python", "/checks/fixture.py"]

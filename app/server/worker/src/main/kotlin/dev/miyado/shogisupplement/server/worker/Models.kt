@@ -28,6 +28,10 @@ sealed class EngineInput {
         override val hashSeed: String
             get() = "$sfen|${moves.joinToString(" ")}" +
                 (if (multiPv == Engine.MULTI_PV) "" else "|$multiPv") +
-                (if (purpose == PositionAnalysisPurpose.DRILL) "|purpose=drill" else "")
+                when (purpose) {
+                    PositionAnalysisPurpose.DRILL -> "|purpose=drill"
+                    PositionAnalysisPurpose.STUDY -> "|purpose=study"
+                    null -> ""
+                }
     }
 }

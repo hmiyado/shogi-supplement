@@ -1,0 +1,127 @@
+{
+  "platform": "macOS arm64",
+  "scope": "Ktor test HTTP endpoint with real candidate process; in-memory auth/repository; not production Supabase or Linux worker",
+  "result": {
+    "result": [
+      [
+        {
+          "multipv": 1,
+          "score": {
+            "type": "cp",
+            "value": 140
+          },
+          "pv": [
+            "2g2f",
+            "4c4d",
+            "7i6h",
+            "2b3c",
+            "2f2e",
+            "9c9d",
+            "9g9f",
+            "8b2b",
+            "6h7g",
+            "3a4b",
+            "5i6h",
+            "5a6b",
+            "6h7h",
+            "7a7b",
+            "3g3f",
+            "4b4c"
+          ],
+          "nodes": 400302
+        },
+        {
+          "multipv": 2,
+          "score": {
+            "type": "cp",
+            "value": 103
+          },
+          "pv": [
+            "6i7h",
+            "8c8d",
+            "2g2f",
+            "8d8e",
+            "2f2e",
+            "8e8f",
+            "8g8f",
+            "8b8f",
+            "2e2d",
+            "2c2d",
+            "2h2d",
+            "4a3b",
+            "2d3d",
+            "2b8h+",
+            "7i8h",
+            "B*3c",
+            "P*8g",
+            "8f7f",
+            "8h7g",
+            "7f2f",
+            "P*2h",
+            "2f2b",
+            "3d8d",
+            "P*8b",
+            "5i5h",
+            "5a5b",
+            "4i3h"
+          ],
+          "nodes": 400302
+        },
+        {
+          "multipv": 3,
+          "score": {
+            "type": "cp",
+            "value": 17
+          },
+          "pv": [
+            "6g6f",
+            "8c8d",
+            "2g2f",
+            "8d8e",
+            "8h7g",
+            "3a3b",
+            "7i6h",
+            "3b3c",
+            "3i4h",
+            "4a3b",
+            "6i7h",
+            "5c5d"
+          ],
+          "nodes": 400302
+        }
+      ]
+    ],
+    "engine_meta": {
+      "engine_rev": "v9.80@d47c9bfb94210fb1f9b741d5ee16ce081b35cacd",
+      "eval_sha256": "f8ee839ae8c08537036f23345dd5ed0416958b22425476fc60177942903219b5",
+      "nodes": 400000,
+      "threads": 1,
+      "multi_pv": 3,
+      "usi_hash": 128,
+      "fv_scale": 40,
+      "condition_name": "ce081b35cacd-f8ee839a-n400000-t1-p3-h128-f40"
+    }
+  },
+  "cache_hit": true,
+  "native_linux": "pending explicit Cloud Build upload and execution approval",
+  "test_counts": {
+    "server/worker": {
+      "tests": 123,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "contracts": {
+      "tests": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "engine/remote": {
+      "tests": 80,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  }
+}

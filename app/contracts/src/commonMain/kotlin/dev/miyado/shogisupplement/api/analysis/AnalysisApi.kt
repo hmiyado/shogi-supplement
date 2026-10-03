@@ -6,6 +6,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 enum class PositionAnalysisPurpose {
     @SerialName("drill") DRILL,
+    @SerialName("study") STUDY,
 }
 
 /**
@@ -25,7 +26,7 @@ data class AnalysisRequest(
     @SerialName("force_reanalysis") val forceReanalysis: Boolean = false,
     /** 再送時に同じジョブを再利用するための、1回の再解析要求に固有なID。 */
     @SerialName("request_id") val requestId: String? = null,
-    /** 省略は従来の単発検討。ドリルはサーバー側で解析の不変条件へ固定する。 */
+    /** 省略は従来条件。studyの専用条件はサーバーが選び、drillは解析の不変条件へ固定する。 */
     @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
     val purpose: PositionAnalysisPurpose? = null,
