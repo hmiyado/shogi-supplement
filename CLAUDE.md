@@ -3,6 +3,12 @@
 セッション開始時は tmp/HANDOVER.md を読むこと（現在地と次の一手）。
 tmp/ は作業ログ置き場（git管理外）。設計資料は docs/ に置いてコミットする。
 
+## 開発の進め方
+
+機能追加・不具合修正・UI変更では `.claude/skills/development-workflow/SKILL.md` を読む。
+UI変更は実装前にモックを提示し、メンテナと方針を確定してから実装する。
+
+
 ## Design System
 
 UI・ビジュアルに関する判断の前に必ず DESIGN.md を読むこと。
