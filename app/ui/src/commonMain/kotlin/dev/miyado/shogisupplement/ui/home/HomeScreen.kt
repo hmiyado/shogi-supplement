@@ -283,7 +283,7 @@ fun StrengthCard(
             Spacer(Modifier.height(4.dp))
             // "51 ±25" / "77+ ±22" / "30未満 ±27" → 値(Mono大) / 接尾語(Sans ink2) / 誤差幅(Mono小・ink3) に分解
             val match = remember(strengthCard.displayText) {
-                Regex("""^(\d+\+?)([^±]*)(±\d+)?$""").find(strengthCard.displayText)
+                Regex("""^(-?\d+(?:\.\d+)?\+?)([^±]*)(±\d+(?:\.\d+)?)$""").find(strengthCard.displayText)
             }
             val valueText = match?.groupValues?.get(1) ?: strengthCard.displayText
             val suffixText = match?.groupValues?.get(2)?.trim().orEmpty()

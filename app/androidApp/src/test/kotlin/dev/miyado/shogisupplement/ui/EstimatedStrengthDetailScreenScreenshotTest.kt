@@ -26,19 +26,19 @@ import org.robolectric.annotation.GraphicsMode
 class EstimatedStrengthDetailScreenScreenshotTest {
 
     private fun sampleData(): StrengthDetailData = StrengthDetailData(
-        deviation = 58,
-        rangeLow = 54,
-        rangeHigh = 62,
+        deviation = 58.0,
+        rangeLow = 54.0,
+        rangeHigh = 62.0,
         bestRank = StrengthDetailBestRank(label = "将棋ウォーズ 初段", ruleLabel = "3分切れ負け"),
         trend = listOf(
-            StrengthTrendPoint(1, "8/02", 46, 11, "16%(6/38)", "34%(13/38)"),
-            StrengthTrendPoint(2, "8/04", 49, 11, "13%(5/38)", "39%(15/38)"),
-            StrengthTrendPoint(3, "8/06", 47, 11, "15%(5/34)", "35%(12/34)"),
-            StrengthTrendPoint(4, "8/08", 52, 11, "10%(4/39)", "44%(17/39)"),
-            StrengthTrendPoint(5, "8/10", 51, 11, "12%(4/34)", "41%(14/34)"),
-            StrengthTrendPoint(6, "8/12", 55, 11, "9%(3/35)", "46%(16/35)"),
-            StrengthTrendPoint(7, "8/15", 56, 11, "9%(3/34)", "47%(16/34)"),
-            StrengthTrendPoint(8, "8/17", 58, 11, "8%(3/38)", "47%(18/38)"),
+            StrengthTrendPoint(1, "8/02", 46.0, 11.0, "16%(6/38)", "34%(13/38)"),
+            StrengthTrendPoint(2, "8/04", 49.0, 11.0, "13%(5/38)", "39%(15/38)"),
+            StrengthTrendPoint(3, "8/06", 47.0, 11.0, "15%(5/34)", "35%(12/34)"),
+            StrengthTrendPoint(4, "8/08", 52.0, 11.0, "10%(4/39)", "44%(17/39)"),
+            StrengthTrendPoint(5, "8/10", 51.0, 11.0, "12%(4/34)", "41%(14/34)"),
+            StrengthTrendPoint(6, "8/12", 55.0, 11.0, "9%(3/35)", "46%(16/35)"),
+            StrengthTrendPoint(7, "8/15", 56.0, 11.0, "9%(3/34)", "47%(16/34)"),
+            StrengthTrendPoint(8, "8/17", 58.0, 11.0, "8%(3/38)", "47%(18/38)"),
         ),
         services = listOf(
             StrengthDetailService(

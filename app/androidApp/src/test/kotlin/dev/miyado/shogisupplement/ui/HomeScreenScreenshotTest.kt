@@ -130,7 +130,7 @@ class HomeScreenScreenshotTest {
                         pastGames = sampleGames(),
                         isLoggedIn = false,
                         strengthCard = StrengthCardData(
-                            displayText = "51 ±25",
+                            displayText = "51.2 ±25.4",
                             detailText = "直近5局から算出",
                         ),
                         todaysDrillHint = TodaysDrillHint(
@@ -157,7 +157,7 @@ class HomeScreenScreenshotTest {
                         pastGames = sampleGames(),
                         isLoggedIn = false,
                         strengthCard = StrengthCardData(
-                            displayText = "58",
+                            displayText = "58.0",
                             detailText = "直近8局から算出",
                         ),
                         drillRecordCard = DrillRecordCardData(

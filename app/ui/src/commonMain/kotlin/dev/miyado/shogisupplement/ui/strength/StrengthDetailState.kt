@@ -7,11 +7,11 @@ package dev.miyado.shogisupplement.ui.strength
  */
 data class StrengthDetailData(
     /** 現在の推定棋力（偏差値）。 */
-    val deviation: Int,
+    val deviation: Double,
     /** 推定範囲の下限（偏差値）。 */
-    val rangeLow: Int,
+    val rangeLow: Double,
     /** 推定範囲の上限（偏差値）。 */
-    val rangeHigh: Int,
+    val rangeHigh: Double,
     /** 対局サービスでの最高段級位（null = どのサービスにも段級位申告が無い）。 */
     val bestRank: StrengthDetailBestRank?,
     /** 対局ごとの推移（解析日時の古い順。最新局から30日以内）。 */
@@ -34,9 +34,9 @@ data class StrengthTrendPoint(
     /** x軸ラベル。例: "8/17" */
     val dateLabel: String,
     /** この対局単独の推定棋力（偏差値）。 */
-    val deviation: Int,
+    val deviation: Double,
     /** 推定範囲の±幅（偏差値）。 */
-    val deviationWidth: Int,
+    val deviationWidth: Double,
     /** 悪手率の値表示（例: "8%(3/38)"）。算出不能なら null。 */
     val blunderRateText: String?,
     /** 一致率の値表示（例: "47%(18/38)"）。算出不能なら null。 */

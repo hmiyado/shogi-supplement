@@ -49,6 +49,7 @@ import dev.miyado.shogisupplement.ui.common.scaffoldContentInsets
 import dev.miyado.shogisupplement.ui.theme.TextStyleData
 import dev.miyado.shogisupplement.ui.theme.TextStyleDataLarge
 import dev.miyado.shogisupplement.ui.theme.shogiColors
+import dev.miyado.shogisupplement.strength.formatStrengthDecimal
 import kotlin.math.roundToInt
 
 /**
@@ -119,7 +120,7 @@ private fun OverviewCard(data: StrengthDetailData) {
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = data.deviation.toString(),
+                    text = formatStrengthDecimal(data.deviation),
                     style = TextStyleDataLarge,
                     color = MaterialTheme.colorScheme.primary,
                 )
@@ -187,12 +188,12 @@ private fun TrendCard(trend: List<StrengthTrendPoint>) {
             val maxY = remember(trend) { trend.maxOf { it.deviation + it.deviationWidth } + 3 }
             Row(Modifier.fillMaxWidth().height(TREND_CHART_HEIGHT_DP.dp)) {
                 Column(
-                    modifier = Modifier.width(28.dp).fillMaxHeight().padding(vertical = 2.dp),
+                    modifier = Modifier.width(48.dp).fillMaxHeight().padding(vertical = 2.dp),
                     verticalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Text(maxY.toString(), style = TextStyleData, color = shogiColors.ink3)
-                    Text(((minY + maxY) / 2).toString(), style = TextStyleData, color = shogiColors.ink3)
-                    Text(minY.toString(), style = TextStyleData, color = shogiColors.ink3)
+                    Text(formatStrengthDecimal(maxY), style = TextStyleData, color = shogiColors.ink3)
+                    Text(formatStrengthDecimal((minY + maxY) / 2), style = TextStyleData, color = shogiColors.ink3)
+                    Text(formatStrengthDecimal(minY), style = TextStyleData, color = shogiColors.ink3)
                 }
                 Spacer(Modifier.width(4.dp))
                 TrendChart(
@@ -204,7 +205,7 @@ private fun TrendCard(trend: List<StrengthTrendPoint>) {
                     modifier = Modifier.weight(1f).fillMaxHeight(),
                 )
             }
-            Row(Modifier.fillMaxWidth().padding(start = 32.dp, top = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+            Row(Modifier.fillMaxWidth().padding(start = 52.dp, top = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(trend.first().dateLabel, style = TextStyleData, color = shogiColors.ink3)
                 Text(trend.last().dateLabel, style = TextStyleData, color = shogiColors.ink3)
             }
@@ -224,8 +225,8 @@ private fun TrendCard(trend: List<StrengthTrendPoint>) {
 @Composable
 private fun TrendChart(
     trend: List<StrengthTrendPoint>,
-    minY: Int,
-    maxY: Int,
+    minY: Double,
+    maxY: Double,
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
@@ -237,7 +238,7 @@ private fun TrendChart(
     val dotFill = MaterialTheme.colorScheme.surface
     val currentDotFill = shogiColors.highlight
     val currentDotStroke = MaterialTheme.colorScheme.onSurface
-    val yRange = (maxY - minY).coerceAtLeast(1)
+    val yRange = (maxY - minY).coerceAtLeast(1.0)
 
     Canvas(
         modifier = modifier.pointerInput(trend) {
@@ -249,7 +250,7 @@ private fun TrendChart(
         val w = size.width
         val h = size.height
         fun xOf(i: Int): Float = if (trend.size <= 1) w / 2f else w * i / (trend.size - 1)
-        fun yOf(v: Int): Float = h - h * (v - minY).toFloat() / yRange
+        fun yOf(v: Double): Float = h - h * ((v - minY) / yRange).toFloat()
 
         listOf(0f, 0.5f, 1f).forEach { frac ->
             val y = h * frac
@@ -315,7 +316,7 @@ private fun SelectedGameRow(point: StrengthTrendPoint) {
         )
         Text(meta, style = MaterialTheme.typography.labelMedium, color = shogiColors.ink2)
         Text(
-            point.deviation.toString(),
+            formatStrengthDecimal(point.deviation),
             style = TextStyleData.copy(fontSize = 16.sp, fontWeight = FontWeight.SemiBold),
             color = MaterialTheme.colorScheme.primary,
         )

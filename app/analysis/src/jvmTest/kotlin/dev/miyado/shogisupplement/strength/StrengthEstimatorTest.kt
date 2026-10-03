@@ -91,6 +91,6 @@ class StrengthEstimatorTest {
     @Test
     fun `norm平均付近のレートは偏差値50になる`() {
         val result = StrengthEstimator.aggregate(listOf(1718), totalMoves = 1000)
-        assertEquals("50 ±11", result.toDisplayString())
+        assertEquals("50.0 ±10.9", result.toDisplayString())
     }
 }

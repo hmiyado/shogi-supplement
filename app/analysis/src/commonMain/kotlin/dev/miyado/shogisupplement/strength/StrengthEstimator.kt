@@ -1,6 +1,5 @@
 package dev.miyado.shogisupplement.strength
 
-import kotlin.math.round
 import kotlin.math.roundToInt
 
 /** 強さ指標の推定結果。 @param rating 推定レート。 @param clamped 上下限へのクランプ状態。 @param errorMargin 表示用誤差幅。 @param totalMoves 推定対象の手数。 */
@@ -36,11 +35,10 @@ object StrengthNorm {
     /** 真レート分布のSD。誤差幅を偏差値へ換算するときに必要とする。 */
     const val TRUE_SCALE_SD = 256.0
 
-    /** レート値 → 偏差値（四捨五入）。 */
-    fun deviationScore(rating: Int): Int = round(50.0 + 10.0 * (rating - MEAN) / SD).toInt()
+    fun deviationScore(rating: Int): Double = 50.0 + 10.0 * (rating - MEAN) / SD
 
     /** レート幅を偏差値幅へ換算する。真レート軸のSDを使い、予測分布のSDは使わない。 */
-    fun deviationWidth(ratingPoints: Int): Int = round(10.0 * ratingPoints / TRUE_SCALE_SD).toInt()
+    fun deviationWidth(ratingPoints: Int): Double = 10.0 * ratingPoints / TRUE_SCALE_SD
 }
 
 /**
@@ -136,12 +134,18 @@ object StrengthEstimator {
 
 /** 強さ指標を偏差値と誤差幅の表示用文字列へ変換する。 */
 fun StrengthEstimate.toDisplayString(): String {
-    val dev = StrengthNorm.deviationScore(rating)
-    val width = StrengthNorm.deviationWidth(errorMargin)
+    val dev = formatStrengthDecimal(StrengthNorm.deviationScore(rating))
+    val width = formatStrengthDecimal(StrengthNorm.deviationWidth(errorMargin))
     val base = when (clamped) {
         ClampState.CLAMPED_HIGH -> "${dev}+"
         ClampState.CLAMPED_LOW -> "${dev}未満"
         ClampState.NONE -> "$dev"
     }
     return "$base ±$width"
+}
+
+fun formatStrengthDecimal(value: Double): String {
+    val tenths = (kotlin.math.abs(value) * 10).roundToInt()
+    val sign = if (value < 0 && tenths != 0) "-" else ""
+    return "$sign${tenths / 10}.${tenths % 10}"
 }

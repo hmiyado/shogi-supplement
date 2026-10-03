@@ -1,5 +1,6 @@
 package dev.miyado.shogisupplement.text
 
+import dev.miyado.shogisupplement.strength.formatStrengthDecimal
 import kotlin.math.roundToInt
 
 /**
@@ -962,8 +963,8 @@ object AppStrings {
     const val STRENGTH_DETAIL_TITLE = "推定棋力"
     const val STRENGTH_DETAIL_EYEBROW = "現在の推定棋力"
 
-    /** 推定範囲（偏差値の下限・上限）。例: low=54, high=62 → "推定範囲 54–62" */
-    fun strengthDetailRange(low: Int, high: Int): String = "推定範囲 $low–$high"
+    fun strengthDetailRange(low: Double, high: Double): String =
+        "推定範囲 ${formatStrengthDecimal(low)}–${formatStrengthDecimal(high)}"
 
     /** 対局サービス側の申告段級位のうち最も高いものの見出し（このページだけの要約値。内部の偏差値とは別物）。 */
     const val STRENGTH_DETAIL_BEST_RANK_CAPTION = "対局サービスでの最高段級位"
