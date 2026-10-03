@@ -16,6 +16,7 @@ import dev.miyado.shogisupplement.navigation.AppDestination
 
 /** メイン画面のUI状態。 */
 sealed class MainUiState {
+    object Repertoire : MainUiState()
     object Loading : MainUiState()
     data class Home(
         val pastGames: List<GameRecord>,
@@ -93,6 +94,7 @@ internal val MainUiState.destination: AppDestination
         MainUiState.Loading, is MainUiState.Home, is MainUiState.Error -> AppDestination.HOME
         is MainUiState.AnalyzingReport -> AppDestination.ANALYZING
         is MainUiState.ShowReport -> AppDestination.REPORT
+        MainUiState.Repertoire -> AppDestination.REPERTOIRE
         MainUiState.Drill -> AppDestination.DRILL
         MainUiState.Account -> AppDestination.ACCOUNT
         MainUiState.Licenses -> AppDestination.LICENSES

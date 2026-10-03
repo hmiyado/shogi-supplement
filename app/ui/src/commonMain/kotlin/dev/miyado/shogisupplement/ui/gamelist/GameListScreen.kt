@@ -58,6 +58,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 @Composable
 fun GameListScreen(
     games: List<GameRecord>,
+    knownPositionLabels: List<String> = emptyList(),
     /** 棋譜IDごとの悪手件数。絞り込んだ集合の悪手率の分子。渡さなければ悪手率を出さない。 */
     blunderCounts: Map<Long, Int> = emptyMap(),
     pendingUploadCount: Int = 0,
@@ -249,6 +250,7 @@ fun GameListScreen(
     if (showFilterSheet) {
         GameListFilterSheet(
             allGames = games,
+            knownPositionLabels = knownPositionLabels,
             filter = draftFilter,
             onFilterChange = { draftFilter = it },
             onApply = {

@@ -163,6 +163,16 @@ fun GameCard(
                         color = shogiColors.ink2,
                     )
                 }
+                if (game.positionLabels.isNotEmpty()) {
+                    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        game.positionLabels.sorted().forEach { label ->
+                            androidx.compose.material3.Surface(shape = MaterialTheme.shapes.small,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+                                Text(label, Modifier.padding(horizontal = 8.dp, vertical = 4.dp), style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
+                }
                 // sourcePlace をタイトルに使った場合は fileName をサブテキストで表示
                 if (sourcePlaceLabel != null) {
                     Spacer(Modifier.height(2.dp))

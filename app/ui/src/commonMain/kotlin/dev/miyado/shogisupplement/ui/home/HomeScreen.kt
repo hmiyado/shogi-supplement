@@ -69,6 +69,7 @@ fun HomeScreen(
     onAnalyzingClick: (InProgressAnalysis) -> Unit = {},
     onStartDrill: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
+    onOpenRepertoire: (() -> Unit)? = null,
     onViewAllGames: (() -> Unit)? = null,
     onOpenStrengthHelp: () -> Unit = {},
     /** 推定棋力カードのタップ（「?」アイコン部分を除く）。推定棋力詳細画面へ遷移する。 */
@@ -132,6 +133,9 @@ fun HomeScreen(
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            if (onOpenRepertoire != null) {
+                item { TextButton(onClick = onOpenRepertoire) { Text("定跡手順") } }
+            }
             if (strengthCard != null) {
                 item {
                     StrengthCard(

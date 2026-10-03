@@ -177,6 +177,11 @@ class IosMainController(
      * エンジン入り版は常駐エンジンを共有する。engineless版は認証とURLがある場合だけ
      * [RemoteStudyEngine]を返し、設定漏れでは取込解析と同じく例外を投げる。
      */
+    suspend fun createRepertoireEngine(): dev.miyado.shogisupplement.engine.StudyEngine =
+        withContext(defaultIoDispatcher) {
+            dev.miyado.shogisupplement.engine.BlockingStudyEngine(studyEngineFactory()(), defaultIoDispatcher)
+        }
+
     private fun studyEngineFactory(): () -> Engine {
         val auth = authRepository
         val baseUrl = analysisBaseUrl

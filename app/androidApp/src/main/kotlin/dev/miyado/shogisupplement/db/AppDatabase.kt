@@ -40,6 +40,9 @@ object AppDatabase {
         }
     }
 
+    fun repertoireRepository(context: Context): dev.miyado.shogisupplement.repertoire.RepertoireRepository =
+        SqlDelightRepertoireRepository(getDatabase(context))
+
     private fun getDatabase(context: Context): ShogiSupplementDatabase {
         return database ?: synchronized(this) {
             database ?: createDatabase(context).also { database = it }

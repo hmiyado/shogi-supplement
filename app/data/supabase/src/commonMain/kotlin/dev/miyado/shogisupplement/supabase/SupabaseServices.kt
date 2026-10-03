@@ -48,6 +48,8 @@ class SupabaseServices(
     }
 
     val authRepository: AuthRepository = SupabaseAuthRepository(client, signupPlatform = platform)
+    val repertoireRemote: dev.miyado.shogisupplement.repertoire.RepertoireRemote =
+        dev.miyado.shogisupplement.repertoire.SupabaseRepertoireRemote(client, transferSecretStore)
     val uploadRepository: UploadRepository = SupabaseUploadRepository(client, transferSecretStore)
     val uploadOrchestrator: UploadOrchestrator = UploadOrchestrator(
         authRepository = authRepository,

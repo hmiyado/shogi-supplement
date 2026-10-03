@@ -192,6 +192,7 @@ private fun GameListFilterButton(
 @Composable
 fun GameListFilterSheet(
     allGames: List<GameRecord>,
+    knownPositionLabels: List<String> = emptyList(),
     filter: GameListFilter,
     onFilterChange: (GameListFilter) -> Unit,
     onApply: () -> Unit,
@@ -238,6 +239,7 @@ fun GameListFilterSheet(
             )
             GameListFilterBar(
                 allGames = allGames,
+                knownPositionLabels = knownPositionLabels,
                 filter = filter,
                 onFilterChange = onFilterChange,
                 // 持ち時間はKIFヘッダの原文由来で項目数に上限が無い。ModalBottomSheetは
@@ -452,6 +454,7 @@ private fun ComparisonPeriodCard(
 @Composable
 fun GameListFilterBar(
     allGames: List<GameRecord>,
+    knownPositionLabels: List<String> = emptyList(),
     filter: GameListFilter,
     onFilterChange: (GameListFilter) -> Unit,
     modifier: Modifier = Modifier,
@@ -485,6 +488,20 @@ fun GameListFilterBar(
                         onClick = {
                             onFilterChangeNormalized(filter.copy(source = if (filter.source == source) null else source))
                         },
+                    )
+                }
+            }
+        }
+        val matchingLabels = allGames.flatMap { it.positionLabels }.toSet()
+        val positionLabels = (knownPositionLabels + matchingLabels).distinct().sorted()
+        if (positionLabels.isNotEmpty()) {
+            FilterAxisRow("局面ラベル") {
+                positionLabels.forEach { label ->
+                    FilterChipItem(
+                        label = AnnotatedString(label), selected = filter.positionLabel == label,
+                        testTag = "filter_position_label_$label",
+                        enabled = label in matchingLabels || filter.positionLabel == label,
+                        onClick = { onFilterChange(filter.copy(positionLabel = label.takeUnless { filter.positionLabel == it })) },
                     )
                 }
             }

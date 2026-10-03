@@ -33,6 +33,8 @@ class GameRepositoryTest {
         val edited = "$original\n*移行前のメモ"
         db.shogiSupplementQueries.updateStudyKif(edited, id)
         repo.updateUploadedAt(id, 100)
+        driver.execute(null, "DROP TABLE repertoire_outbox", 0)
+        driver.execute(null, "DROP TABLE repertoire_entry", 0)
         ShogiSupplementDatabase.Schema.migrate(driver, 19, ShogiSupplementDatabase.Schema.version)
         val snapshot = repo.getPendingStudyUploads().single()
         assertEquals(original, snapshot.expectedRemoteKif)
@@ -205,6 +207,8 @@ class GameRepositoryTest {
         driver.execute(null, "DROP TABLE analysis_sync_target", 0)
         driver.execute(null, "DROP TABLE analysis_delete_target", 0)
         driver.execute(null, "DROP TABLE analysis_remote_base", 0)
+        driver.execute(null, "DROP TABLE repertoire_outbox", 0)
+        driver.execute(null, "DROP TABLE repertoire_entry", 0)
         ShogiSupplementDatabase.Schema.migrate(driver, 20, ShogiSupplementDatabase.Schema.version)
         assertNull(database.analysisSyncGenerationQueries.getGeneration(id).executeAsOneOrNull())
         val generation = assertNotNull(repo.getAnalysisUploadSnapshot(id)?.generation)

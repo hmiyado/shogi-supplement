@@ -32,24 +32,32 @@ internal fun ReportTabRow(
     isEnabled: (ReportBodyMode) -> Boolean,
     modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(TabHeight)
-            .background(MaterialTheme.colorScheme.surface),
-    ) {
-        ReportBodyMode.entries.forEach { mode ->
-            val label = when (mode) {
+    BoardTabRow(
+        labels = ReportBodyMode.entries.map { mode ->
+            when (mode) {
                 ReportBodyMode.SUMMARY -> AppStrings.REPORT_TAB_SUMMARY
                 ReportBodyMode.LIST -> AppStrings.REPORT_TAB_BLUNDERS
                 ReportBodyMode.STUDY -> AppStrings.REPORT_TAB_STUDY
             }
-            IndicatorTab(
-                label = label,
-                isActive = active == mode,
-                enabled = isEnabled(mode),
-                onClick = { onSelect(mode) },
-            )
+        },
+        selected = active.ordinal,
+        onSelect = { onSelect(ReportBodyMode.entries[it]) },
+        isEnabled = { isEnabled(ReportBodyMode.entries[it]) },
+        modifier = modifier,
+    )
+}
+
+@Composable
+internal fun BoardTabRow(
+    labels: List<String>,
+    selected: Int,
+    onSelect: (Int) -> Unit,
+    isEnabled: (Int) -> Boolean = { true },
+    modifier: Modifier = Modifier,
+) {
+    Row(modifier.fillMaxWidth().height(TabHeight).background(MaterialTheme.colorScheme.surface)) {
+        labels.forEachIndexed { index, label ->
+            IndicatorTab(label, selected == index, isEnabled(index), { onSelect(index) })
         }
     }
 }

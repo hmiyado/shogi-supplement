@@ -1,0 +1,60 @@
+CREATE TABLE repertoire_entry (
+    owner TEXT NOT NULL,
+    id TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    revision INTEGER NOT NULL DEFAULT 1,
+    uploaded_revision INTEGER NOT NULL DEFAULT 0,
+    remote_version TEXT,
+    PRIMARY KEY(owner, id)
+);
+
+CREATE TABLE repertoire_outbox (
+    owner TEXT NOT NULL,
+    id TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    revision INTEGER NOT NULL,
+    remote_version TEXT,
+    upload_token TEXT NOT NULL,
+    PRIMARY KEY(owner, id),
+    FOREIGN KEY(owner, id) REFERENCES repertoire_entry(owner, id) ON DELETE CASCADE
+);
+
+entries:
+SELECT * FROM repertoire_entry WHERE owner = ? ORDER BY id;
+
+insertEntry:
+INSERT OR IGNORE INTO repertoire_entry(owner, id, kind, payload, revision) VALUES (?, ?, ?, ?, 0);
+
+updateEntry:
+UPDATE repertoire_entry SET kind = ?, payload = ?, revision = revision + 1 WHERE owner = ? AND id = ?;
+
+acknowledge:
+UPDATE repertoire_entry SET uploaded_revision = ?, remote_version = ?
+WHERE owner = ? AND id = ? AND revision >= ? AND uploaded_revision <= ?;
+
+insertRemote:
+INSERT OR IGNORE INTO repertoire_entry(owner, id, kind, payload, uploaded_revision, remote_version)
+VALUES (?, ?, ?, ?, 1, ?);
+
+updateRemote:
+UPDATE repertoire_entry SET kind = ?, payload = ?, remote_version = ?
+WHERE owner = ? AND id = ? AND revision = uploaded_revision;
+
+preparePending:
+INSERT OR IGNORE INTO repertoire_outbox(owner, id, kind, payload, revision, remote_version, upload_token)
+SELECT owner, id, kind, payload, revision, remote_version, lower(hex(randomblob(32))) FROM repertoire_entry
+WHERE owner = ? AND revision > uploaded_revision;
+
+pending:
+SELECT * FROM repertoire_outbox WHERE owner = ? ORDER BY id;
+
+removePending:
+DELETE FROM repertoire_outbox WHERE owner = ? AND id = ? AND revision = ?;
+
+clearOutbox:
+DELETE FROM repertoire_outbox;
+
+clearEntries:
+DELETE FROM repertoire_entry;

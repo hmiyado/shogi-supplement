@@ -13,6 +13,7 @@ data class SavedGameFilter(
     val timeControl: String? = null,
     /** nullは期間を指定しない条件。既定値30は期間項目がないJSONとの互換用。 */
     val periodDays: Int? = 30,
+    val positionLabel: String? = null,
 ) {
     /** 期間を除いた条件。期間比較の両側へ共通で適用する。 */
     fun conditionFilter(): GameListFilter = GameListFilter(
@@ -21,6 +22,7 @@ data class SavedGameFilter(
         result = result?.let { runCatching { GameResultFilter.valueOf(it) }.getOrNull() },
         openingStyle = openingStyle,
         timeControl = timeControl,
+        positionLabel = positionLabel,
     )
 
     /** 現在期間の絞り込み条件。 */
@@ -47,6 +49,7 @@ data class SavedGameFilter(
                 result = filter.result?.name,
                 openingStyle = filter.openingStyle,
                 timeControl = filter.timeControl,
+                positionLabel = filter.positionLabel,
                 periodDays = periodDays,
             )
         }

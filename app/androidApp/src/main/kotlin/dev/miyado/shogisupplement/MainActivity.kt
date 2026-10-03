@@ -1,5 +1,7 @@
 package dev.miyado.shogisupplement
 
+import dev.miyado.shogisupplement.repertoire.allPositionLabels
+
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -178,10 +180,22 @@ fun MainApp(vm: MainViewModel, state: MainUiState) {
                     onShare = { shareScreen(context, view) },
                 )
             }
+            MainUiState.Repertoire -> {
+                val owner by vm.repertoireOwner.collectAsState()
+                val repertoireEvalDisplay by vm.evalDisplay.collectAsState()
+                dev.miyado.shogisupplement.ui.repertoire.RepertoireScreen(
+                    vm.repertoireRepository, owner?.id, vm.repertoireSync, vm::createRepertoireEngine,
+                    onBack = { vm.loadHome() },
+                    evalDisplay = repertoireEvalDisplay,
+                )
+            }
             is MainUiState.GameList -> {
+                val labelOwner by vm.repertoireOwner.collectAsState()
+                androidx.compose.runtime.LaunchedEffect(labelOwner?.id) { vm.refreshPositionLabels() }
                 BackHandler { vm.loadHome() }
                 GameListScreen(
                     games = state.games,
+                    knownPositionLabels = labelOwner?.id?.let { vm.repertoireRepository.allPositionLabels(it) }.orEmpty(),
                     blunderCounts = state.blunderCounts,
                     pendingUploadCount = state.pendingUploadCount,
                     isUploading = state.isUploading,

@@ -303,6 +303,19 @@ class StudyController(
         applyMoves(s, s.displayLine.take(depth) + moveUsi)
     }
 
+    fun navigateToMoves(moves: List<String>) {
+        val state = _studyState.value ?: return
+        var tree = treesByOrigin[state.baseSfen] ?: return
+        var children = tree.rootChildren
+        for ((depth, move) in moves.withIndex()) {
+            val node = children.firstOrNull { it.moveUsi == move } ?: return
+            tree = tree.selectChild(moves.take(depth), node.id)
+            children = node.children
+        }
+        treesByOrigin[state.baseSfen] = tree
+        applyMoves(state.copy(displayLine = emptyList()), moves)
+    }
+
     fun onBranchNodeSelected(depth: Int, nodeId: Long) {
         if (depth < 0) return
         val state = _studyState.value ?: return

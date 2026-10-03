@@ -21,6 +21,18 @@ import kotlin.test.assertTrue
 /** 検討木の永続化・分岐操作を保証する。 */
 @OptIn(ExperimentalCoroutinesApi::class)
 class StudyControllerTest {
+    @Test fun labelNavigationSelectsBranchAndSupportsBackAndForward() {
+        val (controller, _) = newController()
+        val tree = StudyTree(rootChildren = listOf(StudyNode(1, "7g7f"), StudyNode(2, "2g2f", children = listOf(StudyNode(3, "3c3d")))))
+        controller.startStudy(startSfen, false, false, 0, null, 0, noOrigin, initialTree = tree)
+        controller.navigateToMoves(listOf("2g2f", "3c3d"))
+        assertEquals(listOf("2g2f", "3c3d"), controller.studyState.value!!.moves)
+        controller.studyStepBack()
+        controller.onChipTapped(2)
+        assertEquals(3L, controller.studyState.value!!.nodeId)
+        controller.dispose()
+    }
+
     @Test
     fun `同じ指し手の兄弟へ移動しても遅延解析は元のノードへ反映する`() {
         val engine = FakeEngine(score = Score.Cp(50))

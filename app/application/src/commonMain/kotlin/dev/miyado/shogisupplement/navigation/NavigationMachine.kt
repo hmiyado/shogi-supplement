@@ -9,6 +9,7 @@ enum class NavigationGroup(val label: String) {
 
 enum class AppDestination(val label: String, val group: NavigationGroup, val isError: Boolean = false) {
     HOME("ホーム", NavigationGroup.MAIN),
+    REPERTOIRE("定跡手順", NavigationGroup.MAIN),
     GAME_LIST("棋譜一覧", NavigationGroup.MAIN),
     REPORT("レポート", NavigationGroup.MAIN),
     ANALYZING("解析中", NavigationGroup.MAIN),
@@ -71,7 +72,7 @@ object NavigationMachine {
         open(AppDestination.HOME,
             AppDestination.GAME_LIST, AppDestination.REPORT, AppDestination.ANALYZING,
             AppDestination.DRILL, AppDestination.SETTINGS, AppDestination.MANUAL_KIFU,
-            AppDestination.STRENGTH_DETAIL, AppDestination.DRILL_RECORD_DETAIL)
+            AppDestination.STRENGTH_DETAIL, AppDestination.DRILL_RECORD_DETAIL, AppDestination.REPERTOIRE)
         open(AppDestination.GAME_LIST, AppDestination.REPORT, AppDestination.ANALYZING)
         open(AppDestination.KENTO_INPUT, AppDestination.REPORT, AppDestination.KENTO_LIBRARY)
         open(AppDestination.KENTO_LIBRARY, AppDestination.REPORT)
@@ -84,7 +85,7 @@ object NavigationMachine {
         }
         listOf(AppDestination.GAME_LIST, AppDestination.REPORT, AppDestination.ANALYZING,
             AppDestination.DRILL, AppDestination.SETTINGS, AppDestination.MANUAL_KIFU, AppDestination.GAME_RESTORE,
-            AppDestination.STRENGTH_DETAIL, AppDestination.DRILL_RECORD_DETAIL).forEach {
+            AppDestination.STRENGTH_DETAIL, AppDestination.DRILL_RECORD_DETAIL, AppDestination.REPERTOIRE).forEach {
             event(it, NavigationEvent.Back, AppDestination.HOME)
         }
         listOf(AppDestination.HOME, AppDestination.MANUAL_KIFU, AppDestination.REPORT, AppDestination.KENTO_INPUT).forEach {

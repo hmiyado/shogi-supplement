@@ -1,5 +1,6 @@
 package dev.miyado.shogisupplement.ui
 
+import dev.miyado.shogisupplement.repertoire.labelledGames
 import dev.miyado.shogisupplement.navigation.NavigationEvent
 import dev.miyado.shogisupplement.navigation.NavigationMachine
 
@@ -215,6 +216,37 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         navigateTo(MainUiState.Licenses)
     }
 
+    val repertoireRepository by lazy { AppDatabase.repertoireRepository(app) }
+    val repertoireOwner get() = app.authRepository.currentUser
+    val repertoireSync by lazy {
+        dev.miyado.shogisupplement.repertoire.RepertoireSync(repertoireRepository, app.repertoireRemote) {
+            app.authRepository.currentUser.value?.id
+        }
+    }
+    suspend fun refreshPositionLabels() {
+        val owner = app.authRepository.currentUser.value?.id
+        suspend fun refresh() {
+            val current = _state.value as? MainUiState.GameList ?: return
+            val games = withContext(Dispatchers.IO) {
+                if (owner == null) current.games.map { it.copy(positionLabels = emptySet()) }
+                else repertoireRepository.labelledGames(owner, current.games)
+            }
+            if (_state.value === current && app.authRepository.currentUser.value?.id == owner) _state.value = current.copy(games = games)
+        }
+        refresh()
+        if (owner == null) return
+        try { repertoireSync.synchronize() }
+        catch (e: kotlinx.coroutines.CancellationException) { throw e }
+        catch (_: Exception) { return }
+        refresh()
+    }
+
+    fun openRepertoire() = navigateTo(MainUiState.Repertoire)
+    suspend fun createRepertoireEngine(): dev.miyado.shogisupplement.engine.StudyEngine =
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            dev.miyado.shogisupplement.engine.BlockingStudyEngine(createEngine(), kotlinx.coroutines.Dispatchers.IO)
+        }
+
     /** 設定画面に遷移する。 */
     fun openSettings() {
         navigateTo(MainUiState.Settings)
@@ -275,7 +307,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private suspend fun reloadGameList() {
-        val games = withContext(Dispatchers.IO) { gameRepository.getAllGames() }
+        val games = withContext(Dispatchers.IO) {
+            val all = gameRepository.getAllGames()
+            app.authRepository.currentUser.value?.id?.let { repertoireRepository.labelledGames(it, all) } ?: all
+        }
         val blunderCounts = withContext(Dispatchers.IO) { gameRepository.getBlunderCounts() }
         val isLoggedIn = app.authRepository.currentUser.value != null
         val pendingCount = if (isLoggedIn) {

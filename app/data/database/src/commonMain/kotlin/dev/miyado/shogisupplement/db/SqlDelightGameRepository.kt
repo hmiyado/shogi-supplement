@@ -614,6 +614,8 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
 
     override fun deleteAllLocalData() {
         database.transaction {
+            database.repertoireQueries.clearOutbox()
+            database.repertoireQueries.clearEntries()
             database.analysisSyncGenerationQueries.deleteAllGenerations()
             database.analysisSyncTargetQueries.deleteAllTargets()
             database.analysisDeleteTargetQueries.deleteAllTargets()

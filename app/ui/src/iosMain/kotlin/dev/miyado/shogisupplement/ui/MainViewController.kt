@@ -1,5 +1,7 @@
 package dev.miyado.shogisupplement.ui
 
+import dev.miyado.shogisupplement.repertoire.allPositionLabels
+import dev.miyado.shogisupplement.repertoire.labelledGames
 import dev.miyado.shogisupplement.navigation.AppDestination
 import dev.miyado.shogisupplement.navigation.NavigationEvent
 import dev.miyado.shogisupplement.navigation.NavigationMachine
@@ -282,6 +284,7 @@ private sealed class DemoRoute {
     object Account : DemoRoute()
     object TransferCode : DemoRoute()
     object GameList : DemoRoute()
+    object Repertoire : DemoRoute()
     object ManualKifu : DemoRoute()
     object Debug : DemoRoute()
     /** 推定棋力詳細画面（ホーム画面の推定棋力カードタップで遷移）。 */
@@ -303,6 +306,7 @@ private val DemoRoute.destination: AppDestination
         DemoRoute.Account -> AppDestination.ACCOUNT
         DemoRoute.TransferCode -> AppDestination.TRANSFER_CODE
         DemoRoute.GameList -> AppDestination.GAME_LIST
+        DemoRoute.Repertoire -> AppDestination.REPERTOIRE
         DemoRoute.ManualKifu -> AppDestination.MANUAL_KIFU
         DemoRoute.Debug -> AppDestination.DEBUG
         is DemoRoute.StrengthDetail -> AppDestination.STRENGTH_DETAIL
@@ -483,8 +487,14 @@ private fun DemoApp(
                     CircularProgressIndicator()
                 }
             } else {
+                val labelOwner = supabaseServices?.authRepository?.currentUser?.collectAsState()?.value?.id
+                val labelRepo = remember { DatabaseFactory.repertoireRepository() }
+                val labelSync = remember(supabaseServices) { supabaseServices?.let { srv ->
+                    dev.miyado.shogisupplement.repertoire.RepertoireSync(labelRepo, srv.repertoireRemote) { srv.authRepository.currentUser.value?.id }
+                } }
+                val labelledHomeGames = dev.miyado.shogisupplement.ui.repertoire.rememberLabelledGames(data.games, labelRepo, labelOwner, labelSync)
                 HomeScreen(
-                    pastGames = data.games,
+                    pastGames = labelledHomeGames,
                     strengthCard = data.strengthCard,
                     todaysDrillHint = data.todaysDrillHint,
                     drillRecordCard = data.drillRecordCard,
@@ -494,6 +504,7 @@ private fun DemoApp(
                     onAnalyzingClick = { session -> controller.resumeAnalyzing(session.id) },
                     onStartDrill = { navigate(DemoRoute.Drill) },
                     onOpenSettings = { navigate(DemoRoute.Settings) },
+                    onOpenRepertoire = { navigate(DemoRoute.Repertoire) },
                     onViewAllGames = { navigate(DemoRoute.GameList) },
                     onOpenStrengthHelp = { openUrl(IOS_HELP_STRENGTH_URL) },
                     onOpenDrillRecordDetail = {
@@ -510,6 +521,18 @@ private fun DemoApp(
                     },
                 )
             }
+        }
+        DemoRoute.Repertoire -> {
+            val repo = remember { DatabaseFactory.repertoireRepository() }
+            val owner = supabaseServices?.authRepository?.currentUser?.collectAsState()?.value?.id
+            val sync = remember(supabaseServices) { supabaseServices?.let { services ->
+                dev.miyado.shogisupplement.repertoire.RepertoireSync(repo, services.repertoireRemote) {
+                    services.authRepository.currentUser.value?.id
+                }
+            } }
+            dev.miyado.shogisupplement.ui.repertoire.RepertoireScreen(repo, owner, sync,
+                controller::createRepertoireEngine, onBack = { navigate(DemoRoute.Home, NavigationEvent.Back) },
+                evalDisplay = controller.evalDisplay.collectAsState().value)
         }
         DemoRoute.ManualKifu -> {
             // route切替をsave直後ではなく保存確定後（Analyzing/Reportへの遷移）に遅らせる
@@ -553,6 +576,7 @@ private fun DemoApp(
         }
         is DemoRoute.Report -> {
             IosReportScreenHost(
+                services = supabaseServices,
                 gameId = r.gameId,
                 justCompleted = r.justCompleted,
                 controller = controller,
@@ -691,8 +715,24 @@ private fun IosGameListScreenHost(
     var uploadResult by remember { mutableStateOf<String?>(null) }
     var savedFilters by remember { mutableStateOf(settingsRepository.getSavedGameFilters()) }
 
+    val labelOwner = services?.authRepository?.currentUser?.collectAsState()?.value?.id
+    var labelled by remember(games, labelOwner) { mutableStateOf(games) }
+    LaunchedEffect(games, labelOwner) {
+        if (labelOwner != null && services != null) {
+            try {
+                dev.miyado.shogisupplement.repertoire.RepertoireSync(DatabaseFactory.repertoireRepository(), services.repertoireRemote) {
+                    services.authRepository.currentUser.value?.id
+                }.synchronize()
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+            catch (_: Exception) { }
+        }
+        labelled = kotlinx.coroutines.withContext(dev.miyado.shogisupplement.ui.common.defaultIoDispatcher) {
+            labelOwner?.let { DatabaseFactory.repertoireRepository().labelledGames(it, games) } ?: games
+        }
+    }
     GameListScreen(
-        games = games,
+        games = labelled,
+        knownPositionLabels = labelOwner?.let { DatabaseFactory.repertoireRepository().allPositionLabels(it) }.orEmpty(),
         blunderCounts = remember { repository.getBlunderCounts() },
         pendingUploadCount = pendingUploadCount,
         isUploading = isUploading,
@@ -860,6 +900,7 @@ private fun UserSideOptionRow(selected: Boolean, label: String, onClick: () -> U
 
 @Composable
 private fun IosReportScreenHost(
+    services: SupabaseServices?,
     gameId: Long,
     controller: IosMainController,
     onBack: () -> Unit,
@@ -893,7 +934,16 @@ private fun IosReportScreenHost(
     val pvExtState by controller.pvExtState.collectAsState()
     val studyState by controller.studyState.collectAsState()
 
+    val repertoireOwner = services?.authRepository?.currentUser?.collectAsState()?.value?.id
+    val repertoireRepo = remember { DatabaseFactory.repertoireRepository() }
+    val repertoireSync = remember(services) { services?.let { srv ->
+        dev.miyado.shogisupplement.repertoire.RepertoireSync(repertoireRepo, srv.repertoireRemote) { srv.authRepository.currentUser.value?.id }
+    } }
     ReportScreen(
+        positionActions = repertoireOwner?.let { owner ->
+            { base, moves -> dev.miyado.shogisupplement.ui.repertoire.RepertoirePositionActions(
+                repertoireRepo, owner, repertoireSync, base, moves) }
+        },
         game = g,
         reports = current.reports,
         flip = current.flip,

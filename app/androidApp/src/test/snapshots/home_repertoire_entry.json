@@ -1,0 +1,10 @@
+{
+  "kind": "screen",
+  "kindLabel": "画面",
+  "category": "home",
+  "categoryLabel": "ホーム",
+  "screen": "home",
+  "screenLabel": "ホーム",
+  "state": "repertoire",
+  "stateLabel": "定跡手順の入口"
+}

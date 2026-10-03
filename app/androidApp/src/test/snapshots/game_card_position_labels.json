@@ -1,0 +1,10 @@
+{
+  "kind": "screen",
+  "kindLabel": "画面",
+  "category": "repertoire",
+  "categoryLabel": "定跡",
+  "screen": "game-card",
+  "screenLabel": "局面ラベル付き棋譜カード",
+  "state": "default",
+  "stateLabel": "標準状態"
+}

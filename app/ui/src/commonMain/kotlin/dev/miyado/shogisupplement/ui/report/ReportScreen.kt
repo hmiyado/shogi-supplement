@@ -122,7 +122,9 @@ fun ReportScreen(
     initialShowGameInfoDialog: Boolean = false,
     initialBodyModeList: Boolean = false,
     justCompleted: Boolean = false,
+    positionActions: (@Composable (String, List<String>) -> Unit)? = null,
 ) {
+    var showPositionActions by remember(game.id) { mutableStateOf(false) }
     var pendingDiscard by remember(game.id) { mutableStateOf<(() -> Unit)?>(null) }
     fun guarded(action: () -> Unit) {
         if (hasUnsavedStudy?.invoke() == true) pendingDiscard = action else action()
@@ -212,6 +214,12 @@ fun ReportScreen(
         }
     }
 
+    if (showPositionActions && positionActions != null) {
+        androidx.compose.material3.ModalBottomSheet(onDismissRequest = { showPositionActions = false }) {
+            positionActions(studyState?.baseSfen ?: startSfen ?: dev.miyado.shogisupplement.board.ShogiBoard().toSfen(),
+                studyState?.moves ?: movesInMode.take(plyIndex.coerceIn(0, movesInMode.size)))
+        }
+    }
     val maxPly = movesInMode.size
     val clampedPly = plyIndex.coerceIn(0, maxPly)
 
@@ -315,6 +323,7 @@ fun ReportScreen(
                     },
                     onDeleteClick = if (canDelete) { { showDeleteDialog = true } } else null,
                     onShareClick = onShare,
+                    onPositionClick = if (positionActions != null) ({ showPositionActions = true }) else null,
                 )
 
                 val studyCurrentSfen = remember(studyState) {

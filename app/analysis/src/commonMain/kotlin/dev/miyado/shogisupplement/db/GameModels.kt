@@ -62,6 +62,7 @@ data class GameRecord(
     val engineMetaJson: String? = null,
     /** 保存済み検討文書。取込原文とは区別し、バックアップ時は暗号化対象にのみ含める。 */
     val studyKif: String? = null,
+    val positionLabels: Set<String> = emptySet(),
 )
 
 /** 悪手レポートのドメインモデル（UI用）。 */

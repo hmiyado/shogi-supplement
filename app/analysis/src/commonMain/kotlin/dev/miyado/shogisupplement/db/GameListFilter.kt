@@ -29,10 +29,11 @@ data class GameListFilter(
     val openingStyle: String? = null,
     /** 持ち時間の表示文字列（[timeControlDisplayText]の値）。[TIME_CONTROL_OTHER]なら判定表に無いものすべて。 */
     val timeControl: String? = null,
+    val positionLabel: String? = null,
 ) {
     /** 指定された絞り込み軸の数を返す。 */
     val activeCount: Int
-        get() = listOfNotNull(source, userSide, openingStyle, timeControl, result, dateFrom).size
+        get() = listOfNotNull(positionLabel, source, userSide, openingStyle, timeControl, result, dateFrom).size
 
     val isActive: Boolean
         get() = activeCount > 0
@@ -42,6 +43,7 @@ data class GameListFilter(
 fun List<GameRecord>.filterGames(filter: GameListFilter): List<GameRecord> {
     if (!filter.isActive) return this
     return filter { game ->
+        (filter.positionLabel == null || filter.positionLabel in game.positionLabels) &&
         matchesSource(game, filter.source) &&
             matchesUserSide(game, filter.userSide) &&
             matchesOpeningStyle(game, filter.openingStyle) &&

@@ -60,6 +60,10 @@ class ShogiApp : Application() {
         AndroidTransferSecretStore(this)
     }
 
+    val repertoireRemote by lazy {
+        dev.miyado.shogisupplement.repertoire.SupabaseRepertoireRemote(supabaseClient, transferSecretStore)
+    }
+
     /** アップロードリポジトリのシングルトン。 */
     val uploadRepository: UploadRepository by lazy {
         SupabaseUploadRepository(supabaseClient, transferSecretStore)

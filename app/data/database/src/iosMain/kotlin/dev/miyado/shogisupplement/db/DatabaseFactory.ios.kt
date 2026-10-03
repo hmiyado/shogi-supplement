@@ -25,6 +25,9 @@ object DatabaseFactory {
     fun settingsRepository(): SettingsRepository =
         settingsRepositoryInstance ?: SqlDelightSettingsRepository(getDatabase()).also { settingsRepositoryInstance = it }
 
+    fun repertoireRepository(): dev.miyado.shogisupplement.repertoire.RepertoireRepository =
+        SqlDelightRepertoireRepository(getDatabase())
+
     private fun getDatabase(): ShogiSupplementDatabase {
         return database ?: createDatabase().also { database = it }
     }

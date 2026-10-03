@@ -3,6 +3,8 @@ package dev.miyado.shogisupplement
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import dev.miyado.shogisupplement.ui.LegalLinks
 import dev.miyado.shogisupplement.ui.MainUiState
@@ -17,8 +19,10 @@ fun HomeHost(
     onOpenKif: () -> Unit,
 ) {
     val context = LocalContext.current
+    val owner by vm.repertoireOwner.collectAsState()
+    val games = dev.miyado.shogisupplement.ui.repertoire.rememberLabelledGames(state.pastGames, vm.repertoireRepository, owner?.id, vm.repertoireSync)
     HomeScreen(
-        pastGames = state.pastGames,
+        pastGames = games,
         isLoggedIn = state.isLoggedIn,
         strengthCard = state.strengthCard,
         todaysDrillHint = state.todaysDrillHint,
@@ -29,6 +33,7 @@ fun HomeHost(
         onAnalyzingClick = { session -> vm.resumeAnalyzing(session.id) },
         onStartDrill = { vm.startDrill() },
         onOpenSettings = { vm.openSettings() },
+        onOpenRepertoire = vm::openRepertoire,
         onViewAllGames = { vm.openGameList() },
         onOpenStrengthHelp = {
             // 推定棋力の説明はWebヘルプの該当節へ直接遷移（アプリ内ヘルプ画面は廃止しWebに統一）

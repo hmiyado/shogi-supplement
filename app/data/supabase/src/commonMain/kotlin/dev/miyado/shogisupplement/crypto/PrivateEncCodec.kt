@@ -12,20 +12,27 @@ object PrivateEncCodec {
     const val VERSION: Byte = 1
 
     suspend fun encrypt(kEnc: ByteArray, fields: PrivateKifuFields, aad: ByteArray): ByteArray {
+        return encryptBytes(kEnc, fields.toJson().encodeToByteArray(), aad)
+    }
+
+    suspend fun encryptBytes(kEnc: ByteArray, plaintext: ByteArray, aad: ByteArray): ByteArray {
         val cipher = aesGcmCipher(kEnc)
-        val plaintext = fields.toJson().encodeToByteArray()
         val nonceAndCiphertext = cipher.encrypt(plaintext = plaintext, associatedData = aad)
         return byteArrayOf(VERSION) + nonceAndCiphertext
     }
 
     suspend fun decrypt(kEnc: ByteArray, blob: ByteArray, aad: ByteArray): PrivateKifuFields {
+        return PrivateKifuFields.fromJson(decryptBytes(kEnc, blob, aad).decodeToString())
+    }
+
+    suspend fun decryptBytes(kEnc: ByteArray, blob: ByteArray, aad: ByteArray): ByteArray {
         require(blob.isNotEmpty()) { "private_encが空です" }
         val version = blob[0]
         require(version == VERSION) { "未対応のprivate_enc形式バージョン: $version" }
         val cipher = aesGcmCipher(kEnc)
         val nonceAndCiphertext = blob.copyOfRange(1, blob.size)
         val plaintext = cipher.decrypt(ciphertext = nonceAndCiphertext, associatedData = aad)
-        return PrivateKifuFields.fromJson(plaintext.decodeToString())
+        return plaintext
     }
 
     /**
