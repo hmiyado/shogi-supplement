@@ -1,0 +1,13 @@
+<!doctype html><meta charset="utf-8"><title>Study capability probe</title><pre id="result"></pre><script>
+(async()=>{
+ if(location.pathname.startsWith('/sw/')&&navigator.serviceWorker&&!navigator.serviceWorker.controller){
+  await navigator.serviceWorker.register('/sw/sw.js');await navigator.serviceWorker.ready;
+  await new Promise(resolve=>{if(navigator.serviceWorker.controller)resolve();else navigator.serviceWorker.addEventListener('controllerchange',resolve,{once:true});});location.reload();return;
+ }
+ let sharedMemory=false,error=null;
+ try{sharedMemory=new WebAssembly.Memory({initial:1,maximum:1,shared:true}).buffer instanceof SharedArrayBuffer;}catch(e){error=String(e);}
+ const result={url:location.href,userAgent:navigator.userAgent,secure:isSecureContext,isolated:crossOriginIsolated,sab:typeof SharedArrayBuffer!=='undefined',sharedMemory,serviceWorker:'serviceWorker' in navigator,controlled:!!navigator.serviceWorker?.controller,error};
+ window.probeResult=result;document.getElementById('result').textContent=JSON.stringify(result);
+ window.webkit?.messageHandlers.probe.postMessage(result);
+})().catch(e=>{window.probeResult={error:String(e)};window.webkit?.messageHandlers.probe.postMessage(window.probeResult);});
+</script>

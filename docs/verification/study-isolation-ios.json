@@ -1,0 +1,67 @@
+[
+  {
+    "controlled": false,
+    "error": "ReferenceError: Can't find variable: SharedArrayBuffer",
+    "isolated": false,
+    "requestedURL": "kento://local/plain/",
+    "sab": false,
+    "secure": true,
+    "serviceWorker": false,
+    "sharedMemory": false,
+    "systemVersion": "26.5",
+    "url": "kento://local/plain/",
+    "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148"
+  },
+  {
+    "controlled": false,
+    "error": "ReferenceError: Can't find variable: SharedArrayBuffer",
+    "isolated": false,
+    "requestedURL": "kento://local/headers/",
+    "sab": false,
+    "secure": true,
+    "serviceWorker": false,
+    "sharedMemory": false,
+    "systemVersion": "26.5",
+    "url": "kento://local/headers/",
+    "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148"
+  },
+  {
+    "controlled": false,
+    "error": "ReferenceError: Can't find variable: SharedArrayBuffer",
+    "isolated": false,
+    "requestedURL": "http://127.0.0.1:4178/plain/",
+    "sab": false,
+    "secure": true,
+    "serviceWorker": false,
+    "sharedMemory": false,
+    "systemVersion": "26.5",
+    "url": "http://127.0.0.1:4178/plain/",
+    "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148"
+  },
+  {
+    "controlled": false,
+    "error": null,
+    "isolated": true,
+    "requestedURL": "http://127.0.0.1:4178/headers/",
+    "sab": true,
+    "secure": true,
+    "serviceWorker": false,
+    "sharedMemory": true,
+    "systemVersion": "26.5",
+    "url": "http://127.0.0.1:4178/headers/",
+    "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148"
+  },
+  {
+    "controlled": false,
+    "error": "ReferenceError: Can't find variable: SharedArrayBuffer",
+    "isolated": false,
+    "requestedURL": "http://127.0.0.1:4178/sw/",
+    "sab": false,
+    "secure": true,
+    "serviceWorker": false,
+    "sharedMemory": false,
+    "systemVersion": "26.5",
+    "url": "http://127.0.0.1:4178/sw/",
+    "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148"
+  }
+]
