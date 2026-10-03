@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675">
+  <rect width="1200" height="675" fill="#F7F3EA"/>
+  <rect width="12" height="675" fill="#3A4B7C"/>
+  <text x="64" y="84" font-family="Shippori Mincho" font-size="36" fill="#211E1A">将棋サプリ</text>
+  <text x="908" y="80" font-family="IBM Plex Mono" font-size="24" fill="#3A4B7C">UPDATE 1.14</text>
+  <text x="64" y="196" font-family="Shippori Mincho" font-size="40" fill="#211E1A">並べた分岐を、</text>
+  <text x="64" y="254" font-family="Shippori Mincho" font-size="40" fill="#211E1A">あとから振り返る。</text>
+  <rect x="64" y="308" width="508" height="144" rx="12" fill="#FFFDF7" stroke="#DDD5C4"/>
+  <text x="88" y="352" font-family="Shippori Mincho" font-size="29" fill="#211E1A">検討内容の保存</text>
+  <text x="88" y="394" font-family="IBM Plex Sans JP" font-size="23" fill="#5C564C">検討で並べた分岐を自動保存。</text>
+  <text x="88" y="430" font-family="IBM Plex Sans JP" font-size="23" fill="#5C564C">あとから振り返れます。</text>
+  <rect x="64" y="476" width="508" height="144" rx="12" fill="#FFFDF7" stroke="#DDD5C4"/>
+  <text x="88" y="520" font-family="Shippori Mincho" font-size="29" fill="#211E1A">棋譜の再解析</text>
+  <text x="88" y="562" font-family="IBM Plex Sans JP" font-size="23" fill="#5C564C">保存済みの棋譜を、</text>
+  <text x="88" y="598" font-family="IBM Plex Sans JP" font-size="23" fill="#5C564C">もう一度解析できます。</text>
+  <text x="624" y="130" font-family="IBM Plex Sans JP" font-size="20" fill="#5C564C">検討画面（抜粋）</text>
+  <image x="624" y="148" width="528" height="484" href="release-1.14-study.png"/>
+</svg>
