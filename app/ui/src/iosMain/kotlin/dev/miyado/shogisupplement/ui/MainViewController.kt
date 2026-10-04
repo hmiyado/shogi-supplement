@@ -756,8 +756,7 @@ private fun IosGameListScreenHost(
     var savedFilters by remember { mutableStateOf(settingsRepository.getSavedGameFilters()) }
 
     val labelOwner = services?.authRepository?.currentUser?.collectAsState()?.value?.id
-    var labelled by remember(games, labelOwner) { mutableStateOf<List<GameRecord>?>(null) }
-    LaunchedEffect(games, labelOwner) {
+    dev.miyado.shogisupplement.ui.gamelist.LabelledGamesContent(games, labelOwner, load = {
         if (labelOwner != null && services != null) {
             try {
                 dev.miyado.shogisupplement.repertoire.RepertoireSync(DatabaseFactory.repertoireRepository(), services.repertoireRemote) {
@@ -766,64 +765,58 @@ private fun IosGameListScreenHost(
             } catch (e: kotlinx.coroutines.CancellationException) { throw e }
             catch (_: Exception) { }
         }
-        labelled = kotlinx.coroutines.withContext(dev.miyado.shogisupplement.ui.common.defaultIoDispatcher) {
+        kotlinx.coroutines.withContext(dev.miyado.shogisupplement.ui.common.defaultIoDispatcher) {
             labelOwner?.let { DatabaseFactory.repertoireRepository().labelledGames(it, games) } ?: games
         }
-    }
-    val readyGames = labelled
-    if (readyGames == null) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator()
-        }
-        return
-    }
-    GameListScreen(
-        games = readyGames,
-        onAddGame = onAddGame,
-        knownPositionLabels = labelOwner?.let { DatabaseFactory.repertoireRepository().allPositionLabels(it) }.orEmpty(),
-        blunderCounts = remember { repository.getBlunderCounts() },
-        pendingUploadCount = pendingUploadCount,
-        isUploading = isUploading,
-        uploadResult = uploadResult,
-        savedFilters = savedFilters,
-        onSaveFilter = { filter ->
-            settingsRepository.saveGameFilter(filter)
-            savedFilters = settingsRepository.getSavedGameFilters()
-        },
-        onDeleteSavedFilter = { name ->
-            settingsRepository.deleteGameFilter(name)
-            savedFilters = settingsRepository.getSavedGameFilters()
-        },
-        onBack = null,
-        onGameClick = onGameClick,
-        onDeleteGame = { game, deleteServer, onResult ->
-            scope.launch {
-                val outcome = controller.deleteGame(game, deleteServer)
-                if (outcome == DeleteGameOutcome.Success) {
-                    // ホーム側の再読込完了を待ってからonResultを返す（連続削除時、投げっぱなしだと
-                    // 完了順序が保証されず、削除済みの棋譜がホームに残って見えることがある）。
-                    games = repository.getAllGames()
-                    pendingUploadCount = if (isLoggedIn) repository.getNotUploadedGames().size else 0
-                    controller.reloadHomeAndWait()
-                }
-                onResult(outcome)
-            }
-        },
-        onUpload = {
-            val orchestrator = services?.uploadOrchestrator
-            if (orchestrator != null && !isUploading) {
-                isUploading = true
-                uploadResult = null
+    }) { readyGames ->
+        GameListScreen(
+            games = readyGames,
+            onAddGame = onAddGame,
+            knownPositionLabels = labelOwner?.let { DatabaseFactory.repertoireRepository().allPositionLabels(it) }.orEmpty(),
+            blunderCounts = remember { repository.getBlunderCounts() },
+            pendingUploadCount = pendingUploadCount,
+            isUploading = isUploading,
+            uploadResult = uploadResult,
+            savedFilters = savedFilters,
+            onSaveFilter = { filter ->
+                settingsRepository.saveGameFilter(filter)
+                savedFilters = settingsRepository.getSavedGameFilters()
+            },
+            onDeleteSavedFilter = { name ->
+                settingsRepository.deleteGameFilter(name)
+                savedFilters = settingsRepository.getSavedGameFilters()
+            },
+            onBack = null,
+            onGameClick = onGameClick,
+            onDeleteGame = { game, deleteServer, onResult ->
                 scope.launch {
-                    val result = orchestrator.uploadAll()
-                    games = repository.getAllGames()
-                    pendingUploadCount = repository.getNotUploadedGames().size
-                    isUploading = false
-                    uploadResult = result.resultMessage()
+                    val outcome = controller.deleteGame(game, deleteServer)
+                    if (outcome == DeleteGameOutcome.Success) {
+                        // ホーム側の再読込完了を待ってからonResultを返す（連続削除時、投げっぱなしだと
+                        // 完了順序が保証されず、削除済みの棋譜がホームに残って見えることがある）。
+                        games = repository.getAllGames()
+                        pendingUploadCount = if (isLoggedIn) repository.getNotUploadedGames().size else 0
+                        controller.reloadHomeAndWait()
+                    }
+                    onResult(outcome)
                 }
-            }
-        },
-    )
+            },
+            onUpload = {
+                val orchestrator = services?.uploadOrchestrator
+                if (orchestrator != null && !isUploading) {
+                    isUploading = true
+                    uploadResult = null
+                    scope.launch {
+                        val result = orchestrator.uploadAll()
+                        games = repository.getAllGames()
+                        pendingUploadCount = repository.getNotUploadedGames().size
+                        isUploading = false
+                        uploadResult = result.resultMessage()
+                    }
+                }
+            },
+        )
+    }
 }
 
 /**

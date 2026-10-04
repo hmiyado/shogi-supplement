@@ -1,5 +1,9 @@
 package dev.miyado.shogisupplement.ui
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.onNodeWithText
+import org.junit.Assert.assertTrue
 import androidx.compose.material3.Surface
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
@@ -109,6 +113,31 @@ class GameListScreenScreenshotTest {
             coefVersion = "hao_v1",
         ),
     )
+
+    @Test fun labelsAreReadyBeforeTheFirstCardAndStaleOwnersCannotPublish() {
+        val first = kotlinx.coroutines.CompletableDeferred<List<dev.miyado.shogisupplement.db.GameRecord>>()
+        val second = kotlinx.coroutines.CompletableDeferred<List<dev.miyado.shogisupplement.db.GameRecord>>()
+        var owner by androidx.compose.runtime.mutableStateOf("first")
+        val games = gamesWithFullData()
+        val shown = mutableListOf<List<dev.miyado.shogisupplement.db.GameRecord>>()
+        composeRule.setContent { ShogiTheme {
+            dev.miyado.shogisupplement.ui.gamelist.LabelledGamesContent(games, owner,
+                load = { if (owner == "first") first.await() else second.await() }) { ready ->
+                androidx.compose.runtime.SideEffect { shown.add(ready) }
+                androidx.compose.material3.Text(ready.first().positionLabels.single())
+            }
+        } }
+        composeRule.onNodeWithTag("games_loading").assertExists()
+        composeRule.runOnIdle { assertTrue(shown.isEmpty()); owner = "second" }
+        composeRule.waitForIdle()
+        composeRule.runOnIdle { first.complete(games.map { it.copy(positionLabels = setOf("古いラベル")) }) }
+        composeRule.onNodeWithTag("games_loading").assertExists()
+        composeRule.onNodeWithText("古いラベル").assertDoesNotExist()
+        composeRule.runOnIdle { second.complete(games.map { it.copy(positionLabels = setOf("完成したラベル")) }) }
+        composeRule.onNodeWithText("完成したラベル").assertIsDisplayed()
+        composeRule.onNodeWithTag("games_loading").assertDoesNotExist()
+        composeRule.runOnIdle { assertTrue(shown.isNotEmpty()); assertTrue(shown.all { rows -> rows.all { it.positionLabels == setOf("完成したラベル") } }) }
+    }
 
     @Test
     fun tabSwitchPreservesAppliedFilter() {
