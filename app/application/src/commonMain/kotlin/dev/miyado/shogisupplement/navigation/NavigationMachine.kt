@@ -9,7 +9,9 @@ enum class NavigationGroup(val label: String) {
 
 enum class AppDestination(val label: String, val group: NavigationGroup, val isError: Boolean = false) {
     HOME("ホーム", NavigationGroup.MAIN),
-    REPERTOIRE("定跡手順", NavigationGroup.MAIN),
+    REPERTOIRE("定跡一覧", NavigationGroup.MAIN),
+    REPERTOIRE_STUDY("定跡", NavigationGroup.MAIN),
+    REPERTOIRE_INITIAL_POSITION("初期局面を作成", NavigationGroup.MAIN),
     GAME_LIST("棋譜一覧", NavigationGroup.MAIN),
     REPORT("レポート", NavigationGroup.MAIN),
     ANALYZING("解析中", NavigationGroup.MAIN),
@@ -83,6 +85,10 @@ object NavigationMachine {
             AppDestination.GAME_LIST, AppDestination.REPORT, AppDestination.ANALYZING,
             AppDestination.DRILL, AppDestination.SETTINGS, AppDestination.MANUAL_KIFU,
             AppDestination.STRENGTH_DETAIL, AppDestination.DRILL_RECORD_DETAIL, AppDestination.REPERTOIRE)
+        open(AppDestination.REPERTOIRE, AppDestination.REPERTOIRE_STUDY)
+        event(AppDestination.REPERTOIRE_STUDY, NavigationEvent.Back, AppDestination.REPERTOIRE)
+        open(AppDestination.REPERTOIRE_STUDY, AppDestination.REPERTOIRE_INITIAL_POSITION)
+        event(AppDestination.REPERTOIRE_INITIAL_POSITION, NavigationEvent.Back, AppDestination.REPERTOIRE_STUDY)
         open(AppDestination.REPERTOIRE, AppDestination.REPORT, AppDestination.ANALYZING, AppDestination.MANUAL_KIFU)
         open(AppDestination.GAME_LIST, AppDestination.REPORT, AppDestination.ANALYZING, AppDestination.MANUAL_KIFU)
         open(AppDestination.KENTO_INPUT, AppDestination.REPORT, AppDestination.KENTO_LIBRARY)

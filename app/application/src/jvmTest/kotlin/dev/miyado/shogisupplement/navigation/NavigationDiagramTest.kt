@@ -18,6 +18,30 @@ class NavigationDiagramTest {
     }
 
     @Test
+    fun repertoireScreensUseTheirOwnRoundTrip() {
+        val list = AppDestination.REPERTOIRE
+        val study = NavigationMachine.next(list, NavigationEvent.Open(AppDestination.REPERTOIRE_STUDY))
+        assertEquals(AppDestination.REPERTOIRE_STUDY, study)
+        val editor = NavigationMachine.next(study, NavigationEvent.Open(AppDestination.REPERTOIRE_INITIAL_POSITION))
+        assertEquals(AppDestination.REPERTOIRE_INITIAL_POSITION, editor)
+        assertEquals(study, NavigationMachine.next(editor, NavigationEvent.Back))
+        assertEquals(list, NavigationMachine.next(study, NavigationEvent.Back))
+        assertTrue(navigationDiagramHtml().contains("label:\"初期局面を作成\""))
+    }
+
+    @Test
+    fun repertoireListAndEveryRootTabSwitchAreExported() {
+        assertEquals("定跡一覧", AppDestination.REPERTOIRE.label)
+        val html = navigationDiagramHtml()
+        assertTrue(html.contains("label:\"定跡一覧\""))
+        RootTab.entries.forEach { from ->
+            RootTab.entries.forEach { to ->
+                assertTrue(html.contains("from:\"${from.destination.name}\",to:\"${to.destination.name}\",event:\"SelectTab(${to.title})\""))
+            }
+        }
+    }
+
+    @Test
     fun diagramIncludesEveryRuntimeTransitionExactlyOnce() {
         val html = navigationDiagramHtml()
         val edgeIds = Regex("\\{id:(\\d+),from:").findAll(html).map { it.groupValues[1].toInt() }.toList()

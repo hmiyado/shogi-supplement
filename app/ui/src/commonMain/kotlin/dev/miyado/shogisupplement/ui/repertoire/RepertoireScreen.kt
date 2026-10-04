@@ -1,5 +1,9 @@
 package dev.miyado.shogisupplement.ui.repertoire
 
+import dev.miyado.shogisupplement.navigation.AppDestination
+import dev.miyado.shogisupplement.navigation.NavigationEvent
+import dev.miyado.shogisupplement.navigation.NavigationMachine
+
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.clickable
@@ -51,6 +55,11 @@ private fun RepertoireScreenContent(
     val scope = rememberCoroutineScope()
     var entries by remember(owner) { mutableStateOf(owner?.let(repository::entries).orEmpty()) }
     var selected by rememberSaveable(owner) { mutableStateOf<String?>(null) }
+    var destination by rememberSaveable(owner) { mutableStateOf(AppDestination.REPERTOIRE) }
+    fun openStudy(id: String) {
+        destination = NavigationMachine.next(destination, NavigationEvent.Open(AppDestination.REPERTOIRE_STUDY))
+        if (destination == AppDestination.REPERTOIRE_STUDY) selected = id
+    }
     var selectionMode by remember(owner) { mutableStateOf(false) }
     var deleteIds by remember(owner) { mutableStateOf(setOf<String>()) }
     var deleteTargets by remember(owner) { mutableStateOf<List<RepertoireEntry>>(emptyList()) }
@@ -72,7 +81,7 @@ private fun RepertoireScreenContent(
     SideEffect { detailChanged(selected != null) }
     DisposableEffect(Unit) { onDispose { detailChanged(false) } }
     val id = selected
-    if (id != null && owner != null) {
+    if (destination == AppDestination.REPERTOIRE_STUDY && id != null && owner != null) {
         val entry = entries.firstOrNull { it.id == id }
         var savedPayload by remember(id) { mutableStateOf(entry?.payload) }
         val document = remember(id) { entry?.let { RepertoireCodec.document(it.payload) }
@@ -81,7 +90,10 @@ private fun RepertoireScreenContent(
             document = document,
             evalDisplay = evalDisplay,
             engineFactory = engineFactory,
-            onBack = { selected = null; refresh() },
+            onBack = {
+                destination = NavigationMachine.next(destination, NavigationEvent.Back)
+                if (destination == AppDestination.REPERTOIRE) { selected = null; refresh() }
+            },
             onSave = { saved ->
                 val payload = RepertoireCodec.encode(saved)
                 if (payload != savedPayload) {
@@ -127,7 +139,7 @@ private fun RepertoireScreenContent(
             ) { Icon(Icons.Outlined.Delete, if (selectionMode) "定跡を削除" else "削除する定跡を選択", tint = MaterialTheme.colorScheme.error) }
         }) },
         bottomBar = {
-            Button(onClick = { selected = Uuid.random().toString() }, enabled = owner != null,
+            Button(onClick = { openStudy(Uuid.random().toString()) }, enabled = owner != null,
                 modifier = Modifier.fillMaxWidth().padding(bottom = dev.miyado.shogisupplement.ui.navigation.LocalRootTabBottomPadding.current).padding(16.dp), shape = MaterialTheme.shapes.medium) { Text("定跡を追加する") }
         },
     ) { padding ->
@@ -137,7 +149,7 @@ private fun RepertoireScreenContent(
             message?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
             items(lines, key = { it.id }) { entry ->
                 val doc = RepertoireCodec.document(entry.payload)
-                Card(onClick = { if (selectionMode) deleteIds = if (entry.id in deleteIds) deleteIds - entry.id else deleteIds + entry.id else selected = entry.id }, modifier = Modifier.fillMaxWidth(),
+                Card(onClick = { if (selectionMode) deleteIds = if (entry.id in deleteIds) deleteIds - entry.id else deleteIds + entry.id else openStudy(entry.id) }, modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -176,7 +188,7 @@ private fun RepertoireStudyScreen(
     var name by rememberSaveable { mutableStateOf(initialDocument.name) }
     var nameInput by rememberSaveable { mutableStateOf(initialDocument.name) }
     var flip by rememberSaveable { mutableStateOf(false) }
-    var editing by rememberSaveable { mutableStateOf(false) }
+    var destination by rememberSaveable { mutableStateOf(AppDestination.REPERTOIRE_STUDY) }
     var naming by rememberSaveable { mutableStateOf(false) }
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var discard by remember { mutableStateOf(false) }
@@ -212,11 +224,11 @@ private fun RepertoireStudyScreen(
         confirmButton = { TextButton(onClick = onBack) { Text("保存せず閉じる") } },
         dismissButton = { TextButton(onClick = { discard = false; naming = true }) { Text("保存する") } },
     )
-    if (editing) {
+    if (destination == AppDestination.REPERTOIRE_INITIAL_POSITION) {
         InitialPositionEditorScreen(base, state?.displayLine?.isNotEmpty() == true, initialFlip = flip,
-            onClose = { editing = false }, onApply = { sfen ->
+            onClose = { destination = NavigationMachine.next(destination, NavigationEvent.Back) }, onApply = { sfen ->
                 if (sfen != dev.miyado.shogisupplement.board.InitialPositionEditor.fromSfen(base).toSfen()) { base = sfen; start(sfen, emptyList()); save() }
-                editing = false
+                destination = NavigationMachine.next(destination, NavigationEvent.Back)
             })
         return
     }
@@ -251,7 +263,7 @@ private fun RepertoireStudyScreen(
                     saveError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                     Text(name.ifEmpty { "新しい定跡" }, style = MaterialTheme.typography.titleMedium)
                     TextButton(onClick = { nameInput = name; naming = true }) { Text(if (name.isEmpty()) "定跡として登録" else "名前を編集") }
-                    TextButton(onClick = { editing = true }) { Text("初期局面を作成") }
+                    TextButton(onClick = { destination = NavigationMachine.next(destination, NavigationEvent.Open(AppDestination.REPERTOIRE_INITIAL_POSITION)) }) { Text("初期局面を作成") }
                 }
                 1 -> Box(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) { labelContent(sfen, RepertoireDocument(name, base, controller.currentTree()?.rootChildren?.toLines().orEmpty())) { key ->
                     val draft = RepertoireDocument(name, base, controller.currentTree()?.rootChildren?.toLines().orEmpty())

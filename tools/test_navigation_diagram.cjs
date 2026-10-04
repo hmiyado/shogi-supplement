@@ -11,6 +11,8 @@ const dimensions=ids.graph.attrs.viewBox.split(' ').map(Number);
 const width=dimensions[2];
 const paths = created.filter(e=>e.attrs['data-transition'] !== undefined);
 assert(paths.length > 40);
+const gameInput=paths.find(e=>e.children.some(c=>c.textContent==='棋譜一覧 → 棋譜入力 (Open)'));
+assert(gameInput && gameInput.style.display!=='none', 'Game list to manual input must be visible by default');
 assert(paths.filter(e=>e.attrs.d).every(e=>!e.attrs.d.match(/NaN|Infinity/)));
 assert(paths.every(e=>e.attrs['marker-end']==='url(#arrow)'));
 ids.zoom.oninput({target:{value:'50'}}); assert.equal(ids.graph.attrs.width,String(width/2));
@@ -95,3 +97,19 @@ console.log('Flow order and card avoidance for every orthogonal arrow passed');
 
 v.clientWidth=100;v.clientHeight=80;ids.fit.onclick();assert(Number(ids.graph.attrs.width)<=100+1e-6);assert(Number(ids.graph.attrs.height)<=80+1e-6);
 console.log("Fit-to-view below 20 percent passed");
+
+const yOf=name=>rectangles.find(r=>r.name===name).y;
+assert.equal(yOf('REPERTOIRE'),yOf('REPERTOIRE_STUDY'));
+assert.equal(yOf('REPERTOIRE_STUDY'),yOf('REPERTOIRE_INITIAL_POSITION'));
+for(let i=0;i<rectangles.length;i++)for(let j=i+1;j<rectangles.length;j++){
+ const a=rectangles[i],b=rectangles[j];
+ assert(a.x+a.w<=b.x||b.x+b.w<=a.x||a.y+a.h<=b.y||b.y+b.h<=a.y,'Cards overlap');
+}
+console.log('Dedicated repertoire chain alignment and non-overlapping cards passed');
+
+const homeY=yOf('HOME'),strengthY=yOf('STRENGTH_DETAIL');
+for(const name of ['GAME_LIST','REPERTOIRE']) {
+ const otherY=yOf(name);
+ assert(otherY<Math.min(homeY,strengthY)||otherY>Math.max(homeY,strengthY), 'Unrelated root splits home and strength');
+}
+console.log('Home-only strength branch stays within its parent block');
