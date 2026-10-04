@@ -1,5 +1,7 @@
 package dev.miyado.shogisupplement.ui
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import dev.miyado.shogisupplement.repertoire.labelledGames
 import dev.miyado.shogisupplement.navigation.NavigationEvent
 import dev.miyado.shogisupplement.navigation.NavigationMachine
@@ -134,6 +136,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     /** レポート画面の検討モード状態（null = 検討していない）。ReportViewModel へ委譲。 */
     val studyState: StateFlow<StudyState?> get() = reportViewModel.studyState
 
+    var rootNavigation by androidx.compose.runtime.mutableStateOf(dev.miyado.shogisupplement.navigation.RootNavigation())
+        private set
+
     init {
         loadHome()
         // ServiceBus からの完了イベントを監視
@@ -158,6 +163,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         // 認証状態の変化を監視（ホーム画面の isLoggedIn を更新）
         viewModelScope.launch {
             app.authRepository.currentUser.collect { user ->
+                rootNavigation = rootNavigation.consumeCompletion()
                 val s = _state.value
                 if (s is MainUiState.Home) {
                     _state.value = s.copy(isLoggedIn = user != null)
@@ -177,14 +183,37 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** ホーム画面（過去の解析一覧）を読み込む。 */
-    fun loadHome(backgroundRefresh: Boolean = false) {
+    fun openCompletedReport() {
+        val gameId = rootNavigation.completedGameId ?: return
+        rootNavigation = rootNavigation.consumeCompletion()
+        showReport(gameId)
+    }
+
+    fun selectRoot(tab: dev.miyado.shogisupplement.navigation.RootTab) {
+        rootNavigation = rootNavigation.select(tab)
+        when (tab) {
+            dev.miyado.shogisupplement.navigation.RootTab.HOME -> loadHome(forceHome = true)
+            dev.miyado.shogisupplement.navigation.RootTab.GAMES -> openGameList()
+            dev.miyado.shogisupplement.navigation.RootTab.REPERTOIRE -> _state.value = MainUiState.Repertoire
+        }
+    }
+
+    fun loadHome(backgroundRefresh: Boolean = false, forceHome: Boolean = false) {
+        if (!backgroundRefresh && !forceHome && _state.value.destination != dev.miyado.shogisupplement.navigation.AppDestination.HOME) {
+            val target = rootNavigation.back(_state.value.destination)
+            if (target == dev.miyado.shogisupplement.navigation.AppDestination.GAME_LIST) { openGameList(); return }
+            if (target == dev.miyado.shogisupplement.navigation.AppDestination.REPERTOIRE) { _state.value = MainUiState.Repertoire; return }
+            rootNavigation = rootNavigation.select(dev.miyado.shogisupplement.navigation.RootTab.HOME)
+        }
+        val originState = _state.value
+        val originTab = rootNavigation.selected
         val expectedVisit = if (backgroundRefresh) {
             (_state.value as? MainUiState.Home)?.visitId ?: return
         } else null
         viewModelScope.launch {
             val isLoggedIn = app.authRepository.currentUser.value != null
             val result = homeViewModel.loadHomeData()
+            if (_state.value !== originState || rootNavigation.selected != originTab) return@launch
             if (backgroundRefresh && (_state.value as? MainUiState.Home)?.visitId !== expectedVisit) return@launch
             _state.value = MainUiState.Home(
                 result.games,
@@ -241,7 +270,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         refresh()
     }
 
-    fun openRepertoire() = navigateTo(MainUiState.Repertoire)
+    fun openRepertoire() = selectRoot(dev.miyado.shogisupplement.navigation.RootTab.REPERTOIRE)
     suspend fun createRepertoireEngine(): dev.miyado.shogisupplement.engine.StudyEngine =
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
             dev.miyado.shogisupplement.engine.BlockingStudyEngine(createEngine(), kotlinx.coroutines.Dispatchers.IO)
@@ -301,12 +330,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     /** 棋譜一覧画面に遷移する。 */
     fun openGameList() {
+        rootNavigation = rootNavigation.select(dev.miyado.shogisupplement.navigation.RootTab.GAMES)
         viewModelScope.launch {
             reloadGameList()
         }
     }
 
     private suspend fun reloadGameList() {
+        val originState = _state.value
         val games = withContext(Dispatchers.IO) {
             val all = gameRepository.getAllGames()
             app.authRepository.currentUser.value?.id?.let { repertoireRepository.labelledGames(it, all) } ?: all
@@ -316,11 +347,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val pendingCount = if (isLoggedIn) {
             withContext(Dispatchers.IO) { gameRepository.getNotUploadedGames().size }
         } else 0
+        val savedFilters = withContext(Dispatchers.IO) { settingsRepository.getSavedGameFilters() }
+        if (_state.value !== originState || rootNavigation.selected != dev.miyado.shogisupplement.navigation.RootTab.GAMES) return
         _state.value = MainUiState.GameList(
             games,
             blunderCounts = blunderCounts,
             pendingUploadCount = pendingCount,
-            savedFilters = withContext(Dispatchers.IO) { settingsRepository.getSavedGameFilters() },
+            savedFilters = savedFilters,
         )
     }
 
@@ -563,6 +596,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun onAnalysisCompleted(gameId: Long, alreadyExisted: Boolean) {
+        if (!alreadyExisted) rootNavigation = rootNavigation.completed(gameId, _state.value is MainUiState.AnalyzingReport)
         // 解析中レポート画面を実際に見ているときだけレポートへ遷移する。
         // ホーム等の他画面にいる間に裏で完了しても、その画面から強制的に連れ去らない
         // （画面はレジストリの購読者に過ぎず、遷移は「見ている」ときの一度きりの体験でよい）。

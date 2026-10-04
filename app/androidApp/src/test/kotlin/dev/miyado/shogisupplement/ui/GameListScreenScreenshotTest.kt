@@ -5,6 +5,7 @@ import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import com.github.takahirom.roborazzi.captureRoboImage
@@ -108,6 +109,25 @@ class GameListScreenScreenshotTest {
             coefVersion = "hao_v1",
         ),
     )
+
+    @Test
+    fun tabSwitchPreservesAppliedFilter() {
+        val selected = androidx.compose.runtime.mutableStateOf(dev.miyado.shogisupplement.navigation.RootTab.GAMES)
+        composeRule.setContent { ShogiTheme { Surface {
+            dev.miyado.shogisupplement.ui.navigation.RootTabShell(selected.value, true, selected.value.name, { selected.value = it }) {
+                if (selected.value == dev.miyado.shogisupplement.navigation.RootTab.GAMES) {
+                    GameListScreen(games = gamesWithFullData(), onBack = null, onGameClick = {})
+                } else { androidx.compose.material3.Text("ホーム画面") }
+            }
+        } } }
+        composeRule.onNodeWithTag("filter_open_button").performClick()
+        composeRule.onNodeWithTag("filter_chip_source_wars").performClick()
+        composeRule.onNodeWithTag("filter_apply_button").performClick()
+        composeRule.runOnIdle { selected.value = dev.miyado.shogisupplement.navigation.RootTab.HOME }
+        composeRule.runOnIdle { selected.value = dev.miyado.shogisupplement.navigation.RootTab.GAMES }
+        composeRule.onNodeWithTag("filter_open_button").performClick()
+        composeRule.onNodeWithTag("filter_chip_source_wars").assertIsSelected()
+    }
 
     @Test
     fun gameList_headerNoFilter() {

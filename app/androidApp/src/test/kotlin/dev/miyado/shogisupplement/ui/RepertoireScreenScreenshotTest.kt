@@ -27,6 +27,72 @@ import org.robolectric.annotation.GraphicsMode
 class RepertoireScreenScreenshotTest {
     @get:Rule val rule = createComposeRule()
 
+    @Test fun rootTabsHideDuringRepertoireEditingAndReturnToList() {
+        val repo = Repository()
+        repo.save("owner", "line", "line", RepertoireCodec.encode(RepertoireDocument("テスト定跡", ShogiBoard().toSfen())))
+        rule.setContent { ShogiTheme { Surface {
+            dev.miyado.shogisupplement.ui.navigation.RootTabShell(
+                selected = dev.miyado.shogisupplement.navigation.RootTab.REPERTOIRE,
+                visible = true, screenKey = "repertoire", onSelect = {}) {
+                RepertoireScreen(repo, "owner", null, { Engine() }, {})
+            }
+        } } }
+        rule.onNodeWithText("ホーム").assertIsDisplayed()
+        rule.onNodeWithText("テスト定跡").performClick()
+        rule.onNodeWithText("ホーム").assertDoesNotExist()
+        rule.onNodeWithContentDescription("戻る").performClick()
+        rule.onNodeWithText("ホーム").assertIsDisplayed()
+    }
+
+    @Test fun deleteRepertoireRequiresConfirmationAndKeepsLabels() {
+        val repo = Repository()
+        repo.save("owner", "line", "line", RepertoireCodec.encode(RepertoireDocument("削除対象", ShogiBoard().toSfen())))
+        repo.save("owner", "label", "labels", RepertoireCodec.encode(PositionLabels("position", listOf("残すラベル"))))
+        rule.setContent { ShogiTheme { Surface { RepertoireScreen(repo, "owner", null, { Engine() }, {}) } } }
+        rule.onNodeWithText("定跡一覧").assertIsDisplayed()
+        rule.onNodeWithContentDescription("削除する定跡を選択").performClick()
+        rule.onNodeWithText("削除対象").performClick()
+        rule.onNodeWithContentDescription("定跡を削除").performClick()
+        rule.onNodeWithText("キャンセル").performClick()
+        rule.onNodeWithText("削除対象").assertIsDisplayed()
+        rule.onNodeWithContentDescription("定跡を削除").performClick()
+        rule.onNodeWithText("削除", useUnmergedTree = true).performClick()
+        rule.onNodeWithText("削除対象").assertDoesNotExist()
+        rule.runOnIdle {
+            assertEquals(true, RepertoireCodec.document(repo.entries("owner").single { it.kind == "line" }.payload).deleted)
+            assertEquals(listOf("残すラベル"), RepertoireCodec.labels(repo.entries("owner").single { it.kind == "labels" }.payload).labels)
+        }
+    }
+
+    @Test fun partialDeletionStillSynchronizesSuccessfulEntries() {
+        val repo = Repository()
+        listOf("A", "B").forEach { name -> repo.save("owner", name, "line", RepertoireCodec.encode(RepertoireDocument(name, ShogiBoard().toSfen()))) }
+        val uploaded = mutableListOf<RepertoireEntry>()
+        val remote = object : RepertoireRemote {
+            override suspend fun list(owner: String) = emptyList<RemoteRepertoireEntry>()
+            override suspend fun put(owner: String, entry: RepertoireEntry): String {
+                uploaded.add(entry)
+                return "version"
+            }
+        }
+        val sync = RepertoireSync(repo, remote) { "owner" }
+        rule.setContent { ShogiTheme { Surface { RepertoireScreen(repo, "owner", sync, { Engine() }, {}) } } }
+        rule.onNodeWithContentDescription("削除する定跡を選択").performClick()
+        rule.onNodeWithText("A").performClick()
+        rule.onNodeWithText("B").performClick()
+        rule.onNodeWithContentDescription("定跡を削除").performClick()
+        rule.runOnIdle {
+            uploaded.clear()
+            repo.save("owner", "B", "line", RepertoireCodec.encode(RepertoireDocument("変更済みB", ShogiBoard().toSfen())))
+        }
+        rule.onNodeWithText("削除", useUnmergedTree = true).performClick()
+        rule.waitForIdle()
+        rule.runOnIdle {
+            assertTrue(uploaded.any { it.id == "A" && RepertoireCodec.document(it.payload).deleted })
+            assertFalse(RepertoireCodec.document(repo.entries("owner").single { it.id == "B" }.payload).deleted)
+        }
+    }
+
     @Test fun unmatchedLabelRemainsVisibleAndDisabled() {
         rule.setContent { ShogiTheme { Surface {
             dev.miyado.shogisupplement.ui.gamelist.GameListFilterBar(
@@ -154,31 +220,6 @@ class RepertoireScreenScreenshotTest {
         rule.runOnIdle {
             val doc = RepertoireCodec.document(repo.entries("owner").single { it.kind == "line" }.payload)
             assertEquals("2g2f", doc.lines.single().children.single().children.single().move)
-        }
-    }
-
-    @Test fun reportPositionActionsSaveSharedLabel() {
-        val repo = Repository()
-        val game = dev.miyado.shogisupplement.db.GameRecord(
-            id = 1, fileName = "棋譜", contentHash = "one", moveCount = 2, senteName = null, goteName = null,
-            analyzedAt = 0, rating = 0, coefVersion = "", movesUsi = listOf("7g7f", "3c3d"),
-        )
-        rule.setContent { ShogiTheme { Surface {
-            dev.miyado.shogisupplement.ui.report.ReportScreen(game, emptyList(), onBack = {}, initialPlyIndex = 1,
-                positionActions = { base, moves ->
-                    dev.miyado.shogisupplement.ui.repertoire.RepertoirePositionActions(repo, "owner", null, base, moves)
-                })
-        } } }
-        rule.onNodeWithText("操作").performClick()
-        rule.onNodeWithText("局面ラベルを付ける").performClick()
-        rule.onNodeWithText("先手の形").performClick()
-        rule.onNodeWithText("ラベル名").performTextInput("角道")
-        rule.onNodeWithText("追加").performClick()
-        rule.runOnIdle {
-            val labels = RepertoireCodec.labels(repo.entries("owner").single { it.kind == "labels" }.payload)
-            val board = ShogiBoard().also { it.push(ShogiMove.fromUsi("7g7f")) }
-            assertEquals(positionLabelKey(board.toSfen(), PositionLabelScope.BLACK), labels.positionKey)
-            assertEquals(listOf("角道"), labels.labels)
         }
     }
 

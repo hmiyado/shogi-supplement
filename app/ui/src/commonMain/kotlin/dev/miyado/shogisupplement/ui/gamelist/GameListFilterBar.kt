@@ -39,6 +39,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalDensity
@@ -642,6 +644,7 @@ private fun FilterChipItem(
         // clipを外側に置き、クリック時のリップルを丸チップの形状へ収める。
         modifier = Modifier
             .testTag(testTag)
+            .semantics { this.selected = selected }
             .clip(shape)
             .background(containerColor)
             .border(1.dp, borderColor, shape)

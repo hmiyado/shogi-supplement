@@ -77,10 +77,12 @@ fun HomeScreen(
     onOpenDrillRecordDetail: () -> Unit = {},
 ) {
     val shogiColors = MaterialTheme.shogiColors
+    val rootTabHost = dev.miyado.shogisupplement.ui.navigation.LocalRootTabHost.current
     Scaffold(
         contentWindowInsets = scaffoldContentInsets(),
         topBar = {
             TopAppBar(
+                colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(containerColor = if (dev.miyado.shogisupplement.ui.navigation.rootTabsOverlayContent) androidx.compose.ui.graphics.Color.Transparent else MaterialTheme.colorScheme.surface),
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         AppTitleIcon()
@@ -93,21 +95,21 @@ fun HomeScreen(
                 },
                 actions = {
                     // 設定画面への導線（⚙）
-                    IconButton(onClick = onOpenSettings) {
-                        Icon(
-                            imageVector = Icons.Outlined.Settings,
-                            contentDescription = AppStrings.SETTINGS_TITLE,
-                            tint = shogiColors.ink2,
-                        )
+                    if (dev.miyado.shogisupplement.ui.navigation.rootTabsOverlayContent) {
+                        dev.miyado.shogisupplement.ui.navigation.PlatformGlassAction("gearshape", AppStrings.SETTINGS_TITLE, Icons.Outlined.Settings, onOpenSettings)
+                    } else {
+                        IconButton(onClick = onOpenSettings) {
+                            Icon(Icons.Outlined.Settings, contentDescription = AppStrings.SETTINGS_TITLE, tint = shogiColors.ink2)
+                        }
                     }
                 },
             )
         },
         bottomBar = {
-            Box(
+            if (!dev.miyado.shogisupplement.ui.navigation.rootTabsOverlayContent) Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surface),
+                    .padding(bottom = dev.miyado.shogisupplement.ui.navigation.LocalRootTabBottomPadding.current),
             ) {
                 // 余白を最大幅の内側に置く: 外側だと本文のカードより16dpずつ広いボタンになる。
                 Box(
@@ -128,12 +130,12 @@ fun HomeScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(top = padding.calculateTopPadding())
                 .adaptiveContentWidth(),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = padding.calculateBottomPadding() + 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            if (onOpenRepertoire != null) {
+            if (onOpenRepertoire != null && !rootTabHost) {
                 item { TextButton(onClick = onOpenRepertoire) { Text("定跡手順") } }
             }
             if (strengthCard != null) {

@@ -21,12 +21,7 @@ fun ReportHost(vm: MainViewModel, state: MainUiState.ShowReport) {
     val context = LocalContext.current
     val view = LocalView.current
     val analyze: () -> Unit = { vm.analyzeStoredGame(state.report.game) }
-    val repertoireOwner by vm.repertoireOwner.collectAsState()
     ReportScreen(
-        positionActions = repertoireOwner?.id?.let { owner ->
-            { base, moves -> dev.miyado.shogisupplement.ui.repertoire.RepertoirePositionActions(
-                vm.repertoireRepository, owner, vm.repertoireSync, base, moves) }
-        },
         game = state.report.game,
         reports = state.report.reports,
         flip = state.report.flip,

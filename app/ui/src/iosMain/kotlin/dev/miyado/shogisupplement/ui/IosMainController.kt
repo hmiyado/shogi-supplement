@@ -269,6 +269,8 @@ class IosMainController(
         val justCompleted: Boolean,
     )
 
+    val backgroundCompletedGame = MutableStateFlow<Long?>(null)
+
     private val _completedAnalysis = MutableStateFlow<CompletedAnalysis?>(null)
     val completedAnalysis: StateFlow<CompletedAnalysis?> = _completedAnalysis.asStateFlow()
     private val completionGuard = NavigationCompletionGuard()
@@ -536,6 +538,7 @@ class IosMainController(
                     reloadHome()
                     if (!isActive) return@launch
                     if (PendingAnalysisStore.load()?.requestId == pending.requestId) PendingAnalysisStore.clear()
+                    if (!isWatching() && !outcome.alreadyExisted) backgroundCompletedGame.value = outcome.gameId
                     val navigationTicket = completionGuard.snapshot()
                     if (isWatching()) {
                         _importState.value = ImportState.Idle

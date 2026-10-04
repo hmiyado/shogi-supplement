@@ -58,6 +58,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 @Composable
 fun GameListScreen(
     games: List<GameRecord>,
+    onAddGame: (() -> Unit)? = null,
     knownPositionLabels: List<String> = emptyList(),
     /** 棋譜IDごとの悪手件数。絞り込んだ集合の悪手率の分子。渡さなければ悪手率を出さない。 */
     blunderCounts: Map<Long, Int> = emptyMap(),
@@ -80,7 +81,10 @@ fun GameListScreen(
 ) {
     // filter: 一覧に反映済みの条件。draftFilter: シート内で編集中の条件（「検索」タップまで
     // filterには反映しない。スワイプ/スクリムでシートを閉じた場合は draftFilter を破棄する）。
-    var filter by remember { mutableStateOf(GameListFilter()) }
+    var filter by androidx.compose.runtime.saveable.rememberSaveable(stateSaver = androidx.compose.runtime.saveable.listSaver(
+        save = { listOf(it.source, it.userSide, it.result?.name, it.dateFrom, it.dateTo, it.openingStyle, it.timeControl, it.positionLabel) },
+        restore = { GameListFilter(it[0] as String?, it[1] as String?, (it[2] as String?)?.let(dev.miyado.shogisupplement.db.GameResultFilter::valueOf), it[3] as Long?, it[4] as Long?, it[5] as String?, it[6] as String?, it[7] as String?) }
+    )) { mutableStateOf(GameListFilter()) }
     var draftFilter by remember { mutableStateOf(GameListFilter()) }
     var showFilterSheet by remember { mutableStateOf(false) }
     var localSavedFilters by remember(savedFilters) { mutableStateOf(savedFilters) }
@@ -107,6 +111,7 @@ fun GameListScreen(
         contentWindowInsets = scaffoldContentInsets(),
         topBar = {
             TopAppBar(
+                colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(containerColor = if (dev.miyado.shogisupplement.ui.navigation.rootTabsOverlayContent) androidx.compose.ui.graphics.Color.Transparent else MaterialTheme.colorScheme.surface),
                 title = {
                     Text(
                         if (selectionMode) {
@@ -171,13 +176,16 @@ fun GameListScreen(
                 },
             )
         },
+        bottomBar = { if (!dev.miyado.shogisupplement.ui.navigation.rootTabsOverlayContent) onAddGame?.let { add ->
+            Button(onClick = add, modifier = Modifier.fillMaxWidth().padding(bottom = dev.miyado.shogisupplement.ui.navigation.LocalRootTabBottomPadding.current).padding(16.dp)) { Text("棋譜を追加する") }
+        } },
     ) { padding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(top = padding.calculateTopPadding())
                 .adaptiveContentWidth(),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = padding.calculateBottomPadding() + 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (games.isNotEmpty()) {

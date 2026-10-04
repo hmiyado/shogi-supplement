@@ -11,6 +11,7 @@ data class RepertoireDocument(
     val name: String,
     val initialSfen: String,
     val lines: List<RepertoireLine> = emptyList(),
+    val deleted: Boolean = false,
 )
 
 @Serializable

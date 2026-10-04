@@ -19,6 +19,8 @@ fun navigationDiagramHtml(fonts: Map<String, String> = emptyMap()): String {
             is NavigationEvent.Open -> "Open"
             is NavigationEvent.AnalysisCancelled -> "AnalysisCancelled"
             is NavigationEvent.AnalysisFailed -> "AnalysisFailed"
+            is NavigationEvent.ReturnToTab -> "ReturnToTab(${transition.event.tab.title})"
+            is NavigationEvent.SelectTab -> "SelectTab(${transition.event.tab.title})"
             NavigationEvent.Back -> "Back"
             NavigationEvent.AnalysisStarted -> "AnalysisStarted"
             NavigationEvent.AnalysisCompleted -> "AnalysisCompleted"

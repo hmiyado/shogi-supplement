@@ -1,5 +1,6 @@
 package dev.miyado.shogisupplement.ui.repertoire
 
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
@@ -50,19 +51,26 @@ private fun RepertoireScreenContent(
     val scope = rememberCoroutineScope()
     var entries by remember(owner) { mutableStateOf(owner?.let(repository::entries).orEmpty()) }
     var selected by rememberSaveable(owner) { mutableStateOf<String?>(null) }
+    var selectionMode by remember(owner) { mutableStateOf(false) }
+    var deleteIds by remember(owner) { mutableStateOf(setOf<String>()) }
+    var deleteTargets by remember(owner) { mutableStateOf<List<RepertoireEntry>>(emptyList()) }
+    val lines = entries.filter { it.kind == "line" && !RepertoireCodec.document(it.payload).deleted }
     var message by remember { mutableStateOf<String?>(null) }
     fun refresh() { entries = owner?.let(repository::entries).orEmpty() }
-    fun synchronize() {
+    fun synchronize(notice: String? = null) {
         scope.launch {
             try {
-                if (sync?.synchronize() == false) message = "サーバーへの保存が未完了です。端末の変更は保持しています。"
-                else message = null
+                if (sync?.synchronize() == false) message = listOfNotNull(notice, "サーバーへの保存が未完了です。端末の変更は保持しています。").joinToString("\n")
+                else message = notice
                 refresh()
             } catch (e: CancellationException) { throw e }
-            catch (_: Exception) { message = "サーバーに接続できませんでした。端末の変更は保持しています。" }
+            catch (_: Exception) { message = listOfNotNull(notice, "サーバーに接続できませんでした。端末の変更は保持しています。").joinToString("\n") }
         }
     }
     LaunchedEffect(owner) { synchronize() }
+    val detailChanged = dev.miyado.shogisupplement.ui.navigation.LocalRootDetailChanged.current
+    SideEffect { detailChanged(selected != null) }
+    DisposableEffect(Unit) { onDispose { detailChanged(false) } }
     val id = selected
     if (id != null && owner != null) {
         val entry = entries.firstOrNull { it.id == id }
@@ -87,28 +95,56 @@ private fun RepertoireScreenContent(
         )
         return
     }
-    ReportBackHandler(onBack = onBack)
+    fun exitSelection() { selectionMode = false; deleteIds = emptySet() }
+    ReportBackHandler(onBack = { if (selectionMode) exitSelection() else onBack() })
+    if (deleteTargets.isNotEmpty() && owner != null) AlertDialog(
+        onDismissRequest = { deleteTargets = emptyList() },
+        title = { Text("選択した定跡を削除しますか？") },
+        text = { Text("定跡の手順を削除します。局面ラベルは残ります。") },
+        confirmButton = { TextButton(onClick = {
+            var conflict = false
+            deleteTargets.forEach { entry ->
+                val doc = RepertoireCodec.document(entry.payload)
+                if (!repository.compareAndSave(owner, entry.id, "line", entry.payload,
+                    RepertoireCodec.encode(doc.copy(deleted = true)))) conflict = true
+            }
+            deleteTargets = emptyList()
+            exitSelection()
+            refresh()
+            synchronize(if (conflict) "変更された定跡は削除しませんでした。再度選択してください。" else null)
+        }) { Text("削除", color = MaterialTheme.colorScheme.error) } },
+        dismissButton = { TextButton(onClick = { deleteTargets = emptyList() }) { Text("キャンセル") } },
+    )
     Scaffold(
         contentWindowInsets = scaffoldContentInsets(),
-        topBar = { TopAppBar(title = { Text("定跡") }, navigationIcon = {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "戻る") }
-        }, actions = { TextButton(onClick = { synchronize() }, enabled = owner != null) { Text("同期") } }) },
+        topBar = { TopAppBar(colors = TopAppBarDefaults.topAppBarColors(containerColor = if (dev.miyado.shogisupplement.ui.navigation.rootTabsOverlayContent) androidx.compose.ui.graphics.Color.Transparent else MaterialTheme.colorScheme.surface), title = { Text(if (selectionMode) "${deleteIds.size}件選択中" else "定跡一覧") }, navigationIcon = {
+            if (selectionMode) IconButton(onClick = { exitSelection() }) { Icon(Icons.Default.Close, "選択を終了") }
+            else if (!dev.miyado.shogisupplement.ui.navigation.LocalRootTabHost.current) IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "戻る") }
+        }, actions = {
+            if (lines.isNotEmpty()) IconButton(
+                onClick = { if (selectionMode) deleteTargets = lines.filter { it.id in deleteIds } else selectionMode = true },
+                enabled = !selectionMode || deleteIds.isNotEmpty(),
+            ) { Icon(Icons.Outlined.Delete, if (selectionMode) "定跡を削除" else "削除する定跡を選択", tint = MaterialTheme.colorScheme.error) }
+        }) },
         bottomBar = {
             Button(onClick = { selected = Uuid.random().toString() }, enabled = owner != null,
-                modifier = Modifier.fillMaxWidth().padding(16.dp), shape = MaterialTheme.shapes.medium) { Text("定跡を追加する") }
+                modifier = Modifier.fillMaxWidth().padding(bottom = dev.miyado.shogisupplement.ui.navigation.LocalRootTabBottomPadding.current).padding(16.dp), shape = MaterialTheme.shapes.medium) { Text("定跡を追加する") }
         },
     ) { padding ->
-        LazyColumn(Modifier.fillMaxSize().padding(padding).adaptiveContentWidth(), contentPadding = PaddingValues(16.dp),
+        LazyColumn(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding()).adaptiveContentWidth(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = padding.calculateBottomPadding() + 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (owner == null) item { Text("アカウントを作成すると定跡を保存できます。") }
             message?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
-            items(entries.filter { it.kind == "line" }, key = { it.id }) { entry ->
+            items(lines, key = { it.id }) { entry ->
                 val doc = RepertoireCodec.document(entry.payload)
-                Card(onClick = { selected = entry.id }, modifier = Modifier.fillMaxWidth(),
+                Card(onClick = { if (selectionMode) deleteIds = if (entry.id in deleteIds) deleteIds - entry.id else deleteIds + entry.id else selected = entry.id }, modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(doc.name, style = MaterialTheme.typography.titleMedium)
+                        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                            if (selectionMode) Checkbox(checked = entry.id in deleteIds, onCheckedChange = null)
+                            Text(doc.name, style = MaterialTheme.typography.titleMedium)
+                        }
                         val labels = remember(entry.payload, entries) { doc.allLabels(entries) }
                         if (labels.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             labels.forEach { label -> Surface(shape = MaterialTheme.shapes.small,

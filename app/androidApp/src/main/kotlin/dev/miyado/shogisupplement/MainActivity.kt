@@ -1,5 +1,6 @@
 package dev.miyado.shogisupplement
 
+import dev.miyado.shogisupplement.ui.destination
 import dev.miyado.shogisupplement.repertoire.allPositionLabels
 
 import android.content.Intent
@@ -106,6 +107,7 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainApp(vm: MainViewModel, state: MainUiState) {
+    val tabStateHolder = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
     var showKifSourceSheet by remember { mutableStateOf(false) }
     var showRatingSettingsDialog by remember { mutableStateOf(false) }
     var showManualKifu by remember { mutableStateOf(false) }
@@ -130,6 +132,15 @@ fun MainApp(vm: MainViewModel, state: MainUiState) {
             },
         )
     } else {
+        dev.miyado.shogisupplement.ui.navigation.RootTabShell(
+            selected = vm.rootNavigation.selected,
+            visible = vm.rootNavigation.showsTabs(state.destination),
+            screenKey = state.destination.name,
+            onSelect = vm::selectRoot,
+            holder = tabStateHolder,
+            onResumeAnalysis = vm::resumeAnalyzing,
+            completed = vm.rootNavigation.completedGameId != null, onOpenCompleted = vm::openCompletedReport,
+        ) {
         when (state) {
             is MainUiState.Loading -> {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -194,6 +205,7 @@ fun MainApp(vm: MainViewModel, state: MainUiState) {
                 androidx.compose.runtime.LaunchedEffect(labelOwner?.id) { vm.refreshPositionLabels() }
                 BackHandler { vm.loadHome() }
                 GameListScreen(
+                    onAddGame = { showKifSourceSheet = true },
                     games = state.games,
                     knownPositionLabels = labelOwner?.id?.let { vm.repertoireRepository.allPositionLabels(it) }.orEmpty(),
                     blunderCounts = state.blunderCounts,
@@ -201,7 +213,7 @@ fun MainApp(vm: MainViewModel, state: MainUiState) {
                     isUploading = state.isUploading,
                     uploadResult = state.uploadResult,
                     savedFilters = state.savedFilters,
-                    onBack = { vm.loadHome() },
+                    onBack = null,
                     onGameClick = { game -> vm.showReport(game.id) },
                     onSaveFilter = { filter -> vm.saveGameFilter(filter) },
                     onDeleteSavedFilter = { name -> vm.deleteGameFilter(name) },
@@ -225,6 +237,7 @@ fun MainApp(vm: MainViewModel, state: MainUiState) {
                 BackHandler { vm.loadHome() }
                 DebugScreen(onBack = { vm.loadHome() })
             }
+        }
         }
     }
 

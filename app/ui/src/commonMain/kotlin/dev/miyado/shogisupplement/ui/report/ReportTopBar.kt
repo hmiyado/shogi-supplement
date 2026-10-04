@@ -25,7 +25,6 @@ internal fun ReportTopBar(
     onCopyKifClick: () -> Unit,
     onShareClick: () -> Unit,
     onDeleteClick: (() -> Unit)?,
-    onPositionClick: (() -> Unit)? = null,
 ) {
     ShogiThinTopBar(title = title, onBack = onBack) {
         // 対局者名（playersLine）は表示しない（対局情報ダイアログと重複するため）。
@@ -51,9 +50,6 @@ internal fun ReportTopBar(
                 contentDescription = AppStrings.SHARE_SCREEN,
                 modifier = Modifier.size(18.dp),
             )
-        }
-        if (onPositionClick != null) {
-            androidx.compose.material3.TextButton(onClick = onPositionClick) { androidx.compose.material3.Text("操作") }
         }
         if (onDeleteClick != null) {
             IconButton(onClick = onDeleteClick, modifier = Modifier.size(32.dp)) {

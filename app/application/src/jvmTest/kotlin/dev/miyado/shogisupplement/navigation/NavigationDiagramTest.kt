@@ -27,6 +27,8 @@ class NavigationDiagramTest {
                 is NavigationEvent.Open -> "Open"
                 is NavigationEvent.AnalysisCancelled -> "AnalysisCancelled"
                 is NavigationEvent.AnalysisFailed -> "AnalysisFailed"
+                is NavigationEvent.ReturnToTab -> "ReturnToTab(${edge.event.tab.title})"
+                is NavigationEvent.SelectTab -> "SelectTab(${edge.event.tab.title})"
                 NavigationEvent.Back -> "Back"
                 NavigationEvent.AnalysisStarted -> "AnalysisStarted"
                 NavigationEvent.AnalysisCompleted -> "AnalysisCompleted"

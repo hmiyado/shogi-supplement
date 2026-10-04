@@ -324,13 +324,29 @@ private fun DemoApp(
     controller: IosMainController,
     analysisBaseUrl: String? = null,
 ) {
+    val tabStateHolder = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
     var route by remember { mutableStateOf<DemoRoute>(DemoRoute.Home) }
+    var rootNavigation by remember { mutableStateOf(dev.miyado.shogisupplement.navigation.RootNavigation()) }
+    fun rootRoute(destination: AppDestination): DemoRoute = when(destination) {
+        AppDestination.GAME_LIST -> DemoRoute.GameList
+        AppDestination.REPERTOIRE -> DemoRoute.Repertoire
+        else -> DemoRoute.Home
+    }
     fun navigate(target: DemoRoute, event: NavigationEvent = NavigationEvent.Open(target.destination)) {
-        if (NavigationMachine.resolve(route.destination, event) == target.destination) {
+        if (event == NavigationEvent.Back) {
+            val destination = rootNavigation.back(route.destination)
             controller.invalidateCompletedNavigation()
+            route = if (destination == AppDestination.SETTINGS) DemoRoute.Settings else rootRoute(destination)
+            if (dev.miyado.shogisupplement.navigation.RootTab.from(route.destination) != null) {
+                rootNavigation = rootNavigation.select(requireNotNull(dev.miyado.shogisupplement.navigation.RootTab.from(route.destination)))
+            }
+        } else if (dev.miyado.shogisupplement.navigation.RootTab.from(target.destination) != null || NavigationMachine.resolve(route.destination, event) == target.destination) {
+            controller.invalidateCompletedNavigation()
+            dev.miyado.shogisupplement.navigation.RootTab.from(target.destination)?.let { rootNavigation = rootNavigation.select(it) }
             route = target
         }
     }
+
     // 「棋譜を追加する」タップで最初に出す、ファイル/クリップボードの選択ダイアログ。
     var showKifSourceDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -356,6 +372,15 @@ private fun DemoApp(
         controller.resumeIfPending()
     }
 
+    val tabOwner = supabaseServices?.authRepository?.currentUser?.collectAsState()?.value?.id
+    LaunchedEffect(tabOwner) {
+        rootNavigation = rootNavigation.consumeCompletion()
+        controller.backgroundCompletedGame.value = null
+    }
+    val backgroundCompletedGame by controller.backgroundCompletedGame.collectAsState()
+    LaunchedEffect(backgroundCompletedGame) {
+        backgroundCompletedGame?.let { rootNavigation = rootNavigation.completed(it, false) }
+    }
     val homeData by controller.homeData.collectAsState()
     val importState by controller.importState.collectAsState()
     val importStep by controller.kifImport.step.collectAsState()
@@ -473,12 +498,24 @@ private fun DemoApp(
             // 更新されていないため、ここで明示的にHomeへ戻す（route=Homeからの入場では無害）。
             onBack = {
                 controller.leaveAnalyzingView()
-                route = DemoRoute.Home
+                route = rootRoute(rootNavigation.selected.destination)
             },
         )
         return
     }
 
+    dev.miyado.shogisupplement.ui.navigation.RootTabShell(
+        selected = rootNavigation.selected, visible = rootNavigation.showsTabs(route.destination),
+        holder = tabStateHolder,
+        onResumeAnalysis = controller::resumeAnalyzing,
+        onAddGame = { showKifSourceDialog = true },
+        completed = rootNavigation.completedGameId != null,
+        onOpenCompleted = {
+            rootNavigation.completedGameId?.let { navigate(DemoRoute.Report(it)) }
+            rootNavigation = rootNavigation.consumeCompletion()
+            controller.backgroundCompletedGame.value = null
+        }, screenKey = route.destination.name, onSelect = { navigate(rootRoute(it.destination)) },
+    ) {
     when (val r = route) {
         DemoRoute.Home -> {
             val data = homeData
@@ -670,6 +707,7 @@ private fun DemoApp(
                 controller = controller,
                 onBack = { navigate(DemoRoute.Home, NavigationEvent.Back) },
                 onGameClick = { game -> navigate(DemoRoute.Report(game.id)) },
+                onAddGame = { showKifSourceDialog = true },
             )
         }
         DemoRoute.GameRestore -> {
@@ -691,6 +729,7 @@ private fun DemoApp(
         }
     }
 }
+}
 
 /**
  * 棋譜一覧画面。androidApp の MainUiState.GameList と同じ配線:
@@ -704,6 +743,7 @@ private fun IosGameListScreenHost(
     controller: IosMainController,
     onBack: () -> Unit,
     onGameClick: (GameRecord) -> Unit,
+    onAddGame: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     var games by remember { mutableStateOf(repository.getAllGames()) }
@@ -716,7 +756,7 @@ private fun IosGameListScreenHost(
     var savedFilters by remember { mutableStateOf(settingsRepository.getSavedGameFilters()) }
 
     val labelOwner = services?.authRepository?.currentUser?.collectAsState()?.value?.id
-    var labelled by remember(games, labelOwner) { mutableStateOf(games) }
+    var labelled by remember(games, labelOwner) { mutableStateOf<List<GameRecord>?>(null) }
     LaunchedEffect(games, labelOwner) {
         if (labelOwner != null && services != null) {
             try {
@@ -730,8 +770,16 @@ private fun IosGameListScreenHost(
             labelOwner?.let { DatabaseFactory.repertoireRepository().labelledGames(it, games) } ?: games
         }
     }
+    val readyGames = labelled
+    if (readyGames == null) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
+    }
     GameListScreen(
-        games = labelled,
+        games = readyGames,
+        onAddGame = onAddGame,
         knownPositionLabels = labelOwner?.let { DatabaseFactory.repertoireRepository().allPositionLabels(it) }.orEmpty(),
         blunderCounts = remember { repository.getBlunderCounts() },
         pendingUploadCount = pendingUploadCount,
@@ -746,7 +794,7 @@ private fun IosGameListScreenHost(
             settingsRepository.deleteGameFilter(name)
             savedFilters = settingsRepository.getSavedGameFilters()
         },
-        onBack = onBack,
+        onBack = null,
         onGameClick = onGameClick,
         onDeleteGame = { game, deleteServer, onResult ->
             scope.launch {
@@ -934,16 +982,7 @@ private fun IosReportScreenHost(
     val pvExtState by controller.pvExtState.collectAsState()
     val studyState by controller.studyState.collectAsState()
 
-    val repertoireOwner = services?.authRepository?.currentUser?.collectAsState()?.value?.id
-    val repertoireRepo = remember { DatabaseFactory.repertoireRepository() }
-    val repertoireSync = remember(services) { services?.let { srv ->
-        dev.miyado.shogisupplement.repertoire.RepertoireSync(repertoireRepo, srv.repertoireRemote) { srv.authRepository.currentUser.value?.id }
-    } }
     ReportScreen(
-        positionActions = repertoireOwner?.let { owner ->
-            { base, moves -> dev.miyado.shogisupplement.ui.repertoire.RepertoirePositionActions(
-                repertoireRepo, owner, repertoireSync, base, moves) }
-        },
         game = g,
         reports = current.reports,
         flip = current.flip,

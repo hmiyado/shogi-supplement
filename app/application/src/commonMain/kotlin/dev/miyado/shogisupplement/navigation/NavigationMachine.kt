@@ -44,6 +44,8 @@ data class NavigationTransition(
 
 sealed interface NavigationEvent {
     data class Open(val destination: AppDestination) : NavigationEvent
+    data class ReturnToTab(val tab: RootTab) : NavigationEvent
+    data class SelectTab(val tab: RootTab) : NavigationEvent
     data object Back : NavigationEvent
     data object AnalysisStarted : NavigationEvent
     data object AnalysisCompleted : NavigationEvent
@@ -69,11 +71,20 @@ object NavigationMachine {
                 NavigationKind.BACK else NavigationKind.FORWARD) {
             add(NavigationTransition(from, event, to, kind))
         }
+        RootTab.entries.forEach { from ->
+            RootTab.entries.forEach { to -> event(from.destination, NavigationEvent.SelectTab(to), to.destination) }
+        }
+        listOf(AppDestination.REPORT, AppDestination.ANALYZING, AppDestination.DRILL,
+            AppDestination.MANUAL_KIFU, AppDestination.SETTINGS, AppDestination.STRENGTH_DETAIL,
+            AppDestination.DRILL_RECORD_DETAIL, AppDestination.GAME_RESTORE).forEach { detail ->
+            RootTab.entries.forEach { tab -> event(detail, NavigationEvent.ReturnToTab(tab), tab.destination, NavigationKind.BACK) }
+        }
         open(AppDestination.HOME,
             AppDestination.GAME_LIST, AppDestination.REPORT, AppDestination.ANALYZING,
             AppDestination.DRILL, AppDestination.SETTINGS, AppDestination.MANUAL_KIFU,
             AppDestination.STRENGTH_DETAIL, AppDestination.DRILL_RECORD_DETAIL, AppDestination.REPERTOIRE)
-        open(AppDestination.GAME_LIST, AppDestination.REPORT, AppDestination.ANALYZING)
+        open(AppDestination.REPERTOIRE, AppDestination.REPORT, AppDestination.ANALYZING, AppDestination.MANUAL_KIFU)
+        open(AppDestination.GAME_LIST, AppDestination.REPORT, AppDestination.ANALYZING, AppDestination.MANUAL_KIFU)
         open(AppDestination.KENTO_INPUT, AppDestination.REPORT, AppDestination.KENTO_LIBRARY)
         open(AppDestination.KENTO_LIBRARY, AppDestination.REPORT)
         event(AppDestination.KENTO_LIBRARY, NavigationEvent.Back, AppDestination.KENTO_INPUT)
@@ -88,7 +99,7 @@ object NavigationMachine {
             AppDestination.STRENGTH_DETAIL, AppDestination.DRILL_RECORD_DETAIL, AppDestination.REPERTOIRE).forEach {
             event(it, NavigationEvent.Back, AppDestination.HOME)
         }
-        listOf(AppDestination.HOME, AppDestination.MANUAL_KIFU, AppDestination.REPORT, AppDestination.KENTO_INPUT).forEach {
+        listOf(AppDestination.HOME, AppDestination.GAME_LIST, AppDestination.REPERTOIRE, AppDestination.MANUAL_KIFU, AppDestination.REPORT, AppDestination.KENTO_INPUT).forEach {
             event(it, NavigationEvent.AnalysisStarted, AppDestination.ANALYZING,
                 if (it == AppDestination.REPORT) NavigationKind.RETRY else NavigationKind.FORWARD)
         }
