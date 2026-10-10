@@ -24,9 +24,11 @@ enum class PositionLabelScope(val title: String) {
 fun positionLabelKey(sfen: String, scope: PositionLabelScope = PositionLabelScope.ALL): String =
     positionLabelKey(ShogiBoard.fromSfen(sfen), scope)
 
-private fun positionLabelKey(board: ShogiBoard, scope: PositionLabelScope = PositionLabelScope.ALL): String {
-    val normalized = board.toSfen().split(' ')
-    if (scope == PositionLabelScope.ALL) return "${normalized[0]} ${normalized[2]}"
+fun positionLabelKey(board: ShogiBoard, scope: PositionLabelScope = PositionLabelScope.ALL): String {
+    if (scope == PositionLabelScope.ALL) {
+        val normalized = board.toSfen().split(' ')
+        return "${normalized[0]} ${normalized[2]}"
+    }
     val side = if (scope == PositionLabelScope.BLACK) dev.miyado.shogisupplement.board.Side.BLACK else dev.miyado.shogisupplement.board.Side.WHITE
     val pieces = buildList {
         for (rank in 1..9) for (file in 9 downTo 1) {
@@ -76,7 +78,7 @@ fun RepertoireRepository.addPositionLabel(owner: String, sfen: String, scope: Po
     require(text.isNotEmpty() && text.length <= 100 && !text.contains('\n') && !text.contains('\r'))
     val key = positionLabelKey(sfen, scope)
     val id = "labels-${dev.miyado.shogisupplement.util.sha256Hex(key)}"
-    val old = entries(owner).firstOrNull { it.id == id }?.payload
+    val old = entry(owner, id)?.payload
     if (old != null && RepertoireCodec.labels(old).labels.isNotEmpty()) return false
     return compareAndSave(owner, id, "labels", old, RepertoireCodec.encode(PositionLabels(key, listOf(text))))
 }
@@ -99,10 +101,11 @@ data class RepertoireEntry(
 
 interface RepertoireRepository {
     fun entries(owner: String): List<RepertoireEntry>
+    fun entry(owner: String, id: String): RepertoireEntry? = entries(owner).firstOrNull { it.id == id }
     fun pending(owner: String): List<RepertoireEntry> = entries(owner).filter { it.dirty }
     fun save(owner: String, id: String, kind: String, payload: String)
     fun compareAndSave(owner: String, id: String, kind: String, expectedPayload: String?, payload: String): Boolean {
-        if (entries(owner).firstOrNull { it.id == id }?.payload != expectedPayload) return false
+        if (entry(owner, id)?.payload != expectedPayload) return false
         save(owner, id, kind, payload)
         return true
     }

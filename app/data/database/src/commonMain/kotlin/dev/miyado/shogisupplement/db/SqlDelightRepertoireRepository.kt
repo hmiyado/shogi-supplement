@@ -10,6 +10,10 @@ class SqlDelightRepertoireRepository(database: ShogiSupplementDatabase) : Repert
         RepertoireEntry(it.id, it.kind, it.payload, it.revision, it.remote_version, it.revision != it.uploaded_revision)
     }
 
+    override fun entry(owner: String, id: String): RepertoireEntry? = queries.entry(owner, id).executeAsOneOrNull()?.let {
+        RepertoireEntry(it.id, it.kind, it.payload, it.revision, it.remote_version, it.revision != it.uploaded_revision)
+    }
+
     override fun pending(owner: String): List<RepertoireEntry> = queries.transactionWithResult {
         queries.preparePending(owner)
         queries.pending(owner).executeAsList().map {
@@ -28,7 +32,7 @@ class SqlDelightRepertoireRepository(database: ShogiSupplementDatabase) : Repert
 
     override fun compareAndSave(owner: String, id: String, kind: String, expectedPayload: String?, payload: String): Boolean =
         queries.transactionWithResult {
-            if (entries(owner).firstOrNull { it.id == id }?.payload != expectedPayload) return@transactionWithResult false
+            if (entry(owner, id)?.payload != expectedPayload) return@transactionWithResult false
             save(owner, id, kind, payload)
             true
         }

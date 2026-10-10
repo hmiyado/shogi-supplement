@@ -1,0 +1,174 @@
+CREATE TABLE game_list_index (
+    game_id INTEGER NOT NULL PRIMARY KEY REFERENCES game(id) ON DELETE CASCADE,
+    time_control TEXT,
+    source TEXT
+);
+CREATE TABLE game_list_pending (
+    game_id INTEGER NOT NULL PRIMARY KEY
+);
+CREATE TRIGGER queue_game_list_index AFTER INSERT ON game
+BEGIN
+    INSERT OR IGNORE INTO game_list_pending(game_id) VALUES (new.id);
+END;
+CREATE TABLE game_position_key (
+    game_id INTEGER NOT NULL REFERENCES game(id) ON DELETE CASCADE,
+    position_key TEXT NOT NULL,
+    PRIMARY KEY(game_id, position_key)
+);
+CREATE INDEX game_position_key_lookup ON game_position_key(position_key, game_id);
+CREATE TABLE game_opening_key (
+    game_id INTEGER NOT NULL REFERENCES game(id) ON DELETE CASCADE,
+    opening TEXT NOT NULL,
+    PRIMARY KEY(game_id, opening)
+);
+CREATE TABLE position_label_index (
+    owner TEXT NOT NULL,
+    entry_id TEXT NOT NULL,
+    position_key TEXT NOT NULL,
+    label TEXT NOT NULL,
+    PRIMARY KEY(owner, entry_id, label)
+);
+CREATE TABLE position_label_pending (
+    owner TEXT NOT NULL,
+    entry_id TEXT NOT NULL,
+    PRIMARY KEY(owner, entry_id)
+);
+CREATE TRIGGER queue_position_label_index AFTER INSERT ON repertoire_entry
+BEGIN
+    INSERT OR IGNORE INTO position_label_pending(owner, entry_id) VALUES (new.owner, new.id);
+END;
+CREATE TRIGGER invalidate_position_label_index AFTER UPDATE OF payload, kind ON repertoire_entry
+WHEN old.payload IS NOT new.payload OR old.kind IS NOT new.kind
+BEGIN
+    INSERT OR IGNORE INTO position_label_pending(owner, entry_id) VALUES (new.owner, new.id);
+END;
+CREATE INDEX position_label_key_lookup ON position_label_index(owner, position_key, label);
+CREATE INDEX position_label_name_lookup ON position_label_index(owner, label, position_key);
+CREATE INDEX game_list_order ON game(analyzed_at DESC, id DESC);
+
+CREATE TRIGGER invalidate_game_list_index AFTER UPDATE OF moves_usi, study_kif, opening_tags, opening_style, time_control_raw, time_control_byoyomi_raw, source_place ON game
+WHEN old.moves_usi IS NOT new.moves_usi OR old.study_kif IS NOT new.study_kif
+OR old.opening_tags IS NOT new.opening_tags OR old.opening_style IS NOT new.opening_style
+OR old.time_control_raw IS NOT new.time_control_raw OR old.time_control_byoyomi_raw IS NOT new.time_control_byoyomi_raw
+OR old.source_place IS NOT new.source_place
+BEGIN
+    INSERT OR IGNORE INTO game_list_pending(game_id) VALUES (new.id);
+END;
+CREATE TRIGGER delete_game_list_index AFTER DELETE ON game
+BEGIN
+    DELETE FROM game_list_index WHERE game_id = old.id;
+    DELETE FROM game_list_pending WHERE game_id = old.id;
+    DELETE FROM game_position_key WHERE game_id = old.id;
+    DELETE FROM game_opening_key WHERE game_id = old.id;
+END;
+CREATE TRIGGER delete_position_label_index AFTER DELETE ON repertoire_entry
+BEGIN
+    DELETE FROM position_label_index WHERE owner = old.owner AND entry_id = old.id;
+    DELETE FROM position_label_pending WHERE owner = old.owner AND entry_id = old.id;
+END;
+
+unindexedGames:
+SELECT game.* FROM game_list_pending p JOIN game ON game.id = p.game_id ORDER BY p.game_id LIMIT 16;
+
+markIndexed:
+INSERT OR REPLACE INTO game_list_index(game_id, time_control, source) VALUES (?, ?, ?);
+clearPositionKeys:
+DELETE FROM game_position_key WHERE game_id = ?;
+insertPositionKey:
+INSERT OR IGNORE INTO game_position_key(game_id, position_key) VALUES (?, ?);
+clearOpeningKeys:
+DELETE FROM game_opening_key WHERE game_id = ?;
+insertOpeningKey:
+INSERT OR IGNORE INTO game_opening_key(game_id, opening) VALUES (?, ?);
+clearLabelIndex:
+DELETE FROM position_label_index WHERE owner = ? AND entry_id = ?;
+insertLabelIndex:
+INSERT OR IGNORE INTO position_label_index(owner, entry_id, position_key, label) VALUES (?, ?, ?, ?);
+
+labelsForGame:
+SELECT DISTINCT l.label FROM game_position_key p JOIN position_label_index l ON l.position_key = p.position_key
+WHERE p.game_id = ? AND l.owner = ? ORDER BY l.label;
+knownLabels:
+SELECT DISTINCT label FROM position_label_index WHERE owner = ? ORDER BY label;
+matchingLabels:
+SELECT DISTINCT l.label FROM position_label_index l WHERE l.owner = ?
+AND EXISTS (SELECT 1 FROM game_position_key p WHERE p.position_key = l.position_key) ORDER BY l.label;
+facets:
+SELECT DISTINCT i.source, i.time_control, g.user_side, g.game_winner
+FROM game g JOIN game_list_index i ON i.game_id = g.id;
+openingFacets:
+SELECT DISTINCT opening FROM game_opening_key ORDER BY opening;
+totalGames:
+SELECT count(*) FROM game;
+pendingCount:
+SELECT count(*) FROM game WHERE uploaded_at IS NULL AND analysis_status = 'completed';
+
+pageIds:
+SELECT g.id FROM game g JOIN game_list_index i ON i.game_id = g.id
+WHERE (:source IS NULL OR i.source = :source)
+AND (:side IS NULL OR g.user_side = :side)
+AND (:result IS NULL OR (g.user_side IS NOT NULL AND g.game_winner IS NOT NULL AND
+    ((:result = 'WIN' AND g.user_side = g.game_winner) OR (:result = 'LOSS' AND g.user_side != g.game_winner))))
+AND (:dateFrom IS NULL OR g.analyzed_at >= :dateFrom)
+AND (:dateTo IS NULL OR g.analyzed_at <= :dateTo)
+AND (:opening IS NULL OR EXISTS (SELECT 1 FROM game_opening_key o WHERE o.game_id = g.id AND o.opening = :opening))
+AND (:timeControl IS NULL OR i.time_control = :timeControl)
+AND (:label IS NULL OR EXISTS (SELECT 1 FROM game_position_key p JOIN position_label_index l ON l.position_key = p.position_key
+    WHERE p.game_id = g.id AND l.owner = :owner AND l.label = :label))
+AND (:afterDate IS NULL OR g.analyzed_at < :afterDate OR (g.analyzed_at = :afterDate AND g.id < :afterId))
+ORDER BY g.analyzed_at DESC, g.id DESC LIMIT :pageSize;
+
+summary:
+SELECT count(*) AS games,
+coalesce(sum(CASE WHEN g.analysis_status = 'completed' AND g.user_side IS NOT NULL AND g.game_winner IS NOT NULL THEN 1 ELSE 0 END), 0) AS decided,
+coalesce(sum(CASE WHEN g.analysis_status = 'completed' AND g.user_side IS NOT NULL AND g.game_winner = g.user_side THEN 1 ELSE 0 END), 0) AS wins,
+coalesce(sum(CASE WHEN g.analysis_status = 'completed' AND g.user_side IS NOT NULL THEN
+    (SELECT count(*) FROM blunder_report b WHERE b.game_id = g.id) ELSE 0 END), 0) AS blunders,
+coalesce(sum(CASE WHEN g.analysis_status = 'completed' AND g.user_side IS NOT NULL THEN
+    CASE WHEN g.user_side = 'sente' THEN (g.move_count + 1) / 2 ELSE g.move_count / 2 END ELSE 0 END), 0) AS user_moves
+FROM game g JOIN game_list_index i ON i.game_id = g.id
+WHERE (:source IS NULL OR i.source = :source)
+AND (:side IS NULL OR g.user_side = :side)
+AND (:result IS NULL OR (g.user_side IS NOT NULL AND g.game_winner IS NOT NULL AND
+    ((:result = 'WIN' AND g.user_side = g.game_winner) OR (:result = 'LOSS' AND g.user_side != g.game_winner))))
+AND (:dateFrom IS NULL OR g.analyzed_at >= :dateFrom)
+AND (:dateTo IS NULL OR g.analyzed_at <= :dateTo)
+AND (:opening IS NULL OR EXISTS (SELECT 1 FROM game_opening_key o WHERE o.game_id = g.id AND o.opening = :opening))
+AND (:timeControl IS NULL OR i.time_control = :timeControl)
+AND (:label IS NULL OR EXISTS (SELECT 1 FROM game_position_key p JOIN position_label_index l ON l.position_key = p.position_key
+    WHERE p.game_id = g.id AND l.owner = :owner AND l.label = :label));
+
+ratings:
+SELECT g.rating FROM game g JOIN game_list_index i ON i.game_id = g.id
+WHERE (:source IS NULL OR i.source = :source)
+AND (:side IS NULL OR g.user_side = :side)
+AND (:result IS NULL OR (g.user_side IS NOT NULL AND g.game_winner IS NOT NULL AND
+    ((:result = 'WIN' AND g.user_side = g.game_winner) OR (:result = 'LOSS' AND g.user_side != g.game_winner))))
+AND (:dateFrom IS NULL OR g.analyzed_at >= :dateFrom)
+AND (:dateTo IS NULL OR g.analyzed_at <= :dateTo)
+AND (:opening IS NULL OR EXISTS (SELECT 1 FROM game_opening_key o WHERE o.game_id = g.id AND o.opening = :opening))
+AND (:timeControl IS NULL OR i.time_control = :timeControl)
+AND (:label IS NULL OR EXISTS (SELECT 1 FROM game_position_key p JOIN position_label_index l ON l.position_key = p.position_key
+    WHERE p.game_id = g.id AND l.owner = :owner AND l.label = :label))
+AND g.analysis_status = 'completed' AND g.user_side IS NOT NULL ORDER BY g.analyzed_at DESC, g.id DESC;
+
+unindexedLabels:
+SELECT r.* FROM position_label_pending p JOIN repertoire_entry r ON r.owner = p.owner AND r.id = p.entry_id LIMIT 32;
+markLabelIndexed:
+DELETE FROM position_label_pending WHERE owner = ? AND entry_id = ?;
+
+finishGameIndex:
+DELETE FROM game_list_pending WHERE game_id = ?;
+
+filteredCount:
+SELECT count(*) FROM game g JOIN game_list_index i ON i.game_id = g.id
+WHERE (:source IS NULL OR i.source = :source)
+AND (:side IS NULL OR g.user_side = :side)
+AND (:result IS NULL OR (g.user_side IS NOT NULL AND g.game_winner IS NOT NULL AND
+    ((:result = 'WIN' AND g.user_side = g.game_winner) OR (:result = 'LOSS' AND g.user_side != g.game_winner))))
+AND (:dateFrom IS NULL OR g.analyzed_at >= :dateFrom)
+AND (:dateTo IS NULL OR g.analyzed_at <= :dateTo)
+AND (:opening IS NULL OR EXISTS (SELECT 1 FROM game_opening_key o WHERE o.game_id = g.id AND o.opening = :opening))
+AND (:timeControl IS NULL OR i.time_control = :timeControl)
+AND (:label IS NULL OR EXISTS (SELECT 1 FROM game_position_key p JOIN position_label_index l ON l.position_key = p.position_key
+    WHERE p.game_id = g.id AND l.owner = :owner AND l.label = :label));

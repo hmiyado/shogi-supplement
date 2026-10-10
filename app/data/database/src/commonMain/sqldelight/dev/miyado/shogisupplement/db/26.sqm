@@ -1,0 +1,71 @@
+CREATE TABLE game_list_index (
+    game_id INTEGER NOT NULL PRIMARY KEY REFERENCES game(id) ON DELETE CASCADE,
+    time_control TEXT,
+    source TEXT
+);
+CREATE TABLE game_list_pending (
+    game_id INTEGER NOT NULL PRIMARY KEY
+);
+CREATE TRIGGER queue_game_list_index AFTER INSERT ON game
+BEGIN
+    INSERT OR IGNORE INTO game_list_pending(game_id) VALUES (new.id);
+END;
+CREATE TABLE game_position_key (
+    game_id INTEGER NOT NULL REFERENCES game(id) ON DELETE CASCADE,
+    position_key TEXT NOT NULL,
+    PRIMARY KEY(game_id, position_key)
+);
+CREATE INDEX game_position_key_lookup ON game_position_key(position_key, game_id);
+CREATE TABLE game_opening_key (
+    game_id INTEGER NOT NULL REFERENCES game(id) ON DELETE CASCADE,
+    opening TEXT NOT NULL,
+    PRIMARY KEY(game_id, opening)
+);
+CREATE TABLE position_label_index (
+    owner TEXT NOT NULL,
+    entry_id TEXT NOT NULL,
+    position_key TEXT NOT NULL,
+    label TEXT NOT NULL,
+    PRIMARY KEY(owner, entry_id, label)
+);
+CREATE TABLE position_label_pending (
+    owner TEXT NOT NULL,
+    entry_id TEXT NOT NULL,
+    PRIMARY KEY(owner, entry_id)
+);
+CREATE TRIGGER queue_position_label_index AFTER INSERT ON repertoire_entry
+BEGIN
+    INSERT OR IGNORE INTO position_label_pending(owner, entry_id) VALUES (new.owner, new.id);
+END;
+CREATE TRIGGER invalidate_position_label_index AFTER UPDATE OF payload, kind ON repertoire_entry
+WHEN old.payload IS NOT new.payload OR old.kind IS NOT new.kind
+BEGIN
+    INSERT OR IGNORE INTO position_label_pending(owner, entry_id) VALUES (new.owner, new.id);
+END;
+CREATE INDEX position_label_key_lookup ON position_label_index(owner, position_key, label);
+CREATE INDEX position_label_name_lookup ON position_label_index(owner, label, position_key);
+CREATE INDEX game_list_order ON game(analyzed_at DESC, id DESC);
+
+CREATE TRIGGER invalidate_game_list_index AFTER UPDATE OF moves_usi, study_kif, opening_tags, opening_style, time_control_raw, time_control_byoyomi_raw, source_place ON game
+WHEN old.moves_usi IS NOT new.moves_usi OR old.study_kif IS NOT new.study_kif
+OR old.opening_tags IS NOT new.opening_tags OR old.opening_style IS NOT new.opening_style
+OR old.time_control_raw IS NOT new.time_control_raw OR old.time_control_byoyomi_raw IS NOT new.time_control_byoyomi_raw
+OR old.source_place IS NOT new.source_place
+BEGIN
+    INSERT OR IGNORE INTO game_list_pending(game_id) VALUES (new.id);
+END;
+CREATE TRIGGER delete_game_list_index AFTER DELETE ON game
+BEGIN
+    DELETE FROM game_list_index WHERE game_id = old.id;
+    DELETE FROM game_list_pending WHERE game_id = old.id;
+    DELETE FROM game_position_key WHERE game_id = old.id;
+    DELETE FROM game_opening_key WHERE game_id = old.id;
+END;
+CREATE TRIGGER delete_position_label_index AFTER DELETE ON repertoire_entry
+BEGIN
+    DELETE FROM position_label_index WHERE owner = old.owner AND entry_id = old.id;
+    DELETE FROM position_label_pending WHERE owner = old.owner AND entry_id = old.id;
+END;
+
+INSERT INTO game_list_pending(game_id) SELECT id FROM game;
+INSERT INTO position_label_pending(owner, entry_id) SELECT owner, id FROM repertoire_entry;

@@ -6,6 +6,8 @@ import dev.miyado.shogisupplement.util.currentEpochSeconds
 /** 棋譜・悪手レポート・局面評価の永続化。 */
 interface GameRepository {
 
+    val gameListQueries: GameListReader? get() = null
+
     /** 編集済みの検討KIF。未編集なら解析元のKIFを返す。 */
     fun getStudyKif(gameId: Long): String? = error("Study persistence is not supported")
 

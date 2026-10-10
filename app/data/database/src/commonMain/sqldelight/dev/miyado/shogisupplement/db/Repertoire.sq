@@ -58,3 +58,6 @@ DELETE FROM repertoire_outbox;
 
 clearEntries:
 DELETE FROM repertoire_entry;
+
+entry:
+SELECT * FROM repertoire_entry WHERE owner = ? AND id = ?;

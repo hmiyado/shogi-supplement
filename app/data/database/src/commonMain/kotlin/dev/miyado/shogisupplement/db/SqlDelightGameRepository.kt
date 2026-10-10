@@ -15,6 +15,8 @@ import kotlinx.serialization.json.Json
 /** 棋譜・悪手レポート・局面評価値のDB永続化リポジトリ（[GameRepository]のSQLDelight実装）。 */
 class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : GameRepository {
 
+    override val gameListQueries: GameListReader by lazy { SqlDelightGameListReader(database, this) }
+
     override fun getStudyKif(gameId: Long): String? =
         database.shogiSupplementQueries.getStudyKif(gameId).executeAsOneOrNull()?.effective_kif
 

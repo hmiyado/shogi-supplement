@@ -72,6 +72,7 @@ class RepertoireRepositoryTest {
             ShogiSupplementDatabase.Schema.create(driver)
             driver.execute(null, "DROP TABLE repertoire_outbox", 0)
             driver.execute(null, "DROP TABLE repertoire_entry", 0)
+            dropGameListSchema(driver)
             ShogiSupplementDatabase.Schema.migrate(driver, 25, ShogiSupplementDatabase.Schema.version)
             val repo = SqlDelightRepertoireRepository(ShogiSupplementDatabase(driver))
             repo.save("alice", "one", "labels", "payload")
