@@ -1,5 +1,7 @@
 package dev.miyado.shogisupplement.ui.report
 
+import dev.miyado.shogisupplement.ui.text.LocalizedStrings
+
 import dev.miyado.shogisupplement.board.ShogiSquare
 import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.db.EngineMatchRate
@@ -10,7 +12,6 @@ import dev.miyado.shogisupplement.engine.BlockingStudyEngine
 import dev.miyado.shogisupplement.engine.Engine
 import dev.miyado.shogisupplement.strength.StrengthEstimator
 import dev.miyado.shogisupplement.strength.toDisplayString
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.board.PieceType
 import kotlin.math.roundToInt
 import dev.miyado.shogisupplement.ui.common.PvExtState
@@ -133,10 +134,10 @@ class ReportViewModel(
             // 悪手率・一致率は同じ分母（n=エンジン評価が使えた自分の手数）を共有するため、
             // 一致率の算出は1回だけ呼んで両方を導出する。
             val mrResult = if (g != null) EngineMatchRate.compute(g.movesUsi, pe, g.userSide) else null
-            val mr = mrResult?.let { AppStrings.matchRateValue((it.rate * 100).roundToInt(), it.matched, it.sampleMoves) }
+            val mr = mrResult?.let { LocalizedStrings.matchRateValue((it.rate * 100).roundToInt(), it.matched, it.sampleMoves) }
             val br = mrResult?.takeIf { it.sampleMoves > 0 }?.let {
                 val pct = (r.size.toDouble() / it.sampleMoves * 100).roundToInt()
-                AppStrings.blunderRateValue(pct, r.size, it.sampleMoves)
+                LocalizedStrings.blunderRateValue(pct, r.size, it.sampleMoves)
             }
             ReportResult(g, r, fl, st, pe, mr, br) to loadedDocument
         }

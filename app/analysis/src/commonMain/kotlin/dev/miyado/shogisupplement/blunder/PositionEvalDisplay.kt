@@ -1,6 +1,5 @@
 package dev.miyado.shogisupplement.blunder
 
-import dev.miyado.shogisupplement.text.AppStrings
 import kotlin.math.roundToInt
 
 /**
@@ -17,10 +16,21 @@ object PositionEvalDisplay {
 
     /** 表示状態: テキストと優劣（色分け用）。 */
     data class EvalLabel(
-        val text: String,
+        val value: EvalText,
         /** 正 = ユーザー優勢（紺青）、負 = 劣勢（朱）、0 = 互角（中立）。 */
         val sign: Int,
-    )
+    ) {
+        constructor(text: String, sign: Int) : this(EvalText.Literal(text), sign)
+    }
+
+    sealed interface EvalText {
+        data class Literal(val text: String) : EvalText
+        data class Cp(val value: Int) : EvalText
+        data class WinProbability(val percent: Int) : EvalText
+        data class Mate(val moves: Int) : EvalText
+        data object MateWin : EvalText
+        data object MateLoss : EvalText
+    }
 
     /** 評価値の表示ラベルを返す。 @param scoreCp 先手視点cp。 @param mateIn 詰みまでの手数。 @param userIsGote 後手視点か。 @param evalDisplay 表示単位。 @param ply 局面の手数。 */
     fun format(
@@ -40,12 +50,12 @@ object PositionEvalDisplay {
                 } else {
                     false // ply 不明時は負けとして安全側に倒す
                 }
-                val text = if (userWins) AppStrings.POSITION_EVAL_MATE_ZERO_WIN
-                           else AppStrings.POSITION_EVAL_MATE_ZERO_LOSS
+                val text = if (userWins) EvalText.MateWin
+                           else EvalText.MateLoss
                 return EvalLabel(text, sign = if (userWins) 1 else -1)
             }
             val userMate = if (userIsGote) -mateIn else mateIn
-            val text = AppStrings.positionEvalMate(userMate)
+            val text = EvalText.Mate(userMate)
             return EvalLabel(text, sign = if (userMate > 0) 1 else -1)
         }
         val cp = scoreCp ?: return null
@@ -54,12 +64,12 @@ object PositionEvalDisplay {
             "wp" -> {
                 val pct = (DisplayWinProb.winProb(userCp) * 100).roundToInt()
                 EvalLabel(
-                    AppStrings.positionEvalWp(pct),
+                    EvalText.WinProbability(pct),
                     sign = userCp.compareTo(0),
                 )
             }
             else -> EvalLabel(
-                AppStrings.cpSignedLabel(userCp),
+                EvalText.Cp(userCp),
                 sign = userCp.compareTo(0),
             )
         }

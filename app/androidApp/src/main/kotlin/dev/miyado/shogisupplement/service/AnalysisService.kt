@@ -1,5 +1,11 @@
 package dev.miyado.shogisupplement.service
 
+import dev.miyado.shogisupplement.engine.displayMessage
+
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
+import dev.miyado.shogisupplement.ui.text.LocalizedStrings
+
 import android.app.Notification
 import android.app.NotificationManager
 import android.app.Service
@@ -22,7 +28,6 @@ import dev.miyado.shogisupplement.judge.CoefficientTable
 import dev.miyado.shogisupplement.kifu.KifParser
 import dev.miyado.shogisupplement.pipeline.InProgressAnalysisRegistry
 import dev.miyado.shogisupplement.service.AnalysisServiceBus.ServiceEvent
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.util.sha256Hex
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CancellationException
@@ -43,10 +48,17 @@ class AnalysisService : Service() {
     private val scope = CoroutineScope(Dispatchers.Default + job)
     private var activeAnalysisJob: Job? = null
 
+    private lateinit var notificationTitle: String
+    private lateinit var notificationPreparing: String
     private lateinit var notificationManager: NotificationManager
 
     override fun onCreate() {
         super.onCreate()
+        // Android requires a foreground notification before asynchronous analysis starts.
+        kotlinx.coroutines.runBlocking {
+            notificationTitle = LocalizedStrings.NOTIF_ANALYZING_TITLE()
+            notificationPreparing = LocalizedStrings.NOTIF_PREPARING()
+        }
         notificationManager = getSystemService(NotificationManager::class.java)
     }
 
@@ -178,7 +190,7 @@ class AnalysisService : Service() {
                 }
                 is AnalysisOrchestrator.Outcome.Failed -> {
                     Log.e(TAG, "Analysis failed: ${outcome.message}")
-                    AnalysisServiceBus.emit(ServiceEvent.Failed(outcome.message, requestId))
+                    AnalysisServiceBus.emit(ServiceEvent.Failed(outcome.displayMessage(), requestId))
                 }
             }
         } catch (e: CancellationException) {
@@ -190,7 +202,7 @@ class AnalysisService : Service() {
             if (!e.isAlreadyReported()) {
                 crashReporter.captureException(e)
             }
-            AnalysisServiceBus.emit(ServiceEvent.Failed(e.message ?: AppStrings.UNKNOWN_ERROR, requestId))
+            AnalysisServiceBus.emit(ServiceEvent.Failed(e.message ?: LocalizedStrings.UNKNOWN_ERROR(), requestId))
         } finally {
             // 旧startIdの終了処理で、後から始まった再解析を止めない。
             stopSelf(startId)
@@ -224,8 +236,8 @@ class AnalysisService : Service() {
     private fun buildProgressNotification(done: Int, total: Int): Notification {
         val progress = if (total > 0) (done * 100 / total) else 0
         return NotificationCompat.Builder(this, ShogiApp.CHANNEL_ANALYSIS)
-            .setContentTitle(AppStrings.NOTIF_ANALYZING_TITLE)
-            .setContentText(if (total > 0) AppStrings.notifProgress(done, total, progress) else AppStrings.NOTIF_PREPARING)
+            .setContentTitle(notificationTitle)
+            .setContentText(if (total > 0) kotlinx.coroutines.runBlocking { LocalizedStrings.notifProgress(done, total, progress) } else notificationPreparing)
             .setSmallIcon(android.R.drawable.ic_menu_search)
             .setOngoing(true)
             .setProgress(100, progress, total == 0)

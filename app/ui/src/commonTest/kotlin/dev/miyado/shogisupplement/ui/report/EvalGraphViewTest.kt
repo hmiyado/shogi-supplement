@@ -56,9 +56,9 @@ class EvalGraphViewTest {
 
     @Test
     fun `消費時間表示は分秒で不明をダッシュにする`() {
-        assertEquals("0:00", formatMoveTime(0))
-        assertEquals("1:15", formatMoveTime(75))
-        assertEquals("—", formatMoveTime(null))
+        assertEquals("0:00", formatMoveTime(0, "—"))
+        assertEquals("1:15", formatMoveTime(75, "—"))
+        assertEquals("—", formatMoveTime(null, "—"))
     }
 
     @Test

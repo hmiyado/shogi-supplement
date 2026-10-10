@@ -1,5 +1,7 @@
 package dev.miyado.shogisupplement.ui.home
 
+import dev.miyado.shogisupplement.ui.text.LocalizedStrings
+
 import dev.miyado.shogisupplement.db.DrillRepository
 import dev.miyado.shogisupplement.ui.drillrecord.DRILL_RECORD_WINDOW_DAYS
 import dev.miyado.shogisupplement.db.GameRecord
@@ -9,7 +11,6 @@ import dev.miyado.shogisupplement.db.SettingsRepository
 import dev.miyado.shogisupplement.rating.ShogiRank
 import dev.miyado.shogisupplement.strength.StrengthEstimator
 import dev.miyado.shogisupplement.strength.toDisplayString
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.defaultIoDispatcher
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
@@ -62,7 +63,7 @@ class HomeViewModel(
     }
 
     /** user_side設定済みゲームから強さ指標カードを計算する。Why not悪手を再集計しない: 推定器v2は局単位の予測を平均するため。 */
-    private fun computeStrengthCard(games: List<GameRecord>): StrengthCardData? {
+    private suspend fun computeStrengthCard(games: List<GameRecord>): StrengthCardData? {
         val settings = settingsRepository.getRatingSettings()
         if (games.isEmpty()) return null
         var totalMoves = 0
@@ -78,7 +79,7 @@ class HomeViewModel(
         val declaredRankLine = buildDeclaredRankLine(settings)
         return StrengthCardData(
             displayText = estimate.toDisplayString(),
-            detailText = AppStrings.strengthDetail(games.size),
+            detailText = LocalizedStrings.strengthDetail(games.size),
             savedService = settings.service,
             savedRatingRaw = settings.ratingRaw,
             savedRatingRule = settings.ratingRule,
@@ -86,25 +87,25 @@ class HomeViewModel(
         )
     }
 
-    private fun buildDeclaredRankLine(settings: RatingSettings): String? {
+    private suspend fun buildDeclaredRankLine(settings: RatingSettings): String? {
         val serviceRanks = settingsRepository.getAllServiceRanks()
         val entries = mutableListOf<String>()
         // ルール別（ウォーズ・棋桜）
         for ((svc, rules) in serviceRanks) {
-            val shortName = AppStrings.serviceShortName(svc)
+            val shortName = LocalizedStrings.serviceShortName(svc)
             for ((ruleId, raw) in rules) {
                 val rankLabel = ShogiRank.fromRaw(raw)?.toDisplayString() ?: continue
-                val ruleLabel = AppStrings.ruleLabel(svc, ruleId)
+                val ruleLabel = LocalizedStrings.ruleLabel(svc, ruleId)
                 entries += "$shortName$ruleLabel $rankLabel"
             }
         }
         // レーティング制サービス（lishogi・将棋クエスト）は単一レート（明示的に保存済みの場合のみ表示）。
         // レート欄を空のまま保存すると0が入るため、0は未申告として扱う。
         if (settings.service in RATING_SERVICES && settings.ratingRaw > 0 && settingsRepository.hasUserSavedRatingSettings()) {
-            entries += "${AppStrings.serviceShortName(settings.service)} ${settings.ratingRaw}"
+            entries += "${LocalizedStrings.serviceShortName(settings.service)} ${settings.ratingRaw}"
         }
         return if (entries.isEmpty()) null
-        else AppStrings.strengthDeclaredLine(entries.joinToString(" ／ "))
+        else LocalizedStrings.strengthDeclaredLine(entries.joinToString(" ／ "))
     }
 
     /** 総手数から user_side の手数を算出する。先手: ceil(total/2), 後手: floor(total/2)。 */

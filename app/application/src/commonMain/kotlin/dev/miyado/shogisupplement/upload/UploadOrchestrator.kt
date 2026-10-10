@@ -5,7 +5,6 @@ import dev.miyado.shogisupplement.db.DrillAttemptRecord
 import dev.miyado.shogisupplement.db.DrillRepository
 import dev.miyado.shogisupplement.db.GameRepository
 import dev.miyado.shogisupplement.db.SettingsRepository
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.util.currentEpochSeconds
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
@@ -23,14 +22,6 @@ data class UploadAllResult(
     val studySuccess: Int = 0,
     val studyFailed: Int = 0,
 )
-
-/**
- * 問題登録と解答送信の別はユーザーへ出さず、1つの件数に合算する（docs/wording.md）。
- * Why not 解答送信の失敗数も足す: 失敗した解答は未送信のまま残り
- * [drillPendingRemaining] に既に入っているため、同じ1件を2件として見せてしまう。
- */
-fun UploadAllResult.resultMessage(): String =
-    AppStrings.accountUploadResult(gameSuccess + studySuccess, gameFailed + studyFailed, drillPendingRemaining + drillProblemSyncFailed)
 
 /** アップロードのオーケストレーター。constructor injectionでテスト可能（fakeを注入できる）。 */
 class UploadOrchestrator(

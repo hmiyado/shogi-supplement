@@ -1,7 +1,11 @@
 package dev.miyado.shogisupplement
 
+import dev.miyado.shogisupplement.ui.text.UiStrings
+
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import dev.miyado.shogisupplement.ui.destination
-import dev.miyado.shogisupplement.repertoire.allPositionLabels
 
 import android.content.Intent
 import android.net.Uri
@@ -43,7 +47,6 @@ import dev.miyado.shogisupplement.ui.MainViewModel
 import dev.miyado.shogisupplement.ui.common.ErrorScreen
 import dev.miyado.shogisupplement.ui.gamelist.GameListScreen
 import dev.miyado.shogisupplement.ui.manual.ManualKifuScreen
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
 
 class MainActivity : ComponentActivity() {
@@ -206,9 +209,10 @@ fun MainApp(vm: MainViewModel, state: MainUiState) {
                 BackHandler { vm.loadHome() }
                 GameListScreen(
                     onAddGame = { showKifSourceSheet = true },
-                    games = state.games,
-                    knownPositionLabels = labelOwner?.id?.let { vm.repertoireRepository.allPositionLabels(it) }.orEmpty(),
-                    blunderCounts = state.blunderCounts,
+                    games = emptyList(),
+                    queries = vm.gameListQueries,
+                    labelOwner = labelOwner?.id,
+                    dataRevision = state.dataRevision,
                     pendingUploadCount = state.pendingUploadCount,
                     isUploading = state.isUploading,
                     uploadResult = state.uploadResult,
@@ -246,14 +250,14 @@ fun MainApp(vm: MainViewModel, state: MainUiState) {
             onDismissRequest = { vm.clearAnalysisError() },
             title = {
                 Text(
-                    text = AppStrings.ANALYSIS_FAILED_DIALOG_TITLE,
+                    text = stringResource(Res.string.analysis_failed_dialog_title),
                     color = MaterialTheme.colorScheme.error,
                 )
             },
-            text = { Text(AppStrings.errorMessage(message)) },
+            text = { Text(UiStrings.errorMessage(message)) },
             confirmButton = {
                 TextButton(onClick = { vm.clearAnalysisError() }) {
-                    Text(AppStrings.CLOSE)
+                    Text(stringResource(Res.string.close))
                 }
             },
         )

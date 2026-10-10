@@ -1,5 +1,8 @@
 package dev.miyado.shogisupplement
 
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -29,7 +32,6 @@ import dev.miyado.shogisupplement.drill.EngineDrillSecondaryJudge
 import dev.miyado.shogisupplement.engine.Engine
 import dev.miyado.shogisupplement.engine.InvariantDrillEngine
 import dev.miyado.shogisupplement.engine.UsiEngineProcess
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.ShogiThinTopBar
 import dev.miyado.shogisupplement.ui.drill.DrillQuestionContent
 import dev.miyado.shogisupplement.ui.drill.DrillResultContent
@@ -111,7 +113,7 @@ fun DrillScreen(
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            ShogiThinTopBar(title = AppStrings.DRILL_TITLE, onBack = leave)
+            ShogiThinTopBar(title = stringResource(Res.string.drill_title), onBack = leave)
             Box(Modifier.fillMaxSize()) {
             when (val s = state) {
                 is DrillUiState.Loading -> {
@@ -124,16 +126,16 @@ fun DrillScreen(
                     Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
-                                AppStrings.DRILL_EMPTY_TITLE,
+                                stringResource(Res.string.drill_empty_title),
                                 style = MaterialTheme.typography.titleMedium,
                             )
                             Spacer(Modifier.height(8.dp))
                             Text(
-                                AppStrings.DRILL_EMPTY_BODY,
+                                stringResource(Res.string.drill_empty_body),
                                 style = MaterialTheme.typography.bodyMedium,
                             )
                             Spacer(Modifier.height(16.dp))
-                            Button(onClick = leave) { Text(AppStrings.DRILL_BACK_HOME) }
+                            Button(onClick = leave) { Text(stringResource(Res.string.drill_back_home)) }
                         }
                     }
                 }

@@ -1,5 +1,12 @@
 package dev.miyado.shogisupplement.ui.settings
 
+import org.jetbrains.compose.resources.vectorResource
+
+import dev.miyado.shogisupplement.ui.text.UiStrings
+
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,8 +23,6 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -34,7 +39,6 @@ import dev.miyado.shogisupplement.ui.common.adaptiveContentWidth
 import dev.miyado.shogisupplement.ui.common.scaffoldContentInsets
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
 import dev.miyado.shogisupplement.ui.theme.shogiColors
 
@@ -94,12 +98,12 @@ fun SettingsScreen(
         contentWindowInsets = scaffoldContentInsets(),
         topBar = {
             TopAppBar(
-                title = { Text(AppStrings.SETTINGS_TITLE) },
+                title = { Text(stringResource(Res.string.settings_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = AppStrings.BACK,
+                            imageVector = vectorResource(Res.drawable.ic_auto_mirrored_filled_arrow_back),
+                            contentDescription = stringResource(Res.string.back),
                         )
                     }
                 },
@@ -113,7 +117,7 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .adaptiveContentWidth(),
         ) {
-            SettingsSectionHeader(AppStrings.SETTINGS_SECTION_PROFILE)
+            SettingsSectionHeader(stringResource(Res.string.settings_section_profile))
             // 先後確認の省略トグル（OFFに戻す導線）
             Row(
                 modifier = Modifier
@@ -124,11 +128,11 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        AppStrings.SETTINGS_ROW_SKIP_SIDE_CONFIRM,
+                        stringResource(Res.string.settings_row_skip_side_confirm),
                         style = MaterialTheme.typography.bodyLarge,
                     )
                     Text(
-                        AppStrings.SETTINGS_ROW_SKIP_SIDE_CONFIRM_SUB,
+                        stringResource(Res.string.settings_row_skip_side_confirm_sub),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.shogiColors.ink3,
                     )
@@ -142,68 +146,68 @@ fun SettingsScreen(
 
             // onOpenAccount = null（Supabase未設定ビルド等）のときは節ごと非表示にする
             if (onOpenAccount != null) {
-                SettingsSectionHeader(AppStrings.SETTINGS_SECTION_DATA)
+                SettingsSectionHeader(stringResource(Res.string.settings_section_data))
                 if (onCreateAccount != null) {
                     SettingsRow(
-                        label = AppStrings.SETTINGS_CREATE_ACCOUNT,
-                        sub = AppStrings.SETTINGS_CREATE_ACCOUNT_SUB,
+                        label = stringResource(Res.string.settings_create_account),
+                        sub = stringResource(Res.string.settings_create_account_sub),
                         onClick = onCreateAccount,
                     )
                 }
                 SettingsRow(
-                    label = AppStrings.SETTINGS_ROW_ACCOUNT,
-                    sub = AppStrings.SETTINGS_ROW_ACCOUNT_SUB,
+                    label = stringResource(Res.string.settings_row_account),
+                    sub = stringResource(Res.string.settings_row_account_sub),
                     onClick = onOpenAccount,
                 )
                 if (onOpenTransferCode != null) {
                     SettingsRow(
-                        label = AppStrings.SETTINGS_ROW_TRANSFER_CODE,
-                        sub = AppStrings.SETTINGS_ROW_TRANSFER_CODE_SUB,
+                        label = stringResource(Res.string.settings_row_transfer_code),
+                        sub = stringResource(Res.string.settings_row_transfer_code_sub),
                         onClick = onOpenTransferCode,
                     )
                 }
                 if (onOpenTransferCodeInput != null) {
                     SettingsRow(
-                        label = AppStrings.SETTINGS_ROW_TRANSFER_CODE_INPUT,
-                        sub = AppStrings.SETTINGS_ROW_TRANSFER_CODE_INPUT_SUB,
+                        label = stringResource(Res.string.settings_row_transfer_code_input),
+                        sub = stringResource(Res.string.settings_row_transfer_code_input_sub),
                         onClick = onOpenTransferCodeInput,
                     )
                 }
                 HorizontalDivider(color = MaterialTheme.shogiColors.line)
             }
 
-            SettingsSectionHeader(AppStrings.SETTINGS_SECTION_DISPLAY)
+            SettingsSectionHeader(stringResource(Res.string.settings_section_display))
             SettingsRow(
-                label = AppStrings.SETTINGS_ROW_THEME,
-                sub = AppStrings.themeLabel(themeMode),
+                label = stringResource(Res.string.settings_row_theme),
+                sub = UiStrings.themeLabel(themeMode),
                 onClick = { showThemeDialog = true },
             )
             SettingsRow(
-                label = AppStrings.SETTINGS_ROW_EVAL_DISPLAY,
-                sub = AppStrings.evalDisplayLabel(evalDisplay),
+                label = stringResource(Res.string.settings_row_eval_display),
+                sub = UiStrings.evalDisplayLabel(evalDisplay),
                 onClick = { showEvalDisplayDialog = true },
             )
             HorizontalDivider(color = MaterialTheme.shogiColors.line)
 
-            SettingsSectionHeader(AppStrings.SETTINGS_SECTION_ABOUT)
+            SettingsSectionHeader(stringResource(Res.string.settings_section_about))
             SettingsRow(
-                label = AppStrings.SETTINGS_ROW_HELP,
+                label = stringResource(Res.string.settings_row_help),
                 onClick = onOpenHelp,
             )
             SettingsRow(
-                label = AppStrings.SETTINGS_ROW_FEEDBACK,
+                label = stringResource(Res.string.settings_row_feedback),
                 onClick = onOpenFeedback,
             )
             SettingsRow(
-                label = AppStrings.SETTINGS_ROW_TERMS,
+                label = stringResource(Res.string.settings_row_terms),
                 onClick = onOpenTerms,
             )
             SettingsRow(
-                label = AppStrings.SETTINGS_ROW_RELEASE_NOTES,
+                label = stringResource(Res.string.settings_row_release_notes),
                 onClick = onOpenReleaseNotes,
             )
             SettingsRow(
-                label = AppStrings.SETTINGS_ROW_LICENSES,
+                label = stringResource(Res.string.settings_row_licenses),
                 onClick = onOpenLicenses,
             )
             // バージョン行（タップ不可・値表示のみ）
@@ -214,7 +218,7 @@ fun SettingsScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    AppStrings.SETTINGS_ROW_VERSION,
+                    stringResource(Res.string.settings_row_version),
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.weight(1f),
                 )
@@ -228,9 +232,9 @@ fun SettingsScreen(
             // デバッグセクション（onOpenDebug が非 null = DEBUG ビルドのみ表示）
             if (onOpenDebug != null) {
                 HorizontalDivider(color = MaterialTheme.shogiColors.line)
-                SettingsSectionHeader(AppStrings.SETTINGS_DEBUG_SECTION)
+                SettingsSectionHeader(stringResource(Res.string.settings_debug_section))
                 SettingsRow(
-                    label = AppStrings.SETTINGS_DEBUG_ROW,
+                    label = stringResource(Res.string.settings_debug_row),
                     onClick = onOpenDebug,
                 )
             }
@@ -246,13 +250,13 @@ private fun ThemeDialog(
     onSelect: (String) -> Unit,
 ) {
     val options = listOf(
-        "system" to AppStrings.THEME_SYSTEM,
-        "light" to AppStrings.THEME_LIGHT,
-        "dark" to AppStrings.THEME_DARK,
+        "system" to stringResource(Res.string.theme_system),
+        "light" to stringResource(Res.string.theme_light),
+        "dark" to stringResource(Res.string.theme_dark),
     )
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(AppStrings.THEME_DIALOG_TITLE) },
+        title = { Text(stringResource(Res.string.theme_dialog_title)) },
         text = {
             Column {
                 options.forEach { (mode, label) ->
@@ -274,7 +278,7 @@ private fun ThemeDialog(
         confirmButton = {},
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(AppStrings.CANCEL)
+                Text(stringResource(Res.string.cancel))
             }
         },
     )
@@ -291,12 +295,12 @@ private fun EvalDisplayDialog(
     onSelect: (String) -> Unit,
 ) {
     val options = listOf(
-        "cp" to AppStrings.EVAL_DISPLAY_CP,
-        "wp" to AppStrings.EVAL_DISPLAY_WP,
+        "cp" to stringResource(Res.string.eval_display_cp),
+        "wp" to stringResource(Res.string.eval_display_wp),
     )
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(AppStrings.EVAL_DISPLAY_DIALOG_TITLE) },
+        title = { Text(stringResource(Res.string.eval_display_dialog_title)) },
         text = {
             Column {
                 options.forEach { (mode, label) ->
@@ -318,7 +322,7 @@ private fun EvalDisplayDialog(
         confirmButton = {},
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(AppStrings.CANCEL)
+                Text(stringResource(Res.string.cancel))
             }
         },
     )

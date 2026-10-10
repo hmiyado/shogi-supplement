@@ -1,5 +1,8 @@
 package dev.miyado.shogisupplement.ui.report
 
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -16,7 +19,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.theme.shogiColors
 
 private val TabHeight = 44.dp
@@ -35,9 +37,9 @@ internal fun ReportTabRow(
     BoardTabRow(
         labels = ReportBodyMode.entries.map { mode ->
             when (mode) {
-                ReportBodyMode.SUMMARY -> AppStrings.REPORT_TAB_SUMMARY
-                ReportBodyMode.LIST -> AppStrings.REPORT_TAB_BLUNDERS
-                ReportBodyMode.STUDY -> AppStrings.REPORT_TAB_STUDY
+                ReportBodyMode.SUMMARY -> stringResource(Res.string.report_tab_summary)
+                ReportBodyMode.LIST -> stringResource(Res.string.report_tab_blunders)
+                ReportBodyMode.STUDY -> stringResource(Res.string.report_tab_study)
             }
         },
         selected = active.ordinal,

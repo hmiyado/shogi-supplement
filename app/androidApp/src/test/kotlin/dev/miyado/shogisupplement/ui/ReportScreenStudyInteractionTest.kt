@@ -18,7 +18,6 @@ import dev.miyado.shogisupplement.board.PieceType
 import dev.miyado.shogisupplement.board.ShogiBoard
 import dev.miyado.shogisupplement.board.ShogiSquare
 import dev.miyado.shogisupplement.db.GameRecord
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.report.ReportScreen
 import dev.miyado.shogisupplement.ui.report.StudyState
 import dev.miyado.shogisupplement.ui.report.buildInitialStudyState
@@ -127,13 +126,13 @@ class ReportScreenStudyInteractionTest {
                 )
             }
         }
-        composeRule.onNodeWithText(AppStrings.STUDY_SAVE_FAILED).assertIsDisplayed()
-        composeRule.onNodeWithText(AppStrings.GAME_RESTORE_RETRY_BUTTON).performClick()
+        composeRule.onNodeWithText("保存できませんでした。編集内容は画面に残っています。").assertIsDisplayed()
+        composeRule.onNodeWithText("再試行").performClick()
         composeRule.runOnIdle { assertEquals(1, attempts) }
-        composeRule.onNodeWithText(AppStrings.GAME_RESTORE_RETRY_BUTTON).performClick()
+        composeRule.onNodeWithText("再試行").performClick()
         composeRule.runOnIdle { assertEquals(2, attempts) }
-        composeRule.onNodeWithText(AppStrings.STUDY_SAVE_FAILED).assertDoesNotExist()
-        composeRule.onNodeWithText(AppStrings.STUDY_SAVE).assertDoesNotExist()
+        composeRule.onNodeWithText("保存できませんでした。編集内容は画面に残っています。").assertDoesNotExist()
+        composeRule.onNodeWithText("検討を端末に保存").assertDoesNotExist()
     }
 
     @Test
@@ -208,19 +207,19 @@ class ReportScreenStudyInteractionTest {
             }
         }
         composeRule.onRoot().captureRoboImage(filePath = "build/outputs/issue89-phone.png")
-        composeRule.onNodeWithText(AppStrings.studyEvalPerspective(false)).assertIsDisplayed()
-        composeRule.onNodeWithText(AppStrings.studyOriginLine("開始")).assertIsDisplayed()
+        composeRule.onNodeWithText("先手の評価値").assertIsDisplayed()
+        composeRule.onNodeWithText("開始から分岐").assertIsDisplayed()
         composeRule.onNodeWithText("メモ・しおり").assertDoesNotExist()
         composeRule.onNodeWithText("しおり").assertDoesNotExist()
-        composeRule.onNodeWithText(AppStrings.STUDY_DELETE_BRANCH).assertDoesNotExist()
-        composeRule.onNodeWithText(AppStrings.STUDY_SAVE).assertDoesNotExist()
-        composeRule.onNodeWithContentDescription(AppStrings.STUDY_ACTIONS).performClick()
-        composeRule.onNodeWithText(AppStrings.STUDY_SAVE).assertDoesNotExist()
+        composeRule.onNodeWithText("分岐を削除").assertDoesNotExist()
+        composeRule.onNodeWithText("検討を端末に保存").assertDoesNotExist()
+        composeRule.onNodeWithContentDescription("検討の操作").performClick()
+        composeRule.onNodeWithText("検討を端末に保存").assertDoesNotExist()
         assertEquals(false, saved)
-        composeRule.onNodeWithText(AppStrings.STUDY_DELETE_BRANCH).assertIsDisplayed().performClick()
-        composeRule.onNodeWithText(AppStrings.STUDY_DELETE_BRANCH_TITLE).assertIsDisplayed()
+        composeRule.onNodeWithText("分岐を削除").assertIsDisplayed().performClick()
+        composeRule.onNodeWithText("この分岐を削除しますか？").assertIsDisplayed()
         assertEquals(false, deleted)
-        composeRule.onNodeWithText(AppStrings.CANCEL).performClick()
+        composeRule.onNodeWithText("キャンセル").performClick()
         assertEquals(false, deleted)
     }
 
@@ -239,7 +238,7 @@ class ReportScreenStudyInteractionTest {
             "選択駒の合法手（７六）が legalDestinations に入ること",
             ShogiSquare(7, 6) in s.legalDestinations,
         )
-        composeRule.onNodeWithText(AppStrings.STUDY_START_POSITION)
+        composeRule.onNodeWithText("検討開始局面")
             .assertIsDisplayed()
     }
 
@@ -256,7 +255,7 @@ class ReportScreenStudyInteractionTest {
         assertNull("手番でない駒は選択されないこと", s!!.selectedFrom)
         assertTrue("legalDestinations は空のこと", s.legalDestinations.isEmpty())
         assertTrue("手番ヒントのフラグが立つこと", s.showTurnHint)
-        composeRule.onNodeWithText(AppStrings.studyTurnHint(senteToMove = true), substring = true)
+        composeRule.onNodeWithText("▲番です", substring = true)
             .assertIsDisplayed()
     }
 

@@ -1,5 +1,11 @@
 package dev.miyado.shogisupplement.ui.forceupdate
 
+
+import dev.miyado.shogisupplement.ui.text.UiStrings
+
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,7 +21,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.adaptiveContentWidth
 import dev.miyado.shogisupplement.ui.theme.IbmPlexMonoFamily
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
@@ -43,17 +48,17 @@ fun ForceUpdateScreen(
             verticalArrangement = Arrangement.Center,
         ) {
             Text(
-                text = AppStrings.FORCE_UPDATE_TITLE,
+                text = stringResource(Res.string.force_update_title),
                 style = MaterialTheme.typography.headlineSmall,
             )
             Spacer(Modifier.height(14.dp))
             Text(
-                text = AppStrings.FORCE_UPDATE_BODY,
+                text = stringResource(Res.string.force_update_body),
                 style = MaterialTheme.typography.bodyLarge,
             )
             Spacer(Modifier.height(12.dp))
             Text(
-                text = AppStrings.FORCE_UPDATE_NOTE,
+                text = UiStrings.FORCE_UPDATE_NOTE,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.shogiColors.ink2,
             )
@@ -71,18 +76,18 @@ fun ForceUpdateScreen(
                     onClick = onOpenStore,
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Text(AppStrings.FORCE_UPDATE_OPEN_STORE)
+                    Text(stringResource(Res.string.force_update_open_store))
                 }
                 Spacer(Modifier.height(16.dp))
             }
             Row {
                 Text(
-                    text = AppStrings.FORCE_UPDATE_VERSION_PREFIX,
+                    text = stringResource(Res.string.force_update_version_prefix),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.shogiColors.ink3,
                 )
                 Text(
-                    text = AppStrings.forceUpdateVersionValue(versionName, buildNumber),
+                    text = UiStrings.forceUpdateVersionValue(versionName, buildNumber),
                     style = MaterialTheme.typography.labelSmall.copy(fontFamily = IbmPlexMonoFamily),
                     color = MaterialTheme.shogiColors.ink3,
                 )
@@ -122,9 +127,11 @@ private fun PreviewForceUpdateScreenNoStoreUrl() {
 @Preview
 @Composable
 private fun PreviewForceUpdateScreenWithMessage() {
+    val labelPreviewMaintenanceNotice = stringResource(Res.string.preview_maintenance_notice)
+
     ShogiTheme {
         ForceUpdateScreen(
-            message = "本日3時よりメンテナンスを予定しています。",
+            message = labelPreviewMaintenanceNotice,
             storeUrl = "https://play.google.com/store/apps/details?id=dev.miyado.shogisupplement",
             versionName = "1.2.0",
             buildNumber = 42,

@@ -3,7 +3,6 @@ package dev.miyado.shogisupplement.ui
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
 import androidx.compose.material3.Surface
 import com.github.takahirom.roborazzi.captureRoboImage
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.account.AccountNotProvidingContent
 import dev.miyado.shogisupplement.ui.account.AccountProvidingContent
 import org.junit.Test
@@ -78,7 +77,7 @@ class AccountScreenScreenshotTest {
             ShogiTheme {
                 Surface {
                     AccountNotProvidingContent(
-                        error = AppStrings.AUTH_ERROR_ANON_SIGN_IN_GENERIC,
+                        error = "データ提供の開始に失敗しました。時間をおいてお試しください",
                     )
                 }
             }

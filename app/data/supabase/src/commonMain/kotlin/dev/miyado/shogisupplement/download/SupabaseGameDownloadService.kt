@@ -9,7 +9,7 @@ import dev.miyado.shogisupplement.db.GameRepository
 import dev.miyado.shogisupplement.kifu.KifuReconstructor
 import dev.miyado.shogisupplement.kifu.KifuSource
 import dev.miyado.shogisupplement.kifu.PublicKifuFields
-import dev.miyado.shogisupplement.text.AppStrings
+import dev.miyado.shogisupplement.text.StoredText
 import dev.miyado.shogisupplement.util.currentEpochSeconds
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.from
@@ -119,7 +119,7 @@ class SupabaseGameDownloadService(
             ReconstructedGame(
                 kifText = kifText,
                 studyKif = studyKif,
-                fileName = AppStrings.restoredGameFileName(public.headers["開始日時"]),
+                fileName = StoredText.restoredGameFileName(public.headers["開始日時"]),
                 contentHash = row.contentHash,
                 userSide = row.side,
                 ratingService = row.ratingService,

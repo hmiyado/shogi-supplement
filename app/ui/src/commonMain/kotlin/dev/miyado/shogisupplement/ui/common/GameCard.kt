@@ -1,5 +1,11 @@
 package dev.miyado.shogisupplement.ui.common
 
+
+import dev.miyado.shogisupplement.ui.text.UiStrings
+
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -27,7 +33,6 @@ import dev.miyado.shogisupplement.db.GameAnalysisStatus
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.openingTagList
 import dev.miyado.shogisupplement.pipeline.InProgressAnalysis
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.theme.TextStyleData
 import dev.miyado.shogisupplement.ui.theme.shogiColors
 
@@ -44,9 +49,12 @@ fun GameCard(
     selectable: Boolean = false,
     selected: Boolean = false,
 ) {
+    val labelPlayerSentePrefix = stringResource(Res.string.player_sente_prefix)
+    val labelPlayerGotePrefix = stringResource(Res.string.player_gote_prefix)
+
     // sourcePlace をタイトルとして優先表示（正規化コードのまま出さず表示ラベルへ変換する。
     // ReportScreenのトップバーと同じ変換で、ホームとレポートの表記を一致させる）
-    val sourcePlaceLabel = AppStrings.sourcePlaceLabel(game.sourcePlace)
+    val sourcePlaceLabel = UiStrings.sourcePlaceLabel(game.sourcePlace)
     val timeControlLine = buildTimeControlLine(game.sourcePlace, game.timeControlRaw, game.timeControlByoyomiRaw)
     val displayTitle = buildAnnotatedString {
         append(sourcePlaceLabel ?: game.fileName)
@@ -58,8 +66,8 @@ fun GameCard(
     // 勝敗バッジ（userSide & gameWinner が揃っている場合のみ）
     val resultLabel: String? = when {
         game.userSide != null && game.gameWinner != null ->
-            if (game.gameWinner == game.userSide) AppStrings.GAME_RESULT_WIN
-            else AppStrings.GAME_RESULT_LOSS
+            if (game.gameWinner == game.userSide) stringResource(Res.string.game_result_win)
+            else stringResource(Res.string.game_result_loss)
         else -> null
     }
     val shogiColors = MaterialTheme.shogiColors
@@ -96,13 +104,13 @@ fun GameCard(
                         modifier = Modifier.weight(1f),
                     )
                     val badgeLabel = if (game.analysisStatus == GameAnalysisStatus.PENDING) {
-                        AppStrings.PENDING_ANALYSIS_BADGE
+                        stringResource(Res.string.pending_analysis_badge)
                     } else {
                         resultLabel
                     }
                     if (badgeLabel != null) {
                         Spacer(Modifier.width(8.dp))
-                        val isLoss = badgeLabel == AppStrings.GAME_RESULT_LOSS
+                        val isLoss = badgeLabel == stringResource(Res.string.game_result_loss)
                         Box(
                             modifier = Modifier
                                 .background(
@@ -122,7 +130,7 @@ fun GameCard(
                 Spacer(Modifier.height(4.dp))
                 Row {
                     Text(
-                        AppStrings.gameMoveCount(game.moveCount),
+                        UiStrings.gameMoveCount(game.moveCount),
                         style = TextStyleData,
                     )
                     Spacer(Modifier.width(8.dp))
@@ -135,11 +143,11 @@ fun GameCard(
                     Spacer(Modifier.height(2.dp))
                     Text(
                         buildAnnotatedString {
-                            append("先手: ")
-                            append(game.senteName ?: AppStrings.PLAYER_UNKNOWN)
+                            append(labelPlayerSentePrefix)
+                            append(game.senteName ?: stringResource(Res.string.player_unknown))
                             appendPlayerRating(game.senteRating)
-                            append("  後手: ")
-                            append(game.goteName ?: AppStrings.PLAYER_UNKNOWN)
+                            append(labelPlayerGotePrefix)
+                            append(game.goteName ?: stringResource(Res.string.player_unknown))
                             appendPlayerRating(game.goteRating)
                         },
                         style = MaterialTheme.typography.bodySmall,
@@ -152,8 +160,8 @@ fun GameCard(
                     .take(MAX_OPENING_STYLES_ON_CARD)
                 val openingLine = listOfNotNull(
                     openingStyles.takeIf { it.isNotEmpty() }
-                        ?.let { "${AppStrings.GAME_INFO_OPENING_STYLE}：${it.joinToString("・")}" },
-                    game.openingCastle?.let { "${AppStrings.GAME_INFO_OPENING_CASTLE}：$it" },
+                        ?.let { "${stringResource(Res.string.game_info_opening_style)}：${it.joinToString("・")}" },
+                    game.openingCastle?.let { "${stringResource(Res.string.game_info_opening_castle)}：$it" },
                 ).joinToString("　")
                 if (openingLine.isNotEmpty()) {
                     Spacer(Modifier.height(2.dp))
@@ -226,7 +234,7 @@ fun AnalyzingGameCard(
                         .padding(horizontal = 6.dp, vertical = 2.dp),
                 ) {
                     Text(
-                        text = AppStrings.ANALYZING_BADGE,
+                        text = stringResource(Res.string.analyzing_badge),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
@@ -234,7 +242,7 @@ fun AnalyzingGameCard(
             }
             Spacer(Modifier.height(4.dp))
             Text(
-                AppStrings.analyzingProgress(currentMove, totalMoves),
+                UiStrings.analyzingProgress(currentMove, totalMoves),
                 style = TextStyleData,
             )
         }

@@ -1,5 +1,10 @@
 package dev.miyado.shogisupplement.ui.common
 
+import dev.miyado.shogisupplement.ui.text.UiStrings
+
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,7 +25,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import dev.miyado.shogisupplement.text.AppStrings
 
 /**
  * 自分の側選択ダイアログ（KIF/SFEN取込フロー共通）。
@@ -36,7 +40,7 @@ fun UserSideDialog(
     onDismiss: () -> Unit,
     /** アカウント名一致時のみ true（「次回から省略」チェックボックスを表示）。アプリ専用。 */
     showSkipOption: Boolean = false,
-    confirmText: String = AppStrings.START_ANALYSIS,
+    confirmText: String = stringResource(Res.string.start_analysis),
 ) {
     // 初期値が null（未選択）の場合は確定操作を無効化する
     var selection by remember { mutableStateOf(savedUserSide) }
@@ -44,12 +48,12 @@ fun UserSideDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(AppStrings.SIDE_DIALOG_TITLE) },
+        title = { Text(stringResource(Res.string.side_dialog_title)) },
         text = {
             Column {
                 if (senteName != null || goteName != null) {
                     Text(
-                        AppStrings.playersLine(senteName, goteName),
+                        UiStrings.playersLine(senteName, goteName),
                         style = MaterialTheme.typography.bodySmall,
                     )
                     Spacer(Modifier.height(8.dp))
@@ -59,14 +63,14 @@ fun UserSideDialog(
                     modifier = Modifier.fillMaxWidth().clickable { selection = "sente" },
                 ) {
                     RadioButton(selected = selection == "sente", onClick = { selection = "sente" })
-                    Text(AppStrings.sideSente(senteName))
+                    Text(UiStrings.sideSente(senteName))
                 }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth().clickable { selection = "gote" },
                 ) {
                     RadioButton(selected = selection == "gote", onClick = { selection = "gote" })
-                    Text(AppStrings.sideGote(goteName))
+                    Text(UiStrings.sideGote(goteName))
                 }
                 if (showSkipOption) {
                     Spacer(Modifier.height(4.dp))
@@ -76,7 +80,7 @@ fun UserSideDialog(
                     ) {
                         Checkbox(checked = skipNext, onCheckedChange = { skipNext = it })
                         Text(
-                            AppStrings.SKIP_SIDE_CONFIRM_CHECKBOX,
+                            stringResource(Res.string.skip_side_confirm_checkbox),
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
@@ -93,7 +97,7 @@ fun UserSideDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(AppStrings.CANCEL)
+                Text(stringResource(Res.string.cancel))
             }
         },
     )

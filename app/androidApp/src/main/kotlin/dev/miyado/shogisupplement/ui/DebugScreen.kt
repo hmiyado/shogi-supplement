@@ -1,5 +1,11 @@
 package dev.miyado.shogisupplement.ui
 
+
+import org.jetbrains.compose.resources.vectorResource
+
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,8 +18,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -26,7 +30,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.ShogiBoardView
 
 /**
@@ -48,18 +51,24 @@ object DebugPositions {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DebugScreen(onBack: () -> Unit) {
+    val labelDebugAllPromoted = stringResource(Res.string.debug_all_promoted)
+    val labelDebugPositionTitle = stringResource(Res.string.debug_position_title)
+    val labelDebugMaxBlackHand = stringResource(Res.string.debug_max_black_hand)
+    val labelDebugMaxWhiteHand = stringResource(Res.string.debug_max_white_hand)
+    val labelDebugFlipLabel = stringResource(Res.string.debug_flip_label)
+
     var currentSfen by remember { mutableStateOf(DebugPositions.ALL_PROMOTED) }
-    var currentLabel by remember { mutableStateOf("全成り駒") }
+    var currentLabel by remember { mutableStateOf(labelDebugAllPromoted) }
     var flip by remember { mutableStateOf(false) }
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("デバッグ: 局面確認") },
+                title = { Text(labelDebugPositionTitle) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = AppStrings.BACK,
+                            imageVector = vectorResource(Res.drawable.ic_auto_mirrored_filled_arrow_back),
+                            contentDescription = stringResource(Res.string.back),
                         )
                     }
                 },
@@ -77,34 +86,34 @@ fun DebugScreen(onBack: () -> Unit) {
                 OutlinedButton(
                     onClick = {
                         currentSfen = DebugPositions.ALL_PROMOTED
-                        currentLabel = "全成り駒"
+                        currentLabel = labelDebugAllPromoted
                     },
                     modifier = Modifier.weight(1f),
-                ) { Text("全成り駒", maxLines = 1) }
+                ) { Text(labelDebugAllPromoted, maxLines = 1) }
                 OutlinedButton(
                     onClick = {
                         currentSfen = DebugPositions.BLACK_HAND_MAX
-                        currentLabel = "先手持駒最大"
+                        currentLabel = labelDebugMaxBlackHand
                     },
                     modifier = Modifier.weight(1f),
-                ) { Text("先手持駒最大", maxLines = 1) }
+                ) { Text(labelDebugMaxBlackHand, maxLines = 1) }
                 OutlinedButton(
                     onClick = {
                         currentSfen = DebugPositions.WHITE_HAND_MAX
-                        currentLabel = "後手持駒最大"
+                        currentLabel = labelDebugMaxWhiteHand
                     },
                     modifier = Modifier.weight(1f),
-                ) { Text("後手持駒最大", maxLines = 1) }
+                ) { Text(labelDebugMaxWhiteHand, maxLines = 1) }
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("後手視点 (flip):", style = MaterialTheme.typography.labelMedium)
+                Text(labelDebugFlipLabel, style = MaterialTheme.typography.labelMedium)
                 Spacer(Modifier.width(8.dp))
                 Switch(checked = flip, onCheckedChange = { flip = it })
             }
 
-            Text("局面: $currentLabel", style = MaterialTheme.typography.labelSmall)
-            Text("SFEN: $currentSfen", style = MaterialTheme.typography.labelSmall)
+            Text(stringResource(Res.string.debug_position_name, currentLabel), style = MaterialTheme.typography.labelSmall)
+            Text(stringResource(Res.string.debug_sfen, currentSfen), style = MaterialTheme.typography.labelSmall)
 
             ShogiBoardView(sfen = currentSfen, flip = flip)
 

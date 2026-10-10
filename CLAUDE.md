@@ -33,3 +33,8 @@ QA・レビュー時は DESIGN.md に合わない実装をフラグする。
 ## Issue管理
 
 - `shogi-supplement` ではGitHub issueを新規作成しない。
+
+## 共通リソース
+
+文字列・画像・アイコン・フォントの管理は `docs/wording.md` の「リソース管理」に従う。
+Compose Multiplatformの `composeResources` と生成された `Res` を使い、新しい表示文言をKotlin定数や直書きで増やさない。

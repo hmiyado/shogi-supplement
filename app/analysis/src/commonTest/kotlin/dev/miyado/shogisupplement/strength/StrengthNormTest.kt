@@ -51,6 +51,7 @@ class StrengthNormTest {
         val score = StrengthNorm.deviationScore(1750)
         val width = StrengthNorm.deviationWidth(280)
         assertEquals(10.9375, width)
-        assertEquals("推定範囲 44.3–66.1", dev.miyado.shogisupplement.text.AppStrings.strengthDetailRange(score - width, score + width))
+        assertEquals("44.3", formatStrengthDecimal(score - width))
+        assertEquals("66.1", formatStrengthDecimal(score + width))
     }
 }

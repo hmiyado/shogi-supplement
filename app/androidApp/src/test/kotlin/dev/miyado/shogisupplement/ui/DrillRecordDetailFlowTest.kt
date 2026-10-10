@@ -15,7 +15,6 @@ import dev.miyado.shogisupplement.db.SqlDelightGameRepository
 import dev.miyado.shogisupplement.judge.Judgement
 import dev.miyado.shogisupplement.judge.VerdictKind
 import dev.miyado.shogisupplement.pipeline.BlunderReport
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.drillrecord.DrillRecordDetailScreen
 import dev.miyado.shogisupplement.ui.drillrecord.DrillRecordDetailViewModel
 import dev.miyado.shogisupplement.ui.home.DrillRecordCard
@@ -111,7 +110,7 @@ class DrillRecordDetailFlowTest {
             }
         }
 
-        composeRule.onNodeWithText(AppStrings.DRILL_RECORD_CARD_TITLE).performClick()
+        composeRule.onNodeWithText("学習の記録").performClick()
 
         assertEquals(true, opened)
     }
@@ -143,10 +142,10 @@ class DrillRecordDetailFlowTest {
             }
         }
 
-        composeRule.onNodeWithText(AppStrings.DRILL_RECORD_DETAIL_TITLE).assertIsDisplayed()
+        composeRule.onNodeWithText("学習の記録").assertIsDisplayed()
         // 概要は「累計 3問 ・ 正答率 67%（2/3）」。カードと同じ集計から作る。
         composeRule.onNodeWithText("67%（2/3）", substring = true).assertIsDisplayed()
-        composeRule.onNodeWithText(AppStrings.DRILL_RECORD_DETAIL_STREAK_EMPTY).assertIsDisplayed()
+        composeRule.onNodeWithText("まだありません").assertIsDisplayed()
     }
 
     @Test

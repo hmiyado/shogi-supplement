@@ -1,5 +1,12 @@
 package dev.miyado.shogisupplement.ui.debug
 
+import org.jetbrains.compose.resources.vectorResource
+
+import dev.miyado.shogisupplement.ui.text.UiStrings
+
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -22,8 +29,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -31,7 +36,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.adaptiveContentWidth
 import dev.miyado.shogisupplement.ui.common.scaffoldContentInsets
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
@@ -65,12 +69,12 @@ fun DebugScreen(
         contentWindowInsets = scaffoldContentInsets(),
         topBar = {
             TopAppBar(
-                title = { Text(AppStrings.DEBUG_SCREEN_TITLE) },
+                title = { Text(stringResource(Res.string.debug_screen_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = AppStrings.BACK,
+                            imageVector = vectorResource(Res.drawable.ic_auto_mirrored_filled_arrow_back),
+                            contentDescription = stringResource(Res.string.back),
                         )
                     }
                 },
@@ -85,7 +89,7 @@ fun DebugScreen(
                 .adaptiveContentWidth(),
         ) {
             Text(
-                AppStrings.debugWasmSiteEffective(effectiveSiteBaseUrl, effectiveSiteBaseUrlSource),
+                UiStrings.debugWasmSiteEffective(effectiveSiteBaseUrl, effectiveSiteBaseUrlSource),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.shogiColors.ink2,
             )
@@ -98,8 +102,8 @@ fun DebugScreen(
                     input = it
                     status = null
                 },
-                label = { Text(AppStrings.DEBUG_WASM_SITE_FIELD_LABEL) },
-                placeholder = { Text(AppStrings.DEBUG_WASM_SITE_PLACEHOLDER) },
+                label = { Text(stringResource(Res.string.debug_wasm_site_field_label)) },
+                placeholder = { Text(stringResource(Res.string.debug_wasm_site_placeholder)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -108,12 +112,12 @@ fun DebugScreen(
             Column(modifier = Modifier.height(24.dp).padding(top = 4.dp)) {
                 when (status) {
                     SaveStatus.INVALID -> Text(
-                        AppStrings.DEBUG_WASM_SITE_INVALID,
+                        stringResource(Res.string.debug_wasm_site_invalid),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.shogiColors.loss,
                     )
                     SaveStatus.SAVED -> Text(
-                        AppStrings.DEBUG_WASM_SITE_SAVED,
+                        stringResource(Res.string.debug_wasm_site_saved),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
                     )
@@ -126,7 +130,7 @@ fun DebugScreen(
             Row {
                 Button(
                     onClick = { status = if (onSave(input)) SaveStatus.SAVED else SaveStatus.INVALID },
-                ) { Text(AppStrings.DEBUG_WASM_SITE_SAVE) }
+                ) { Text(stringResource(Res.string.debug_wasm_site_save)) }
 
                 Spacer(Modifier.width(8.dp))
 
@@ -136,17 +140,17 @@ fun DebugScreen(
                         input = ""
                         status = null
                     },
-                ) { Text(AppStrings.DEBUG_WASM_SITE_CLEAR) }
+                ) { Text(stringResource(Res.string.debug_wasm_site_clear)) }
             }
 
             if (onWipeLocalData != null) {
                 Spacer(Modifier.height(24.dp))
                 ShogiSecondaryButton(onClick = { showWipeConfirm = true }) {
-                    Text(AppStrings.DEBUG_WIPE_LOCAL_DATA)
+                    Text(stringResource(Res.string.debug_wipe_local_data))
                 }
                 if (wiped) {
                     Text(
-                        text = AppStrings.DEBUG_WIPE_DONE,
+                        text = stringResource(Res.string.debug_wipe_done),
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
@@ -157,17 +161,17 @@ fun DebugScreen(
     if (showWipeConfirm && onWipeLocalData != null) {
         AlertDialog(
             onDismissRequest = { showWipeConfirm = false },
-            title = { Text(AppStrings.DEBUG_WIPE_DIALOG_TITLE) },
-            text = { Text(AppStrings.DEBUG_WIPE_DIALOG_TEXT) },
+            title = { Text(stringResource(Res.string.debug_wipe_dialog_title)) },
+            text = { Text(UiStrings.DEBUG_WIPE_DIALOG_TEXT) },
             confirmButton = {
                 TextButton(onClick = {
                     onWipeLocalData()
                     showWipeConfirm = false
                     wiped = true
-                }) { Text(AppStrings.ACCOUNT_DELETE_CONFIRM) }
+                }) { Text(stringResource(Res.string.account_delete_confirm)) }
             },
             dismissButton = {
-                TextButton(onClick = { showWipeConfirm = false }) { Text(AppStrings.CANCEL) }
+                TextButton(onClick = { showWipeConfirm = false }) { Text(stringResource(Res.string.cancel)) }
             },
         )
     }
@@ -184,7 +188,7 @@ private fun PreviewDebugScreen() {
                 onBack = {},
                 siteBaseUrlInputInitial = "",
                 effectiveSiteBaseUrl = "https://shogi-supplement.miyado.dev/",
-                effectiveSiteBaseUrlSource = AppStrings.DEBUG_WASM_SITE_SOURCE_PRODUCTION,
+                effectiveSiteBaseUrlSource = stringResource(Res.string.debug_wasm_site_source_production),
                 onSave = { true },
                 onClear = {},
             )
@@ -201,7 +205,7 @@ private fun PreviewDebugScreenOverridden() {
                 onBack = {},
                 siteBaseUrlInputInitial = "http://127.0.0.1:8925/",
                 effectiveSiteBaseUrl = "http://127.0.0.1:8925/",
-                effectiveSiteBaseUrlSource = AppStrings.DEBUG_WASM_SITE_SOURCE_SAVED,
+                effectiveSiteBaseUrlSource = stringResource(Res.string.debug_wasm_site_source_saved),
                 onSave = { true },
                 onClear = {},
             )

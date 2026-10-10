@@ -1,5 +1,9 @@
 package dev.miyado.shogisupplement.webApp
 
+import dev.miyado.shogisupplement.webApp.report.message
+
+import dev.miyado.shogisupplement.ui.text.LocalizedStrings
+
 import dev.miyado.shogisupplement.navigation.AppDestination
 import dev.miyado.shogisupplement.navigation.NavigationEvent
 import dev.miyado.shogisupplement.navigation.NavigationMachine
@@ -8,7 +12,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import dev.miyado.shogisupplement.judge.CoefficientTable
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.board.PieceType
 import dev.miyado.shogisupplement.board.ShogiSquare
 import dev.miyado.shogisupplement.ui.report.StudyController
@@ -119,7 +122,7 @@ class KentoViewModel(private val scope: CoroutineScope) : WebStudyActions {
                 savedReports = reports.mapIndexed { index, saved -> -(index + 1).toLong() to saved }.toMap()
                 state = state.copy(savedGames = savedReports.map { (id, saved) -> saved.report.game.copy(id = id, uploadedAt = null) })
             } catch (e: CancellationException) { throw e } catch (_: Exception) {
-                if (revision == inputRevision) state = state.copy(inputError = AppStrings.KENTO_ERROR_GENERIC)
+                if (revision == inputRevision) state = state.copy(inputError = LocalizedStrings.KENTO_ERROR_GENERIC())
             }
         }
     }
@@ -230,12 +233,20 @@ class KentoViewModel(private val scope: CoroutineScope) : WebStudyActions {
                 studyOrigins.clear()
                 state = state.copy(kifText = original, report = report, inputError = null, pendingSideSelection = null, savedGames = null)
             } catch (e: CancellationException) { throw e } catch (_: Exception) {
-                if (inputRevision == revision) state = state.copy(inputError = AppStrings.KENTO_ERROR_GENERIC)
+                if (inputRevision == revision) state = state.copy(inputError = LocalizedStrings.KENTO_ERROR_GENERIC())
             }
         }
     }
 
     /** パース成功後、解析を即開始せず「自分の側」ダイアログ表示待ちへ遷移する。 */
+    private fun showInputError(error: dev.miyado.shogisupplement.webApp.report.ParseOutcome.Error) {
+        val revision = inputRevision
+        scope.launch {
+            val message = error.message()
+            if (inputRevision == revision) state = state.copy(inputError = message)
+        }
+    }
+
     fun startAnalysis() {
         if (state.analyzing) return
         inputRevision++
@@ -243,7 +254,7 @@ class KentoViewModel(private val scope: CoroutineScope) : WebStudyActions {
         val outcome = parseKifInput(state.kifText)
         when (outcome) {
             is ParseOutcome.Error -> {
-                state = state.copy(inputError = outcome.message)
+                showInputError(outcome)
             }
             is ParseOutcome.Ok -> {
                 state = state.copy(inputError = null, pendingSideSelection = outcome.input)
@@ -268,7 +279,7 @@ class KentoViewModel(private val scope: CoroutineScope) : WebStudyActions {
     private fun reanalyzeAfterConfirmation() {
         val input = when (val outcome = parseKifInput(state.kifText)) {
             is ParseOutcome.Error -> {
-                state = state.copy(inputError = outcome.message)
+                showInputError(outcome)
                 return
             }
             is ParseOutcome.Ok -> outcome.input
@@ -305,7 +316,7 @@ class KentoViewModel(private val scope: CoroutineScope) : WebStudyActions {
                     }
                 }
                 val report = buildWebReport(
-                    fileName = AppStrings.KENTO_PASTED_GAME_TITLE,
+                    fileName = LocalizedStrings.KENTO_PASTED_GAME_TITLE(),
                     moves = input.moves,
                     headers = input.headers,
                     evals = evals,
@@ -334,7 +345,7 @@ class KentoViewModel(private val scope: CoroutineScope) : WebStudyActions {
                     state = state.copy(analyzing = false, report = report, analysisRequestId = null)
                     if (state.report === report) state = state.copy(
                         savedReportAvailable = state.savedReportAvailable || persisted,
-                        reanalysisError = if (persisted) null else AppStrings.STUDY_SAVE_FAILED,
+                        reanalysisError = if (persisted) null else LocalizedStrings.STUDY_SAVE_FAILED(),
                     )
                 }
             } catch (e: CancellationException) {
@@ -343,8 +354,8 @@ class KentoViewModel(private val scope: CoroutineScope) : WebStudyActions {
                 if (!acceptsAnalysisEvent(requestId)) return@launch
                 if (!finishAnalysis(failed = true)) return@launch
                 state = state.copy(
-                    inputError = AppStrings.KENTO_ERROR_GENERIC,
-                    reanalysisError = if (state.report != null) AppStrings.KENTO_ERROR_GENERIC else null,
+                    inputError = LocalizedStrings.KENTO_ERROR_GENERIC(),
+                    reanalysisError = if (state.report != null) LocalizedStrings.KENTO_ERROR_GENERIC() else null,
                 )
             }
         }

@@ -1,5 +1,10 @@
 package dev.miyado.shogisupplement.ui.common
 
+import dev.miyado.shogisupplement.ui.text.UiStrings
+
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -15,7 +20,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.db.GameRecord
-import dev.miyado.shogisupplement.text.AppStrings
 
 /**
  * 解析失敗時のエラー画面。VM/Android 非依存の純Composable。
@@ -34,14 +38,14 @@ fun ErrorScreen(
             .padding(16.dp)
             .adaptiveContentWidth(),
     ) {
-        Text(AppStrings.errorMessage(message), style = MaterialTheme.typography.bodyMedium)
+        Text(UiStrings.errorMessage(message), style = MaterialTheme.typography.bodyMedium)
         Spacer(Modifier.height(8.dp))
-        Button(onClick = onRetry) { Text(AppStrings.DRILL_BACK_HOME) }
+        Button(onClick = onRetry) { Text(stringResource(Res.string.drill_back_home)) }
         Spacer(Modifier.height(8.dp))
-        Button(onClick = onOpenKif) { Text(AppStrings.HOME_OPEN_KIF) }
+        Button(onClick = onOpenKif) { Text(stringResource(Res.string.home_open_kif)) }
         if (pastGames.isNotEmpty()) {
             Spacer(Modifier.height(16.dp))
-            Text(AppStrings.HOME_PAST_ANALYSES, style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(Res.string.home_past_analyses), style = MaterialTheme.typography.titleMedium)
             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(pastGames) { game ->
                     GameCard(game = game, onClick = { onGameClick(game) })

@@ -1,5 +1,9 @@
 package dev.miyado.shogisupplement.ui
 
+import dev.miyado.shogisupplement.engine.displayMessage
+
+import dev.miyado.shogisupplement.ui.text.LocalizedStrings
+
 import dev.miyado.shogisupplement.navigation.AppDestination
 import dev.miyado.shogisupplement.navigation.NavigationMachine
 import dev.miyado.shogisupplement.navigation.NavigationCompletionGuard
@@ -46,7 +50,6 @@ import dev.miyado.shogisupplement.pipeline.InProgressAnalysisRegistry
 import dev.miyado.shogisupplement.pipeline.ProgressiveReportState
 import dev.miyado.shogisupplement.policy.ForceUpdateJudge
 import dev.miyado.shogisupplement.policy.ForceUpdatePolicyChecker
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.AppSettingsController
 import dev.miyado.shogisupplement.ui.common.PvExtState
 import dev.miyado.shogisupplement.ui.common.defaultIoDispatcher
@@ -477,7 +480,7 @@ class IosMainController(
                 reloadHome()
                 _completedAnalysis.value = CompletedAnalysis(next.gameId, completionGuard.snapshot(), justCompleted = false)
             }
-            is GameImportFlow.Next.Failed -> _importState.value = ImportState.Error(next.message)
+            is GameImportFlow.Next.Failed -> _importState.value = ImportState.Error(next.message.ifEmpty { LocalizedStrings.UNKNOWN_ERROR() })
         }
     }
 
@@ -554,10 +557,10 @@ class IosMainController(
                     // Why not pendingをここで消す: 失敗ダイアログを閉じるまで「再開すべき解析」
                     // として残しておくことで、切断が実は継続中でも後で再問い合わせできる。
                     if (isWatching()) {
-                        _importState.value = ImportState.Error(outcome.message)
+                        _importState.value = ImportState.Error(outcome.displayMessage())
                     } else {
                         // システム通知を使わないため、ホーム表示中もアプリ内ダイアログで知らせる。
-                        _importState.value = ImportState.Error(outcome.message)
+                        _importState.value = ImportState.Error(outcome.displayMessage())
                         reloadHome()
                     }
                 }
@@ -580,7 +583,7 @@ class IosMainController(
         if (serverAnalysisAvailable() && auth != null && baseUrl != null && auth.currentUser.value == null) {
             val signInResult = auth.signInAnonymously()
             if (signInResult.isFailure) {
-                return AnalysisOrchestrator.Outcome.Failed(AppStrings.AUTH_ERROR_ANON_SIGN_IN_GENERIC)
+                return AnalysisOrchestrator.Outcome.Failed(LocalizedStrings.AUTH_ERROR_ANON_SIGN_IN_GENERIC())
             }
         }
 
@@ -646,7 +649,7 @@ class IosMainController(
                         uploadOrchestrator?.maybeAutoUpload(outcome.gameId)
                     }
                     is AnalysisOrchestrator.Outcome.Failed -> {
-                        _importState.value = ImportState.Error(outcome.message)
+                        _importState.value = ImportState.Error(outcome.displayMessage())
                     }
                 }
             }
@@ -675,11 +678,11 @@ class IosMainController(
      * Why not アカウントを作らない端末にも返す: その場合は端末内WASMで解析するため、
      * サーバーURLの有無は結果に影響しない。
      */
-    private fun analyzerConfigurationError(): AnalysisOrchestrator.Outcome.Failed? =
+    private suspend fun analyzerConfigurationError(): AnalysisOrchestrator.Outcome.Failed? =
         if (!IosEngineHost.ENGINE_LINKED && analysisBaseUrl == null &&
             !settingsRepository.isAccountDeclined()
         ) {
-            AnalysisOrchestrator.Outcome.Failed(AppStrings.ANALYSIS_SERVER_NOT_CONFIGURED)
+            AnalysisOrchestrator.Outcome.Failed(LocalizedStrings.ANALYSIS_SERVER_NOT_CONFIGURED())
         } else {
             null
         }

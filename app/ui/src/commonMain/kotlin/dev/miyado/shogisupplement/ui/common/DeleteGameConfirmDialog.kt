@@ -1,5 +1,10 @@
 package dev.miyado.shogisupplement.ui.common
 
+import dev.miyado.shogisupplement.ui.text.UiStrings
+
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,7 +21,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.upload.DeleteGameOutcome
 
 @Composable
@@ -30,19 +34,21 @@ fun DeleteGameConfirmDialog(
     if (!show) return
 
     var deleteServerChecked by remember(show) { mutableStateOf(false) }
+    val serverErrorText = UiStrings.GAME_DELETE_SERVER_ERROR
+    val localErrorText = UiStrings.GAME_DELETE_LOCAL_ERROR
     var isDeleting by remember(show) { mutableStateOf(false) }
     var errorText by remember(show) { mutableStateOf<String?>(null) }
 
     AlertDialog(
         onDismissRequest = { if (!isDeleting) onDismiss() },
-        title = { Text(AppStrings.gameDeleteDialogTitle(count)) },
+        title = { Text(UiStrings.gameDeleteDialogTitle(count)) },
         text = {
             Column {
                 Text(
                     if (deleteServerChecked) {
-                        AppStrings.GAME_DELETE_DIALOG_TEXT_WITH_SERVER
+                        UiStrings.GAME_DELETE_DIALOG_TEXT_WITH_SERVER
                     } else {
-                        AppStrings.GAME_DELETE_DIALOG_TEXT_DEVICE_ONLY
+                        UiStrings.GAME_DELETE_DIALOG_TEXT_DEVICE_ONLY
                     },
                 )
                 if (canDeleteServer) {
@@ -59,7 +65,7 @@ fun DeleteGameConfirmDialog(
                             onCheckedChange = { deleteServerChecked = it },
                             enabled = !isDeleting,
                         )
-                        Text(AppStrings.GAME_DELETE_SERVER_CHECKBOX_LABEL)
+                        Text(stringResource(Res.string.game_delete_server_checkbox_label))
                     }
                 }
                 if (errorText != null) {
@@ -80,10 +86,10 @@ fun DeleteGameConfirmDialog(
                         when (outcome) {
                             DeleteGameOutcome.Success -> onDismiss()
                             DeleteGameOutcome.ServerFailed -> {
-                                errorText = AppStrings.GAME_DELETE_SERVER_ERROR
+                                errorText = serverErrorText
                             }
                             DeleteGameOutcome.LocalFailed -> {
-                                errorText = AppStrings.GAME_DELETE_LOCAL_ERROR
+                                errorText = localErrorText
                             }
                         }
                     }
@@ -91,14 +97,14 @@ fun DeleteGameConfirmDialog(
                 enabled = !isDeleting,
             ) {
                 Text(
-                    text = AppStrings.GAME_DELETE_CONFIRM,
+                    text = stringResource(Res.string.game_delete_confirm),
                     color = MaterialTheme.colorScheme.error,
                 )
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss, enabled = !isDeleting) {
-                Text(AppStrings.CANCEL)
+                Text(stringResource(Res.string.cancel))
             }
         },
     )

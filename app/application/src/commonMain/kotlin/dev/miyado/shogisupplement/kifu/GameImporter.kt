@@ -1,7 +1,6 @@
 package dev.miyado.shogisupplement.kifu
 
 import dev.miyado.shogisupplement.db.GameRepository
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.util.sha256Hex
 
 class GameImporter(private val repository: GameRepository) {
@@ -52,6 +51,6 @@ class GameImporter(private val repository: GameRepository) {
         )
         Outcome.Imported(gameId, alreadyExisted = false)
     } catch (e: Exception) {
-        Outcome.Failed(e.message ?: AppStrings.UNKNOWN_ERROR)
+        Outcome.Failed(e.message.orEmpty())
     }
 }

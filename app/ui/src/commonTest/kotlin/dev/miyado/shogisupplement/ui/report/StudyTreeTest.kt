@@ -158,7 +158,7 @@ class StudyTreeTest {
     }
 
     @Test
-    fun `同じ手を指し直しても兄弟は増えない(再利用)`() {
+    fun `同じ手を指し直しても兄弟は増えない_再利用_`() {
         var tree = StudyTree().withMovePlayed(emptyList(), "7g7f", newId = 1L)
         tree = tree.withMovePlayed(emptyList(), "7g7f", newId = 2L)
         assertEquals(1, tree.rootChildren.size, "同じ手なら既存ノードを再利用し重複しない")

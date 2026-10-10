@@ -18,8 +18,8 @@ class StudySavedEvaluationsTest {
     @Test
     fun seedsEntireMainlineWithoutChangingSavedKifOrOtherBranches() {
         val seeded = tree.withSavedMainlineEvaluations(moves, emptyList(), rows, false, "cp")
-        assertEquals("+10", assertIs<StudyEvalState.Value>(seeded.rootEvalState).label.text)
-        assertEquals("+20", assertIs<StudyEvalState.Value>(seeded.evalStateAt(moves.take(1))).label.text)
+        assertEquals(dev.miyado.shogisupplement.blunder.PositionEvalDisplay.EvalText.Cp(10), assertIs<StudyEvalState.Value>(seeded.rootEvalState).label.value)
+        assertEquals(dev.miyado.shogisupplement.blunder.PositionEvalDisplay.EvalText.Cp(20), assertIs<StudyEvalState.Value>(seeded.evalStateAt(moves.take(1))).label.value)
         assertEquals("3c3d", assertIs<StudyEvalState.Value>(seeded.evalStateAt(moves.take(1))).candidates.single().moveUsi)
         assertIs<StudyEvalState.Value>(seeded.evalStateAt(moves))
         assertEquals(StudyEvalState.None, seeded.evalStateAt(listOf("7g7f", "8c8d")))
@@ -29,8 +29,8 @@ class StudySavedEvaluationsTest {
     @Test
     fun offsetsMidgameOriginsAndUsesGotePerspective() {
         val seeded = tree.subtree(moves.take(1))!!.withSavedMainlineEvaluations(moves, moves.take(1), rows, true, "cp")
-        assertEquals("−20", assertIs<StudyEvalState.Value>(seeded.rootEvalState).label.text)
-        assertEquals("−30", assertIs<StudyEvalState.Value>(seeded.evalStateAt(listOf("3c3d"))).label.text)
+        assertEquals(dev.miyado.shogisupplement.blunder.PositionEvalDisplay.EvalText.Cp(-20), assertIs<StudyEvalState.Value>(seeded.rootEvalState).label.value)
+        assertEquals(dev.miyado.shogisupplement.blunder.PositionEvalDisplay.EvalText.Cp(-30), assertIs<StudyEvalState.Value>(seeded.evalStateAt(listOf("3c3d"))).label.value)
         assertTrue(assertIs<StudyEvalState.Value>(seeded.evalStateAt(listOf("3c3d", "2g2f"))).label.sign < 0)
     }
 

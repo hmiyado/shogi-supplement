@@ -1,5 +1,7 @@
 package dev.miyado.shogisupplement.webApp.mypage
 
+import dev.miyado.shogisupplement.ui.text.LocalizedStrings
+
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -11,7 +13,6 @@ import dev.miyado.shogisupplement.download.GameSummaryOutcome
 import dev.miyado.shogisupplement.download.GameSummaryService
 import dev.miyado.shogisupplement.navigation.NavigationEvent
 import dev.miyado.shogisupplement.navigation.NavigationMachine
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.transfercode.TransferCodeInputViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -62,11 +63,11 @@ class MyPageViewModel(
                 is GameDetailOutcome.Loaded -> MyPageUiState.GameDetailView(outcome.detail, previousGames)
                 GameDetailOutcome.NotAuthenticated -> MyPageUiState.LoggedOut
                 GameDetailOutcome.NoSecret ->
-                    MyPageUiState.Error(AppStrings.MYPAGE_ERROR_NO_SECRET, previousGames)
+                    MyPageUiState.Error(LocalizedStrings.MYPAGE_ERROR_NO_SECRET(), previousGames)
                 GameDetailOutcome.NotFound ->
-                    MyPageUiState.Error(AppStrings.MYPAGE_ERROR_NOT_FOUND, previousGames)
+                    MyPageUiState.Error(LocalizedStrings.MYPAGE_ERROR_NOT_FOUND(), previousGames)
                 is GameDetailOutcome.NetworkError ->
-                    MyPageUiState.Error(AppStrings.MYPAGE_ERROR_NETWORK, previousGames)
+                    MyPageUiState.Error(LocalizedStrings.MYPAGE_ERROR_NETWORK(), previousGames)
             })
         }
     }
@@ -98,7 +99,7 @@ class MyPageViewModel(
             navigate(if (result.isSuccess) {
                 MyPageUiState.LoggedOut
             } else {
-                MyPageUiState.Error(AppStrings.MYPAGE_ERROR_LOGOUT_FAILED)
+                MyPageUiState.Error(LocalizedStrings.MYPAGE_ERROR_LOGOUT_FAILED())
             })
         }
     }
@@ -112,8 +113,8 @@ class MyPageViewModel(
             navigate(when (outcome) {
                 is GameSummaryOutcome.Loaded -> MyPageUiState.GameList(outcome.games)
                 GameSummaryOutcome.NotAuthenticated -> MyPageUiState.LoggedOut
-                GameSummaryOutcome.NoSecret -> MyPageUiState.Error(AppStrings.MYPAGE_ERROR_NO_SECRET)
-                is GameSummaryOutcome.NetworkError -> MyPageUiState.Error(AppStrings.MYPAGE_ERROR_NETWORK)
+                GameSummaryOutcome.NoSecret -> MyPageUiState.Error(LocalizedStrings.MYPAGE_ERROR_NO_SECRET())
+                is GameSummaryOutcome.NetworkError -> MyPageUiState.Error(LocalizedStrings.MYPAGE_ERROR_NETWORK())
             })
         }
     }

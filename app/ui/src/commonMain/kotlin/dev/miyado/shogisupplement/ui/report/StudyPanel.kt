@@ -1,5 +1,16 @@
 package dev.miyado.shogisupplement.ui.report
 
+
+import dev.miyado.shogisupplement.ui.text.text
+
+import org.jetbrains.compose.resources.vectorResource
+
+import dev.miyado.shogisupplement.ui.text.UiStrings
+
+import org.jetbrains.compose.resources.getString
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -22,15 +33,10 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.Card
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedButton
@@ -61,7 +67,6 @@ import androidx.compose.ui.unit.sp
 import dev.miyado.shogisupplement.board.ShogiBoard
 import dev.miyado.shogisupplement.board.ShogiMove
 import dev.miyado.shogisupplement.notation.JapaneseNotation
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.ShogiSecondaryButton
 import dev.miyado.shogisupplement.ui.theme.IbmPlexMonoFamily
 import dev.miyado.shogisupplement.ui.theme.LightInk
@@ -80,6 +85,9 @@ internal fun StudyNavRow(
     onStudyStepForward: () -> Unit,
     onStudyExit: (() -> Unit)?,
 ) {
+    val labelMovePrevious = stringResource(Res.string.move_previous)
+    val labelMoveNext = stringResource(Res.string.move_next)
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -93,12 +101,12 @@ internal fun StudyNavRow(
             enabled = studyState.moves.isNotEmpty(),
             modifier = Modifier.height(36.dp).widthIn(min = 36.dp),
             contentPadding = PaddingValues(horizontal = 2.dp),
-        ) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "1手戻る") }
+        ) { Icon(vectorResource(Res.drawable.ic_auto_mirrored_filled_keyboard_arrow_left), contentDescription = labelMovePrevious) }
         Text(
             text = when {
-                studyState.showTurnHint -> AppStrings.studyTurnHint(studySenteToMove)
-                studyState.moves.isEmpty() -> AppStrings.STUDY_START_POSITION
-                else -> AppStrings.studyPlyLabel(studyState.moves.size)
+                studyState.showTurnHint -> UiStrings.studyTurnHint(studySenteToMove)
+                studyState.moves.isEmpty() -> stringResource(Res.string.study_start_position)
+                else -> UiStrings.studyPlyLabel(studyState.moves.size)
             },
             modifier = Modifier.weight(1f),
             textAlign = TextAlign.Center,
@@ -112,12 +120,12 @@ internal fun StudyNavRow(
             enabled = studyState.moves.size < studyState.displayLine.size,
             modifier = Modifier.height(36.dp).widthIn(min = 36.dp),
             contentPadding = PaddingValues(horizontal = 2.dp),
-        ) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "1手進む") }
+        ) { Icon(vectorResource(Res.drawable.ic_auto_mirrored_filled_keyboard_arrow_right), contentDescription = labelMoveNext) }
         if (onStudyExit != null) {
             TextButton(
                 onClick = onStudyExit,
                 modifier = Modifier.height(36.dp),
-            ) { Text(AppStrings.STUDY_END) }
+            ) { Text(stringResource(Res.string.study_end)) }
         }
     }
 }
@@ -149,8 +157,8 @@ internal fun StudyPanel(
     LaunchedEffect(studyState.saveFailed, retryAttempt) {
         if (studyState.saveFailed) {
             val result = snackbar.showSnackbar(
-                AppStrings.STUDY_SAVE_FAILED,
-                actionLabel = AppStrings.GAME_RESTORE_RETRY_BUTTON,
+                getString(Res.string.study_save_failed),
+                actionLabel = getString(Res.string.game_restore_retry_button),
                 duration = androidx.compose.material3.SnackbarDuration.Indefinite,
             )
             if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) {
@@ -161,17 +169,17 @@ internal fun StudyPanel(
     if (deletingBranch && onDeleteBranch != null) {
         AlertDialog(
             onDismissRequest = { deletingBranch = false },
-            title = { Text(AppStrings.STUDY_DELETE_BRANCH_TITLE) },
-            text = { Text(AppStrings.STUDY_DELETE_BRANCH_BODY) },
+            title = { Text(stringResource(Res.string.study_delete_branch_title)) },
+            text = { Text(stringResource(Res.string.study_delete_branch_body)) },
             confirmButton = {
                 OutlinedButton(
                     onClick = { onDeleteBranch(studyState.baseSfen, studyState.moves, studyState.nodeId); deletingBranch = false },
                     shape = RoundedCornerShape(8.dp),
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                ) { Text(AppStrings.STUDY_DELETE_BRANCH) }
+                ) { Text(stringResource(Res.string.study_delete_branch)) }
             },
-            dismissButton = { TextButton(onClick = { deletingBranch = false }) { Text(AppStrings.CANCEL) } },
+            dismissButton = { TextButton(onClick = { deletingBranch = false }) { Text(stringResource(Res.string.cancel)) } },
         )
     }
     val notations = remember(studyState.baseSfen, studyState.displayLine) {
@@ -202,7 +210,7 @@ internal fun StudyPanel(
                             CircularProgressIndicator(modifier = Modifier.height(16.dp).width(16.dp), strokeWidth = 2.dp)
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                AppStrings.STUDY_EVAL_PREPARING,
+                                stringResource(Res.string.study_eval_preparing),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = shogiColors.ink2,
                             )
@@ -216,7 +224,7 @@ internal fun StudyPanel(
                             CircularProgressIndicator(modifier = Modifier.height(16.dp).width(16.dp), strokeWidth = 2.dp)
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                AppStrings.STUDY_EVAL_ANALYZING,
+                                stringResource(Res.string.study_eval_analyzing),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = shogiColors.ink2,
                             )
@@ -236,14 +244,14 @@ internal fun StudyPanel(
                             Spacer(Modifier.width(12.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(
-                                    AppStrings.studyEvalPerspective(studyState.flip),
+                                    UiStrings.studyEvalPerspective(studyState.flip),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = shogiColors.ink2,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
                                 Text(
-                                    AppStrings.studyOriginLine(studyState.origin.label),
+                                    UiStrings.studyOriginLine(studyState.origin.label),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = shogiColors.ink2,
                                     maxLines = 1,
@@ -258,13 +266,13 @@ internal fun StudyPanel(
                     Box(Modifier.align(Alignment.CenterEnd)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             IconButton(onClick = { actionsExpanded = true }) {
-                                Icon(Icons.Default.MoreHoriz, contentDescription = AppStrings.STUDY_ACTIONS)
+                                Icon(vectorResource(Res.drawable.ic_filled_more_horiz), contentDescription = stringResource(Res.string.study_actions))
                             }
                         }
                         DropdownMenu(expanded = actionsExpanded, onDismissRequest = { actionsExpanded = false }) {
                             if (onDeleteBranch != null) {
                                 DropdownMenuItem(
-                                    text = { Text(AppStrings.STUDY_DELETE_BRANCH,
+                                    text = { Text(stringResource(Res.string.study_delete_branch),
                                         color = if (studyState.canDeleteBranch) MaterialTheme.colorScheme.error else shogiColors.ink3) },
                                     enabled = studyState.canDeleteBranch,
                                     onClick = { actionsExpanded = false; deletingBranch = true },
@@ -298,7 +306,7 @@ internal fun StudyPanel(
                     val isFuture = depth >= studyState.moves.size
                     val hasBranch = studyState.branchFlags.getOrNull(depth) == true
                     val evalSuffix = (studyState.chipEvalStates.getOrNull(depth) as? StudyEvalState.Value)
-                        ?.let { AppStrings.studyChipEvalSuffix(it.label.text) }
+                        ?.let { UiStrings.studyChipEvalSuffix(it.label.text) }
                     Box {
                         StudyMoveChip(
                             label = notations.getOrElse(depth) { moveUsi },
@@ -327,12 +335,12 @@ internal fun StudyPanel(
                                         runCatching { JapaneseNotation.format(option.moveUsi, board) }.getOrNull()
                                     } ?: option.moveUsi
                                     val optionEvalText = (option.evalState as? StudyEvalState.Value)
-                                        ?.label?.text ?: AppStrings.STUDY_BRANCH_EVAL_UNKNOWN
+                                        ?.label?.text ?: stringResource(Res.string.study_branch_eval_unknown)
                                     DropdownMenuItem(
                                         text = {
                                             Text(
                                                 "${optionIndex + 1}. $optionNotation  $optionEvalText" +
-                                                    if (option.isCurrent) AppStrings.STUDY_BRANCH_CURRENT_SUFFIX else "",
+                                                    if (option.isCurrent) stringResource(Res.string.study_branch_current_suffix) else "",
                                                 style = TextStyleDataMove,
                                             )
                                         },
@@ -421,7 +429,7 @@ private fun StudyCandidateRow(
 @Composable
 private fun AnalyzeButton(onClick: () -> Unit) {
     ShogiSecondaryButton(onClick = onClick) {
-        Text(AppStrings.STUDY_ANALYZE_LABEL)
+        Text(stringResource(Res.string.study_analyze_label))
     }
 }
 
@@ -462,8 +470,8 @@ private fun StudyMoveChip(
             )
             if (hasBranch) {
                 Icon(
-                    imageVector = Icons.Filled.KeyboardArrowDown,
-                    contentDescription = AppStrings.STUDY_BRANCH_ICON_DESC,
+                    imageVector = vectorResource(Res.drawable.ic_filled_keyboard_arrow_down),
+                    contentDescription = stringResource(Res.string.study_branch_icon_desc),
                     tint = if (isCurrent) LightInk else MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(14.dp).padding(start = 2.dp),
                 )

@@ -1,5 +1,7 @@
 package dev.miyado.shogisupplement.ui.restore
 
+import dev.miyado.shogisupplement.ui.text.LocalizedStrings
+
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -9,7 +11,6 @@ import dev.miyado.shogisupplement.download.GameDownloadOutcome
 import dev.miyado.shogisupplement.download.GameDownloadService
 import dev.miyado.shogisupplement.download.GameImportOutcome
 import dev.miyado.shogisupplement.download.ReconstructedGame
-import dev.miyado.shogisupplement.text.AppStrings
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -54,7 +55,7 @@ class GameRestoreViewModel(
             _uiState.value = GameRestoreUiState.Loading
             gameDownloadService.countRemoteGames().fold(
                 onSuccess = { count -> _uiState.value = GameRestoreUiState.Ready(count) },
-                onFailure = { _uiState.value = GameRestoreUiState.Error(AppStrings.GAME_RESTORE_ERROR_NETWORK) },
+                onFailure = { _uiState.value = GameRestoreUiState.Error(LocalizedStrings.GAME_RESTORE_ERROR_NETWORK()) },
             )
         }
     }
@@ -71,11 +72,11 @@ class GameRestoreViewModel(
                 is GameDownloadOutcome.Completed ->
                     GameRestoreUiState.Completed(outcome.total, outcome.succeeded, outcome.failed)
                 GameDownloadOutcome.NotAuthenticated ->
-                    GameRestoreUiState.Error(AppStrings.GAME_RESTORE_ERROR_NOT_AUTHENTICATED)
+                    GameRestoreUiState.Error(LocalizedStrings.GAME_RESTORE_ERROR_NOT_AUTHENTICATED())
                 GameDownloadOutcome.NoSecret ->
-                    GameRestoreUiState.Error(AppStrings.GAME_RESTORE_ERROR_NO_SECRET)
+                    GameRestoreUiState.Error(LocalizedStrings.GAME_RESTORE_ERROR_NO_SECRET())
                 is GameDownloadOutcome.NetworkError ->
-                    GameRestoreUiState.Error(AppStrings.GAME_RESTORE_ERROR_NETWORK)
+                    GameRestoreUiState.Error(LocalizedStrings.GAME_RESTORE_ERROR_NETWORK())
             }
         }
     }

@@ -14,7 +14,6 @@ import dev.miyado.shogisupplement.kifu.KifuParseException
 import dev.miyado.shogisupplement.pipeline.ReportPipeline
 import dev.miyado.shogisupplement.pipeline.toPositionEval
 import dev.miyado.shogisupplement.opening.OpeningClassifier
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.util.sha256Hex
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
@@ -42,13 +41,13 @@ class AnalysisOrchestrator(
         data class Completed(val gameId: Long, val alreadyExisted: Boolean) : Outcome()
 
         /**
-         * @param message 表示用メッセージ（日本語）。[RemoteAnalysisException] 由来は
-         *   [RemoteAnalysisErrorMapper] でローカライズ済み、それ以外は例外の生メッセージ。
+         * @param message 元の診断メッセージ。表示文言はUIで解決する。
          * @param reason 失敗理由。省略時は [AnalysisFailureReason.Unknown]。
          */
         data class Failed(
             val message: String,
             val reason: AnalysisFailureReason = AnalysisFailureReason.Unknown,
+            val remoteError: RemoteAnalysisException? = null,
         ) : Outcome()
     }
 
@@ -219,12 +218,7 @@ class AnalysisOrchestrator(
             if (!expected && !e.isAlreadyReported()) {
                 crashReporter.captureException(e)
             }
-            val message = if (e is RemoteAnalysisException) {
-                RemoteAnalysisErrorMapper.map(e)
-            } else {
-                e.message ?: AppStrings.UNKNOWN_ERROR
-            }
-            Outcome.Failed(message, AnalysisFailureReason.from(e))
+            Outcome.Failed(e.message.orEmpty(), AnalysisFailureReason.from(e), e as? RemoteAnalysisException)
         }
     }
 }

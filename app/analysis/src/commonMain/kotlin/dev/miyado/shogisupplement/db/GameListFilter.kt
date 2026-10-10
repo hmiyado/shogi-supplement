@@ -5,7 +5,7 @@ import dev.miyado.shogisupplement.kifu.isKnownTimeControlRule
 import dev.miyado.shogisupplement.kifu.timeControlDisplayText
 import dev.miyado.shogisupplement.opening.OpeningClassifier
 
-/** 判定表に無い持ち時間をまとめる絞り込み値。表示ラベルはAppStringsが持つ。 */
+/** 判定表に無い持ち時間をまとめる絞り込み値。表示ラベルはUIの共通リソースで解決する。 */
 const val TIME_CONTROL_OTHER = "other"
 
 enum class GameResultFilter {

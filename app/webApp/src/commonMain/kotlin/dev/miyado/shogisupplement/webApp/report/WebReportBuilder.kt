@@ -1,5 +1,7 @@
 package dev.miyado.shogisupplement.webApp.report
 
+import dev.miyado.shogisupplement.ui.text.LocalizedStrings
+
 import dev.miyado.shogisupplement.blunder.BlunderJudge
 import dev.miyado.shogisupplement.blunder.Score
 import dev.miyado.shogisupplement.board.ShogiBoard
@@ -15,7 +17,6 @@ import dev.miyado.shogisupplement.pipeline.PositionEval
 import dev.miyado.shogisupplement.pipeline.ReportPipeline
 import dev.miyado.shogisupplement.strength.StrengthEstimator
 import dev.miyado.shogisupplement.strength.toDisplayString
-import dev.miyado.shogisupplement.text.AppStrings
 import kotlin.math.roundToInt
 import kotlinx.serialization.Serializable
 
@@ -31,7 +32,7 @@ data class WebReportData(
 )
 
 /** KIF/SFENと解析結果をReportScreenのドメイン型へ変換する。DBへ保存せず、nullのuserSideでは全体を対象にする。 @param userSide ユーザーの先後。 */
-fun buildWebReport(
+suspend fun buildWebReport(
     fileName: String,
     moves: List<String>,
     headers: Map<String, String>,
@@ -79,11 +80,11 @@ fun buildWebReport(
 
     val matchRateResult = EngineMatchRate.compute(moves, positionEvalRows, userSide)
     val matchRateText = matchRateResult?.let {
-        AppStrings.matchRateValue((it.rate * 100).roundToInt(), it.matched, it.sampleMoves)
+        LocalizedStrings.matchRateValue((it.rate * 100).roundToInt(), it.matched, it.sampleMoves)
     }
     val blunderRateText = matchRateResult?.takeIf { it.sampleMoves > 0 }?.let {
         val pct = (reports.size.toDouble() / it.sampleMoves * 100).roundToInt()
-        AppStrings.blunderRateValue(pct, reports.size, it.sampleMoves)
+        LocalizedStrings.blunderRateValue(pct, reports.size, it.sampleMoves)
     }
     val strengthText = userSide?.let {
         val userMoves = userMoveCount(moves.size, it)

@@ -197,7 +197,6 @@ dependencies {
     implementation(platform(libs.compose.bom))
     implementation(libs.androidx.activity.compose)
     implementation(libs.compose.material3)
-    implementation(libs.compose.material.icons.extended)
     implementation(libs.compose.ui)
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.kotlinx.coroutines.android)
@@ -221,6 +220,7 @@ dependencies {
     androidTestImplementation(libs.kotlinx.coroutines.test)
 
     // VRT: Roborazzi + Robolectric（JVM スクリーンショットテスト）
+    testImplementation(kotlin("test"))
     testImplementation(libs.roborazzi)
     testImplementation(libs.roborazzi.compose)
     testImplementation(libs.roborazzi.junit.rule)

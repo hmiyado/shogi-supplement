@@ -6,7 +6,7 @@ import dev.miyado.shogisupplement.kifu.KifuDecomposer
 import dev.miyado.shogisupplement.kifu.KifuSource
 import dev.miyado.shogisupplement.kifu.KifTreeParser
 import dev.miyado.shogisupplement.pipeline.BlunderReport
-import dev.miyado.shogisupplement.text.AppStrings
+import dev.miyado.shogisupplement.text.StoredText
 import dev.miyado.shogisupplement.util.currentEpochSeconds
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
@@ -743,7 +743,7 @@ private fun normalizeLegacyNote(note: String, missedMateIn: Long?): String {
     if (missedMateIn != null) {
         s = s.replace(Regex("の(?:1|3|5|7)手\\+?詰の"), "の${missedMateIn}手詰の")
     }
-    for ((band, label) in AppStrings.bandDeviationLabels) {
+    for ((band, label) in StoredText.bandDeviationLabels) {
         s = s.replace("($band)", "($label)")
     }
     return s

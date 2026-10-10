@@ -31,7 +31,6 @@ import dev.miyado.shogisupplement.board.ShogiBoard
 import dev.miyado.shogisupplement.board.ShogiMove
 import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.db.EngineMatchRate
-import dev.miyado.shogisupplement.text.AppStrings
 import kotlin.math.roundToInt
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.PositionEvalRow
@@ -245,10 +244,10 @@ class StoreImageTest {
             reports = listOf(storeBlunder),
             flip = false,
             positionEvals = storePositionEvals,
-            matchRateDisplayText = AppStrings.matchRateValue(
+            matchRateDisplayText = dev.miyado.shogisupplement.ui.text.UiStrings.matchRateValue(
                 (matchRate.rate * 100).roundToInt(), matchRate.matched, matchRate.sampleMoves,
             ),
-            blunderRateDisplayText = AppStrings.blunderRateValue(
+            blunderRateDisplayText = dev.miyado.shogisupplement.ui.text.UiStrings.blunderRateValue(
                 (100.0 / matchRate.sampleMoves).roundToInt(), 1, matchRate.sampleMoves,
             ),
             initialPlyIndex = 41,

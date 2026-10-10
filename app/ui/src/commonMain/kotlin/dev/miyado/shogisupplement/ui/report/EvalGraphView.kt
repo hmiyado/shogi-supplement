@@ -1,5 +1,9 @@
 package dev.miyado.shogisupplement.ui.report
 
+
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -27,7 +31,6 @@ import dev.miyado.shogisupplement.blunder.BlunderJudge
 import dev.miyado.shogisupplement.blunder.Score
 import dev.miyado.shogisupplement.db.PositionEvalRow
 import dev.miyado.shogisupplement.pipeline.PositionEval
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.theme.shogiColors
 import kotlin.math.roundToInt
 
@@ -61,7 +64,7 @@ fun buildMoveTimeGraphPoints(moveTimesSeconds: List<Int?>, maxPly: Int): List<Mo
         MoveTimeGraphPoint(ply, moveTimesSeconds.getOrNull(ply - 1))
     }
 
-fun formatMoveTime(seconds: Int?): String = seconds?.let { "${it / 60}:${(it % 60).toString().padStart(2, '0')}" } ?: AppStrings.EVAL_GRAPH_TIME_UNKNOWN
+fun formatMoveTime(seconds: Int?, unknown: String): String = seconds?.let { "${it / 60}:${(it % 60).toString().padStart(2, '0')}" } ?: unknown
 
 private val MINUTES_ONLY = Regex("""^(\d+)分$""")
 private val SUDDEN_DEATH = Regex("""^(\d+)分切れ負け$""")
@@ -307,7 +310,7 @@ fun EvalGraphCard(
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Text(
-                AppStrings.EVAL_GRAPH_TITLE,
+                stringResource(Res.string.eval_graph_title),
                 style = MaterialTheme.typography.labelMedium,
                 color = shogiColors.ink2,
             )
@@ -404,13 +407,13 @@ fun EvalGraphCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Text(
-                        AppStrings.EVAL_GRAPH_REMAINING_TIME_LABEL,
+                        stringResource(Res.string.eval_graph_remaining_time_label),
                         style = MaterialTheme.typography.labelMedium,
                         color = shogiColors.ink2,
                     )
                     if (timeGraphData.byoyomiPoints.isNotEmpty()) {
                         Text(
-                            AppStrings.EVAL_GRAPH_BYOYOMI_TIME_LABEL,
+                            stringResource(Res.string.eval_graph_byoyomi_time_label),
                             style = MaterialTheme.typography.labelMedium,
                             color = shogiColors.ink2,
                         )
@@ -421,13 +424,13 @@ fun EvalGraphCard(
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Text(
-                        formatMoveTime(timeGraphData.mainTimeMaxSeconds),
+                        formatMoveTime(timeGraphData.mainTimeMaxSeconds, stringResource(Res.string.eval_graph_time_unknown)),
                         style = MaterialTheme.typography.bodySmall,
                         color = shogiColors.ink3,
                     )
                     timeGraphData.byoyomiMaxSeconds?.let { maxSeconds ->
                         Text(
-                            "${maxSeconds}秒",
+                            stringResource(Res.string.duration_seconds, maxSeconds),
                             style = MaterialTheme.typography.bodySmall,
                             color = shogiColors.ink3,
                         )
@@ -509,22 +512,22 @@ fun EvalGraphCard(
                     }
                     Text(
                         if (timeGraphData.remainingPoints.map { it.side }.distinct().size == 1) {
-                            AppStrings.EVAL_GRAPH_REMAINING_TIME_SELF_LEGEND
+                            stringResource(Res.string.eval_graph_remaining_time_self_legend)
                         } else {
-                            AppStrings.EVAL_GRAPH_REMAINING_TIME_LEGEND
+                            stringResource(Res.string.eval_graph_remaining_time_legend)
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = shogiColors.ink3,
                     )
                     if (timeGraphData.byoyomiPoints.isNotEmpty()) {
                         Text(
-                            AppStrings.EVAL_GRAPH_BYOYOMI_TIME_LEGEND,
+                            stringResource(Res.string.eval_graph_byoyomi_time_legend),
                             style = MaterialTheme.typography.bodySmall,
                             color = shogiColors.ink3,
                         )
                     }
                 } else {
-                    Text(AppStrings.EVAL_GRAPH_TIME_NONE, style = MaterialTheme.typography.bodySmall, color = shogiColors.ink3)
+                    Text(stringResource(Res.string.eval_graph_time_none), style = MaterialTheme.typography.bodySmall, color = shogiColors.ink3)
                 }
             }
         }

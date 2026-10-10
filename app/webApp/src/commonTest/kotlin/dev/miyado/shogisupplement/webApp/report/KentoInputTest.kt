@@ -1,6 +1,5 @@
 package dev.miyado.shogisupplement.webApp.report
 
-import dev.miyado.shogisupplement.text.AppStrings
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -8,12 +7,12 @@ import kotlin.test.assertIs
 class KentoInputTest {
     @Test
     fun blankInputIsRejected() {
-        assertEquals(ParseOutcome.Error(AppStrings.KENTO_ERROR_EMPTY_INPUT), parseKifInput(" \n\t"))
+        assertEquals(ParseOutcome.Error(ParseError.EMPTY), parseKifInput(" \n\t"))
     }
 
     @Test
     fun headersWithoutMovesAreRejected() {
-        assertEquals(ParseOutcome.Error(AppStrings.KENTO_ERROR_NO_MOVES), parseKifInput("先手：先手の名前"))
+        assertEquals(ParseOutcome.Error(ParseError.NO_MOVES), parseKifInput("先手：先手の名前"))
     }
 
     @Test

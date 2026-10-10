@@ -1,5 +1,8 @@
 package dev.miyado.shogisupplement.ui.report
 
-import dev.miyado.shogisupplement.text.AppStrings
+import dev.miyado.shogisupplement.ui.generated.resources.move_list_dropdown_hint
+import dev.miyado.shogisupplement.ui.text.LocalizedStrings
 
-internal actual fun moveListDropdownHint(): String = AppStrings.MOVE_LIST_DROPDOWN_HINT
+
+@androidx.compose.runtime.Composable
+internal actual fun moveListDropdownHint(): String = org.jetbrains.compose.resources.stringResource(dev.miyado.shogisupplement.ui.generated.resources.Res.string.move_list_dropdown_hint)

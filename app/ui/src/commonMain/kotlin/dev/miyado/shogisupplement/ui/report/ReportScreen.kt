@@ -1,5 +1,12 @@
 package dev.miyado.shogisupplement.ui.report
 
+
+import dev.miyado.shogisupplement.ui.text.UiStrings
+
+import org.jetbrains.compose.resources.getString
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.material3.Text
 
 import androidx.compose.foundation.layout.Box
@@ -41,7 +48,6 @@ import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.kifu.KifParser
 import dev.miyado.shogisupplement.db.PositionEvalRow
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.TwoPaneBoardHeightFraction
 import dev.miyado.shogisupplement.ui.common.WindowWidthClass
 import dev.miyado.shogisupplement.ui.common.adaptiveContentWidth
@@ -123,6 +129,8 @@ fun ReportScreen(
     initialBodyModeList: Boolean = false,
     justCompleted: Boolean = false,
 ) {
+    val labelGameResultLoss = stringResource(Res.string.game_result_loss)
+
     var pendingDiscard by remember(game.id) { mutableStateOf<(() -> Unit)?>(null) }
     fun guarded(action: () -> Unit) {
         if (hasUnsavedStudy?.invoke() == true) pendingDiscard = action else action()
@@ -132,17 +140,17 @@ fun ReportScreen(
     if (pendingDiscard != null) {
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { pendingDiscard = null },
-            title = { Text(AppStrings.STUDY_DISCARD_TITLE) },
-            text = { Text(AppStrings.STUDY_DISCARD_BODY) },
+            title = { Text(stringResource(Res.string.study_discard_title)) },
+            text = { Text(stringResource(Res.string.study_discard_body)) },
             confirmButton = {
                 androidx.compose.material3.TextButton(onClick = {
                     val action = pendingDiscard
                     pendingDiscard = null
                     action?.invoke()
-                }) { Text(AppStrings.MANUAL_KIFU_DISCARD, color = MaterialTheme.colorScheme.error) }
+                }) { Text(stringResource(Res.string.manual_kifu_discard), color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
-                androidx.compose.material3.TextButton(onClick = { pendingDiscard = null }) { Text(AppStrings.CANCEL) }
+                androidx.compose.material3.TextButton(onClick = { pendingDiscard = null }) { Text(stringResource(Res.string.cancel)) }
             },
         )
     }
@@ -236,15 +244,15 @@ fun ReportScreen(
         }
     }
 
-    val senteSuffix = if (game.userSide == "sente") AppStrings.PLAYER_YOU else ""
-    val goteSuffix = if (game.userSide == "gote") AppStrings.PLAYER_YOU else ""
+    val senteSuffix = if (game.userSide == "sente") stringResource(Res.string.player_you) else ""
+    val goteSuffix = if (game.userSide == "gote") stringResource(Res.string.player_you) else ""
     val playersLine = buildAnnotatedString {
         append("▲")
-        append(game.senteName ?: AppStrings.PLAYER_UNKNOWN)
+        append(game.senteName ?: stringResource(Res.string.player_unknown))
         appendPlayerRating(game.senteRating)
         append(senteSuffix)
         append("　△")
-        append(game.goteName ?: AppStrings.PLAYER_UNKNOWN)
+        append(game.goteName ?: stringResource(Res.string.player_unknown))
         appendPlayerRating(game.goteRating)
         append(goteSuffix)
     }
@@ -300,7 +308,7 @@ fun ReportScreen(
             ) {
 
                 ReportTopBar(
-                    title = AppStrings.sourcePlaceLabel(game.sourcePlace) ?: game.fileName,
+                    title = UiStrings.sourcePlaceLabel(game.sourcePlace) ?: game.fileName,
                     onBack = guardedBack,
                     onInfoClick = { showGameInfoDialog = true },
                     kifText = game.kifText,
@@ -309,7 +317,7 @@ fun ReportScreen(
                         if (kifText != null) {
                             onCopyKif(kifText)
                             scope.launch {
-                                snackbarHostState.showSnackbar(AppStrings.KIF_COPIED_MESSAGE)
+                                snackbarHostState.showSnackbar(getString(Res.string.kif_copied_message))
                             }
                         }
                     },
@@ -336,11 +344,11 @@ fun ReportScreen(
                 val noBlundersMessage = when {
                     game.userSide != null && game.gameWinner != null ->
                         if (game.gameWinner == game.userSide) {
-                            AppStrings.NO_BLUNDERS_WIN
+                            stringResource(Res.string.no_blunders_win)
                         } else {
-                            AppStrings.noBlundersLoss(game.endReason ?: "負け")
+                            UiStrings.noBlundersLoss(game.endReason ?: labelGameResultLoss)
                         }
-                    else -> AppStrings.NO_BLUNDERS_UNKNOWN
+                    else -> stringResource(Res.string.no_blunders_unknown)
                 }
 
                 val selectBlunderAndShowList: (Int) -> Unit = { idx ->
@@ -386,7 +394,7 @@ fun ReportScreen(
                         // 排他的な固定高スロットで検討モード切替時のY座標を保つ。
                         if (showCompletionBanner) {
                             ReportNavBannerRow(
-                                text = AppStrings.ANALYSIS_COMPLETED_BANNER,
+                                text = stringResource(Res.string.analysis_completed_banner),
                                 textColor = MaterialTheme.colorScheme.primary,
                                 backgroundColor = MaterialTheme.shogiColors.primarySoft,
                             )

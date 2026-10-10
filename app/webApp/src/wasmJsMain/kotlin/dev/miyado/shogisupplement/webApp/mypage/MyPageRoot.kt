@@ -1,5 +1,8 @@
 package dev.miyado.shogisupplement.webApp.mypage
 
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
@@ -18,7 +21,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Column
-import dev.miyado.shogisupplement.text.AppStrings
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
@@ -84,8 +86,8 @@ private fun RestoredStudyReport(report: WebReportData, onBack: () -> Unit) {
             WebAppSurface {
                 Column(Modifier.padding(16.dp)) {
                     if (ready == null) CircularProgressIndicator()
-                    else Text(AppStrings.STUDY_OPEN_FAILED)
-                    TextButton(onClick = onBack) { Text(AppStrings.MYPAGE_BACK_TO_LIST_BUTTON) }
+                    else Text(stringResource(Res.string.study_open_failed))
+                    TextButton(onClick = onBack) { Text(stringResource(Res.string.mypage_back_to_list_button)) }
                 }
             }
         }

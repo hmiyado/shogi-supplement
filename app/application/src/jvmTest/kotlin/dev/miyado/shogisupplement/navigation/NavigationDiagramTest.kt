@@ -36,7 +36,7 @@ class NavigationDiagramTest {
         assertTrue(html.contains("label:\"定跡一覧\""))
         RootTab.entries.forEach { from ->
             RootTab.entries.forEach { to ->
-                assertTrue(html.contains("from:\"${from.destination.name}\",to:\"${to.destination.name}\",event:\"SelectTab(${to.title})\""))
+                assertTrue(html.contains("from:\"${from.destination.name}\",to:\"${to.destination.name}\",event:\"SelectTab(${to.name})\""))
             }
         }
     }
@@ -51,8 +51,8 @@ class NavigationDiagramTest {
                 is NavigationEvent.Open -> "Open"
                 is NavigationEvent.AnalysisCancelled -> "AnalysisCancelled"
                 is NavigationEvent.AnalysisFailed -> "AnalysisFailed"
-                is NavigationEvent.ReturnToTab -> "ReturnToTab(${edge.event.tab.title})"
-                is NavigationEvent.SelectTab -> "SelectTab(${edge.event.tab.title})"
+                is NavigationEvent.ReturnToTab -> "ReturnToTab(${edge.event.tab.name})"
+                is NavigationEvent.SelectTab -> "SelectTab(${edge.event.tab.name})"
                 NavigationEvent.Back -> "Back"
                 NavigationEvent.AnalysisStarted -> "AnalysisStarted"
                 NavigationEvent.AnalysisCompleted -> "AnalysisCompleted"

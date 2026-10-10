@@ -1,5 +1,7 @@
 package dev.miyado.shogisupplement.ui
 
+import dev.miyado.shogisupplement.ui.generated.resources.allStringResources
+
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import dev.miyado.shogisupplement.auth.AuthUser
 import dev.miyado.shogisupplement.auth.FakeAuthRepository
@@ -13,7 +15,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.account.AccountUiState
 import dev.miyado.shogisupplement.ui.account.AccountViewModel
 import org.junit.After
@@ -24,12 +25,18 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
-/**
- * AccountViewModel の単体テスト（匿名認証 v1）。
- * FakeAuthRepository と インメモリ DB を注入して検証する。
- */
 @OptIn(ExperimentalCoroutinesApi::class)
+@org.junit.runner.RunWith(org.robolectric.RobolectricTestRunner::class)
+@org.robolectric.annotation.Config(sdk = [34], application = android.app.Application::class)
 class AccountViewModelTest {
+    @org.junit.Before
+    fun prepareStringResources() = kotlinx.coroutines.runBlocking {
+        // Resolve the same resource environment before assertions on synchronous test dispatchers.
+        dev.miyado.shogisupplement.ui.generated.resources.Res.allStringResources.values.forEach {
+            org.jetbrains.compose.resources.getString(it)
+        }
+    }
+
 
     private val testDispatcher = UnconfinedTestDispatcher()
 
@@ -59,7 +66,6 @@ class AccountViewModelTest {
         repos: TestRepos = createDb(),
     ) = AccountViewModel(auth, repos.game, repos.settings, ioDispatcher = testDispatcher)
 
-    // ─── 初期状態 ─────────────────────────────────────────────────────────────
 
     @Test
     fun initialState_notLoggedIn() {
@@ -101,7 +107,6 @@ class AccountViewModelTest {
         assertEquals("uploadedCount should be loaded from DB", 1, state.uploadedCount)
     }
 
-    // ─── 匿名サインイン ───────────────────────────────────────────────────────
 
     @Test
     fun signInAnonymously_success_becomesLoggedIn() {
@@ -141,7 +146,7 @@ class AccountViewModelTest {
         vm.signInAnonymously()
         val state = vm.uiState.value
         assertTrue(state is AccountUiState.NotLoggedIn)
-        assertEquals(AppStrings.AUTH_ERROR_NETWORK, (state as AccountUiState.NotLoggedIn).error)
+        assertEquals("ネットワークに接続できません。接続を確認してお試しください", (state as AccountUiState.NotLoggedIn).error)
     }
 
     @Test
@@ -154,12 +159,11 @@ class AccountViewModelTest {
         val state = vm.uiState.value
         assertTrue(state is AccountUiState.NotLoggedIn)
         assertEquals(
-            AppStrings.AUTH_ERROR_ANON_SIGN_IN_GENERIC,
+            "データ提供の開始に失敗しました。時間をおいてお試しください",
             (state as AccountUiState.NotLoggedIn).error,
         )
     }
 
-    // ─── サインアウト ─────────────────────────────────────────────────────────
 
     @Test
     fun signOut_becomesNotLoggedIn() {
@@ -175,7 +179,6 @@ class AccountViewModelTest {
         assertNull((state as AccountUiState.NotLoggedIn).error)
     }
 
-    // ─── 自動アップロードトグル ───────────────────────────────────────────────
 
     @Test
     fun setAutoUpload_true_savesToDbAndUpdatesState() {
@@ -219,7 +222,6 @@ class AccountViewModelTest {
         assertTrue("autoUpload should persist across sessions", state.autoUpload)
     }
 
-    // ─── アカウント削除（提供をやめてデータ削除） ──────────────────────────────
 
     /** ゲームを1件保存して uploaded_at を設定するヘルパ。game_id を返す。 */
     private fun saveUploadedGame(game: GameRepository): Long {
@@ -271,7 +273,7 @@ class AccountViewModelTest {
         // 提供中状態を維持し、エラーメッセージを表示
         val state = vm.uiState.value
         assertTrue("Expected LoggedIn but got $state", state is AccountUiState.LoggedIn)
-        assertEquals(AppStrings.AUTH_ERROR_DELETE_GENERIC, (state as AccountUiState.LoggedIn).error)
+        assertEquals("データの削除に失敗しました。時間をおいてお試しください", (state as AccountUiState.LoggedIn).error)
         // uploaded_at は維持される（サーバー側データは消えていない）
         assertEquals(1_780_000_000L, repos.game.getGameById(gameId)!!.uploadedAt)
     }
@@ -287,7 +289,6 @@ class AccountViewModelTest {
         assertEquals(0, fakeAuth.deleteAccountCalls)
     }
 
-    // ─── 状態遷移テスト（有効化 → uid取得（画面に出ない）→ 削除 → サインアウト）─────
 
     @Test
     fun fullFlow_enable_then_delete_becomesNotLoggedIn() {

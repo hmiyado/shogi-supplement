@@ -9,7 +9,6 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.restore.GameRestoreScreen
 import dev.miyado.shogisupplement.ui.restore.GameRestoreUiState
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
@@ -121,7 +120,7 @@ class GameRestoreScreenInteractionTest {
     @Test
     fun エラー時は再試行ボタンでonRetryが呼ばれる() {
         var retried = false
-        setState(GameRestoreUiState.Error(AppStrings.GAME_RESTORE_ERROR_NETWORK), onRetry = { retried = true })
+        setState(GameRestoreUiState.Error("棋譜を取得できませんでした。しばらくしてから再度お試しください。"), onRetry = { retried = true })
         composeRule.onNodeWithTag("game_restore_primary_button").assertIsEnabled()
         composeRule.onNodeWithTag("game_restore_primary_button").performClick()
         assertTrue(retried)

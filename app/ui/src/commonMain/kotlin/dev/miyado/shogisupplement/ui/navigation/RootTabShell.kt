@@ -1,11 +1,14 @@
 package dev.miyado.shogisupplement.ui.navigation
 
+import dev.miyado.shogisupplement.ui.text.title
+
+import org.jetbrains.compose.resources.stringResource
+
+import org.jetbrains.compose.resources.vectorResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
@@ -24,6 +27,10 @@ val LocalRootDetailChanged = staticCompositionLocalOf<(Boolean) -> Unit> { {} }
 
 @Composable
 fun RootTabShell(selected: RootTab, visible: Boolean, screenKey: String, onSelect: (RootTab) -> Unit, holder: androidx.compose.runtime.saveable.SaveableStateHolder = rememberSaveableStateHolder(), completed: Boolean = false, onOpenCompleted: () -> Unit = {}, onResumeAnalysis: (String) -> Unit = {}, onAddGame: () -> Unit = {}, content: @Composable () -> Unit) {
+    val labelAnalysisCompletedBanner = stringResource(Res.string.analysis_completed_banner)
+    val labelOpen = stringResource(Res.string.open)
+    val labelRootAnalysisRunning = stringResource(Res.string.root_analysis_running)
+
     var editing by remember { mutableStateOf(false) }
     val sessions by dev.miyado.shogisupplement.pipeline.InProgressAnalysisRegistry.shared.sessions.collectAsState()
     val show = visible && !editing
@@ -32,12 +39,12 @@ fun RootTabShell(selected: RootTab, visible: Boolean, screenKey: String, onSelec
     Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()) {
         if (show && completed) Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-            Text("解析が完了しました", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-            TextButton(onClick = onOpenCompleted) { Text("開く") }
+            Text(labelAnalysisCompletedBanner, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+            TextButton(onClick = onOpenCompleted) { Text(labelOpen) }
         }
         if (show && !completed && sessions.isNotEmpty()) Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-            Text("解析中…", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-            TextButton(onClick = { sessions.values.firstOrNull()?.let { onResumeAnalysis(it.id) } }) { Text("開く") }
+            Text(labelRootAnalysisRunning, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+            TextButton(onClick = { sessions.values.firstOrNull()?.let { onResumeAnalysis(it.id) } }) { Text(labelOpen) }
         }
         Box(Modifier.weight(1f)) {
             CompositionLocalProvider(LocalRootTabBottomPadding provides if (show && rootTabsOverlayContent) 96.dp else 0.dp, LocalRootTabHost provides true, LocalRootDetailChanged provides { editing = it },
@@ -59,7 +66,7 @@ fun MaterialRootTabBar(selected: RootTab, onSelect: (RootTab) -> Unit) {
     NavigationBar {
         RootTab.entries.forEach { tab ->
             NavigationBarItem(selected = selected == tab, onClick = { onSelect(tab) },
-                icon = { Icon(when(tab) { RootTab.HOME -> Icons.Default.Home; RootTab.GAMES -> Icons.AutoMirrored.Filled.List; RootTab.REPERTOIRE -> Icons.AutoMirrored.Filled.MenuBook }, contentDescription = null) },
+                icon = { Icon(when(tab) { RootTab.HOME -> vectorResource(Res.drawable.ic_filled_home); RootTab.GAMES -> vectorResource(Res.drawable.ic_auto_mirrored_filled_list); RootTab.REPERTOIRE -> vectorResource(Res.drawable.ic_auto_mirrored_filled_menu_book) }, contentDescription = null) },
                 label = { Text(tab.title) })
         }
     }

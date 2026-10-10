@@ -7,7 +7,6 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import dev.miyado.shogisupplement.db.GameRecord
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.report.ReportScreen
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
 import org.junit.Assert.assertEquals
@@ -60,7 +59,7 @@ class ReportScreenBackTest {
                 }
             }
         }
-        composeRule.onNodeWithContentDescription(AppStrings.BACK).performClick()
+        composeRule.onNodeWithContentDescription("戻る").performClick()
         composeRule.waitForIdle()
         return backCount
     }
@@ -94,12 +93,12 @@ class ReportScreenBackTest {
                 }
             }
         }
-        composeRule.onNodeWithText(AppStrings.REPORT_TAB_BLUNDERS).performClick()
+        composeRule.onNodeWithText("悪手一覧").performClick()
         composeRule.waitForIdle()
 
         // 切り替わっていない＝内側タブ（本譜/最善の変化）が出ていない。
-        composeRule.onNodeWithText(AppStrings.TAB_MAINLINE).assertDoesNotExist()
-        composeRule.onNodeWithText(AppStrings.REPORT_TAB_SUMMARY).assertIsDisplayed()
+        composeRule.onNodeWithText("本譜").assertDoesNotExist()
+        composeRule.onNodeWithText("サマリー").assertIsDisplayed()
     }
 
     /** 検討を持たないホスト（Web版マイページ）では、押しても反応しないタブを出さない。 */
@@ -118,10 +117,10 @@ class ReportScreenBackTest {
                 }
             }
         }
-        composeRule.onNodeWithText(AppStrings.REPORT_TAB_STUDY).performClick()
+        composeRule.onNodeWithText("検討").performClick()
         composeRule.waitForIdle()
 
-        composeRule.onNodeWithText(AppStrings.STUDY_PANEL_TITLE).assertDoesNotExist()
-        composeRule.onNodeWithText(AppStrings.REPORT_TAB_SUMMARY).assertIsDisplayed()
+        composeRule.onNodeWithText("検討中").assertDoesNotExist()
+        composeRule.onNodeWithText("サマリー").assertIsDisplayed()
     }
 }

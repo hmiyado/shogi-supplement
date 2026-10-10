@@ -13,6 +13,7 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.Runnable
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.launch
 import kotlin.coroutines.CoroutineContext
@@ -39,8 +40,8 @@ class ReportViewModelStudyResetTest {
         val vm = ReportViewModel(this, repo, { created++; FakeEngine() }, { "cp" }, UnconfinedTestDispatcher(testScheduler))
         vm.loadReport(1)
         vm.startStudy(ShogiBoard().toSfen(), false, false, 0, null, 0, StudyOrigin("開始局面", null))
-        assertEquals(listOf("+20", "+30"), vm.studyState.value!!.chipEvalStates.map { (it as StudyEvalState.Value).label.text })
-        assertEquals("+10", (vm.studyState.value!!.evalState as StudyEvalState.Value).label.text)
+        assertEquals(listOf(dev.miyado.shogisupplement.blunder.PositionEvalDisplay.EvalText.Cp(20), dev.miyado.shogisupplement.blunder.PositionEvalDisplay.EvalText.Cp(30)), vm.studyState.value!!.chipEvalStates.map { (it as StudyEvalState.Value).label.value })
+        assertEquals(dev.miyado.shogisupplement.blunder.PositionEvalDisplay.EvalText.Cp(10), (vm.studyState.value!!.evalState as StudyEvalState.Value).label.value)
         vm.onStudyAutoAnalyze()
         vm.onStudyChipTapped(1)
         advanceUntilIdle()

@@ -1,5 +1,7 @@
 package dev.miyado.shogisupplement.ui.report
 
+import dev.miyado.shogisupplement.ui.text.text
+
 import dev.miyado.shogisupplement.blunder.BlunderJudge
 import dev.miyado.shogisupplement.blunder.PositionEvalDisplay
 import dev.miyado.shogisupplement.blunder.Score

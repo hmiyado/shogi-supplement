@@ -12,7 +12,6 @@ import androidx.compose.ui.test.swipe
 import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.PositionEvalRow
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.report.ReportScreen
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
 import org.junit.Rule
@@ -107,21 +106,21 @@ class ReportScreenEvalGraphDragTest {
             }
         }
 
-        composeRule.onNodeWithText(AppStrings.VIEWER_START_POSITION, substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("開始局面", substring = true).assertIsDisplayed()
 
         composeRule.onNodeWithTag("eval_graph_canvas").performTouchInput {
             swipe(start = Offset(1f, height / 2f), end = Offset(width - 1f, height / 2f), durationMillis = 200)
         }
         composeRule.waitForIdle()
 
-        composeRule.onNodeWithText(AppStrings.VIEWER_START_POSITION, substring = true).assertDoesNotExist()
+        composeRule.onNodeWithText("開始局面", substring = true).assertDoesNotExist()
 
         composeRule.onNodeWithTag("eval_graph_canvas").performTouchInput {
             swipe(start = Offset(width - 1f, height / 2f), end = Offset(1f, height / 2f), durationMillis = 200)
         }
         composeRule.waitForIdle()
 
-        composeRule.onNodeWithText(AppStrings.VIEWER_START_POSITION, substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("開始局面", substring = true).assertIsDisplayed()
     }
 
     @Test
@@ -148,7 +147,7 @@ class ReportScreenEvalGraphDragTest {
         composeRule.waitForIdle()
 
         // 悪手一覧へ切り替わっていない＝内側タブ（本譜/最善の変化）がまだ出ていない。
-        composeRule.onNodeWithText(AppStrings.TAB_MAINLINE).assertDoesNotExist()
+        composeRule.onNodeWithText("本譜").assertDoesNotExist()
     }
 
     @Test
@@ -166,14 +165,14 @@ class ReportScreenEvalGraphDragTest {
             }
         }
 
-        composeRule.onNodeWithText(AppStrings.VIEWER_START_POSITION, substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("開始局面", substring = true).assertIsDisplayed()
 
         composeRule.onNodeWithTag("remaining_time_graph_canvas").performTouchInput {
             click(Offset(width - 1f, height / 2f))
         }
         composeRule.waitForIdle()
 
-        composeRule.onNodeWithText(AppStrings.VIEWER_START_POSITION, substring = true).assertDoesNotExist()
+        composeRule.onNodeWithText("開始局面", substring = true).assertDoesNotExist()
     }
 
     @Test
@@ -199,6 +198,6 @@ class ReportScreenEvalGraphDragTest {
         }
         composeRule.waitForIdle()
 
-        composeRule.onNodeWithText(AppStrings.TAB_MAINLINE).assertIsDisplayed()
+        composeRule.onNodeWithText("本譜").assertIsDisplayed()
     }
 }

@@ -1,8 +1,9 @@
 package dev.miyado.shogisupplement.ui
 
+import dev.miyado.shogisupplement.ui.text.LocalizedStrings
+
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
-import dev.miyado.shogisupplement.repertoire.labelledGames
 import dev.miyado.shogisupplement.navigation.NavigationEvent
 import dev.miyado.shogisupplement.navigation.NavigationMachine
 
@@ -40,7 +41,6 @@ import dev.miyado.shogisupplement.pipeline.ProgressiveReportState
 import dev.miyado.shogisupplement.service.AnalysisService
 import dev.miyado.shogisupplement.service.AnalysisServiceBus
 import dev.miyado.shogisupplement.service.AnalysisServiceBus.ServiceEvent
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.AppSettingsController
 import dev.miyado.shogisupplement.ui.common.PvExtState
 import dev.miyado.shogisupplement.ui.home.HomeViewModel
@@ -65,6 +65,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     data class ManualKifRequest(val text: String, val fileName: String)
 
     private val gameRepository = AppDatabase.gameRepository(application)
+    val gameListQueries get() = checkNotNull(gameRepository.gameListQueries)
     private val drillRepository = AppDatabase.drillRepository(application)
     private val settingsRepository = AppDatabase.settingsRepository(application)
     private val app get() = getApplication<ShogiApp>()
@@ -253,21 +254,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     suspend fun refreshPositionLabels() {
-        val owner = app.authRepository.currentUser.value?.id
-        suspend fun refresh() {
-            val current = _state.value as? MainUiState.GameList ?: return
-            val games = withContext(Dispatchers.IO) {
-                if (owner == null) current.games.map { it.copy(positionLabels = emptySet()) }
-                else repertoireRepository.labelledGames(owner, current.games)
-            }
-            if (_state.value === current && app.authRepository.currentUser.value?.id == owner) _state.value = current.copy(games = games)
-        }
-        refresh()
-        if (owner == null) return
+        if (app.authRepository.currentUser.value == null) return
         try { repertoireSync.synchronize() }
         catch (e: kotlinx.coroutines.CancellationException) { throw e }
         catch (_: Exception) { return }
-        refresh()
+        val current = _state.value as? MainUiState.GameList ?: return
+        _state.value = current.copy(dataRevision = current.dataRevision + 1)
     }
 
     fun openRepertoire() = selectRoot(dev.miyado.shogisupplement.navigation.RootTab.REPERTOIRE)
@@ -338,20 +330,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private suspend fun reloadGameList() {
         val originState = _state.value
-        val games = withContext(Dispatchers.IO) {
-            val all = gameRepository.getAllGames()
-            app.authRepository.currentUser.value?.id?.let { repertoireRepository.labelledGames(it, all) } ?: all
-        }
-        val blunderCounts = withContext(Dispatchers.IO) { gameRepository.getBlunderCounts() }
         val isLoggedIn = app.authRepository.currentUser.value != null
         val pendingCount = if (isLoggedIn) {
-            withContext(Dispatchers.IO) { gameRepository.getNotUploadedGames().size }
+            withContext(Dispatchers.IO) { gameRepository.gameListQueries!!.pendingUploadCount() }
         } else 0
         val savedFilters = withContext(Dispatchers.IO) { settingsRepository.getSavedGameFilters() }
         if (_state.value !== originState || rootNavigation.selected != dev.miyado.shogisupplement.navigation.RootTab.GAMES) return
         _state.value = MainUiState.GameList(
-            games,
-            blunderCounts = blunderCounts,
+            dataRevision = ((originState as? MainUiState.GameList)?.dataRevision ?: 0) + 1,
             pendingUploadCount = pendingCount,
             savedFilters = savedFilters,
         )
@@ -407,11 +393,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _state.value = s.copy(isUploading = true, uploadResult = null)
         viewModelScope.launch {
             val result = withContext(Dispatchers.IO) { app.uploadOrchestrator.uploadAll() }
-            val newGames = withContext(Dispatchers.IO) { gameRepository.getAllGames() }
-            val pendingCount = withContext(Dispatchers.IO) { gameRepository.getNotUploadedGames().size }
+            val pendingCount = withContext(Dispatchers.IO) { gameRepository.gameListQueries!!.pendingUploadCount() }
             val cur = _state.value as? MainUiState.GameList ?: return@launch
             _state.value = cur.copy(
-                games = newGames,
+                dataRevision = cur.dataRevision + 1,
                 pendingUploadCount = pendingCount,
                 isUploading = false,
                 uploadResult = result.resultMessage(),
@@ -451,7 +436,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         when (next) {
             is GameImportFlow.Next.Analyze -> analyzeStoredGame(next.game)
             is GameImportFlow.Next.OpenReport -> showReport(next.gameId)
-            is GameImportFlow.Next.Failed -> _state.value = MainUiState.Error(next.message)
+            is GameImportFlow.Next.Failed -> _state.value = MainUiState.Error(next.message.ifEmpty { LocalizedStrings.UNKNOWN_ERROR() })
         }
     }
 
@@ -493,7 +478,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _state.value = if (report != null) {
                 MainUiState.ShowReport(report, appSettings.evalDisplay.value, justCompleted)
             } else {
-                MainUiState.Error(AppStrings.gameNotFound(gameId))
+                MainUiState.Error(LocalizedStrings.gameNotFound(gameId))
             }
         }
     }

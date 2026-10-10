@@ -1,5 +1,17 @@
 package dev.miyado.shogisupplement.ui.gamelist
 
+
+import org.jetbrains.compose.resources.vectorResource
+
+import dev.miyado.shogisupplement.ui.text.UiStrings
+
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.Res
+import dev.miyado.shogisupplement.ui.generated.resources.game_list_load_retry
+
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -21,8 +33,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
@@ -65,7 +75,6 @@ import dev.miyado.shogisupplement.db.filterGames
 import dev.miyado.shogisupplement.db.summarize
 import dev.miyado.shogisupplement.strength.StrengthEstimator
 import dev.miyado.shogisupplement.strength.toDisplayString
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.exposeTestTags
 import dev.miyado.shogisupplement.ui.common.withMonoNumbers
 import dev.miyado.shogisupplement.ui.theme.TextStyleData
@@ -109,13 +118,13 @@ fun GameListFilterHeader(
 private fun GameListSummaryRow(summary: GameListSummary?) {
     val parts = summary?.let { s ->
         buildList {
-            s.winRatePct?.let { add(AppStrings.gameListSummaryWinRate(it, s.wins, s.decidedGames)) }
+            s.winRatePct?.let { add(UiStrings.gameListSummaryWinRate(it, s.wins, s.decidedGames)) }
             s.blunderRatePct?.let {
-                add(AppStrings.gameListSummaryBlunderRate(it, s.blunders, s.userMoves))
+                add(UiStrings.gameListSummaryBlunderRate(it, s.blunders, s.userMoves))
             }
             if (s.ratings.isNotEmpty()) {
                 val estimate = StrengthEstimator.aggregate(s.ratings, s.userMoves)
-                add(AppStrings.gameListSummaryStrength(estimate.toDisplayString()))
+                add(UiStrings.gameListSummaryStrength(estimate.toDisplayString()))
             }
         }
     }.orEmpty()
@@ -125,7 +134,7 @@ private fun GameListSummaryRow(summary: GameListSummary?) {
     ) {
         if (parts.isNotEmpty()) {
             Text(
-                parts.joinToString(AppStrings.GAME_LIST_SUMMARY_SEPARATOR),
+                parts.joinToString(stringResource(Res.string.game_list_summary_separator)),
                 style = TextStyleData,
                 color = MaterialTheme.shogiColors.ink2,
                 maxLines = 1,
@@ -175,14 +184,14 @@ private fun GameListFilterButton(
             },
         ) {
             Icon(
-                imageVector = Icons.Filled.FilterList,
+                imageVector = vectorResource(Res.drawable.ic_filled_filter_list),
                 contentDescription = null,
                 tint = contentColor,
             )
         }
         Spacer(Modifier.width(6.dp))
         Text(
-            AppStrings.GAME_LIST_FILTER_BUTTON,
+            stringResource(Res.string.game_list_filter_button),
             style = MaterialTheme.typography.labelLarge,
             color = contentColor,
         )
@@ -194,6 +203,8 @@ private fun GameListFilterButton(
 @Composable
 fun GameListFilterSheet(
     allGames: List<GameRecord>,
+    facets: dev.miyado.shogisupplement.db.GameListFacets? = null,
+    savedCounts: Map<String, Int>? = null,
     knownPositionLabels: List<String> = emptyList(),
     filter: GameListFilter,
     onFilterChange: (GameListFilter) -> Unit,
@@ -228,6 +239,7 @@ fun GameListFilterSheet(
             SavedGameFilterSection(
                 savedFilters = savedFilters,
                 allGames = allGames,
+                savedCounts = savedCounts,
                 modifier = Modifier
                     .heightIn(max = maxSavedFiltersHeight)
                     .verticalScroll(rememberScrollState()),
@@ -236,11 +248,12 @@ fun GameListFilterSheet(
                 onDelete = onDeleteSavedFilter,
             )
             Text(
-                AppStrings.GAME_LIST_FILTER_SHEET_TITLE,
+                stringResource(Res.string.game_list_filter_sheet_title),
                 style = MaterialTheme.typography.titleLarge,
             )
             GameListFilterBar(
                 allGames = allGames,
+                facets = facets,
                 knownPositionLabels = knownPositionLabels,
                 filter = filter,
                 onFilterChange = onFilterChange,
@@ -260,7 +273,7 @@ fun GameListFilterSheet(
                         onClick = onRequestSave,
                         modifier = Modifier.weight(1f).testTag("filter_save_button"),
                     ) {
-                        Text(AppStrings.GAME_LIST_SAVE_FILTER)
+                        Text(stringResource(Res.string.game_list_save_filter))
                     }
                 }
                 TextButton(
@@ -268,14 +281,14 @@ fun GameListFilterSheet(
                     modifier = Modifier.weight(1f)
                         .testTag("filter_clear_button"),
                 ) {
-                    Text(AppStrings.GAME_LIST_FILTER_CLEAR)
+                    Text(stringResource(Res.string.game_list_filter_clear))
                 }
                 Button(
                     onClick = onApply,
                     modifier = Modifier.weight(1f)
                         .testTag("filter_apply_button"),
                 ) {
-                    Text(AppStrings.GAME_LIST_FILTER_APPLY)
+                    Text(stringResource(Res.string.game_list_filter_apply))
                 }
             }
         }
@@ -285,6 +298,7 @@ fun GameListFilterSheet(
 @Composable
 private fun SavedGameFilterSection(
     savedFilters: List<SavedGameFilter>,
+    savedCounts: Map<String, Int>? = null,
     allGames: List<GameRecord>,
     modifier: Modifier = Modifier,
     onSelect: (SavedGameFilter) -> Unit,
@@ -293,12 +307,12 @@ private fun SavedGameFilterSection(
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
-            AppStrings.GAME_LIST_SAVED_FILTERS,
+            stringResource(Res.string.game_list_saved_filters),
             style = MaterialTheme.typography.titleMedium,
         )
         if (savedFilters.isEmpty()) {
             Text(
-                AppStrings.GAME_LIST_SAVED_FILTER_EMPTY,
+                stringResource(Res.string.game_list_saved_filter_empty),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.shogiColors.ink3,
             )
@@ -306,7 +320,7 @@ private fun SavedGameFilterSection(
             savedFilters.forEach { saved ->
                 SavedGameFilterCard(
                     saved = saved,
-                    gameCount = allGames.filterGames(saved.currentFilter(currentEpochSeconds())).size,
+                    gameCount = savedCounts?.get(saved.name) ?: allGames.filterGames(saved.currentFilter(currentEpochSeconds())).size,
                     onClick = { onSelect(saved) },
                     onEdit = { onEdit(saved) },
                     onDelete = { onDelete(saved.name) },
@@ -336,13 +350,13 @@ private fun SavedGameFilterCard(
             Column(modifier = Modifier.weight(1f)) {
                 Text(saved.name, style = MaterialTheme.typography.titleSmall)
                 Text(
-                    "${AppStrings.gameListSavedFilterPeriod(saved.periodDays)}・${gameCount}局",
+                    stringResource(Res.string.saved_filter_period_count, UiStrings.gameListSavedFilterPeriod(saved.periodDays), gameCount),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.shogiColors.ink3,
                 )
             }
-            TextButton(onClick = onEdit) { Text(AppStrings.GAME_LIST_SAVED_FILTER_EDIT) }
-            TextButton(onClick = onDelete) { Text(AppStrings.GAME_LIST_SAVED_FILTER_DELETE) }
+            TextButton(onClick = onEdit) { Text(stringResource(Res.string.game_list_saved_filter_edit)) }
+            TextButton(onClick = onDelete) { Text(stringResource(Res.string.game_list_saved_filter_delete)) }
         }
     }
 }
@@ -356,13 +370,13 @@ internal fun SaveGameFilterDialog(
     var name by remember(initialName) { mutableStateOf(initialName) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(AppStrings.GAME_LIST_SAVE_FILTER_TITLE) },
+        title = { Text(stringResource(Res.string.game_list_save_filter_title)) },
         text = {
             androidx.compose.material3.OutlinedTextField(
                 value = name,
                 onValueChange = { name = it },
-                label = { Text(AppStrings.GAME_LIST_SAVE_FILTER_NAME) },
-                placeholder = { Text(AppStrings.GAME_LIST_SAVE_FILTER_PLACEHOLDER) },
+                label = { Text(stringResource(Res.string.game_list_save_filter_name)) },
+                placeholder = { Text(stringResource(Res.string.game_list_save_filter_placeholder)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -371,9 +385,9 @@ internal fun SaveGameFilterDialog(
             TextButton(
                 onClick = { onSave(name.trim()) },
                 enabled = name.trim().isNotEmpty(),
-            ) { Text(AppStrings.GAME_LIST_SAVE_FILTER_DONE) }
+            ) { Text(stringResource(Res.string.game_list_save_filter_done)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(AppStrings.CANCEL) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) } },
     )
 }
 
@@ -383,17 +397,28 @@ internal fun SavedGameFilterComparisonSheet(
     saved: SavedGameFilter,
     games: List<GameRecord>,
     blunderCounts: Map<Long, Int>,
+    queries: dev.miyado.shogisupplement.db.GameListReader? = null,
+    labelOwner: String? = null,
+    dataRevision: Any? = null,
     onDismiss: () -> Unit,
 ) {
     val now = remember(saved) { currentEpochSeconds() }
     val days = (saved.periodDays ?: SavedGameFilter.DEFAULT_PERIOD_DAYS).coerceAtLeast(1).toLong()
-    val current = games.filterGames(saved.conditionFilter().copy(dateFrom = now - days * SECONDS_PER_DAY))
-    val previous = games.filterGames(
-        saved.conditionFilter().copy(
-            dateFrom = now - days * 2 * SECONDS_PER_DAY,
-            dateTo = now - days * SECONDS_PER_DAY - 1,
-        ),
-    )
+    val currentFilter = saved.conditionFilter().copy(dateFrom = now - days * SECONDS_PER_DAY)
+    val previousFilter = saved.conditionFilter().copy(dateFrom = now - days * 2 * SECONDS_PER_DAY, dateTo = now - days * SECONDS_PER_DAY - 1)
+    var summaries by remember(saved, labelOwner, dataRevision) { mutableStateOf<Pair<GameListSummary, GameListSummary>?>(null) }
+    var loadFailed by remember(saved, labelOwner, dataRevision) { mutableStateOf(false) }
+    var attempt by remember { mutableStateOf(0) }
+    androidx.compose.runtime.LaunchedEffect(queries, saved, labelOwner, dataRevision, attempt) {
+        loadFailed = false
+        try {
+            summaries = if (queries == null) games.filterGames(currentFilter).summarize(blunderCounts) to games.filterGames(previousFilter).summarize(blunderCounts)
+            else kotlinx.coroutines.withContext(dev.miyado.shogisupplement.ui.common.defaultIoDispatcher) {
+                queries.summary(labelOwner, currentFilter) to queries.summary(labelOwner, previousFilter)
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) { throw e }
+        catch (_: Exception) { loadFailed = true }
+    }
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp),
@@ -401,27 +426,30 @@ internal fun SavedGameFilterComparisonSheet(
         ) {
             Text(saved.name, style = MaterialTheme.typography.headlineSmall)
             Text(
-                "${AppStrings.GAME_LIST_FILTER_COMPARE_TITLE}・${AppStrings.gameListSavedFilterPeriod(days.toInt())}",
+                "${stringResource(Res.string.game_list_filter_compare_title)}・${UiStrings.gameListSavedFilterPeriod(days.toInt())}",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.shogiColors.ink2,
             )
-            Row(
+            val result = summaries
+            if (loadFailed) TextButton(onClick = { attempt++ }) { Text(stringResource(Res.string.game_list_load_retry)) }
+            else if (result == null) androidx.compose.material3.CircularProgressIndicator()
+            else Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 ComparisonPeriodCard(
-                    label = AppStrings.GAME_LIST_FILTER_COMPARE_CURRENT,
-                    summary = current.summarize(blunderCounts),
+                    label = stringResource(Res.string.game_list_filter_compare_current),
+                    summary = result.first,
                     modifier = Modifier.weight(1f),
                 )
                 ComparisonPeriodCard(
-                    label = AppStrings.GAME_LIST_FILTER_COMPARE_PREVIOUS,
-                    summary = previous.summarize(blunderCounts),
+                    label = stringResource(Res.string.game_list_filter_compare_previous),
+                    summary = result.second,
                     modifier = Modifier.weight(1f),
                 )
             }
             TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) {
-                Text(AppStrings.GAME_LIST_FILTER_COMPARE_CLOSE)
+                Text(stringResource(Res.string.game_list_filter_compare_close))
             }
         }
     }
@@ -440,12 +468,12 @@ private fun ComparisonPeriodCard(
     ) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.shogiColors.ink2)
-            Text("${summary.games}局", style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(Res.string.game_count, summary.games), style = MaterialTheme.typography.titleLarge)
             summary.winRatePct?.let {
-                Text(AppStrings.gameListSummaryWinRate(it, summary.wins, summary.decidedGames), style = MaterialTheme.typography.bodySmall)
+                Text(UiStrings.gameListSummaryWinRate(it, summary.wins, summary.decidedGames), style = MaterialTheme.typography.bodySmall)
             }
             summary.blunderRatePct?.let {
-                Text(AppStrings.gameListSummaryBlunderRate(it, summary.blunders, summary.userMoves), style = MaterialTheme.typography.bodySmall)
+                Text(UiStrings.gameListSummaryBlunderRate(it, summary.blunders, summary.userMoves), style = MaterialTheme.typography.bodySmall)
             }
         }
     }
@@ -456,22 +484,26 @@ private fun ComparisonPeriodCard(
 @Composable
 fun GameListFilterBar(
     allGames: List<GameRecord>,
+    facets: dev.miyado.shogisupplement.db.GameListFacets? = null,
     knownPositionLabels: List<String> = emptyList(),
     filter: GameListFilter,
     onFilterChange: (GameListFilter) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val sources = allGames.distinctSources()
-    val openingStyles = allGames.distinctOpeningStyles()
-    val timeControls = allGames.distinctTimeControls()
+    val labelPositionLabelTitle = stringResource(Res.string.position_label_title)
+
+    val sources = facets?.sources ?: allGames.distinctSources()
+    val openingStyles = facets?.openings ?: allGames.distinctOpeningStyles()
+    val timeControls = facets?.timeControls(null) ?: allGames.distinctTimeControls()
     // 出典を選び直すと、その出典に無い持ち時間の指定が残りうる。どの軸を触っても
     // 実在しない組み合わせにならないよう、変更は必ずここを通す。
-    val availableTimeControls = allGames.availableTimeControls(filter.source)
+    val availableTimeControls = facets?.timeControls(filter.source) ?: allGames.availableTimeControls(filter.source)
     val onFilterChangeNormalized: (GameListFilter) -> Unit = {
-        onFilterChange(it.clearUnavailableTimeControl(allGames))
+        val available = facets?.timeControls(it.source) ?: allGames.availableTimeControls(it.source)
+        onFilterChange(if (it.timeControl != null && it.timeControl !in available) it.copy(timeControl = null) else it)
     }
-    val showSideAxis = allGames.hasUserSideData()
-    val showResultAxis = allGames.hasResultData()
+    val showSideAxis = facets?.hasSide ?: allGames.hasUserSideData()
+    val showResultAxis = facets?.hasResult ?: allGames.hasResultData()
     val now = remember { currentEpochSeconds() }
     val dateFrom7d = now - 7 * SECONDS_PER_DAY
     val dateFrom30d = now - 30 * SECONDS_PER_DAY
@@ -481,10 +513,10 @@ fun GameListFilterBar(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         if (sources.isNotEmpty()) {
-            FilterAxisRow(AppStrings.GAME_LIST_FILTER_SOURCE) {
+            FilterAxisRow(stringResource(Res.string.game_list_filter_source)) {
                 sources.forEach { source ->
                     FilterChipItem(
-                        label = AnnotatedString(AppStrings.sourceFilterLabel(source)),
+                        label = AnnotatedString(UiStrings.sourceFilterLabel(source)),
                         selected = filter.source == source,
                         testTag = "filter_chip_source_$source",
                         onClick = {
@@ -494,10 +526,10 @@ fun GameListFilterBar(
                 }
             }
         }
-        val matchingLabels = allGames.flatMap { it.positionLabels }.toSet()
-        val positionLabels = (knownPositionLabels + matchingLabels).distinct().sorted()
+        val matchingLabels = facets?.matchingLabels ?: allGames.flatMap { it.positionLabels }.toSet()
+        val positionLabels = (facets?.knownLabels.orEmpty() + knownPositionLabels + matchingLabels).distinct().sorted()
         if (positionLabels.isNotEmpty()) {
-            FilterAxisRow("局面ラベル") {
+            FilterAxisRow(labelPositionLabelTitle) {
                 positionLabels.forEach { label ->
                     FilterChipItem(
                         label = AnnotatedString(label), selected = filter.positionLabel == label,
@@ -509,11 +541,11 @@ fun GameListFilterBar(
             }
         }
         if (timeControls.isNotEmpty()) {
-            FilterAxisRow(AppStrings.GAME_LIST_FILTER_TIME_CONTROL) {
+            FilterAxisRow(stringResource(Res.string.game_list_filter_time_control)) {
                 timeControls.forEach { timeControl ->
                     FilterChipItem(
                         label = if (timeControl == TIME_CONTROL_OTHER) {
-                            AnnotatedString(AppStrings.GAME_LIST_FILTER_OTHER)
+                            AnnotatedString(stringResource(Res.string.game_list_filter_other))
                         } else {
                             withMonoNumbers(timeControl)
                         },
@@ -532,7 +564,7 @@ fun GameListFilterBar(
             }
         }
         if (openingStyles.isNotEmpty()) {
-            FilterAxisRow(AppStrings.GAME_LIST_FILTER_OPENING_STYLE) {
+            FilterAxisRow(stringResource(Res.string.game_list_filter_opening_style)) {
                 openingStyles.forEach { openingStyle ->
                     FilterChipItem(
                         label = AnnotatedString(openingStyle),
@@ -550,8 +582,8 @@ fun GameListFilterBar(
             }
         }
         if (showSideAxis) {
-            FilterAxisRow(AppStrings.GAME_LIST_FILTER_SIDE) {
-                listOf("sente" to AppStrings.PLAYER_SIDE_SENTE, "gote" to AppStrings.PLAYER_SIDE_GOTE)
+            FilterAxisRow(stringResource(Res.string.game_list_filter_side)) {
+                listOf("sente" to stringResource(Res.string.player_side_sente), "gote" to stringResource(Res.string.player_side_gote))
                     .forEach { (value, label) ->
                         FilterChipItem(
                             label = AnnotatedString(label),
@@ -567,10 +599,10 @@ fun GameListFilterBar(
             }
         }
         if (showResultAxis) {
-            FilterAxisRow(AppStrings.GAME_LIST_FILTER_RESULT) {
+            FilterAxisRow(stringResource(Res.string.game_list_filter_result)) {
                 listOf(
-                    GameResultFilter.WIN to AppStrings.GAME_RESULT_WIN,
-                    GameResultFilter.LOSS to AppStrings.GAME_RESULT_LOSS,
+                    GameResultFilter.WIN to stringResource(Res.string.game_result_win),
+                    GameResultFilter.LOSS to stringResource(Res.string.game_result_loss),
                 ).forEach { (value, label) ->
                     FilterChipItem(
                         label = AnnotatedString(label),
@@ -583,10 +615,10 @@ fun GameListFilterBar(
                 }
             }
         }
-        FilterAxisRow(AppStrings.GAME_LIST_FILTER_PERIOD) {
+        FilterAxisRow(stringResource(Res.string.game_list_filter_period)) {
             listOf(
-                Triple(dateFrom7d, AppStrings.GAME_LIST_FILTER_PERIOD_7D, "7d"),
-                Triple(dateFrom30d, AppStrings.GAME_LIST_FILTER_PERIOD_30D, "30d"),
+                Triple(dateFrom7d, stringResource(Res.string.game_list_filter_period_7d), "7d"),
+                Triple(dateFrom30d, stringResource(Res.string.game_list_filter_period_30d), "30d"),
             ).forEach { (candidateDateFrom, label, tagSuffix) ->
                 val selected = filter.dateFrom == candidateDateFrom
                 FilterChipItem(
@@ -663,9 +695,9 @@ private fun FilterChipItem(
 @Composable
 fun GameListCountText(shownCount: Int, totalCount: Int) {
     val text = if (shownCount == totalCount) {
-        AppStrings.gameListTotalCount(totalCount)
+        UiStrings.gameListTotalCount(totalCount)
     } else {
-        AppStrings.gameListFilteredCount(shownCount, totalCount)
+        UiStrings.gameListFilteredCount(shownCount, totalCount)
     }
     Text(text, style = TextStyleData)
 }

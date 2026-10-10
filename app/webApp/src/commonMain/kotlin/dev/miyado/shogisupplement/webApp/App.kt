@@ -1,5 +1,9 @@
 package dev.miyado.shogisupplement.webApp
 
+
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -17,7 +21,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.board.PieceType
 import dev.miyado.shogisupplement.board.ShogiSquare
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.UserSideDialog
 import dev.miyado.shogisupplement.ui.common.adaptiveContentWidth
 import dev.miyado.shogisupplement.ui.report.ReportScreen
@@ -86,15 +89,15 @@ fun App(
             if (state.confirmDiscardStudy) {
                 androidx.compose.material3.AlertDialog(
                     onDismissRequest = onCancelDiscardStudy,
-                    title = { Text(AppStrings.STUDY_DISCARD_TITLE) },
-                    text = { Text(AppStrings.STUDY_DISCARD_BODY) },
+                    title = { Text(stringResource(Res.string.study_discard_title)) },
+                    text = { Text(stringResource(Res.string.study_discard_body)) },
                     confirmButton = {
                         androidx.compose.material3.TextButton(onClick = onDiscardStudy) {
-                            Text(AppStrings.MANUAL_KIFU_DISCARD, color = MaterialTheme.colorScheme.error)
+                            Text(stringResource(Res.string.manual_kifu_discard), color = MaterialTheme.colorScheme.error)
                         }
                     },
                     dismissButton = {
-                        androidx.compose.material3.TextButton(onClick = onCancelDiscardStudy) { Text(AppStrings.CANCEL) }
+                        androidx.compose.material3.TextButton(onClick = onCancelDiscardStudy) { Text(stringResource(Res.string.cancel)) }
                     },
                 )
             }
@@ -137,6 +140,9 @@ private fun AppContent(
     onCopyKif: (String) -> Unit,
     studyActions: WebStudyActions?,
 ) {
+    val labelTextSideSente2 = stringResource(Res.string.text_side_sente_2)
+    val labelTextSideGote2 = stringResource(Res.string.text_side_gote_2)
+
     val report = state.report
     val savedGames = state.savedGames
     if (savedGames != null && report == null && !state.analyzing) {
@@ -153,7 +159,7 @@ private fun AppContent(
         val studyState = studyActions?.studyState?.collectAsState()?.value
         Column(modifier = Modifier.fillMaxSize()) {
             if (state.restoredReport) {
-                Text(AppStrings.STUDY_BROWSER_SAVE_NOTICE, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(8.dp))
+                Text(stringResource(Res.string.study_browser_save_notice), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(8.dp))
             }
             state.reanalysisError?.let { error ->
                 Text(error, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(12.dp))
@@ -213,8 +219,8 @@ private fun AppContent(
         val pending = state.pendingSideSelection
         if (pending != null) {
             UserSideDialog(
-                senteName = pending.headers["先手"],
-                goteName = pending.headers["後手"],
+                senteName = pending.headers[labelTextSideSente2],
+                goteName = pending.headers[labelTextSideGote2],
                 savedUserSide = null,
                 // Web版は次回省略の対象となるアカウント設定を持たないため常に非表示。
                 showSkipOption = false,
@@ -245,17 +251,17 @@ private fun KentoInputScreen(
     ) {
         KentoTopBar(onBack = onBack)
         OutlinedButton(onClick = onShowSavedReports, enabled = !state.analyzing) {
-            Text(AppStrings.GAME_LIST_TITLE)
+            Text(stringResource(Res.string.game_list_title))
         }
         Box(Modifier.height(48.dp)) {
             OutlinedButton(onClick = onResumeSavedReport, enabled = state.savedReportAvailable && !state.analyzing) {
-                Text(AppStrings.KENTO_RESUME_SAVED_REPORT)
+                Text(stringResource(Res.string.kento_resume_saved_report))
             }
         }
         when (state.assetsAvailable) {
             null -> Unit
             false -> Text(
-                AppStrings.KENTO_ASSETS_UNAVAILABLE,
+                stringResource(Res.string.kento_assets_unavailable),
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(vertical = 12.dp),
             )

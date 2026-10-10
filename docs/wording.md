@@ -7,6 +7,20 @@
 新しい文言を書くとき・レビューするときは、この表に反する語をフラグする。
 表に無い揺れを見つけたら、決めてから行を追加する。
 
+## リソース管理
+
+ユーザー向け文言と画像・アイコン・フォントは、[Compose Multiplatform公式のリソース管理](https://kotlinlang.org/docs/multiplatform/compose-multiplatform-resources-usage.html)に従う。
+
+- 共通UIの文字列は `app/ui/src/commonMain/composeResources/values/*.xml` に置き、生成された `Res.string` を `stringResource()` で読む。Composable外では suspendの `getString()` を使う。
+- 可変部分はリソースの `%1$s` / `%1$d` などへ引数として渡す。配列・複数形は `string-array` / `plurals` と対応するAPIを使う。
+- 画像・XMLベクターは `composeResources/drawable` に置き、`painterResource()` / `vectorResource()` で読む。アイコンの色はテーマで指定する。XML内のAndroid固有リソース参照・`android:tint` を除き、`fillColor` は `#000000` とする。
+- フォントは `composeResources/font` と `Font(Res.font.…)`、加工せず読むファイルは `composeResources/files` と `Res.readBytes()` を使う。
+- ドメイン・解析層へ表示文言のためにCompose依存を追加しない。結果・エラーを型で返し、表示層でリソースに対応付ける。
+- Kotlinへ表示文言を直書きしない。`AppStrings` は廃止。条件分岐や書式調整が必要な表示は `ui/text/UiStrings.kt`、非同期の画面データ生成は `ui/text/LocalizedStrings.kt` から同じXMLを参照する。
+- 既存DBに保存する判定名・注記・生成ファイル名は `analysis/text/StoredText.kt` に隔離する。これは翻訳対象ではなく保存形式の契約であり、変更時はデータ移行が必要。
+- Androidのランチャー・通知用OSアイコン、iOSのSF Symbols/Liquid GlassはOSの仕組みを使う。アプリ共通のベクターとフォントは共通リソースを使う。開発用の遷移図ラベル・テストの期待値・プレビュー用棋譜は製品の表示リソースと分ける。
+- 保存形式のキー・プロトコル値・棋譜記法など、表示文言でない文字列はリソース化しない。局面ラベルの `先手：` / `後手：` 接頭辞も索引・フィルタの保存キーに含まれるため、表示だけを翻訳しない。
+
 ## 用語
 
 | 使う | 使わない | 理由・補足 | 決定 |
@@ -82,7 +96,7 @@
 | バージョン表示 | お使いのバージョン 1.2.0 (42)　※数値はmono |
 
 管理画面で `message` を設定した場合は本文の下に追記表示する。`store_url` が未設定の場合は
-ボタンを出さず案内文のみにする。文言の実体は `AppStrings`（AppStrings.kt「36. 強制アップデート」節）
+ボタンを出さず案内文のみにする。文言の実体は `composeResources/values/strings.xml`
 に一元化する。
 
 ## 設定の外部リンク行
@@ -226,7 +240,7 @@
 
 「一致するコードが見つかりません」は、コードが存在しないのか他人のものかを区別しない
 （ブルートフォースの手がかりを与えないため、サーバー側もHTTP 404を理由で出し分けない）。
-文言の実体は `AppStrings`（AppStrings.kt「32. 引き継ぎコード表示・入力」節）に一元化する。
+文言の実体は `composeResources/values/strings.xml`に一元化する。
 
 ## 棋譜復元（引き継ぎコード復元後の棋譜ダウンロード）
 
@@ -251,7 +265,7 @@
 | 再試行ボタン | 再試行 |
 
 ホームへ戻るボタンは既存の `DRILL_GO_HOME`（「ホームへ」）をそのまま再利用する（新規文言を
-増やさない）。文言の実体は `AppStrings`（AppStrings.kt「37. 棋譜復元」節）に一元化する。
+増やさない）。文言の実体は `composeResources/values/strings.xml`に一元化する。
 
 ## マイページ（Web版・引き継ぎコードでログインして棋譜一覧を見る）
 
@@ -273,7 +287,7 @@
 セッションと復号鍵を消すだけで、アカウント自体・サーバー上の棋譜は残る（共有ブラウザでの
 利用を想定した機能のため、モバイル版には無い概念）。
 
-文言の実体は `AppStrings`（AppStrings.kt「39. マイページ」節）に一元化する。
+文言の実体は `composeResources/values/strings.xml`に一元化する。
 
 ### 検討分岐の保存
 

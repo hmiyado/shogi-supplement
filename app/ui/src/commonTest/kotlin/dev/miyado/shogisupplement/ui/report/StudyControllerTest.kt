@@ -735,7 +735,7 @@ class StudyControllerTest {
     }
 
     @Test
-    fun `先のチップタップ相当(onChipTapped)で戻らずdisplayLineの先まで進める`() {
+    fun `先のチップタップ相当_onChipTapped_で戻らずdisplayLineの先まで進める`() {
         val (controller, _) = newController()
         controller.startStudy(
             baseSfen = startSfen,

@@ -15,7 +15,6 @@ import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.PositionEvalRow
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.report.ReportScreen
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
 import org.junit.Rule
@@ -132,7 +131,7 @@ class ReportSummaryCompactHeightTest {
     fun 縦に詰まった端末でもタブ行が潰れない() {
         setContentWithRootHeight(null)
 
-        val bounds = composeRule.onNodeWithText(AppStrings.REPORT_TAB_BLUNDERS).getUnclippedBoundsInRoot()
+        val bounds = composeRule.onNodeWithText("悪手一覧").getUnclippedBoundsInRoot()
         val height = bounds.bottom - bounds.top
         assert(height >= 40.dp) { "タブ行が潰れている: $height" }
     }

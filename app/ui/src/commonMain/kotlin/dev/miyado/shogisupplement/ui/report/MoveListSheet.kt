@@ -1,5 +1,11 @@
 package dev.miyado.shogisupplement.ui.report
 
+
+import dev.miyado.shogisupplement.ui.text.text
+
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -26,7 +32,6 @@ import dev.miyado.shogisupplement.blunder.PositionEvalDisplay
 import dev.miyado.shogisupplement.board.ShogiBoard
 import dev.miyado.shogisupplement.db.PositionEvalRow
 import dev.miyado.shogisupplement.notation.JapaneseNotation
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.theme.IbmPlexMonoFamily
 import dev.miyado.shogisupplement.ui.theme.shogiColors
 
@@ -52,7 +57,7 @@ fun MoveListSheet(
     val shogiColors = MaterialTheme.shogiColors
     Column {
         Text(
-            AppStrings.MOVE_LIST_TITLE,
+            stringResource(Res.string.move_list_title),
             style = MaterialTheme.typography.titleMedium,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
         )
@@ -90,7 +95,7 @@ fun MoveListSheet(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        "${ply}手目",
+                        stringResource(Res.string.text_blunder_card_ply, ply),
                         style = MaterialTheme.typography.labelSmall,
                         color = shogiColors.ink3,
                         modifier = Modifier.width(48.dp),

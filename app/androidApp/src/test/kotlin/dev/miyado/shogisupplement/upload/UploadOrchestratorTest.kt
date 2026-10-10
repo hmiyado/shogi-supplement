@@ -1,5 +1,7 @@
 package dev.miyado.shogisupplement.upload
 
+import dev.miyado.shogisupplement.ui.generated.resources.allStringResources
+
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import dev.miyado.shogisupplement.auth.AuthUser
 import dev.miyado.shogisupplement.auth.FakeAuthRepository
@@ -22,12 +24,18 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/**
- * UploadOrchestrator の単体テスト。
- * FakeAuthRepository / FakeUploadRepository / インメモリ DB を注入して検証する。
- */
 @OptIn(ExperimentalCoroutinesApi::class)
+@org.junit.runner.RunWith(org.robolectric.RobolectricTestRunner::class)
+@org.robolectric.annotation.Config(sdk = [34], application = android.app.Application::class)
 class UploadOrchestratorTest {
+    @org.junit.Before
+    fun prepareStringResources() = kotlinx.coroutines.runBlocking {
+        // Resolve the same resource environment before assertions on synchronous test dispatchers.
+        dev.miyado.shogisupplement.ui.generated.resources.Res.allStringResources.values.forEach {
+            org.jetbrains.compose.resources.getString(it)
+        }
+    }
+
     @Test
     fun `復元後の再解析は取得済み世代を比較元にし最新世代を上書きしない`() = runTest {
         val built = buildOrchestrator()
@@ -244,7 +252,6 @@ class UploadOrchestratorTest {
         )
     }
 
-    // ─── uploadGame ──────────────────────────────────────────────────────────
 
     @Test
     fun uploadGame_reanalysisDuringUpload_keepsSnapshotAndNewResultPending() = runTest {
@@ -326,7 +333,6 @@ class UploadOrchestratorTest {
         assertTrue("upload should not be called again", upload.calls.isEmpty())
     }
 
-    // ─── deleteUploadedGame ─────────────────────────────────────────────────
 
     @Test
     fun deleteUploadedGame_whenLoggedIn_returnsTrue() = runTest {
@@ -366,7 +372,6 @@ class UploadOrchestratorTest {
         assertTrue(upload.deleteCalls.isEmpty())
     }
 
-    // ─── uploadAll ───────────────────────────────────────────────────────────
 
     @Test
     fun uploadAll_uploadsAllNotUploadedGames() = runTest {
@@ -456,7 +461,6 @@ class UploadOrchestratorTest {
         assertTrue(upload.calls.isEmpty())
     }
 
-    // ─── maybeAutoUpload ─────────────────────────────────────────────────────
 
     @Test
     fun maybeAutoUpload_whenEnabled_andLoggedIn_uploads() = runTest {
@@ -569,7 +573,6 @@ class UploadOrchestratorTest {
         assertNull(drill.getDrillAttempts(blunderId).single().uploadedAt)
     }
 
-    // ─── 失敗の集計 ─────────────────────────────────────────────────────────
 
     @Test
     fun uploadAll_uploadedGame_doesNotResendProblems() = runTest {

@@ -1,5 +1,15 @@
 package dev.miyado.shogisupplement.ui.drill
 
+
+import dev.miyado.shogisupplement.ui.text.text
+
+import org.jetbrains.compose.resources.vectorResource
+
+import dev.miyado.shogisupplement.ui.text.UiStrings
+
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -10,9 +20,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -35,7 +42,6 @@ import dev.miyado.shogisupplement.board.PieceType
 import dev.miyado.shogisupplement.board.ShogiBoard
 import dev.miyado.shogisupplement.board.ShogiMove
 import dev.miyado.shogisupplement.board.ShogiSquare
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.NavIcons
 import dev.miyado.shogisupplement.ui.common.PvExtState
 import dev.miyado.shogisupplement.ui.common.SfenPosition
@@ -75,6 +81,11 @@ fun KifuLineViewer(
     onPieceTapped: ((sfen: String, square: ShogiSquare) -> Unit)? = null,
     onHandPieceTapped: ((sfen: String, pieceType: PieceType) -> Unit)? = null,
 ) {
+    val labelMoveFirst = stringResource(Res.string.move_first)
+    val labelMovePrevious = stringResource(Res.string.move_previous)
+    val labelMoveNext = stringResource(Res.string.move_next)
+    val labelMoveLast = stringResource(Res.string.move_last)
+
     val activeLine = lines.getOrNull(activeLineIdx)
     val movesInLine = activeLine?.moves ?: emptyList()
     val maxPly = movesInLine.size
@@ -95,8 +106,8 @@ fun KifuLineViewer(
     }
 
     val labelText = currentMoveLabel ?: when {
-        clampedPly == 0 -> AppStrings.VIEWER_START_POSITION
-        else -> AppStrings.viewerPlyLabel(clampedPly)
+        clampedPly == 0 -> stringResource(Res.string.viewer_start_position)
+        else -> UiStrings.viewerPlyLabel(clampedPly)
     }
     val shogiColors = MaterialTheme.shogiColors
 
@@ -109,7 +120,7 @@ fun KifuLineViewer(
     val pvLoading = extendState is PvExtState.Loading
     val canTriggerExtend = showExtendIndicator && !pvLoading
     val effectiveSuffixText = if (showExtendIndicator && extendState is PvExtState.Error) {
-        AppStrings.evalSuffix(AppStrings.EVAL_UNAVAILABLE)
+        UiStrings.evalSuffix(stringResource(Res.string.eval_unavailable))
     } else {
         evalSuffixText
     }
@@ -198,13 +209,13 @@ fun KifuLineViewer(
                 enabled = clampedPly > 0,
                 modifier = Modifier.height(36.dp).widthIn(min = 36.dp),
                 contentPadding = PaddingValues(horizontal = 2.dp),
-            ) { Icon(NavIcons.FirstPage, contentDescription = "最初へ") }
+            ) { Icon(NavIcons.FirstPage, contentDescription = labelMoveFirst) }
             TextButton(
                 onClick = { onNavigate(clampedPly - 1) },
                 enabled = clampedPly > 0,
                 modifier = Modifier.height(36.dp).widthIn(min = 36.dp),
                 contentPadding = PaddingValues(horizontal = 2.dp),
-            ) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "1手戻る") }
+            ) { Icon(vectorResource(Res.drawable.ic_auto_mirrored_filled_keyboard_arrow_left), contentDescription = labelMovePrevious) }
             // 形勢サフィックス（例:「（−350）」）をラベル末尾に連結する（No-jitter・
             // DESIGN.md Layout節。別行のスロットは追加せず既存ラベルに統合する）。
             // 数値部は他の形勢表示（PositionEvalDisplay 系）と同じく Mono フォント・符号色。
@@ -269,14 +280,14 @@ fun KifuLineViewer(
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
-                            Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                            contentDescription = "1手進む",
+                            vectorResource(Res.drawable.ic_auto_mirrored_filled_keyboard_arrow_right),
+                            contentDescription = labelMoveNext,
                             tint = extendColor,
                         )
                         Text("+", color = extendColor)
                     }
                 } else {
-                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "1手進む")
+                    Icon(vectorResource(Res.drawable.ic_auto_mirrored_filled_keyboard_arrow_right), contentDescription = labelMoveNext)
                 }
             }
             TextButton(
@@ -284,7 +295,7 @@ fun KifuLineViewer(
                 enabled = clampedPly < maxPly,
                 modifier = Modifier.height(36.dp).widthIn(min = 36.dp),
                 contentPadding = PaddingValues(horizontal = 2.dp),
-            ) { Icon(NavIcons.LastPage, contentDescription = "最後へ") }
+            ) { Icon(NavIcons.LastPage, contentDescription = labelMoveLast) }
         }
     }
 }

@@ -1,5 +1,8 @@
 package dev.miyado.shogisupplement.ui.report
 
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,7 +16,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import dev.miyado.shogisupplement.text.AppStrings
 
 @Composable
 internal fun ReanalysisCard(
@@ -29,13 +31,13 @@ internal fun ReanalysisCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(AppStrings.REANALYZE_GAME_BODY, style = MaterialTheme.typography.bodyMedium)
+            Text(stringResource(Res.string.reanalyze_game_body), style = MaterialTheme.typography.bodyMedium)
             OutlinedButton(
                 onClick = onReanalyze,
                 shape = MaterialTheme.shapes.medium,
                 modifier = Modifier.fillMaxWidth().testTag("reanalyze_button"),
             ) {
-                Text(AppStrings.REANALYZE_GAME)
+                Text(stringResource(Res.string.reanalyze_game))
             }
         }
     }

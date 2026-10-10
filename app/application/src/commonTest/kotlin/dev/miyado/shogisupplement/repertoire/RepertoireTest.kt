@@ -24,16 +24,16 @@ class RepertoireTest {
     @Test fun singleLabelPerScopeAndConfirmedSnapshotDeletion() {
         val repo = MemoryRepository()
         val sfen = ShogiBoard().toSfen()
-        PositionLabelScope.entries.forEach { assertTrue(repo.addPositionLabel("a", sfen, it, it.title)) }
+        PositionLabelScope.entries.forEach { assertTrue(repo.addPositionLabel("a", sfen, it, it.name)) }
         assertEquals(3, repo.entries("a").size)
         assertFalse(repo.addPositionLabel("a", sfen, PositionLabelScope.ALL, "上書き"))
         val entry = repo.entries("a").first { RepertoireCodec.labels(it.payload).positionKey == positionLabelKey(sfen) }
-        assertTrue(repo.removePositionLabel("a", entry, "局面全体"))
+        assertTrue(repo.removePositionLabel("a", entry, PositionLabelScope.ALL.name))
         val empty = repo.entries("a").first { it.id == entry.id }
         assertTrue(empty.dirty)
         assertTrue(RepertoireCodec.labels(empty.payload).labels.isEmpty())
         assertTrue(repo.addPositionLabel("a", sfen, PositionLabelScope.ALL, "再登録"))
-        assertFalse(repo.removePositionLabel("a", entry, "局面全体"))
+        assertFalse(repo.removePositionLabel("a", entry, PositionLabelScope.ALL.name))
         assertEquals(listOf("再登録"), RepertoireCodec.labels(repo.entries("a").first { it.id == entry.id }.payload).labels)
         assertFailsWith<IllegalArgumentException> { repo.addPositionLabel("a", sfen, PositionLabelScope.ALL, "二行\n入力") }
     }

@@ -1,7 +1,15 @@
 package dev.miyado.shogisupplement.ui
 
-import dev.miyado.shogisupplement.repertoire.allPositionLabels
-import dev.miyado.shogisupplement.repertoire.labelledGames
+import dev.miyado.shogisupplement.ui.text.title
+
+import dev.miyado.shogisupplement.ui.text.message
+
+import dev.miyado.shogisupplement.ui.text.UiStrings
+
+import org.jetbrains.compose.resources.getString
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import dev.miyado.shogisupplement.navigation.AppDestination
 import dev.miyado.shogisupplement.navigation.NavigationEvent
 import dev.miyado.shogisupplement.navigation.NavigationMachine
@@ -32,8 +40,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -66,7 +72,6 @@ import dev.miyado.shogisupplement.policy.resolvePolicyPlatform
 import dev.miyado.shogisupplement.supabase.SupabaseServices
 import dev.miyado.shogisupplement.kifu.KifImportController
 import dev.miyado.shogisupplement.kifu.KifOrigin
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.transfer.RemoteTransferRestoreService
 import dev.miyado.shogisupplement.ui.account.AccountScreen
 import dev.miyado.shogisupplement.ui.account.AccountViewModel
@@ -324,6 +329,7 @@ private fun DemoApp(
     controller: IosMainController,
     analysisBaseUrl: String? = null,
 ) {
+    val shareTitle = stringResource(Res.string.app_title)
     val tabStateHolder = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
     var route by remember { mutableStateOf<DemoRoute>(DemoRoute.Home) }
     var rootNavigation by remember { mutableStateOf(dev.miyado.shogisupplement.navigation.RootNavigation()) }
@@ -435,23 +441,23 @@ private fun DemoApp(
         is KifImportController.Step.AccountCreationConfirm -> {
             AlertDialog(
                 onDismissRequest = { controller.kifImport.dismiss() },
-                title = { Text(AppStrings.IMPORT_ACCOUNT_NOTICE_TITLE) },
-                text = { Text(AppStrings.IMPORT_ACCOUNT_NOTICE_BODY) },
+                title = { Text(stringResource(Res.string.import_account_notice_title)) },
+                text = { Text(UiStrings.IMPORT_ACCOUNT_NOTICE_BODY) },
                 confirmButton = {
                     TextButton(onClick = { controller.kifImport.confirmAccountCreation() }) {
-                        Text(AppStrings.IMPORT_ACCOUNT_NOTICE_CONTINUE)
+                        Text(stringResource(Res.string.import_account_notice_continue))
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { controller.kifImport.declineAccount() }) {
-                        Text(AppStrings.IMPORT_ACCOUNT_NOTICE_DECLINE)
+                        Text(stringResource(Res.string.import_account_notice_decline))
                     }
                 },
             )
         }
         is KifImportController.Step.Failed -> {
             ImportErrorDialog(
-                title = if (step.origin == KifOrigin.FILE) AppStrings.KIF_SOURCE_FILE else AppStrings.KIF_SOURCE_CLIPBOARD,
+                title = if (step.origin == KifOrigin.FILE) stringResource(Res.string.kif_source_file) else stringResource(Res.string.kif_source_clipboard),
                 message = step.message,
                 onDismiss = { controller.kifImport.dismiss() },
             )
@@ -461,7 +467,7 @@ private fun DemoApp(
 
     (importState as? IosMainController.ImportState.Error)?.let { error ->
         ImportErrorDialog(
-            title = AppStrings.KIF_SOURCE_CLIPBOARD,
+            title = stringResource(Res.string.kif_source_clipboard),
             message = error.message,
             onDismiss = { controller.dismissAnalysisError() },
         )
@@ -582,7 +588,7 @@ private fun DemoApp(
             )
         }
         is DemoRoute.DrillRecordDetail -> {
-            DrillRecordDetailScreen(data = r.data, onBack = { navigate(DemoRoute.Home, NavigationEvent.Back) }, onShare = ::shareCurrentScreen)
+            DrillRecordDetailScreen(data = r.data, onBack = { navigate(DemoRoute.Home, NavigationEvent.Back) }, onShare = { shareCurrentScreen(shareTitle) })
         }
         is DemoRoute.StrengthDetail -> {
             // 対局サービスの編集ダイアログはこの画面専用（Settings画面の棋力入力は廃止済み）。
@@ -608,7 +614,7 @@ private fun DemoApp(
                 data = r.data,
                 onBack = { navigate(DemoRoute.Home, NavigationEvent.Back) },
                 onEditAccounts = { showEditDialog = true },
-                onShare = ::shareCurrentScreen,
+                onShare = { shareCurrentScreen(shareTitle) },
             )
         }
         is DemoRoute.Report -> {
@@ -618,7 +624,7 @@ private fun DemoApp(
                 justCompleted = r.justCompleted,
                 controller = controller,
                 onBack = { navigate(DemoRoute.Home, NavigationEvent.Back) },
-                onShare = ::shareCurrentScreen,
+                onShare = { shareCurrentScreen(shareTitle) },
             )
         }
         DemoRoute.Drill -> {
@@ -746,17 +752,17 @@ private fun IosGameListScreenHost(
     onAddGame: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    var games by remember { mutableStateOf(repository.getAllGames()) }
+    var dataRevision by remember { mutableStateOf(0L) }
     val isLoggedIn = services?.authRepository?.currentUser?.value != null
     var pendingUploadCount by remember {
-        mutableStateOf(if (isLoggedIn) repository.getNotUploadedGames().size else 0)
+        mutableStateOf(if (isLoggedIn) repository.gameListQueries!!.pendingUploadCount() else 0)
     }
     var isUploading by remember { mutableStateOf(false) }
     var uploadResult by remember { mutableStateOf<String?>(null) }
     var savedFilters by remember { mutableStateOf(settingsRepository.getSavedGameFilters()) }
 
     val labelOwner = services?.authRepository?.currentUser?.collectAsState()?.value?.id
-    dev.miyado.shogisupplement.ui.gamelist.LabelledGamesContent(games, labelOwner, load = {
+    LaunchedEffect(labelOwner) {
         if (labelOwner != null && services != null) {
             try {
                 dev.miyado.shogisupplement.repertoire.RepertoireSync(DatabaseFactory.repertoireRepository(), services.repertoireRemote) {
@@ -765,58 +771,56 @@ private fun IosGameListScreenHost(
             } catch (e: kotlinx.coroutines.CancellationException) { throw e }
             catch (_: Exception) { }
         }
-        kotlinx.coroutines.withContext(dev.miyado.shogisupplement.ui.common.defaultIoDispatcher) {
-            labelOwner?.let { DatabaseFactory.repertoireRepository().labelledGames(it, games) } ?: games
-        }
-    }) { readyGames ->
-        GameListScreen(
-            games = readyGames,
-            onAddGame = onAddGame,
-            knownPositionLabels = labelOwner?.let { DatabaseFactory.repertoireRepository().allPositionLabels(it) }.orEmpty(),
-            blunderCounts = remember { repository.getBlunderCounts() },
-            pendingUploadCount = pendingUploadCount,
-            isUploading = isUploading,
-            uploadResult = uploadResult,
-            savedFilters = savedFilters,
-            onSaveFilter = { filter ->
-                settingsRepository.saveGameFilter(filter)
-                savedFilters = settingsRepository.getSavedGameFilters()
-            },
-            onDeleteSavedFilter = { name ->
-                settingsRepository.deleteGameFilter(name)
-                savedFilters = settingsRepository.getSavedGameFilters()
-            },
-            onBack = null,
-            onGameClick = onGameClick,
-            onDeleteGame = { game, deleteServer, onResult ->
-                scope.launch {
-                    val outcome = controller.deleteGame(game, deleteServer)
-                    if (outcome == DeleteGameOutcome.Success) {
-                        // ホーム側の再読込完了を待ってからonResultを返す（連続削除時、投げっぱなしだと
-                        // 完了順序が保証されず、削除済みの棋譜がホームに残って見えることがある）。
-                        games = repository.getAllGames()
-                        pendingUploadCount = if (isLoggedIn) repository.getNotUploadedGames().size else 0
-                        controller.reloadHomeAndWait()
-                    }
-                    onResult(outcome)
-                }
-            },
-            onUpload = {
-                val orchestrator = services?.uploadOrchestrator
-                if (orchestrator != null && !isUploading) {
-                    isUploading = true
-                    uploadResult = null
-                    scope.launch {
-                        val result = orchestrator.uploadAll()
-                        games = repository.getAllGames()
-                        pendingUploadCount = repository.getNotUploadedGames().size
-                        isUploading = false
-                        uploadResult = result.resultMessage()
-                    }
-                }
-            },
-        )
+        dataRevision++
     }
+    GameListScreen(
+        games = emptyList(),
+        queries = repository.gameListQueries,
+        labelOwner = labelOwner,
+        dataRevision = dataRevision,
+        onAddGame = onAddGame,
+        pendingUploadCount = pendingUploadCount,
+        isUploading = isUploading,
+        uploadResult = uploadResult,
+        savedFilters = savedFilters,
+        onSaveFilter = { filter ->
+            settingsRepository.saveGameFilter(filter)
+            savedFilters = settingsRepository.getSavedGameFilters()
+        },
+        onDeleteSavedFilter = { name ->
+            settingsRepository.deleteGameFilter(name)
+            savedFilters = settingsRepository.getSavedGameFilters()
+        },
+        onBack = null,
+        onGameClick = onGameClick,
+        onDeleteGame = { game, deleteServer, onResult ->
+            scope.launch {
+                val outcome = controller.deleteGame(game, deleteServer)
+                if (outcome == DeleteGameOutcome.Success) {
+                    // ホーム側の再読込完了を待ってからonResultを返す（連続削除時、投げっぱなしだと
+                    // 完了順序が保証されず、削除済みの棋譜がホームに残って見えることがある）。
+                    dataRevision++
+                    pendingUploadCount = if (isLoggedIn) repository.gameListQueries!!.pendingUploadCount() else 0
+                    controller.reloadHomeAndWait()
+                }
+                onResult(outcome)
+            }
+        },
+        onUpload = {
+            val orchestrator = services?.uploadOrchestrator
+            if (orchestrator != null && !isUploading) {
+                isUploading = true
+                uploadResult = null
+                scope.launch {
+                    val result = orchestrator.uploadAll()
+                    dataRevision++
+                    pendingUploadCount = repository.gameListQueries!!.pendingUploadCount()
+                    isUploading = false
+                    uploadResult = result.resultMessage()
+                }
+            }
+        },
+    )
 }
 
 /**
@@ -833,18 +837,18 @@ private fun KifSourceDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(AppStrings.KIF_SOURCE_TITLE) },
+        title = { Text(stringResource(Res.string.kif_source_title)) },
         text = {
             Column {
-                KifSourceOptionRow(AppStrings.KIF_SOURCE_FILE, onPickFile)
-                KifSourceOptionRow(AppStrings.KIF_SOURCE_CLIPBOARD, onPickClipboard)
-                KifSourceOptionRow(AppStrings.KIF_SOURCE_MANUAL, onPickManual)
+                KifSourceOptionRow(stringResource(Res.string.kif_source_file), onPickFile)
+                KifSourceOptionRow(stringResource(Res.string.kif_source_clipboard), onPickClipboard)
+                KifSourceOptionRow(stringResource(Res.string.kif_source_manual), onPickManual)
             }
         },
         confirmButton = {},
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(AppStrings.CANCEL)
+                Text(stringResource(Res.string.cancel))
             }
         },
     )
@@ -877,24 +881,24 @@ private fun UserSideSimpleDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(AppStrings.SIDE_DIALOG_TITLE) },
+        title = { Text(stringResource(Res.string.side_dialog_title)) },
         text = {
             Column {
                 if (senteName != null || goteName != null) {
                     Text(
-                        AppStrings.playersLine(senteName, goteName),
+                        UiStrings.playersLine(senteName, goteName),
                         style = MaterialTheme.typography.bodySmall,
                     )
                     Spacer(Modifier.height(8.dp))
                 }
                 UserSideOptionRow(
                     selected = userSide == "sente",
-                    label = AppStrings.sideSente(senteName),
+                    label = UiStrings.sideSente(senteName),
                     onClick = { userSide = "sente" },
                 )
                 UserSideOptionRow(
                     selected = userSide == "gote",
-                    label = AppStrings.sideGote(goteName),
+                    label = UiStrings.sideGote(goteName),
                     onClick = { userSide = "gote" },
                 )
                 if (showSkipOption) {
@@ -905,7 +909,7 @@ private fun UserSideSimpleDialog(
                     ) {
                         Checkbox(checked = skipNext, onCheckedChange = { skipNext = it })
                         Text(
-                            AppStrings.SKIP_SIDE_CONFIRM_CHECKBOX,
+                            stringResource(Res.string.skip_side_confirm_checkbox),
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
@@ -917,12 +921,12 @@ private fun UserSideSimpleDialog(
                 onClick = { userSide?.let { onConfirm(it, skipNext) } },
                 enabled = userSide != null,
             ) {
-                Text(AppStrings.START_ANALYSIS)
+                Text(stringResource(Res.string.start_analysis))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(AppStrings.CANCEL)
+                Text(stringResource(Res.string.cancel))
             }
         },
     )
@@ -1075,7 +1079,7 @@ private fun IosDrillScreen(
 
     Scaffold(contentWindowInsets = scaffoldContentInsets()) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            ShogiThinTopBar(title = AppStrings.DRILL_TITLE, onBack = leave)
+            ShogiThinTopBar(title = stringResource(Res.string.drill_title), onBack = leave)
             when (val s = state) {
                 is DrillUiState.Loading -> {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -1084,7 +1088,7 @@ private fun IosDrillScreen(
                 }
                 is DrillUiState.NoCandidates -> {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(AppStrings.DRILL_EMPTY_TITLE, style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(Res.string.drill_empty_title), style = MaterialTheme.typography.titleMedium)
                     }
                 }
                 is DrillUiState.Question -> {
@@ -1202,9 +1206,9 @@ private fun IosDebugScreenHost(
         siteBaseUrlInputInitial = savedInitial,
         effectiveSiteBaseUrl = effectiveInfo.url,
         effectiveSiteBaseUrlSource = when (effectiveInfo.source) {
-            WasmSiteOverrideStore.Source.ENVIRONMENT -> AppStrings.DEBUG_WASM_SITE_SOURCE_ENV
-            WasmSiteOverrideStore.Source.SAVED -> AppStrings.DEBUG_WASM_SITE_SOURCE_SAVED
-            WasmSiteOverrideStore.Source.PRODUCTION -> AppStrings.DEBUG_WASM_SITE_SOURCE_PRODUCTION
+            WasmSiteOverrideStore.Source.ENVIRONMENT -> stringResource(Res.string.debug_wasm_site_source_env)
+            WasmSiteOverrideStore.Source.SAVED -> stringResource(Res.string.debug_wasm_site_source_saved)
+            WasmSiteOverrideStore.Source.PRODUCTION -> stringResource(Res.string.debug_wasm_site_source_production)
         },
         onSave = { input ->
             val ok = WasmSiteOverrideStore.save(input)
@@ -1278,7 +1282,7 @@ private fun IosTransferCodeScreenHost(
                 regenerateError = null
                 val result = services.transferSecretRegistrar.rotate()
                 if (result.isFailure) {
-                    regenerateError = AppStrings.TRANSFER_CODE_REGENERATE_FAILED
+                    regenerateError = getString(Res.string.transfer_code_regenerate_failed)
                 }
                 code = services.getOrCreateTransferCode()
             }
@@ -1363,7 +1367,7 @@ private const val IOS_FEEDBACK_URL = "https://x.com/shogisupplement"
 private const val IOS_HELP_URL = "https://shogi-supplement.miyado.dev/help.html"
 private const val IOS_HELP_STRENGTH_URL = "$IOS_HELP_URL#strength"
 private const val IOS_RELEASE_NOTES_URL = "https://shogi-supplement.miyado.dev/release-notes.html"
-// LicenseInfoScreen の表示テキスト（AppStrings.LICENSE_SOURCE_URL）と同じ値。
+// LicenseInfoScreen の表示テキスト（stringResource(Res.string.license_source_url)）と同じ値。
 // 実際に開くURLはプラットフォーム側のこの定数を使う（TERMS/FEEDBACKと同じ複製パターン）。
 private const val IOS_SOURCE_REPO_URL = "https://github.com/hmiyado/shogi-supplement"
 
@@ -1373,7 +1377,7 @@ private fun openUrl(url: String) {
 }
 
 @OptIn(ExperimentalForeignApi::class)
-private fun shareCurrentScreen() {
+private fun shareCurrentScreen(title: String) {
     val scene = UIApplication.sharedApplication.connectedScenes
         .asSequence()
         .filterIsInstance<UIWindowScene>()
@@ -1391,7 +1395,7 @@ private fun shareCurrentScreen() {
     val presenter = window.rootViewController ?: return
     presenter.presentViewController(
         UIActivityViewController(
-            activityItems = listOf(ScreenshotActivityItemSource(image)),
+            activityItems = listOf(ScreenshotActivityItemSource(image, title)),
             applicationActivities = null,
         ),
         animated = true,
@@ -1401,6 +1405,7 @@ private fun shareCurrentScreen() {
 
 private class ScreenshotActivityItemSource(
     private val image: UIImage,
+    private val shareTitle: String,
 ) : NSObject(), UIActivityItemSourceProtocol {
     override fun activityViewControllerPlaceholderItem(activityViewController: UIActivityViewController): Any = image
 
@@ -1414,13 +1419,13 @@ private class ScreenshotActivityItemSource(
     override fun activityViewController(
         activityViewController: UIActivityViewController,
         subjectForActivityType: UIActivityType?,
-    ): String = AppStrings.APP_TITLE
+    ): String = shareTitle
 
     @Suppress("RETURN_TYPE_MISMATCH_ON_OVERRIDE")
     override fun activityViewControllerLinkMetadata(
         activityViewController: UIActivityViewController,
     ): LPLinkMetadata? = LPLinkMetadata().apply {
-        title = AppStrings.APP_TITLE
+        title = shareTitle
     }
 }
 
@@ -1437,7 +1442,7 @@ private fun ImportErrorDialog(title: String, message: String, onDismiss: () -> U
         title = { Text(title) },
         text = { Text(message) },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text(AppStrings.CANCEL) }
+            TextButton(onClick = onDismiss) { Text(stringResource(Res.string.cancel)) }
         },
     )
 }

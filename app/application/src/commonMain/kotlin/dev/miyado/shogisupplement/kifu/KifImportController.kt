@@ -4,7 +4,7 @@ import dev.miyado.shogisupplement.db.RatingDeclaration
 import dev.miyado.shogisupplement.db.SettingsRepository
 import dev.miyado.shogisupplement.db.saveRatingSettingsBundle
 import dev.miyado.shogisupplement.rating.declaredRankForGame
-import dev.miyado.shogisupplement.text.AppStrings
+import dev.miyado.shogisupplement.text.StoredText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -13,6 +13,8 @@ import kotlinx.coroutines.launch
 
 /** KIFの取込元。エラー文言の出し分けと、ファイル名の決め方が分かれる。 */
 enum class KifOrigin { FILE, CLIPBOARD, MANUAL }
+
+enum class InvalidKifReason { EMPTY, INVALID }
 
 /**
  * 検証を通ったKIFと、そこから読み取れた値。
@@ -72,39 +74,35 @@ class KifImportController(
         /** 保存中。次の画面が確定するまで確認をもう一度受け付けない。 */
         data class Saving(val kif: ValidatedKif) : Step
 
-        data class Failed(val message: String, val origin: KifOrigin) : Step
+        data class Failed(val reason: InvalidKifReason, val origin: KifOrigin) : Step
     }
 
     private val _step = MutableStateFlow<Step>(Step.Idle)
     val step: StateFlow<Step> = _step.asStateFlow()
 
     fun beginFromFile(fileName: String, text: String?) =
-        begin(text, fileName, KifOrigin.FILE, AppStrings.KIF_FILE_EMPTY, AppStrings.KIF_FILE_INVALID)
+        begin(text, fileName, KifOrigin.FILE)
 
     fun beginFromClipboard(text: String?) = begin(
         text,
-        AppStrings.clipboardFileName(dateTimeLabel()),
+        StoredText.clipboardFileName(dateTimeLabel()),
         KifOrigin.CLIPBOARD,
-        AppStrings.KIF_CLIPBOARD_EMPTY,
-        AppStrings.KIF_CLIPBOARD_INVALID,
     )
 
     fun beginManual(kifText: String, fileName: String) =
-        begin(kifText, fileName, KifOrigin.MANUAL, AppStrings.KIF_FILE_EMPTY, AppStrings.KIF_FILE_INVALID)
+        begin(kifText, fileName, KifOrigin.MANUAL)
 
     private fun begin(
         text: String?,
         fileName: String,
         origin: KifOrigin,
-        emptyMessage: String,
-        invalidMessage: String,
     ) {
         if (text.isNullOrBlank()) {
-            _step.value = Step.Failed(emptyMessage, origin)
+            _step.value = Step.Failed(InvalidKifReason.EMPTY, origin)
             return
         }
         if (!ClipboardKifValidator.isValidKif(text)) {
-            _step.value = Step.Failed(invalidMessage, origin)
+            _step.value = Step.Failed(InvalidKifReason.INVALID, origin)
             return
         }
         // KIFとしては読めるがパースが通らない棋譜（駒落ちなど）は、ここで止めずに保存まで進める。

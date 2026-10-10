@@ -1,5 +1,10 @@
 package dev.miyado.shogisupplement.ui.repertoire
 
+import org.jetbrains.compose.resources.stringResource
+
+import org.jetbrains.compose.resources.vectorResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -11,8 +16,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -56,6 +59,20 @@ fun InitialPositionEditorScreen(
     onApply: (String) -> Unit,
     initialFlip: Boolean = false,
 ) {
+    val labelInitialPositionChangeTitle = stringResource(Res.string.initial_position_change_title)
+    val labelInitialPositionDiscardMoves = stringResource(Res.string.initial_position_discard_moves)
+    val labelInitialPositionStart = stringResource(Res.string.initial_position_start)
+    val labelKentoCancelButton = stringResource(Res.string.kento_cancel_button)
+    val labelInitialPositionCreate = stringResource(Res.string.initial_position_create)
+    val labelBoardFlip = stringResource(Res.string.board_flip)
+    val labelBack = stringResource(Res.string.back)
+    val labelBoardTurn = stringResource(Res.string.board_turn)
+    val labelTextSideSente2 = stringResource(Res.string.text_side_sente_2)
+    val labelTextSideGote2 = stringResource(Res.string.text_side_gote_2)
+    val labelPieceBox = stringResource(Res.string.piece_box)
+    val labelInitialPositionMissingKings = stringResource(Res.string.initial_position_missing_kings)
+    val labelInitialPositionReset = stringResource(Res.string.initial_position_reset)
+
     var editor by rememberSaveable(initialSfen, stateSaver = Saver(
         save = { it.toSfen() },
         restore = { InitialPositionEditor.fromSfen(it) },
@@ -66,10 +83,10 @@ fun InitialPositionEditorScreen(
     if (confirmClear) {
         AlertDialog(
             onDismissRequest = { confirmClear = false },
-            title = { Text("初期盤面を変更") },
-            text = { Text("現在の手順を消して、この盤面から開始します。") },
-            confirmButton = { TextButton(onClick = { onApply(editor.toSfen()) }) { Text("この盤面で開始") } },
-            dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("キャンセル") } },
+            title = { Text(labelInitialPositionChangeTitle) },
+            text = { Text(labelInitialPositionDiscardMoves) },
+            confirmButton = { TextButton(onClick = { onApply(editor.toSfen()) }) { Text(labelInitialPositionStart) } },
+            dismissButton = { TextButton(onClick = { confirmClear = false }) { Text(labelKentoCancelButton) } },
         )
     }
     EditorDragHost(onDrop = { source, target ->
@@ -95,18 +112,18 @@ fun InitialPositionEditorScreen(
         contentWindowInsets = scaffoldContentInsets(),
         topBar = {
             TopAppBar(
-                title = { Text("初期局面を作成") },
-                actions = { TextButton(onClick = { flip = !flip }) { Text("反転") } },
-                navigationIcon = { IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "戻る") } },
+                title = { Text(labelInitialPositionCreate) },
+                actions = { TextButton(onClick = { flip = !flip }) { Text(labelBoardFlip) } },
+                navigationIcon = { IconButton(onClick = onClose) { Icon(vectorResource(Res.drawable.ic_auto_mirrored_filled_arrow_back), labelBack) } },
             )
         },
         bottomBar = {
             Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ShogiSecondaryButton(onClick = onClose, modifier = Modifier.weight(1f)) { Text("キャンセル") }
+                ShogiSecondaryButton(onClick = onClose, modifier = Modifier.weight(1f)) { Text(labelKentoCancelButton) }
                 Button(onClick = {
                     if (hasMoves && editor.toSfen() != InitialPositionEditor.fromSfen(initialSfen).toSfen()) confirmClear = true
                     else onApply(editor.toSfen())
-                }, enabled = editor.hasBothKings, modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.medium) { Text("この盤面で開始") }
+                }, enabled = editor.hasBothKings, modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.medium) { Text(labelInitialPositionStart) }
             }
         },
     ) { padding ->
@@ -114,10 +131,10 @@ fun InitialPositionEditorScreen(
             Modifier.fillMaxSize().padding(padding).adaptiveContentWidth().verticalScroll(rememberScrollState()),
         ) {
             Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("手番", style = MaterialTheme.typography.bodySmall)
+                Text(labelBoardTurn, style = MaterialTheme.typography.bodySmall)
                 for (side in Side.entries) {
                     FilterChip(selected = editor.turn == side, onClick = { editor = editor.withTurn(side) },
-                        label = { Text(if (side == Side.BLACK) "先手" else "後手") })
+                        label = { Text(if (side == Side.BLACK) labelTextSideSente2 else labelTextSideGote2) })
                 }
             }
             val selectedHand = editor.selected as? EditorPieceLocation.Hand
@@ -142,7 +159,7 @@ fun InitialPositionEditorScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Text("駒箱", style = MaterialTheme.typography.bodySmall)
+                Text(labelPieceBox, style = MaterialTheme.typography.bodySmall)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     for ((type, count) in editor.pieceBox) {
                         FilterChip(
@@ -158,9 +175,9 @@ fun InitialPositionEditorScreen(
                 }
             }
             HorizontalDivider()
-            if (!editor.hasBothKings) Text("先手・後手の玉を1枚ずつ置いてください。", color = MaterialTheme.colorScheme.error)
+            if (!editor.hasBothKings) Text(labelInitialPositionMissingKings, color = MaterialTheme.colorScheme.error)
             TextButton(onClick = { editor = InitialPositionEditor.fromSfen() }, modifier = Modifier.align(Alignment.End)) {
-                Text("平手に戻す")
+                Text(labelInitialPositionReset)
             }
         }
     }

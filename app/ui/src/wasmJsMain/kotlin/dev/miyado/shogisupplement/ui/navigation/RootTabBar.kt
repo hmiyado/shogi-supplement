@@ -1,5 +1,7 @@
 package dev.miyado.shogisupplement.ui.navigation
 
+import dev.miyado.shogisupplement.ui.text.title
+
 import androidx.compose.runtime.Composable
 import dev.miyado.shogisupplement.navigation.RootTab
 

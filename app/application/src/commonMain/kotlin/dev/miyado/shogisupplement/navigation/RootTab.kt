@@ -1,9 +1,9 @@
 package dev.miyado.shogisupplement.navigation
 
-enum class RootTab(val title: String, val destination: AppDestination) {
-    HOME("ホーム", AppDestination.HOME),
-    GAMES("棋譜", AppDestination.GAME_LIST),
-    REPERTOIRE("定跡", AppDestination.REPERTOIRE);
+enum class RootTab(val destination: AppDestination) {
+    HOME(AppDestination.HOME),
+    GAMES(AppDestination.GAME_LIST),
+    REPERTOIRE(AppDestination.REPERTOIRE);
 
     companion object {
         fun from(destination: AppDestination): RootTab? = entries.firstOrNull { it.destination == destination }

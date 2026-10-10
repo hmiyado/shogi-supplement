@@ -1,13 +1,16 @@
 package dev.miyado.shogisupplement.ui.common
 
+import org.jetbrains.compose.resources.vectorResource
+
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -19,7 +22,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.theme.ShipporiMinchoFamily
 
 /** TopAppBarを使わない理由: 64dpを占めて盤へ回せる高さが減るため。 @param actions タイトルの右へ並べる操作。 */
@@ -39,8 +41,8 @@ fun ShogiThinTopBar(
     ) {
         IconButton(onClick = onBack, modifier = Modifier.size(32.dp)) {
             Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = AppStrings.BACK,
+                imageVector = vectorResource(Res.drawable.ic_auto_mirrored_filled_arrow_back),
+                contentDescription = stringResource(Res.string.back),
                 modifier = Modifier.size(18.dp),
             )
         }

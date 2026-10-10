@@ -1,5 +1,12 @@
 package dev.miyado.shogisupplement.ui.report
 
+import org.jetbrains.compose.resources.vectorResource
+
+import dev.miyado.shogisupplement.ui.text.UiStrings
+
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -12,8 +19,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -34,7 +39,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.miyado.shogisupplement.board.ShogiMove
 import dev.miyado.shogisupplement.pipeline.ProgressiveReportState
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.ShogiBoardView
 import dev.miyado.shogisupplement.ui.theme.IbmPlexMonoFamily
 import dev.miyado.shogisupplement.ui.theme.ShipporiMinchoFamily
@@ -87,8 +91,8 @@ fun AnalyzingReportScreen(
                 ) {
                     IconButton(onClick = onBack, modifier = Modifier.size(32.dp)) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = AppStrings.BACK,
+                            imageVector = vectorResource(Res.drawable.ic_auto_mirrored_filled_arrow_back),
+                            contentDescription = stringResource(Res.string.back),
                             modifier = Modifier.size(18.dp),
                         )
                     }
@@ -128,7 +132,7 @@ fun AnalyzingReportScreen(
                 }
 
                 ReportNavBannerRow(
-                    text = AppStrings.analyzingProgress(latestPly, maxPly),
+                    text = UiStrings.analyzingProgress(latestPly, maxPly),
                     textColor = MaterialTheme.shogiColors.ink2,
                 )
 
@@ -164,7 +168,7 @@ fun AnalyzingReportScreen(
 
 /**
  * 解析中サマリーカード。悪手率・一致率・推定棋力は完了まで確定できないため
- * 常に「—」（[AppStrings.EVAL_UNAVAILABLE]）で固定表示し、悪手一覧ボタンは無効のまま出す
+ * 常に「—」（[stringResource(Res.string.eval_unavailable)]）で固定表示し、悪手一覧ボタンは無効のまま出す
  * （watermarkの進行で行が増減するとNo-jitter原則に反するため、完了まで内容を変えない）。
  */
 @Composable
@@ -176,18 +180,18 @@ private fun AnalyzingSummaryCard(modifier: Modifier = Modifier) {
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
-            StatLine(AppStrings.BLUNDER_RATE_LABEL, AppStrings.EVAL_UNAVAILABLE)
+            StatLine(stringResource(Res.string.blunder_rate_label), stringResource(Res.string.eval_unavailable))
             Spacer(Modifier.height(2.dp))
-            StatLine(AppStrings.MATCH_RATE_LABEL, AppStrings.EVAL_UNAVAILABLE)
+            StatLine(stringResource(Res.string.match_rate_label), stringResource(Res.string.eval_unavailable))
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    AppStrings.GAME_STRENGTH_PREFIX,
+                    stringResource(Res.string.game_strength_prefix),
                     style = MaterialTheme.typography.labelSmall,
                     color = shogiColors.ink2,
                 )
                 Text(
-                    AppStrings.EVAL_UNAVAILABLE,
+                    stringResource(Res.string.eval_unavailable),
                     style = MaterialTheme.typography.labelSmall.copy(fontFamily = IbmPlexMonoFamily),
                     color = shogiColors.ink2,
                 )

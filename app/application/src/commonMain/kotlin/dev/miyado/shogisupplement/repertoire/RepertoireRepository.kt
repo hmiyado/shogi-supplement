@@ -17,8 +17,8 @@ data class RepertoireDocument(
 @Serializable
 data class PositionLabels(val positionKey: String, val labels: List<String>)
 
-enum class PositionLabelScope(val title: String) {
-    ALL("局面全体"), BLACK("先手の形"), WHITE("後手の形"),
+enum class PositionLabelScope {
+    ALL, BLACK, WHITE,
 }
 
 fun positionLabelKey(sfen: String, scope: PositionLabelScope = PositionLabelScope.ALL): String =

@@ -1,5 +1,8 @@
 package dev.miyado.shogisupplement.ui.common
 
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -459,6 +462,16 @@ private fun BoardGrid(
     legalDestinations: Set<ShogiSquare> = emptySet(),
     onSquareTapped: ((ShogiSquare) -> Unit)? = null,
 ) {
+    val labelShogiBoardViewText1 = stringResource(Res.string.shogi_board_view_text_1)
+    val labelShogiBoardViewText2 = stringResource(Res.string.shogi_board_view_text_2)
+    val labelShogiBoardViewText3 = stringResource(Res.string.shogi_board_view_text_3)
+    val labelShogiBoardViewText4 = stringResource(Res.string.shogi_board_view_text_4)
+    val labelShogiBoardViewText5 = stringResource(Res.string.shogi_board_view_text_5)
+    val labelShogiBoardViewText6 = stringResource(Res.string.shogi_board_view_text_6)
+    val labelShogiBoardViewText7 = stringResource(Res.string.shogi_board_view_text_7)
+    val labelShogiBoardViewText8 = stringResource(Res.string.shogi_board_view_text_8)
+    val labelShogiBoardViewText9 = stringResource(Res.string.shogi_board_view_text_9)
+
     val ranks = if (flip) (9 downTo 1).toList() else (1..9).toList()
     val files = if (flip) (1..9).toList() else (9 downTo 1).toList()
 
@@ -466,7 +479,7 @@ private fun BoardGrid(
     val fileLabels = files.map { it.toString() }
 
     // 段ラベル（右辺）: 先手=一〜九（上→下）、後手=九〜一（上→下）
-    val rankKanji = listOf("一", "二", "三", "四", "五", "六", "七", "八", "九")
+    val rankKanji = listOf(labelShogiBoardViewText1, labelShogiBoardViewText2, labelShogiBoardViewText3, labelShogiBoardViewText4, labelShogiBoardViewText5, labelShogiBoardViewText6, labelShogiBoardViewText7, labelShogiBoardViewText8, labelShogiBoardViewText9)
     val rankLabels = if (flip) rankKanji.reversed() else rankKanji
 
     val shogiColors = MaterialTheme.shogiColors
@@ -600,6 +613,8 @@ private fun HandRow(
     onHandPieceTapped: ((PieceType) -> Unit)? = null,
     onRegionTapped: (() -> Unit)? = null,
 ) {
+    val labelHandEmpty = stringResource(Res.string.hand_empty)
+
     // 持ち駒の表示順: 飛,角,金,銀,桂,香,歩
     val handOrder = listOf('R', 'B', 'G', 'S', 'N', 'L', 'P')
     val handItems = handOrder.mapNotNull { pc ->
@@ -633,7 +648,7 @@ private fun HandRow(
                 contentAlignment = Alignment.CenterStart,
             ) {
                 Text(
-                    text = "なし",
+                    text = labelHandEmpty,
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 1,
                 )
@@ -703,6 +718,7 @@ fun HandRowLabel(isBlack: Boolean) {
 }
 
 /** wasmJsでは☗/☖が欠落するため、フォントにある▲/△へ置換する。 */
+@Composable
 internal expect fun handRowLabelText(isBlack: Boolean): String
 
 // ─── Preview ─────────────────────────────────────────────────────────────────

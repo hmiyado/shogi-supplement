@@ -1,5 +1,19 @@
 package dev.miyado.shogisupplement.ui.gamelist
 
+
+import dev.miyado.shogisupplement.ui.text.title
+
+import org.jetbrains.compose.resources.vectorResource
+
+import dev.miyado.shogisupplement.ui.text.UiStrings
+
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.Res
+import dev.miyado.shogisupplement.ui.generated.resources.game_list_load_retry
+
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -10,10 +24,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -38,7 +48,6 @@ import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.SavedGameFilter
 import dev.miyado.shogisupplement.db.filterGames
 import dev.miyado.shogisupplement.db.summarize
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.DeleteGameConfirmDialog
 import dev.miyado.shogisupplement.ui.common.GameCard
 import dev.miyado.shogisupplement.ui.common.adaptiveContentWidth
@@ -58,6 +67,9 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 @Composable
 fun GameListScreen(
     games: List<GameRecord>,
+    queries: dev.miyado.shogisupplement.db.GameListReader? = null,
+    labelOwner: String? = null,
+    dataRevision: Any? = null,
     onAddGame: (() -> Unit)? = null,
     knownPositionLabels: List<String> = emptyList(),
     /** 棋譜IDごとの悪手件数。絞り込んだ集合の悪手率の分子。渡さなければ悪手率を出さない。 */
@@ -79,6 +91,8 @@ fun GameListScreen(
         onResult: (DeleteGameOutcome) -> Unit,
     ) -> Unit = { _, _, onResult -> onResult(DeleteGameOutcome.Success) },
 ) {
+    val labelHomeOpenKif = stringResource(Res.string.home_open_kif)
+
     // filter: 一覧に反映済みの条件。draftFilter: シート内で編集中の条件（「検索」タップまで
     // filterには反映しない。スワイプ/スクリムでシートを閉じた場合は draftFilter を破棄する）。
     var filter by androidx.compose.runtime.saveable.rememberSaveable(stateSaver = androidx.compose.runtime.saveable.listSaver(
@@ -98,13 +112,33 @@ fun GameListScreen(
     // selectedIdsから都度導出しない: 絞り込み変更やダイアログを閉じずに再確定した場合の
     // games/selectedIdsの変化が、確認中の対象・件数・見出しへ即座に反映されないようにする。
     var dialogTargets by remember { mutableStateOf(emptyList<GameRecord>()) }
-    val filteredGames = games.filterGames(filter)
+    val paged = queries?.let { rememberPagedGameList(it, labelOwner, filter, dataRevision, localSavedFilters) }
+    val snapshot = paged?.snapshot
+    val filteredGames = if (paged == null) games.filterGames(filter) else snapshot?.page?.games.orEmpty()
+    val totalCount = snapshot?.total ?: if (paged == null) games.size else 0
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     val scope = rememberCoroutineScope()
     val shogiColors = MaterialTheme.shogiColors
 
     fun exitSelectionMode() {
         selectionMode = false
         selectedIds = emptySet()
+    }
+
+    androidx.compose.runtime.LaunchedEffect(paged, listState) {
+        if (paged != null) {
+            androidx.compose.runtime.snapshotFlow {
+                val last = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
+                val total = listState.layoutInfo.totalItemsCount
+                Triple(last >= total - 6 && total > 0, paged.snapshot?.page?.next, paged.loading)
+            }.collect { (nearEnd, next, loading) ->
+                if (nearEnd && next != null && !loading && !paged.failed) paged.loadMore()
+            }
+        }
+    }
+    androidx.compose.runtime.LaunchedEffect(filter, labelOwner) {
+        selectedIds = emptySet()
+        listState.scrollToItem(0)
     }
 
     Scaffold(
@@ -115,9 +149,9 @@ fun GameListScreen(
                 title = {
                     Text(
                         if (selectionMode) {
-                            AppStrings.gameListSelectedCount(selectedIds.size)
+                            UiStrings.gameListSelectedCount(selectedIds.size)
                         } else {
-                            AppStrings.GAME_LIST_TITLE
+                            stringResource(Res.string.game_list_title)
                         },
                     )
                 },
@@ -125,15 +159,15 @@ fun GameListScreen(
                     if (selectionMode) {
                         IconButton(onClick = { exitSelectionMode() }) {
                             Icon(
-                                imageVector = Icons.Outlined.Close,
-                                contentDescription = AppStrings.GAME_LIST_EXIT_SELECTION_ICON_DESC,
+                                imageVector = vectorResource(Res.drawable.ic_outlined_close),
+                                contentDescription = stringResource(Res.string.game_list_exit_selection_icon_desc),
                             )
                         }
                     } else if (onBack != null) {
                         IconButton(onClick = onBack) {
                             Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = AppStrings.BACK,
+                                imageVector = vectorResource(Res.drawable.ic_auto_mirrored_filled_arrow_back),
+                                contentDescription = stringResource(Res.string.back),
                             )
                         }
                     }
@@ -153,12 +187,12 @@ fun GameListScreen(
                             modifier = Modifier.testTag("game_list_confirm_delete_button"),
                         ) {
                             Icon(
-                                imageVector = Icons.Outlined.Delete,
-                                contentDescription = AppStrings.GAME_DELETE_ICON_DESC,
+                                imageVector = vectorResource(Res.drawable.ic_outlined_delete),
+                                contentDescription = stringResource(Res.string.game_delete_icon_desc),
                             )
                         }
                     } else {
-                        if (canDelete && games.isNotEmpty()) {
+                        if (canDelete && totalCount > 0) {
                             IconButton(
                                 onClick = { selectionMode = true },
                                 enabled = filteredGames.isNotEmpty(),
@@ -166,8 +200,8 @@ fun GameListScreen(
                                 modifier = Modifier.testTag("game_list_select_mode_button"),
                             ) {
                                 Icon(
-                                    imageVector = Icons.Outlined.Delete,
-                                    contentDescription = AppStrings.GAME_LIST_SELECT_TO_DELETE_ICON_DESC,
+                                    imageVector = vectorResource(Res.drawable.ic_outlined_delete),
+                                    contentDescription = stringResource(Res.string.game_list_select_to_delete_icon_desc),
                                 )
                             }
                         }
@@ -177,28 +211,30 @@ fun GameListScreen(
             )
         },
         bottomBar = { if (!dev.miyado.shogisupplement.ui.navigation.rootTabsOverlayContent) onAddGame?.let { add ->
-            Button(onClick = add, modifier = Modifier.fillMaxWidth().padding(bottom = dev.miyado.shogisupplement.ui.navigation.LocalRootTabBottomPadding.current).padding(16.dp)) { Text("棋譜を追加する") }
+            Button(onClick = add, modifier = Modifier.fillMaxWidth().padding(bottom = dev.miyado.shogisupplement.ui.navigation.LocalRootTabBottomPadding.current).padding(16.dp)) { Text(labelHomeOpenKif) }
         } },
     ) { padding ->
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxSize()
+                .testTag("game_list")
                 .padding(top = padding.calculateTopPadding())
                 .adaptiveContentWidth(),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = padding.calculateBottomPadding() + 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            if (games.isNotEmpty()) {
+            if (totalCount > 0) {
                 item {
                     GameListFilterHeader(
                         activeCount = filter.activeCount,
-                        shownCount = filteredGames.size,
-                        totalCount = games.size,
+                        shownCount = snapshot?.summary?.games ?: filteredGames.size,
+                        totalCount = totalCount,
                         onOpenFilter = {
                             draftFilter = filter
                             showFilterSheet = true
                         },
-                        summary = filteredGames.summarize(blunderCounts),
+                        summary = snapshot?.summary ?: filteredGames.summarize(blunderCounts),
                     )
                 }
             }
@@ -218,7 +254,7 @@ fun GameListScreen(
                                     color = MaterialTheme.colorScheme.onPrimary,
                                 )
                             } else {
-                                Text(AppStrings.accountManualUploadButton(pendingUploadCount))
+                                Text(UiStrings.accountManualUploadButton(pendingUploadCount))
                             }
                         }
                         if (uploadResult != null) {
@@ -252,12 +288,24 @@ fun GameListScreen(
                     selected = game.id in selectedIds,
                 )
             }
+            if (paged != null && (paged.loading || paged.snapshot == null) && !paged.failed) {
+                item { CircularProgressIndicator(Modifier.padding(16.dp).testTag("games_loading")) }
+            }
+            if (paged?.failed == true) {
+                item {
+                    androidx.compose.material3.TextButton(onClick = { scope.launch {
+                        if (paged.snapshot == null) paged.refresh(localSavedFilters) else paged.loadMore()
+                    } }) { Text(stringResource(Res.string.game_list_load_retry)) }
+                }
+            }
         }
     }
 
     if (showFilterSheet) {
         GameListFilterSheet(
             allGames = games,
+            facets = snapshot?.facets,
+            savedCounts = snapshot?.savedCounts,
             knownPositionLabels = knownPositionLabels,
             filter = draftFilter,
             onFilterChange = { draftFilter = it },
@@ -333,6 +381,9 @@ fun GameListScreen(
             saved = saved,
             games = games,
             blunderCounts = blunderCounts,
+            queries = queries,
+            labelOwner = labelOwner,
+            dataRevision = paged ?: dataRevision,
             onDismiss = { comparisonFilter = null },
         )
     }

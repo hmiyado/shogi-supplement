@@ -1,5 +1,8 @@
 package dev.miyado.shogisupplement
 
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import android.content.ClipData
 import android.content.ClipboardManager
 import androidx.activity.compose.BackHandler
@@ -15,6 +18,8 @@ import dev.miyado.shogisupplement.ui.report.ReportScreen
 
 @Composable
 fun ReportHost(vm: MainViewModel, state: MainUiState.ShowReport) {
+    val labelReportFallbackTitle = stringResource(Res.string.report_fallback_title)
+
     BackHandler { vm.loadHome() }
     val pvExtState by vm.pvExtState.collectAsState()
     val studyState by vm.studyState.collectAsState()
@@ -69,7 +74,7 @@ fun ReportHost(vm: MainViewModel, state: MainUiState.ShowReport) {
         onStudyAutoAnalyze = { vm.onStudyAutoAnalyze() },
         onStudyCandidateSelected = { moveUsi -> vm.onStudyCandidateSelected(moveUsi) },
         onCopyKif = { kifText ->
-            val clip = ClipData.newPlainText("棋譜", vm.savedKifForExport(state.report.game.id) ?: kifText)
+            val clip = ClipData.newPlainText(labelReportFallbackTitle, vm.savedKifForExport(state.report.game.id) ?: kifText)
             context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(clip)
         },
         onShare = { shareScreen(context, view) },

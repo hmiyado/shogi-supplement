@@ -1,19 +1,22 @@
 package dev.miyado.shogisupplement.ui.repertoire
 
+import dev.miyado.shogisupplement.ui.text.title
+
+import org.jetbrains.compose.resources.stringResource
+
+import org.jetbrains.compose.resources.vectorResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import dev.miyado.shogisupplement.navigation.AppDestination
 import dev.miyado.shogisupplement.navigation.NavigationEvent
 import dev.miyado.shogisupplement.navigation.NavigationMachine
 
-import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -52,6 +55,21 @@ private fun RepertoireScreenContent(
     onBack: () -> Unit,
     evalDisplay: String = "cp",
 ) {
+    val labelRepertoireSyncPending = stringResource(Res.string.repertoire_sync_pending)
+    val labelRepertoireSyncOffline = stringResource(Res.string.repertoire_sync_offline)
+    val labelRepertoireDeleteTitle = stringResource(Res.string.repertoire_delete_title)
+    val labelRepertoireDeleteDescription = stringResource(Res.string.repertoire_delete_description)
+    val labelRepertoireDeleteConflict = stringResource(Res.string.repertoire_delete_conflict)
+    val labelGameListSavedFilterDelete = stringResource(Res.string.game_list_saved_filter_delete)
+    val labelKentoCancelButton = stringResource(Res.string.kento_cancel_button)
+    val labelRepertoireListTitle = stringResource(Res.string.repertoire_list_title)
+    val labelSelectionFinish = stringResource(Res.string.selection_finish)
+    val labelBack = stringResource(Res.string.back)
+    val labelRepertoireDelete = stringResource(Res.string.repertoire_delete)
+    val labelRepertoireSelectDelete = stringResource(Res.string.repertoire_select_delete)
+    val labelRepertoireAdd = stringResource(Res.string.repertoire_add)
+    val labelRepertoireAccountRequired = stringResource(Res.string.repertoire_account_required)
+
     val scope = rememberCoroutineScope()
     var entries by remember(owner) { mutableStateOf(owner?.let(repository::entries).orEmpty()) }
     var selected by rememberSaveable(owner) { mutableStateOf<String?>(null) }
@@ -69,11 +87,11 @@ private fun RepertoireScreenContent(
     fun synchronize(notice: String? = null) {
         scope.launch {
             try {
-                if (sync?.synchronize() == false) message = listOfNotNull(notice, "サーバーへの保存が未完了です。端末の変更は保持しています。").joinToString("\n")
+                if (sync?.synchronize() == false) message = listOfNotNull(notice, labelRepertoireSyncPending).joinToString("\n")
                 else message = notice
                 refresh()
             } catch (e: CancellationException) { throw e }
-            catch (_: Exception) { message = listOfNotNull(notice, "サーバーに接続できませんでした。端末の変更は保持しています。").joinToString("\n") }
+            catch (_: Exception) { message = listOfNotNull(notice, labelRepertoireSyncOffline).joinToString("\n") }
         }
     }
     LaunchedEffect(owner) { synchronize() }
@@ -111,8 +129,8 @@ private fun RepertoireScreenContent(
     ReportBackHandler(onBack = { if (selectionMode) exitSelection() else onBack() })
     if (deleteTargets.isNotEmpty() && owner != null) AlertDialog(
         onDismissRequest = { deleteTargets = emptyList() },
-        title = { Text("選択した定跡を削除しますか？") },
-        text = { Text("定跡の手順を削除します。局面ラベルは残ります。") },
+        title = { Text(labelRepertoireDeleteTitle) },
+        text = { Text(labelRepertoireDeleteDescription) },
         confirmButton = { TextButton(onClick = {
             var conflict = false
             deleteTargets.forEach { entry ->
@@ -123,29 +141,29 @@ private fun RepertoireScreenContent(
             deleteTargets = emptyList()
             exitSelection()
             refresh()
-            synchronize(if (conflict) "変更された定跡は削除しませんでした。再度選択してください。" else null)
-        }) { Text("削除", color = MaterialTheme.colorScheme.error) } },
-        dismissButton = { TextButton(onClick = { deleteTargets = emptyList() }) { Text("キャンセル") } },
+            synchronize(if (conflict) labelRepertoireDeleteConflict else null)
+        }) { Text(labelGameListSavedFilterDelete, color = MaterialTheme.colorScheme.error) } },
+        dismissButton = { TextButton(onClick = { deleteTargets = emptyList() }) { Text(labelKentoCancelButton) } },
     )
     Scaffold(
         contentWindowInsets = scaffoldContentInsets(),
-        topBar = { TopAppBar(colors = TopAppBarDefaults.topAppBarColors(containerColor = if (dev.miyado.shogisupplement.ui.navigation.rootTabsOverlayContent) androidx.compose.ui.graphics.Color.Transparent else MaterialTheme.colorScheme.surface), title = { Text(if (selectionMode) "${deleteIds.size}件選択中" else "定跡一覧") }, navigationIcon = {
-            if (selectionMode) IconButton(onClick = { exitSelection() }) { Icon(Icons.Default.Close, "選択を終了") }
-            else if (!dev.miyado.shogisupplement.ui.navigation.LocalRootTabHost.current) IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "戻る") }
+        topBar = { TopAppBar(colors = TopAppBarDefaults.topAppBarColors(containerColor = if (dev.miyado.shogisupplement.ui.navigation.rootTabsOverlayContent) androidx.compose.ui.graphics.Color.Transparent else MaterialTheme.colorScheme.surface), title = { Text(if (selectionMode) stringResource(Res.string.text_game_list_selected_count, deleteIds.size) else labelRepertoireListTitle) }, navigationIcon = {
+            if (selectionMode) IconButton(onClick = { exitSelection() }) { Icon(vectorResource(Res.drawable.ic_filled_close), labelSelectionFinish) }
+            else if (!dev.miyado.shogisupplement.ui.navigation.LocalRootTabHost.current) IconButton(onClick = onBack) { Icon(vectorResource(Res.drawable.ic_auto_mirrored_filled_arrow_back), labelBack) }
         }, actions = {
             if (lines.isNotEmpty()) IconButton(
                 onClick = { if (selectionMode) deleteTargets = lines.filter { it.id in deleteIds } else selectionMode = true },
                 enabled = !selectionMode || deleteIds.isNotEmpty(),
-            ) { Icon(Icons.Outlined.Delete, if (selectionMode) "定跡を削除" else "削除する定跡を選択", tint = MaterialTheme.colorScheme.error) }
+            ) { Icon(vectorResource(Res.drawable.ic_outlined_delete), if (selectionMode) labelRepertoireDelete else labelRepertoireSelectDelete, tint = MaterialTheme.colorScheme.error) }
         }) },
         bottomBar = {
             Button(onClick = { openStudy(Uuid.random().toString()) }, enabled = owner != null,
-                modifier = Modifier.fillMaxWidth().padding(bottom = dev.miyado.shogisupplement.ui.navigation.LocalRootTabBottomPadding.current).padding(16.dp), shape = MaterialTheme.shapes.medium) { Text("定跡を追加する") }
+                modifier = Modifier.fillMaxWidth().padding(bottom = dev.miyado.shogisupplement.ui.navigation.LocalRootTabBottomPadding.current).padding(16.dp), shape = MaterialTheme.shapes.medium) { Text(labelRepertoireAdd) }
         },
     ) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding()).adaptiveContentWidth(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = padding.calculateBottomPadding() + 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (owner == null) item { Text("アカウントを作成すると定跡を保存できます。") }
+            if (owner == null) item { Text(labelRepertoireAccountRequired) }
             message?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
             items(lines, key = { it.id }) { entry ->
                 val doc = RepertoireCodec.document(entry.payload)
@@ -181,6 +199,23 @@ private fun RepertoireStudyScreen(
     onSave: (RepertoireDocument) -> Unit,
     labelContent: @Composable (String, RepertoireDocument, (String) -> Unit) -> Unit,
 ) {
+    val labelRepertoireSaveFailed = stringResource(Res.string.repertoire_save_failed)
+    val labelRepertoireDiscardTitle = stringResource(Res.string.repertoire_discard_title)
+    val labelDiscardAndClose = stringResource(Res.string.discard_and_close)
+    val labelRepertoireSave = stringResource(Res.string.repertoire_save)
+    val labelRepertoireName = stringResource(Res.string.repertoire_name)
+    val labelDebugWasmSiteSave = stringResource(Res.string.debug_wasm_site_save)
+    val labelKentoCancelButton = stringResource(Res.string.kento_cancel_button)
+    val labelRepertoireTitle = stringResource(Res.string.repertoire_title)
+    val labelBack = stringResource(Res.string.back)
+    val labelBoardFlip = stringResource(Res.string.board_flip)
+    val labelPositionLabelTitle = stringResource(Res.string.position_label_title)
+    val labelReportTabStudy = stringResource(Res.string.report_tab_study)
+    val labelRepertoireNew = stringResource(Res.string.repertoire_new)
+    val labelRepertoireRegister = stringResource(Res.string.repertoire_register)
+    val labelRepertoireRename = stringResource(Res.string.repertoire_rename)
+    val labelInitialPositionCreate = stringResource(Res.string.initial_position_create)
+
     val scope = rememberCoroutineScope()
     var draftPayload by rememberSaveable { mutableStateOf(RepertoireCodec.encode(document)) }
     val initialDocument = remember { RepertoireCodec.document(draftPayload) }
@@ -205,7 +240,7 @@ private fun RepertoireStudyScreen(
         controller.setSaveFailed(false)
         true
     } catch (_: Exception) {
-        saveError = "保存できませんでした。もう一度お試しください。"
+        saveError = labelRepertoireSaveFailed
         controller.setSaveFailed(true)
         false
     }
@@ -220,9 +255,9 @@ private fun RepertoireStudyScreen(
     LaunchedEffect(Unit) { start(base, initialDocument.lines) }
     DisposableEffect(controller) { onDispose { controller.dispose() } }
     if (discard) AlertDialog(
-        onDismissRequest = { discard = false }, title = { Text("定跡を保存せずに閉じますか？") },
-        confirmButton = { TextButton(onClick = onBack) { Text("保存せず閉じる") } },
-        dismissButton = { TextButton(onClick = { discard = false; naming = true }) { Text("保存する") } },
+        onDismissRequest = { discard = false }, title = { Text(labelRepertoireDiscardTitle) },
+        confirmButton = { TextButton(onClick = onBack) { Text(labelDiscardAndClose) } },
+        dismissButton = { TextButton(onClick = { discard = false; naming = true }) { Text(labelRepertoireSave) } },
     )
     if (destination == AppDestination.REPERTOIRE_INITIAL_POSITION) {
         InitialPositionEditorScreen(base, state?.displayLine?.isNotEmpty() == true, initialFlip = flip,
@@ -233,18 +268,18 @@ private fun RepertoireStudyScreen(
         return
     }
     if (naming) AlertDialog(
-        onDismissRequest = { naming = false }, title = { Text("定跡名") },
+        onDismissRequest = { naming = false }, title = { Text(labelRepertoireName) },
         text = { OutlinedTextField(value = nameInput, onValueChange = { nameInput = it.take(100) }, singleLine = true) },
-        confirmButton = { TextButton(enabled = nameInput.isNotBlank(), onClick = { name = nameInput.trim(); save(); naming = false }) { Text("保存") } },
-        dismissButton = { TextButton(onClick = { naming = false }) { Text("キャンセル") } },
+        confirmButton = { TextButton(enabled = nameInput.isNotBlank(), onClick = { name = nameInput.trim(); save(); naming = false }) { Text(labelDebugWasmSiteSave) } },
+        dismissButton = { TextButton(onClick = { naming = false }) { Text(labelKentoCancelButton) } },
     )
     ReportBackHandler(onBack = ::leave)
     Scaffold(
         contentWindowInsets = scaffoldContentInsets(),
-        topBar = { TopAppBar(title = { Text("定跡") }, navigationIcon = {
-            IconButton(onClick = ::leave) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "戻る") }
+        topBar = { TopAppBar(title = { Text(labelRepertoireTitle) }, navigationIcon = {
+            IconButton(onClick = ::leave) { Icon(vectorResource(Res.drawable.ic_auto_mirrored_filled_arrow_back), labelBack) }
         }, actions = {
-            TextButton(onClick = { flip = !flip }) { Text("反転") }
+            TextButton(onClick = { flip = !flip }) { Text(labelBoardFlip) }
 
         }) },
     ) { padding ->
@@ -257,13 +292,13 @@ private fun RepertoireStudyScreen(
             StudyPromoteDialog(current.showPromoteDialog, controller::onStudyPromoteDecision)
             StudyNavRow(current, ShogiBoard.fromSfen(sfen).turn == Side.BLACK, controller::studyStepBack,
                 { controller.onChipTapped(current.moves.size + 1) }, null)
-            BoardTabRow(listOf("定跡", "局面ラベル", "検討"), tab, { tab = it })
+            BoardTabRow(listOf(labelRepertoireTitle, labelPositionLabelTitle, labelReportTabStudy), tab, { tab = it })
             when (tab) {
                 0 -> Column(Modifier.padding(16.dp)) {
                     saveError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                    Text(name.ifEmpty { "新しい定跡" }, style = MaterialTheme.typography.titleMedium)
-                    TextButton(onClick = { nameInput = name; naming = true }) { Text(if (name.isEmpty()) "定跡として登録" else "名前を編集") }
-                    TextButton(onClick = { destination = NavigationMachine.next(destination, NavigationEvent.Open(AppDestination.REPERTOIRE_INITIAL_POSITION)) }) { Text("初期局面を作成") }
+                    Text(name.ifEmpty { labelRepertoireNew }, style = MaterialTheme.typography.titleMedium)
+                    TextButton(onClick = { nameInput = name; naming = true }) { Text(if (name.isEmpty()) labelRepertoireRegister else labelRepertoireRename) }
+                    TextButton(onClick = { destination = NavigationMachine.next(destination, NavigationEvent.Open(AppDestination.REPERTOIRE_INITIAL_POSITION)) }) { Text(labelInitialPositionCreate) }
                 }
                 1 -> Box(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) { labelContent(sfen, RepertoireDocument(name, base, controller.currentTree()?.rootChildren?.toLines().orEmpty())) { key ->
                     val draft = RepertoireDocument(name, base, controller.currentTree()?.rootChildren?.toLines().orEmpty())
@@ -283,6 +318,19 @@ private fun RepertoireStudyScreen(
 @Composable
 fun PositionLabelEditor(repository: RepertoireRepository, owner: String, sfen: String, onSaved: () -> Unit,
     inlineEditing: Boolean = false, document: RepertoireDocument? = null, onLabelSelected: ((String) -> Unit)? = null) {
+    val labelPositionLabelOccupied = stringResource(Res.string.position_label_occupied)
+    val labelRepertoireSaveFailed = stringResource(Res.string.repertoire_save_failed)
+    val labelPositionLabelName = stringResource(Res.string.position_label_name)
+    val labelPositionLabelDeleteTitle = stringResource(Res.string.position_label_delete_title)
+    val labelPositionLabelUpdateConflict = stringResource(Res.string.position_label_update_conflict)
+    val labelPositionLabelDeleteFailed = stringResource(Res.string.position_label_delete_failed)
+    val labelGameDeleteConfirm = stringResource(Res.string.game_delete_confirm)
+    val labelKentoCancelButton = stringResource(Res.string.kento_cancel_button)
+    val labelPositionLabelAdd = stringResource(Res.string.position_label_add)
+    val labelAdd = stringResource(Res.string.add)
+    val labelPositionLabelGameLabels = stringResource(Res.string.position_label_game_labels)
+    val labelPositionLabelCurrentLabels = stringResource(Res.string.position_label_current_labels)
+
     var entries by remember(owner, sfen, document) { mutableStateOf(repository.entries(owner)) }
     var adding by remember(owner, sfen) { mutableStateOf(false) }
     var scope by rememberSaveable { mutableStateOf(PositionLabelScope.ALL) }
@@ -300,8 +348,8 @@ fun PositionLabelEditor(repository: RepertoireRepository, owner: String, sfen: S
         try {
             if (repository.addPositionLabel(owner, sfen, scope, text)) {
                 adding = false; text = ""; error = null; refresh()
-            } else { entries = repository.entries(owner); error = "この対象にはラベルがあります。削除してから追加してください。" }
-        } catch (_: Exception) { error = "保存できませんでした。もう一度お試しください。" }
+            } else { entries = repository.entries(owner); error = labelPositionLabelOccupied }
+        } catch (_: Exception) { error = labelRepertoireSaveFailed }
     }
     @Composable fun tags(values: List<RepertoireEntry>) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -312,7 +360,7 @@ fun PositionLabelEditor(repository: RepertoireRepository, owner: String, sfen: S
                         Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                             Text(display, Modifier.then(if (onLabelSelected != null) Modifier.clickable { onLabelSelected(labels.positionKey) } else Modifier).padding(start = 8.dp, top = 12.dp, bottom = 12.dp), style = MaterialTheme.typography.bodySmall)
                             IconButton(onClick = { error = null; removing = entry to name }, modifier = Modifier.size(40.dp)) {
-                                Icon(androidx.compose.material.icons.Icons.Default.Close, "$display を削除", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Icon(vectorResource(Res.drawable.ic_filled_close), stringResource(Res.string.position_label_delete_description, display), modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
@@ -328,53 +376,53 @@ fun PositionLabelEditor(repository: RepertoireRepository, owner: String, sfen: S
                 }
             }
             OutlinedTextField(value = text, onValueChange = { text = it.replace("\n", "").replace("\r", "").take(100) },
-                label = { Text("ラベル名") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                label = { Text(labelPositionLabelName) }, modifier = Modifier.fillMaxWidth(), singleLine = true)
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
     }
     removing?.let { (entry, name) ->
-        AlertDialog(onDismissRequest = { removing = null }, title = { Text("ラベルを削除しますか？") },
+        AlertDialog(onDismissRequest = { removing = null }, title = { Text(labelPositionLabelDeleteTitle) },
             text = { Column {
-                Text("「$name」を削除します。同じ局面・形に適用されている他の棋譜からも外れます。")
+                Text(stringResource(Res.string.position_label_delete_confirmation, name))
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             } },
             confirmButton = { TextButton(onClick = {
                 try {
                     if (repository.removePositionLabel(owner, entry, name)) { removing = null; error = null; refresh() }
-                    else { error = "別の更新があります。閉じてからもう一度お試しください。"; entries = repository.entries(owner) }
-                } catch (_: Exception) { error = "削除できませんでした。もう一度お試しください。" }
-            }) { Text("削除する", color = MaterialTheme.colorScheme.error) } },
-            dismissButton = { TextButton(onClick = { removing = null }) { Text("キャンセル") } })
+                    else { error = labelPositionLabelUpdateConflict; entries = repository.entries(owner) }
+                } catch (_: Exception) { error = labelPositionLabelDeleteFailed }
+            }) { Text(labelGameDeleteConfirm, color = MaterialTheme.colorScheme.error) } },
+            dismissButton = { TextButton(onClick = { removing = null }) { Text(labelKentoCancelButton) } })
     }
     if (adding && !inlineEditing) ModalBottomSheet(onDismissRequest = { adding = false }) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
-            Text("局面ラベルを付ける", style = MaterialTheme.typography.titleLarge)
+            Text(labelPositionLabelAdd, style = MaterialTheme.typography.titleLarge)
             fields()
             Row {
-                TextButton(onClick = { adding = false }) { Text("キャンセル") }
-                TextButton(enabled = text.isNotBlank() && !occupied(scope), onClick = ::add) { Text("追加") }
+                TextButton(onClick = { adding = false }) { Text(labelKentoCancelButton) }
+                TextButton(enabled = text.isNotBlank() && !occupied(scope), onClick = ::add) { Text(labelAdd) }
             }
         }
     }
     Column(Modifier.fillMaxWidth().padding(vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (document != null) {
-            Text("この棋譜のラベル", style = MaterialTheme.typography.bodySmall)
+            Text(labelPositionLabelGameLabels, style = MaterialTheme.typography.bodySmall)
             tags(document.labelEntries(entries))
             HorizontalDivider()
         }
-        Text("この局面のラベル", style = MaterialTheme.typography.bodySmall)
+        Text(labelPositionLabelCurrentLabels, style = MaterialTheme.typography.bodySmall)
         tags(current)
         if (adding && inlineEditing) {
             fields()
             Row {
-                TextButton(onClick = { adding = false }) { Text("キャンセル") }
-                TextButton(enabled = text.isNotBlank() && !occupied(scope), onClick = ::add) { Text("追加") }
+                TextButton(onClick = { adding = false }) { Text(labelKentoCancelButton) }
+                TextButton(enabled = text.isNotBlank() && !occupied(scope), onClick = ::add) { Text(labelAdd) }
             }
         } else ShogiSecondaryButton(enabled = PositionLabelScope.entries.any { !occupied(it) }, onClick = {
             entries = repository.entries(owner)
             scope = PositionLabelScope.entries.firstOrNull { !occupied(it) } ?: PositionLabelScope.ALL
             text = ""; error = null; adding = true
-        }, modifier = Modifier.fillMaxWidth()) { Text("局面ラベルを付ける") }
+        }, modifier = Modifier.fillMaxWidth()) { Text(labelPositionLabelAdd) }
     }
 }
 
@@ -394,6 +442,14 @@ fun RepertoirePositionActions(
     baseSfen: String,
     moves: List<String>,
 ) {
+    val labelRepertoireLoadOffline = stringResource(Res.string.repertoire_load_offline)
+    val labelStudySaved = stringResource(Res.string.study_saved)
+    val labelRepertoireSaved = stringResource(Res.string.repertoire_saved)
+    val labelRepertoireSavedRetrySync = stringResource(Res.string.repertoire_saved_retry_sync)
+    val labelRepertoireSavedOffline = stringResource(Res.string.repertoire_saved_offline)
+    val labelRepertoireName = stringResource(Res.string.repertoire_name)
+    val labelRepertoireRegister = stringResource(Res.string.repertoire_register)
+
     val scope = rememberCoroutineScope()
     var name by remember { mutableStateOf("") }
     var result by remember { mutableStateOf<String?>(null) }
@@ -401,30 +457,30 @@ fun RepertoirePositionActions(
     LaunchedEffect(owner) {
         try { sync?.synchronize() }
         catch (e: CancellationException) { throw e }
-        catch (_: Exception) { result = "サーバーに接続できませんでした。端末のデータを表示しています。" }
+        catch (_: Exception) { result = labelRepertoireLoadOffline }
         ready = true
     }
     if (!ready) { CircularProgressIndicator(Modifier.padding(16.dp)); return }
     fun saved() {
-        result = "端末に保存しました"
+        result = labelStudySaved
         scope.launch {
             try {
-                result = if (sync?.synchronize() == true) "保存しました" else "端末に保存しました。サーバー保存は再試行してください。"
+                result = if (sync?.synchronize() == true) labelRepertoireSaved else labelRepertoireSavedRetrySync
             } catch (e: CancellationException) { throw e }
-            catch (_: Exception) { result = "端末に保存しました。サーバーに接続できませんでした。" }
+            catch (_: Exception) { result = labelRepertoireSavedOffline }
         }
     }
     Column(Modifier.fillMaxWidth().padding(16.dp)) {
         PositionLabelEditor(repository, owner, computeSfenAtStep(baseSfen, moves, moves.size), ::saved, inlineEditing = true)
         HorizontalDivider()
-        OutlinedTextField(name, { name = it.take(100) }, label = { Text("定跡名") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(name, { name = it.take(100) }, label = { Text(labelRepertoireName) }, singleLine = true, modifier = Modifier.fillMaxWidth())
         TextButton(enabled = name.isNotBlank(), onClick = {
             var line = emptyList<RepertoireLine>()
             for (move in moves.asReversed()) line = listOf(RepertoireLine(move, line))
             repository.save(owner, Uuid.random().toString(), "line", RepertoireCodec.encode(RepertoireDocument(name.trim(), baseSfen, line)))
             name = ""
             saved()
-        }) { Text("定跡として登録") }
+        }) { Text(labelRepertoireRegister) }
         result?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
     }
 }
