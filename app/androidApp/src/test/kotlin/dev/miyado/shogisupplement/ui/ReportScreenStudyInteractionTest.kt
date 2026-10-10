@@ -206,7 +206,7 @@ class ReportScreenStudyInteractionTest {
                 )
             }
         }
-        composeRule.onRoot().captureRoboImage(filePath = "build/outputs/issue89-phone.png")
+        composeRule.onRoot().captureRoboImage(filePath = "src/test/snapshots/issue89-phone.png")
         composeRule.onNodeWithText("先手の評価値").assertIsDisplayed()
         composeRule.onNodeWithText("開始から分岐").assertIsDisplayed()
         composeRule.onNodeWithText("メモ・しおり").assertDoesNotExist()
