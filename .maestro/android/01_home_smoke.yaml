@@ -2,6 +2,9 @@ appId: dev.miyado.shogisupplement
 ---
 - launchApp:
     clearState: false
+- extendedWaitUntil:
+    visible: "将棋サプリ"
+    timeout: 60000
 - assertVisible: "将棋サプリ"
 - assertVisible: "棋譜を追加する"
 - tapOn: "棋譜を追加する"

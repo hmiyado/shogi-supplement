@@ -108,7 +108,7 @@ appId: ${APP_ID}
     element:
       text: "ホームへ"
     direction: DOWN
-    centerElement: true
+    centerElement: false
     timeout: 30000
 - waitForAnimationToEnd
 - tapOn: "ホームへ"

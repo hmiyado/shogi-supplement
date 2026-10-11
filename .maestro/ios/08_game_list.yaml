@@ -18,5 +18,5 @@ env:
 - runFlow: ../common/wait_for_analysis_report.yaml
 - tapOn: "戻る"
 - runFlow: ../common/game_list_filter.yaml
-- tapOn: "戻る"
+- tapOn: "ホーム"
 - runFlow: ../common/game_list_multi_delete.yaml
