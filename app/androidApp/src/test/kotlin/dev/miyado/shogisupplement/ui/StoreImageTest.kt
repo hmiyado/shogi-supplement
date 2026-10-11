@@ -126,7 +126,7 @@ class StoreImageTest {
                     pastGames = storeGames,
                     isLoggedIn = true,
                     strengthCard = StrengthCardData(
-                        displayText = "58 ±9",
+                        displayText = "58.0 ±9.0",
                         detailText = "直近20局から算出",
                         declaredRankLine = "申告: 将棋ウォーズ 初段（10秒将棋）",
                     ),
@@ -157,7 +157,7 @@ class StoreImageTest {
                     pastGames = storeGames,
                     isLoggedIn = true,
                     strengthCard = StrengthCardData(
-                        displayText = "58 ±9",
+                        displayText = "58.0 ±9.0",
                         detailText = "直近20局から算出",
                         declaredRankLine = "申告: 将棋ウォーズ 初段（10秒将棋）",
                     ),
