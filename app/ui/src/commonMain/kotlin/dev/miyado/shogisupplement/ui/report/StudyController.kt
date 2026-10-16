@@ -113,7 +113,8 @@ class StudyController(
         val initialState = requireNotNull(_studyState.value)
         val display = initialState.displayLine
         _studyState.value = initialState.copy(branchFlags = treesByOrigin.getValue(baseSfen).branchFlags(display),
-            chipEvalStates = treesByOrigin.getValue(baseSfen).evalStatesAlong(display))
+            chipEvalStates = treesByOrigin.getValue(baseSfen).evalStatesAlong(display),
+            moveOptions = treesByOrigin.getValue(baseSfen).moveOptionsAlong(display))
     }
 
     fun currentTree(): StudyTree? = _studyState.value?.let { treesByOrigin[it.baseSfen] }
@@ -439,11 +440,13 @@ class StudyController(
                 latest == null -> Unit
                 latest.baseSfen == baseSfen && latest.moves == moves && latest.nodeId == analyzedNodeId -> {
                     _studyState.update {
-                        it?.copy(evalState = evalResult, chipEvalStates = tree.evalStatesAlong(latest.displayLine))
+                        it?.copy(evalState = evalResult, chipEvalStates = tree.evalStatesAlong(latest.displayLine),
+                            moveOptions = tree.moveOptionsAlong(latest.displayLine))
                     }
                 }
                 latest.baseSfen == baseSfen -> {
-                    _studyState.update { it?.copy(chipEvalStates = tree.evalStatesAlong(latest.displayLine)) }
+                    _studyState.update { it?.copy(chipEvalStates = tree.evalStatesAlong(latest.displayLine),
+                            moveOptions = tree.moveOptionsAlong(latest.displayLine)) }
                 }
             }
             maybeAutoAnalyze()
@@ -482,6 +485,7 @@ class StudyController(
             displayLine = newDisplayLine,
             chipEvalStates = tree.evalStatesAlong(newDisplayLine),
             branchFlags = tree.branchFlags(newDisplayLine),
+            moveOptions = tree.moveOptionsAlong(newDisplayLine),
             openBranchPopupDepth = null,
             branchPopupOptions = emptyList(),
             selectedFrom = null,

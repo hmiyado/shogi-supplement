@@ -11,6 +11,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.onRoot
 import com.github.takahirom.roborazzi.captureRoboImage
@@ -102,6 +103,64 @@ class ReportScreenStudyInteractionTest {
                 }
             }
         }
+    }
+
+    @Test
+    fun inlineBranchesUseAbsolutePlyAndKeepBoundsWhenEvaluationArrives() {
+        val options = listOf(
+            dev.miyado.shogisupplement.ui.report.StudyBranchOption("7g7f", dev.miyado.shogisupplement.ui.report.StudyEvalState.None, true, 1),
+            dev.miyado.shogisupplement.ui.report.StudyBranchOption("2g2f", dev.miyado.shogisupplement.ui.report.StudyEvalState.None, false, 2),
+        )
+        var study by mutableStateOf(StudyState(
+            baseSfen = ShogiBoard().toSfen(), origin = dev.miyado.shogisupplement.ui.report.StudyOrigin("24手目", null),
+            originIsBestPv = false, originPlyIndex = 24, originSelectedIdx = null, originAbsolutePly = 24, flip = false,
+            moves = listOf("7g7f"), displayLine = listOf("7g7f", "3c3d"), moveOptions = listOf(options),
+        ))
+        var selected: Pair<Int, Long>? = null
+        composeRule.setContent {
+            ShogiTheme {
+                ReportScreen(game = sampleGame(), reports = emptyList(), flip = false, onBack = {}, studyState = study,
+                    onStudyBranchOptionSelected = { depth, id -> selected = depth to id })
+            }
+        }
+        composeRule.onNodeWithText("25", useUnmergedTree = true).assertIsDisplayed()
+        val first = composeRule.onNodeWithTag("study_move_option_25_1")
+        val row = composeRule.onNodeWithTag("study_move_row_26")
+        val before = first.fetchSemanticsNode().boundsInRoot
+        val nextTop = row.fetchSemanticsNode().boundsInRoot.top
+        composeRule.runOnIdle {
+            study = study.copy(moveOptions = listOf(options.map { it.copy(evalState =
+                dev.miyado.shogisupplement.ui.report.StudyEvalState.Value(
+                    dev.miyado.shogisupplement.blunder.PositionEvalDisplay.EvalLabel("+9999", 1))) }))
+        }
+        composeRule.waitForIdle()
+        assertEquals(before, first.fetchSemanticsNode().boundsInRoot)
+        assertEquals(nextTop, row.fetchSemanticsNode().boundsInRoot.top)
+        composeRule.onRoot().captureRoboImage(filePath = "src/test/snapshots/issue110-inline-branches.png")
+        composeRule.onNodeWithTag("study_move_option_25_2").performScrollTo().performClick()
+        composeRule.runOnIdle { assertEquals(0 to 2L, selected) }
+        composeRule.onNodeWithText("1. ▲７六歩").assertDoesNotExist()
+    }
+
+    @Test
+    fun navigatingLongLineKeepsCurrentRowVisible() {
+        val line = listOf("7g7f", "3c3d", "2g2f", "4c4d", "3i4h", "3a4b", "5g5f", "5c5d",
+            "4i5h", "4b4c", "5i6h", "8b3b")
+        var study by mutableStateOf(StudyState(
+            baseSfen = ShogiBoard().toSfen(), origin = dev.miyado.shogisupplement.ui.report.StudyOrigin("開始", null),
+            originIsBestPv = false, originPlyIndex = 0, originSelectedIdx = null, originAbsolutePly = 0, flip = false,
+            moves = line, displayLine = line,
+        ))
+        composeRule.setContent {
+            ShogiTheme { ReportScreen(game = sampleGame(), reports = emptyList(), flip = false, onBack = {}, studyState = study) }
+        }
+        composeRule.onNodeWithTag("study_move_row_12").assertIsDisplayed()
+        composeRule.runOnIdle { study = study.copy(moves = emptyList()) }
+        composeRule.onNodeWithTag("study_move_row_1").assertIsDisplayed()
+        composeRule.runOnIdle { study = study.copy(moves = line) }
+        composeRule.onNodeWithTag("study_move_row_12").assertIsDisplayed()
+        composeRule.runOnIdle { study = study.copy(moves = line.take(1)) }
+        composeRule.onNodeWithTag("study_move_row_1").assertIsDisplayed()
     }
 
     @Test

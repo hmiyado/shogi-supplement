@@ -68,6 +68,7 @@ data class StudyState(
     val chipEvalStates: List<StudyEvalState> = emptyList(),
     val origin: StudyOrigin,
     val branchFlags: List<Boolean> = emptyList(),
+    val moveOptions: List<List<StudyBranchOption>> = emptyList(),
     val openBranchPopupDepth: Int? = null,
     val branchPopupOptions: List<StudyBranchOption> = emptyList(),
     val originIsBestPv: Boolean,

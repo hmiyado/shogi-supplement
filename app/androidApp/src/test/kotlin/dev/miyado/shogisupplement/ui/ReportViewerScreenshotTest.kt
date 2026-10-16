@@ -516,7 +516,7 @@ class ReportViewerScreenshotTest {
         }
     }
 
-    /** 分岐チェブロン付きチップと解析中スピナーを同時に示す。 */
+    /** 分岐の横スクロール候補と解析中スピナーを同時に示す。 */
     @Test
     fun report_viewer_study_branch() {
         val blunder = sampleBlunder()
@@ -543,6 +543,10 @@ class ReportViewerScreenshotTest {
                             originAbsolutePly = 44,
                             flip = false,
                             branchFlags = listOf(false, true),
+                            moveOptions = listOf(emptyList(), listOf(
+                                dev.miyado.shogisupplement.ui.report.StudyBranchOption("3c3d", dev.miyado.shogisupplement.ui.report.StudyEvalState.None, true, 1),
+                                dev.miyado.shogisupplement.ui.report.StudyBranchOption("8c8d", dev.miyado.shogisupplement.ui.report.StudyEvalState.None, false, 2),
+                            )),
                             evalState = dev.miyado.shogisupplement.ui.report.StudyEvalState.Loading,
                         ),
                     )
@@ -672,7 +676,7 @@ class ReportViewerScreenshotTest {
         }
     }
 
-    /** 40手を折り返してカード内だけをスクロールし、パネル外形を保つ。 */
+    /** 40手をカード内だけで縦スクロールし、パネル外形を保つ。 */
     @Test
     fun report_viewer_study_pv_scroll() {
         val blunder = sampleBlunder()
@@ -688,10 +692,7 @@ class ReportViewerScreenshotTest {
             "9f9e", "9a9e", "8e8d", "8c8d", "P*8e", "8d8e",
         )
         val displayLine = playedMoves + futureMoves
-        captureRoboImage(
-            filePath = "src/test/snapshots/report_viewer_study_pv_scroll.png",
-            roborazziOptions = screenshotRoborazziOptions,
-        ) {
+        captureViaComposeRule("report_viewer_study_pv_scroll") {
             ShogiTheme {
                 Surface {
                     ReportScreen(
@@ -726,7 +727,6 @@ class ReportViewerScreenshotTest {
         }
     }
 
-    // Why not 兄弟変化ポップのVRT: Popupは別ウィンドウに開き、captureRoboImageで取得できない。
 
     /** 棋戦名があってもトップバーをタイトルと対局者の2行に保つ。 */
     @Test

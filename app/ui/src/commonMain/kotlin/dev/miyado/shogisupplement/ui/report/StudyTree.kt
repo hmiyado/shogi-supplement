@@ -247,6 +247,15 @@ data class StudyTree(
     fun branchFlags(moves: List<String>): List<Boolean> =
         moves.indices.map { childrenAtPath(pathForMoves(moves.take(it))).size > 1 }
 
+    fun moveOptionsAlong(moves: List<String>): List<List<StudyBranchOption>> {
+        val selectedNodes = nodesAtPath(pathForMoves(moves))
+        return moves.indices.map { depth ->
+            siblingsAtDepth(moves, depth).map { node ->
+                StudyBranchOption(node.moveUsi, node.evalState, node.id == selectedNodes.getOrNull(depth)?.id, node.id)
+            }
+        }
+    }
+
     fun selectChild(parentMoves: List<String>, nodeId: Long): StudyTree {
         val path = pathForMoves(parentMoves)
         require(path.size == parentMoves.size)

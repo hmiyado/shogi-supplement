@@ -21,6 +21,32 @@ import kotlin.test.assertTrue
 /** 検討木の永続化・分岐操作を保証する。 */
 @OptIn(ExperimentalCoroutinesApi::class)
 class StudyControllerTest {
+    @Test
+    fun inlineRowsFollowSelectedBranchAndKeepSiblingEvaluationsSeparate() {
+        val (controller, _) = newController()
+        val label = dev.miyado.shogisupplement.blunder.PositionEvalDisplay.EvalLabel("+120", 1)
+        val tree = StudyTree(rootChildren = listOf(
+            StudyNode(1, "7g7f", evalState = StudyEvalState.Value(label), children = listOf(StudyNode(3, "3c3d"))),
+            StudyNode(2, "2g2f", children = listOf(StudyNode(4, "8c8d"))),
+        ))
+        controller.startStudy(startSfen, false, false, 24, null, 24, noOrigin, initialTree = tree)
+        val first = controller.studyState.value!!
+        assertEquals(listOf(1L, 2L), first.moveOptions[0].map { it.nodeId })
+        assertEquals(listOf(true, false), first.moveOptions[0].map { it.isCurrent })
+        assertIs<StudyEvalState.Value>(first.moveOptions[0][0].evalState)
+        assertEquals(StudyEvalState.None, first.moveOptions[0][1].evalState)
+        controller.onBranchNodeSelected(0, 2)
+        val changed = controller.studyState.value!!
+        assertEquals(listOf("2g2f"), changed.moves)
+        assertEquals(listOf("2g2f", "8c8d"), changed.displayLine)
+        assertEquals(listOf(false, true), changed.moveOptions[0].map { it.isCurrent })
+        assertEquals(4L, changed.moveOptions[1].single().nodeId)
+        assertEquals(24, changed.originAbsolutePly)
+        testScope.testScheduler.advanceUntilIdle()
+        assertIs<StudyEvalState.Value>(controller.studyState.value!!.moveOptions[0][1].evalState)
+        controller.dispose()
+    }
+
     @Test fun labelNavigationSelectsBranchAndSupportsBackAndForward() {
         val (controller, _) = newController()
         val tree = StudyTree(rootChildren = listOf(StudyNode(1, "7g7f"), StudyNode(2, "2g2f", children = listOf(StudyNode(3, "3c3d")))))
