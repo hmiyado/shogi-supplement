@@ -40,8 +40,8 @@ object BlunderClassifier {
         cur: PositionEval,
         nxt: PositionEval,
     ): ClassificationResult {
-        val curMate = (cur.score as? Score.Mate)?.plies
-        val nxtMate = (nxt.score as? Score.Mate)?.plies
+        val curMate = (cur.score as? Score.Mate)?.takeIf { it.verified }?.plies
+        val nxtMate = (nxt.score as? Score.Mate)?.takeIf { it.verified }?.plies
 
         val hadMate = curMate != null && curMate > 0
         val kept = nxtMate != null && nxtMate <= 0

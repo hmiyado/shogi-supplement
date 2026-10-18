@@ -411,8 +411,11 @@ private fun StudyMoveRow(
     val density = LocalDensity.current
     val measurer = rememberTextMeasurer()
     val moveWidth = with(density) { (TextStyleDataMove.fontSize.toPx() * 8).toDp() }
+    val winSample = stringResource(Res.string.position_eval_win_in, 999)
     val evalWidth = with(density) {
-        measurer.measure("+99999%", TextStyleDataMove.copy(fontFamily = IbmPlexMonoFamily)).size.width.toDp()
+        listOf("+99999%", winSample).maxOf {
+            measurer.measure(it, TextStyleDataMove.copy(fontFamily = IbmPlexMonoFamily)).size.width.toDp()
+        }
     }
     val optionWidth = moveWidth + evalWidth + 12.dp + 32.dp
     val scroll = rememberScrollState()

@@ -24,6 +24,7 @@ on:
     paths:
       - "docs/**"
       - "engine-wasm/**"
+      - "app/engine/**"
       - "app/androidApp/src/main/assets/eval/nn.bin"
       - "app/androidApp/src/main/assets/coefficients_hao_isolate_v1.json"
       # 検討ページ本体(:webApp)・依存モジュール(:ui/:analysis/:kifu)のwasmJs

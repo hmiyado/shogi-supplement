@@ -17,8 +17,8 @@ NDK 29.0.13846066で生成。Android API 26、arm64、NEON、静的C++ランタ�
 AndroidのnativeLibraryDirへ配置するためにこの名前を使う。
 
 同梱先は`app/androidApp/src/main/jniLibs/arm64-v8a/libyaneuraou_usi.so`。
-2026-09-28の修正版SHA-256:
-`c0cde515ce1e9aac2d1253c67bc2f2dbe20949a2ee163b582da397321406def3`。
+2026-10-17のdf-pn統合版SHA-256:
+`6d3210af4cc6d6c3f23bea73e2f78ff7346827dc96db7b4ff4b34cbc313cd946`。
 
 実行ゲートは実機またはエミュレータでのUSI初期化、400k探索（MultiPV3と2）、
 アプリからの棋譜取り込み・解析完了。単体USI検証には

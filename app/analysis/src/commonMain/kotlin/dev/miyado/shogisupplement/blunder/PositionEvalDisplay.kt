@@ -28,6 +28,8 @@ object PositionEvalDisplay {
         data class Cp(val value: Int) : EvalText
         data class WinProbability(val percent: Int) : EvalText
         data class Mate(val moves: Int) : EvalText
+        data class Win(val moves: Int) : EvalText
+        data class WinTerminal(val wins: Boolean) : EvalText
         data object MateWin : EvalText
         data object MateLoss : EvalText
     }
@@ -39,6 +41,7 @@ object PositionEvalDisplay {
         userIsGote: Boolean,
         evalDisplay: String,
         ply: Int? = null,
+        mateVerified: Boolean = true,
     ): EvalLabel? {
         // 詰み局面: 手数つきで「N手詰」。ユーザー視点の勝ち負けで符号を決める
         if (mateIn != null) {
@@ -50,12 +53,12 @@ object PositionEvalDisplay {
                 } else {
                     false // ply 不明時は負けとして安全側に倒す
                 }
-                val text = if (userWins) EvalText.MateWin
-                           else EvalText.MateLoss
+                val text = if (!mateVerified) EvalText.WinTerminal(userWins)
+                           else if (userWins) EvalText.MateWin else EvalText.MateLoss
                 return EvalLabel(text, sign = if (userWins) 1 else -1)
             }
             val userMate = if (userIsGote) -mateIn else mateIn
-            val text = EvalText.Mate(userMate)
+            val text = if (mateVerified) EvalText.Mate(userMate) else EvalText.Win(userMate)
             return EvalLabel(text, sign = if (userMate > 0) 1 else -1)
         }
         val cp = scoreCp ?: return null

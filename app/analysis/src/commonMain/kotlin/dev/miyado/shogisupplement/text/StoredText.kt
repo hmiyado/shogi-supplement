@@ -2,6 +2,8 @@ package dev.miyado.shogisupplement.text
 
 /** Historical database values and generated file names. Changing these requires a data migration. */
 object StoredText {
+    const val unverifiedMateNote = "詰み手数は未確認です"
+
     const val VERDICT_PRIORITY = "◎ 優先出題"
 
     const val VERDICT_TARGET = "○ 出題対象"

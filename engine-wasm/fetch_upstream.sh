@@ -71,3 +71,5 @@ if [ -f "$VERSION_FILE" ]; then
 fi
 
 echo "=== 完了: $UPSTREAM_DIR (commit ${ACTUAL_COMMIT}・パッチ適用済み) ==="
+
+python3 "$SCRIPT_DIR/../app/engine/prepare_mate_verification.py" "$UPSTREAM_DIR/source"

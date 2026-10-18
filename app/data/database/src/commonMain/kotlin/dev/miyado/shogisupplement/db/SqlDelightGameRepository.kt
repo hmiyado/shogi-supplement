@@ -166,6 +166,8 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
                     second_score_cp = row.secondScoreCp?.toLong(),
                     second_mate_in = row.secondMateIn?.toLong(),
                     second_usi = row.secondUsi,
+                    // Bit 2 marks per-candidate flags; legacy 1 confirmed both candidates.
+                    mate_verified = 4L + (if (row.mateVerified) 1L else 0L) + (if (row.secondMateVerified) 2L else 0L),
                 )
             }
             request.requestId?.let {
@@ -579,6 +581,8 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
                     second_score_cp = row.secondScoreCp?.toLong(),
                     second_mate_in = row.secondMateIn?.toLong(),
                     second_usi = row.secondUsi,
+                    // Bit 2 marks per-candidate flags; legacy 1 confirmed both candidates.
+                    mate_verified = 4L + (if (row.mateVerified) 1L else 0L) + (if (row.secondMateVerified) 2L else 0L),
                 )
             }
         }
@@ -594,7 +598,11 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
                     ply = it.ply.toInt(),
                     scoreCp = it.score_cp?.toInt(),
                     mateIn = it.mate_in?.toInt(),
+                    mateVerified = it.mate_verified and 1L != 0L,
+                    secondMateVerified = if (it.mate_verified and 4L != 0L) it.mate_verified and 2L != 0L else it.mate_verified == 1L,
                     bestUsi = it.best_usi,
+                    secondScoreCp = it.second_score_cp?.toInt(),
+                    secondMateIn = it.second_mate_in?.toInt(),
                     secondUsi = it.second_usi,
                 )
             }
@@ -724,10 +732,12 @@ internal fun Blunder_report.toBlunderRecord() = BlunderRecord(
     diffMaterial = diff_material,
     punishChecks = punish_checks,
     tookMovedPiece = took_moved_piece != 0L,
-    missedMateIn = missed_mate_in,
+    missedMateIn = missed_mate_in.takeIf { mate_verified != 0L },
     verdict = verdict,
-    note = normalizeLegacyNote(note, missed_mate_in),
-    problemType = problem_type,
+    note = if (mate_verified == 0L && missed_mate_in != null) StoredText.unverifiedMateNote
+        else normalizeLegacyNote(note, missed_mate_in),
+    problemType = if (mate_verified == 0L && missed_mate_in != null)
+        StoredText.problemByCategory.getValue("玉の危険（寄せ）") else problem_type,
     priority = priority,
     bestPv = best_pv,
     punishPv = punish_pv,

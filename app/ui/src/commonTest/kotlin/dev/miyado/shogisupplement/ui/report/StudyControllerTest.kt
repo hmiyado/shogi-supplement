@@ -913,4 +913,40 @@ class StudyControllerTest {
         assertEquals(listOf("8c8d", "4a3b", "3c3d"), value.candidates.map { it.moveUsi })
         assertEquals(value.label, value.candidates.first().label, "先頭の候補手は局面の評価と同じ")
     }
+    @Test
+    fun `局面の確認済み詰みは未確認候補の数値より優先する`() {
+        val value = mateCandidates(listOf(Score.Mate(-2) to "3c3d", Score.Cp(-9999) to "8c8d"))
+        assertIs<dev.miyado.shogisupplement.blunder.PositionEvalDisplay.EvalText.Mate>(value.label.value)
+        assertEquals("3c3d", value.candidates.first().moveUsi)
+    }
+
+    @Test
+    fun `初手固定候補の詰み手数を局面全体の最短手数にはしない`() {
+        val value = mateCandidates(listOf(Score.Cp(9999) to "3c3d", Score.Mate(5) to "8c8d"))
+        assertIs<dev.miyado.shogisupplement.blunder.PositionEvalDisplay.EvalText.Cp>(value.label.value)
+        assertIs<dev.miyado.shogisupplement.blunder.PositionEvalDisplay.EvalText.Mate>(value.candidates.first().label.value)
+    }
+
+    @Test
+    fun `詰み確認で最善手が更新されても同じ候補を重複表示しない`() {
+        val value = mateCandidates(listOf(Score.Mate(3) to "3c3d", Score.Cp(9999) to "3c3d"))
+        assertEquals(1, value.candidates.size)
+    }
+
+    private fun mateCandidates(scores: List<Pair<Score, String>>): StudyEvalState.Value {
+        val engine = MultiPvEngine(scores)
+        val controller = StudyController(
+            scope = testScope,
+            studyEngineFactory = { BlockingStudyEngine(engine, testDispatcher) },
+            evalDisplayProvider = { "cp" },
+        )
+        controller.startStudy(
+            baseSfen = startSfen, flip = false, originIsBestPv = false,
+            originPlyIndex = 0, originSelectedIdx = null, originAbsolutePly = 0, origin = noOrigin,
+        )
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 7))
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 6))
+        return assertIs<StudyEvalState.Value>(controller.studyState.value?.evalState)
+    }
+
 }

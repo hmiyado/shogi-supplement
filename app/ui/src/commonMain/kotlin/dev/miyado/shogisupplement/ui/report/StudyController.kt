@@ -542,13 +542,21 @@ class StudyController(
 
         // Why not MultiPV番号で並べる: 固定ノードで探索を打ち切るため、最後の反復で
         // 全本数が出そろわず、番号ごとに深さの違う評価が混ざる。評価値で並べ直す。
-        val ranked = pvs.sortedByDescending { BlunderJudge.toCp(it.score) }
+        val verifiedRoot = pvs.firstOrNull { it.multipv == 1 && (it.score as? Score.Mate)?.verified == true }
+        val ranked = (listOfNotNull(verifiedRoot) + pvs
+            .filter { it !== verifiedRoot }
+            .sortedByDescending { BlunderJudge.toCp(it.score) })
+            .distinctBy { it.pv.firstOrNull() ?: "multipv:${it.multipv}" }
         val best = ranked.firstOrNull() ?: return StudyEvalState.Error
-        val moverCp = BlunderJudge.toCp(best.score)
+        val bestScore = best.score
+        val globalScore = if (best.multipv != 1 && bestScore is Score.Mate && bestScore.verified) {
+            Score.Cp(if (bestScore.plies > 0) 9999 else -9999)
+        } else bestScore
+        val moverCp = BlunderJudge.toCp(globalScore)
         val senteCp = if (moverIsSente) moverCp else -moverCp
         val userCp = if (userIsGote) -senteCp else senteCp
 
-        val label = evalLabelOf(best.score, moverIsSente, userIsGote) ?: return StudyEvalState.None
+        val label = evalLabelOf(globalScore, moverIsSente, userIsGote) ?: return StudyEvalState.None
         val candidates = ranked.mapNotNull { pv ->
             val usi = pv.pv.firstOrNull() ?: return@mapNotNull null
             val moveText = runCatching { JapaneseNotation.format(usi, board) }.getOrNull() ?: return@mapNotNull null
@@ -579,6 +587,7 @@ class StudyController(
             is Score.Mate -> PositionEvalDisplay.format(
                 scoreCp = null,
                 mateIn = if (moverIsSente) score.plies else -score.plies,
+                mateVerified = score.verified,
                 userIsGote = userIsGote,
                 evalDisplay = evalDisplayProvider(),
                 ply = syntheticPly,

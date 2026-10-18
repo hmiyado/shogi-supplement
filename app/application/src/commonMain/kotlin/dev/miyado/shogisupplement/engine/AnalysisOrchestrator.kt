@@ -191,6 +191,8 @@ class AnalysisOrchestrator(
                         secondScoreCp = secondScoreCp,
                         secondMateIn = secondMateIn,
                         secondUsi = posEval.pv2MoveUsi,
+                        mateVerified = false,
+                        secondMateVerified = (posEval.pv2Score as? Score.Mate)?.verified == true,
                     )
                     is Score.Mate -> PositionEvalRow(
                         ply = t,
@@ -200,6 +202,8 @@ class AnalysisOrchestrator(
                         secondScoreCp = secondScoreCp,
                         secondMateIn = secondMateIn,
                         secondUsi = posEval.pv2MoveUsi,
+                        mateVerified = score.verified,
+                        secondMateVerified = (posEval.pv2Score as? Score.Mate)?.verified == true,
                     )
                 }
             }

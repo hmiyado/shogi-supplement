@@ -19,10 +19,10 @@ fun StudyTree.withSavedMainlineEvaluations(
     val rows = evaluations.associateBy { it.ply }
     fun value(ply: Int): StudyEvalState.Value? {
         val row = rows[ply] ?: return null
-        fun label(cp: Int?, mate: Int?) = PositionEvalDisplay.format(cp, mate, userIsGote, evalDisplay, ply)
-        val primary = label(row.scoreCp, row.mateIn) ?: return null
+        fun label(cp: Int?, mate: Int?, verified: Boolean) = PositionEvalDisplay.format(cp, mate, userIsGote, evalDisplay, ply, verified)
+        val primary = label(row.scoreCp, row.mateIn, row.mateVerified) ?: return null
         val board = runCatching { ShogiBoard.fromSfen(computeSfenAtStep(null, mainline, ply)) }.getOrNull()
-        val candidates = listOf(row.bestUsi to primary, row.secondUsi to label(row.secondScoreCp, row.secondMateIn))
+        val candidates = listOf(row.bestUsi to primary, row.secondUsi to label(row.secondScoreCp, row.secondMateIn, row.secondMateVerified))
             .mapNotNull { (move, evaluation) ->
                 if (move == null || evaluation == null || board == null) return@mapNotNull null
                 val notation = runCatching { JapaneseNotation.format(move, board) }.getOrNull() ?: return@mapNotNull null

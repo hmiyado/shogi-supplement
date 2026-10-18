@@ -921,7 +921,7 @@ class GameRepositoryTest {
         val rows = listOf(
             PositionEvalRow(ply = 0, scoreCp = 120, mateIn = null),
             PositionEvalRow(ply = 1, scoreCp = -200, mateIn = null),
-            PositionEvalRow(ply = 2, scoreCp = null, mateIn = 3),
+            PositionEvalRow(ply = 2, scoreCp = null, mateIn = 3, mateVerified = true),
         )
         repo.savePositionEvals(gameId, rows)
 
@@ -977,6 +977,64 @@ class GameRepositoryTest {
         assertNull(repo.getByHash("hash-atomic-failure"))
         assertNull(repo.getAppliedAnalysis("hash-atomic-failure", "failed-request"))
         assertTrue(repo.getAllGames().isEmpty())
+    }
+
+    @Test
+    fun `未確認の勝ち手数は保存復元しても確認済みにならない`() {
+        val repo = newRepository()
+        val id = repo.saveAnalysis(
+            fileName = "legacy.kif", contentHash = "legacy-mate", moves = listOf("7g7f"),
+            headers = emptyMap(), reports = emptyList(), rating = 1750, coefVersion = "hao_v1",
+        )
+        repo.savePositionEvals(id, listOf(
+            PositionEvalRow(0, null, 5, secondMateIn = -9), PositionEvalRow(1, null, -7),
+            PositionEvalRow(2, null, 0), PositionEvalRow(3, null, 0),
+        ))
+        val rows = repo.getPositionEvals(id)
+        assertEquals(listOf(5, -7, 0, 0), rows.map { it.mateIn })
+        assertTrue(rows.all { !it.mateVerified })
+        assertEquals(-9, rows.first().secondMateIn)
+        assertEquals(false, rows.first().secondMateVerified)
+    }
+
+    @Test
+    fun `候補ごとの詰み確認状態を独立して保存する`() {
+        val repo = newRepository()
+        val id = repo.saveAnalysis(
+            fileName = "mixed.kif", contentHash = "mixed-proof", moves = listOf("7g7f"),
+            headers = emptyMap(), reports = emptyList(), rating = 1750, coefVersion = "hao_v1",
+        )
+        val rows = listOf(
+            PositionEvalRow(0, null, 3, secondMateIn = 7, mateVerified = true, secondMateVerified = false),
+            PositionEvalRow(1, null, -9, secondMateIn = -5, mateVerified = false, secondMateVerified = true),
+        )
+        repo.savePositionEvals(id, rows)
+        assertEquals(rows, repo.getPositionEvals(id))
+    }
+
+    @Test
+    fun `27sqmは既存の詰み手数と棋譜を保持し確認情報を初期化する`() {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        ShogiSupplementDatabase.Schema.create(driver)
+        val db = ShogiSupplementDatabase(driver)
+        val repo = SqlDelightGameRepository(db)
+        val report = sampleReport().let {
+            it.copy(classification = it.classification.copy(missedMateIn = 5))
+        }
+        val id = repo.saveAnalysis(
+            fileName = "old.kif", contentHash = "old-mate-proof", moves = listOf("7g7f"),
+            headers = emptyMap(), reports = listOf(report), rating = 1750, coefVersion = "hao_v1",
+        )
+        repo.savePositionEvals(id, listOf(PositionEvalRow(0, null, 5, mateVerified = true)))
+        driver.execute(null, "ALTER TABLE position_eval DROP COLUMN mate_verified", 0)
+        driver.execute(null, "ALTER TABLE blunder_report DROP COLUMN mate_verified", 0)
+        ShogiSupplementDatabase.Schema.migrate(driver, 27, ShogiSupplementDatabase.Schema.version)
+        assertEquals(listOf("7g7f"), repo.getGameById(id)?.movesUsi)
+        assertEquals(5, repo.getPositionEvals(id).single().mateIn)
+        assertEquals(false, repo.getPositionEvals(id).single().mateVerified)
+        assertNull(repo.getReports(id).single().missedMateIn)
+        assertEquals(5L, db.shogiSupplementQueries.getPositionEvalsByGameId(id).executeAsOne().mate_in)
+        driver.close()
     }
 
     @Test

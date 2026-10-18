@@ -234,6 +234,7 @@ internal fun rememberReportNavInfo(
             PositionEvalDisplay.format(
                 scoreCp = row.scoreCp,
                 mateIn = row.mateIn,
+                mateVerified = row.mateVerified,
                 userIsGote = game.userSide == "gote",
                 evalDisplay = evalDisplay,
                 ply = clampedPly,

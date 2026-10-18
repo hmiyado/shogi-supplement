@@ -105,7 +105,7 @@ function post(msg) {
 
 // analysis-worker.js と同じパース仕様（項目を揃えないと結果の形が一致しない）。
 function parseInfo(line) {
-  const toks = line.split(/\s+/);
+  const toks = line.trim().split(/\s+/);
   const d = {};
   let i = 0;
   while (i < toks.length) {
@@ -124,6 +124,10 @@ function parseInfo(line) {
     } else {
       i += 1;
     }
+  }
+  if (d.score && d.score.mate !== undefined) {
+    if (toks.includes("mateverified")) d.score.verified = true;
+    else d.score.verified = false;
   }
   return d;
 }

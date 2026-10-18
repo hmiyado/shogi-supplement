@@ -16,6 +16,16 @@ class StudySavedEvaluationsTest {
         PositionEvalRow(2, 30, null, "2g2f"), PositionEvalRow(3, null, 5))
 
     @Test
+    fun keepsReportedWinSeparateFromConfirmedCandidateAfterRestoring() {
+        val saved = listOf(PositionEvalRow(0, null, 7, "7g7f", secondMateIn = 3,
+            secondUsi = "2g2f", mateVerified = false, secondMateVerified = true))
+        val seeded = tree.withSavedMainlineEvaluations(moves, emptyList(), saved, false, "cp")
+        val value = assertIs<StudyEvalState.Value>(seeded.rootEvalState)
+        assertEquals(dev.miyado.shogisupplement.blunder.PositionEvalDisplay.EvalText.Win(7), value.label.value)
+        assertEquals(dev.miyado.shogisupplement.blunder.PositionEvalDisplay.EvalText.Mate(3), value.candidates[1].label.value)
+    }
+
+    @Test
     fun seedsEntireMainlineWithoutChangingSavedKifOrOtherBranches() {
         val seeded = tree.withSavedMainlineEvaluations(moves, emptyList(), rows, false, "cp")
         assertEquals(dev.miyado.shogisupplement.blunder.PositionEvalDisplay.EvalText.Cp(10), assertIs<StudyEvalState.Value>(seeded.rootEvalState).label.value)

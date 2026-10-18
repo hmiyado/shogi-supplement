@@ -27,7 +27,7 @@ function now() {
 
 // USIのinfo行を{depth, seldepth, multipv, nodes, time, nps, score:{cp|mate}, pv}にパースする。
 function parseInfo(line) {
-  const toks = line.split(/\s+/);
+  const toks = line.trim().split(/\s+/);
   const d = {};
   let i = 0;
   while (i < toks.length) {
@@ -46,6 +46,10 @@ function parseInfo(line) {
     } else {
       i += 1;
     }
+  }
+  if (d.score && d.score.mate !== undefined) {
+    if (toks.includes("mateverified")) d.score.verified = true;
+    else d.score.verified = false;
   }
   return d;
 }
@@ -107,7 +111,8 @@ async function runSequential(workerLabel, variant, baseSfenArg, jobs, assetDirUr
       const searchMs = readyokT !== null ? t - readyokT : null;
 
       const mpv1 = latestMultipv[1];
-      const mpv2 = latestMultipv[2];
+      const second = latestMultipv[2];
+      const mpv2 = mpv1?.pv?.length && mpv1.pv[0] === second?.pv?.[0] ? null : second;
 
       const result = {
         ply: job ? job.ply : idx,

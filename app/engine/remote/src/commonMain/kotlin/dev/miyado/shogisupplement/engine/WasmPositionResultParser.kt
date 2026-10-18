@@ -15,10 +15,10 @@ private val wasmResultJson = Json { ignoreUnknownKeys = true }
  * の{type,value}形式）とは別物で、無理に揃えない。
  */
 @Serializable
-internal data class RawWasmScore(val cp: Int? = null, val mate: Int? = null) {
+internal data class RawWasmScore(val cp: Int? = null, val mate: Int? = null, val verified: Boolean = false) {
     fun toScore(): Score? = when {
         cp != null -> Score.Cp(cp)
-        mate != null -> Score.Mate(mate)
+        mate != null -> Score.Mate(mate, verified = verified)
         else -> null
     }
 }

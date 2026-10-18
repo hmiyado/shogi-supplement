@@ -87,7 +87,8 @@ CREATE TABLE blunder_report (
     -- データのみでの正誤判定）に使う。旧解析（MultiPV=2導入前）のレコードは両方 NULL のため、
     -- DrillJudge は一次判定をスキップして二次判定（エンジン）へ流す。
     second_usi TEXT,
-    second_cp INTEGER
+    second_cp INTEGER,
+    mate_verified INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE user_settings (
@@ -207,8 +208,8 @@ resetAllUploadedAt:
 UPDATE game SET uploaded_at = NULL;
 
 insertBlunderReport:
-INSERT INTO blunder_report (game_id, ply, side, move_usi, best_usi, loss_wp, sfen_before, category, diff_material, punish_checks, took_moved_piece, missed_mate_in, verdict, note, problem_type, priority, best_pv, punish_pv, cp_before, cp_after, second_usi, second_cp)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO blunder_report (game_id, ply, side, move_usi, best_usi, loss_wp, sfen_before, category, diff_material, punish_checks, took_moved_piece, missed_mate_in, verdict, note, problem_type, priority, best_pv, punish_pv, cp_before, cp_after, second_usi, second_cp, mate_verified)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1);
 
 getBlundersByGameId:
 SELECT * FROM blunder_report WHERE game_id = ? ORDER BY ply;
@@ -457,6 +458,7 @@ CREATE TABLE IF NOT EXISTS position_eval (
     -- second_usi: pv2（次善手）のUSI表記（best_usiと同じく正規化しない）。
     -- エンジン一致率（best/2nd best一致）の算出に使う。
     second_usi TEXT,
+    mate_verified INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY(game_id, ply)
 );
 
@@ -490,8 +492,8 @@ UPDATE user_settings SET app_policy_cache = ? WHERE id = 1;
 -- mate_in: 詰みまでの手数（先手視点: 正 = 先手が詰ます、負 = 後手が詰ます）。非詰み局面は NULL。
 
 insertPositionEval:
-INSERT OR REPLACE INTO position_eval (game_id, ply, score_cp, mate_in, best_usi, second_score_cp, second_mate_in, second_usi)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO position_eval (game_id, ply, score_cp, mate_in, best_usi, second_score_cp, second_mate_in, second_usi, mate_verified)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 getPositionEvalsByGameId:
 SELECT * FROM position_eval WHERE game_id = ? ORDER BY ply;

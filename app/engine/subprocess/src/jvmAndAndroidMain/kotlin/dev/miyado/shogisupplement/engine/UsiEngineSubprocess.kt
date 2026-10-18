@@ -172,7 +172,7 @@ class UsiEngineSubprocess private constructor(
 
     /** USI info行をPvInfoへ変換する。multipvがない行はnullを返す。 */
     private fun parseInfoLine(line: String): PvInfo? {
-        val toks = line.split(" ")
+        val toks = line.trim().split(Regex("\\s+"))
         var i = 1 // "info" をスキップ
         var multipv: Int? = null
         var score: Score? = null
@@ -207,7 +207,10 @@ class UsiEngineSubprocess private constructor(
             }
         }
 
-        val sc = score ?: return null
+        val rawScore = score ?: return null
+        val sc = if (rawScore is Score.Mate && "mateverified" !in toks) {
+            rawScore.copy(verified = false)
+        } else rawScore
         // multipv が省略される場合（早期詰み確定等）は 1 にフォールバック
         val mp = multipv ?: if (pvList.isNotEmpty()) 1 else return null
         return PvInfo(multipv = mp, score = sc, pv = pvList, nodes = nodes)

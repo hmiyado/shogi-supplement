@@ -17,6 +17,8 @@ private fun EvalText.resource(): Pair<StringResource, List<Any>> = when (this) {
     }
     is EvalText.WinProbability -> Res.string.position_eval_probability to listOf(percent)
     is EvalText.Mate -> (if (moves > 0) Res.string.position_eval_mate_win else Res.string.position_eval_mate_loss) to listOf(kotlin.math.abs(moves))
+    is EvalText.Win -> (if (moves > 0) Res.string.position_eval_win_in else Res.string.position_eval_loss_in) to listOf(kotlin.math.abs(moves))
+    is EvalText.WinTerminal -> (if (wins) Res.string.position_eval_reported_win else Res.string.position_eval_reported_loss) to emptyList()
     EvalText.MateWin -> Res.string.position_eval_mate_zero_win to emptyList()
     EvalText.MateLoss -> Res.string.position_eval_mate_zero_loss to emptyList()
 }

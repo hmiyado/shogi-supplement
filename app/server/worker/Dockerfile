@@ -22,7 +22,7 @@ ARG SIMD_TARGET=avx2
 FROM --platform=linux/amd64 debian:bookworm-slim AS engine-build
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      clang git ca-certificates file \
+      clang git ca-certificates file python3 \
     && rm -rf /var/lib/apt/lists/*
 
 ARG ENGINE_REV
@@ -31,6 +31,9 @@ RUN git clone --branch "${ENGINE_REV}" --depth 1 \
       https://github.com/yaneurao/YaneuraOu.git /src/upstream
 RUN test "$(git -C /src/upstream rev-parse HEAD)" = "${ENGINE_COMMIT}"
 
+COPY engine/prepare_mate_verification.py /src/prepare_mate_verification.py
+COPY engine/mate /src/mate
+RUN python3 /src/prepare_mate_verification.py /src/upstream/source
 COPY server/worker/engine/compile.sh /src/compile.sh
 COPY engine/yaneuraou-v940-sources.txt /src/yaneuraou-v940-sources.txt
 RUN chmod +x /src/compile.sh
@@ -89,7 +92,7 @@ ARG ENGINE_EVAL_SHA256
 ENV PORT=8080
 ENV ENGINE_PATH=/opt/engine/yaneuraou
 ENV ENGINE_EVAL_DIR=/opt/engine/eval_hao
-ENV ENGINE_REV=${ENGINE_REV}@${ENGINE_COMMIT}
+ENV ENGINE_REV=${ENGINE_REV}@${ENGINE_COMMIT}+dfpn2
 ENV ENGINE_EVAL_SHA256=${ENGINE_EVAL_SHA256}
 
 # 機微情報（SUPABASE_SERVICE_ROLE_KEY等）は実行時にCloud Run側でSecret Managerから注入する。

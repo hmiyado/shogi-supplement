@@ -33,6 +33,9 @@ def prepare(source: pathlib.Path, destination: pathlib.Path) -> None:
             else:
                 shutil.copy2(path, target)
             changed = True
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "engine"))
+    from prepare_mate_verification import prepare as prepare_mate
+    changed = prepare_mate(destination) or changed
     # ヘッダだけの変更でも、コンパイル済みオブジェクトを再利用しない。
     if changed:
         (destination / ".source-stamp").touch()

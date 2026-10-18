@@ -33,7 +33,13 @@ data class AnalysisRequest(
 )
 
 @Serializable
-data class ScoreJson(val type: String, val value: Int)
+data class ScoreJson(
+    val type: String,
+    val value: Int,
+    @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val verified: Boolean = false,
+)
 
 @Serializable
 data class PvInfoJson(

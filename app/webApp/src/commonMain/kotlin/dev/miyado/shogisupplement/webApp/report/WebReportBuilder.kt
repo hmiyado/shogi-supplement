@@ -126,6 +126,8 @@ private fun toPositionEvalRow(ply: Int, posEval: PositionEval): PositionEvalRow?
             secondScoreCp = secondScoreCp,
             secondMateIn = secondMateIn,
             secondUsi = posEval.pv2MoveUsi,
+            mateVerified = (score as? Score.Mate)?.verified == true,
+            secondMateVerified = (posEval.pv2Score as? Score.Mate)?.verified == true,
         )
         is Score.Mate -> PositionEvalRow(
             ply = ply,
@@ -135,6 +137,8 @@ private fun toPositionEvalRow(ply: Int, posEval: PositionEval): PositionEvalRow?
             secondScoreCp = secondScoreCp,
             secondMateIn = secondMateIn,
             secondUsi = posEval.pv2MoveUsi,
+            mateVerified = (score as? Score.Mate)?.verified == true,
+            secondMateVerified = (posEval.pv2Score as? Score.Mate)?.verified == true,
         )
     }
 }

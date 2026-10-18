@@ -322,7 +322,7 @@ class SchemaMigrationTest {
         ShogiSupplementDatabase.Schema.migrate(
             driver,
             oldVersion = 10,
-            newVersion = ShogiSupplementDatabase.Schema.version,
+            newVersion = 27,
         )
 
         val repo = SqlDelightGameRepository(ShogiSupplementDatabase(driver))
@@ -364,7 +364,7 @@ class SchemaMigrationTest {
         ShogiSupplementDatabase.Schema.migrate(
             driver,
             oldVersion = 11,
-            newVersion = ShogiSupplementDatabase.Schema.version,
+            newVersion = 27,
         )
 
         val database = ShogiSupplementDatabase(driver)
@@ -388,7 +388,7 @@ class SchemaMigrationTest {
         ShogiSupplementDatabase.Schema.migrate(
             driver,
             oldVersion = 11,
-            newVersion = ShogiSupplementDatabase.Schema.version,
+            newVersion = 27,
         )
 
         val repo = SqlDelightSettingsRepository(ShogiSupplementDatabase(driver))

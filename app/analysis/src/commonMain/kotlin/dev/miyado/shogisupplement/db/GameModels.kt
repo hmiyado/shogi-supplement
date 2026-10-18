@@ -128,6 +128,8 @@ data class PositionEvalRow(
      * 列追加前に保存された旧レコードは null（一致率計算では best_usi のみで判定される）。
      */
     val secondUsi: String? = null,
+    val mateVerified: Boolean = false,
+    val secondMateVerified: Boolean = mateVerified,
 )
 
 /** 保存されている戦型タグを分解する。 */

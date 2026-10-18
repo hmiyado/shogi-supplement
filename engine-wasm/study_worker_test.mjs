@@ -62,3 +62,44 @@ test("iOS host forwards drill purpose and keeps legacy calls valid", () => {
     assert.equal(posted[0].multiPv, 2);
   }
 });
+
+for (const worker of ["study-worker.js", "analysis-worker.js"]) {
+  test(`${worker}: retains mate distance and verification independently`, () => {
+    const code = readFileSync(new URL(`../docs/kento/${worker}`, import.meta.url), "utf8");
+    const context = vm.createContext({ importScripts() {}, self: {} });
+    vm.runInContext(code, context);
+    for (const value of [3, -2, 0]) {
+      context.line = `info depth 10 multipv 1 score mate ${value} nodes 100 pv G*5b`;
+      const raw = JSON.parse(vm.runInContext("JSON.stringify(parseInfo(line))", context));
+      assert.deepEqual(raw.score, { mate: value, verified: false });
+      context.line = `info depth 10 multipv 1 score mate ${value} mateverified nodes 100 pv G*5b`;
+      const verified = JSON.parse(vm.runInContext("JSON.stringify(parseInfo(line))", context));
+      assert.deepEqual(verified.score, { mate: value, verified: true });
+    }
+  });
+
+  test(`${worker}: normalizes whitespace so an empty PV stays empty`, () => {
+    const code = readFileSync(new URL(`../docs/kento/${worker}`, import.meta.url), "utf8");
+    const context = vm.createContext({ importScripts() {}, self: {} });
+    vm.runInContext(code, context);
+    const parse = (line) => {
+      context.line = line;
+      return JSON.parse(vm.runInContext("JSON.stringify(parseInfo(line))", context));
+    };
+
+    const empty = parse("info depth 0 multipv 1 score mate 0 mateverified nodes 0 pv ");
+    assert.equal(empty.multipv, 1);
+    assert.deepEqual(empty.score, { mate: 0, verified: true });
+    assert.equal(empty.nodes, 0);
+    assert.deepEqual(empty.pv, []);
+
+    const spaced = parse("info depth 0   multipv 1   score mate 0 mateverified   nodes 0   pv   ");
+    assert.equal(spaced.multipv, 1);
+    assert.deepEqual(spaced.score, { mate: 0, verified: true });
+    assert.equal(spaced.nodes, 0);
+    assert.deepEqual(spaced.pv, []);
+
+    const normal = parse("info depth 5 multipv 1 score cp 12 nodes 100 pv 7g7f   2g2f  8c8d");
+    assert.deepEqual(normal.pv, ["7g7f", "2g2f", "8c8d"]);
+  });
+}

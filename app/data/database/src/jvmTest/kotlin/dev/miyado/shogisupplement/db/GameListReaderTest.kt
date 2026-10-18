@@ -230,6 +230,8 @@ class GameListReaderTest {
 }
 
 internal fun dropGameListSchema(driver: JdbcSqliteDriver) {
+    driver.execute(null, "ALTER TABLE position_eval DROP COLUMN mate_verified", 0)
+    driver.execute(null, "ALTER TABLE blunder_report DROP COLUMN mate_verified", 0)
     listOf("queue_game_list_index", "queue_position_label_index", "invalidate_game_list_index", "delete_game_list_index", "invalidate_position_label_index", "delete_position_label_index").forEach {
         driver.execute(null, "DROP TRIGGER IF EXISTS $it", 0)
     }

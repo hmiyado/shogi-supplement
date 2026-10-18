@@ -35,7 +35,15 @@ function buildCommands() {
 	lines.push("usinewgame");
 	lines.push("position startpos");
 	lines.push(`go nodes ${GO_NODES}`);
-	lines.push("quit");
+	for (const sfen of [
+        "3lkl3/3p1p3/4G4/9/9/9/9/9/K8 b GP 1",
+        "3sks3/9/4+P4/9/9/+B8/9/9/K8 b S2rb4gs4n4l17p 1",
+        "3sks3/4+B4/4+P4/9/9/9/9/9/K8 w S2rb4gs4n4l17p 2",
+        "3sks3/9/4+P4/9/9/+B8/9/9/K8 b S2rb4gs4n4l17p 1 moves 9i8i 4a3b 8i9i 3b4a",
+    ]) {
+        lines.push("isready", "usinewgame", `position sfen ${sfen}`, `go nodes ${GO_NODES}`);
+    }
+    lines.push("quit");
 	return lines.join("\n") + "\n";
 }
 
@@ -102,6 +110,13 @@ async function main() {
 		check(/usiok/.test(stdout), "usi -> usiok", results);
 		check(/readyok/.test(stdout), "isready -> readyok", results);
 		check(/bestmove /.test(stdout), "go -> bestmove", results);
+        for (const length of [1, 3, -2]) {
+            check(stdout.includes(`score mate ${length} mateverified`), `verified mate ${length}`, results);
+        }
+
+        const lastPosition = stdout.split("readyok").at(-1);
+        check(!lastPosition.includes("mateverified") && /score mate -?\d+/.test(lastPosition),
+              "history-dependent proof stays unconfirmed", results);
 
 		for (const line of results) {
 			console.log(`  ${line.ok ? "OK  " : "NG  "} ${line.message}`);

@@ -573,4 +573,8 @@
     <string name="kento_back_top">← トップ</string>
     <string name="debug_sfen">SFEN: %1$s</string>
     <string name="service_lishogi">lishogi</string>
+    <string name="position_eval_win_in">+%1$s手勝ち</string>
+    <string name="position_eval_loss_in">−%1$s手負け</string>
+    <string name="position_eval_reported_win">+勝ち</string>
+    <string name="position_eval_reported_loss">−負け</string>
 </resources>

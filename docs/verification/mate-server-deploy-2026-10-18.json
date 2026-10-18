@@ -1,0 +1,433 @@
+{
+  "date": "2026-10-18",
+  "build_id": "94114113-76d8-4aa7-8094-e8349fd1da09",
+  "build_status": "SUCCESS",
+  "manifest_sha256": "58ff81912ccf8c7ca46373d1914e28b2f26f1963fa76085f6aec37bd3cb79ce3",
+  "image_digest": "sha256:38306e45579a50ca0c1a5405b17babe75b217d7f661881f01eee79ce7684a94a",
+  "image_tag": "mate-dfpn2-20261018-58ff81912ccf",
+  "previous_revision": "analysis-worker-00103-s52",
+  "revision": "analysis-worker-00104-b2r",
+  "traffic_percent": 100,
+  "ready": true,
+  "cpu": "4",
+  "memory": "2Gi",
+  "concurrency": 1,
+  "resources_unchanged": true,
+  "http_smoke": {
+    "dev_app_url": "https://analysis-worker-2xmkvm2tvq-an.a.run.app",
+    "health": {
+      "status": 200,
+      "body": {
+        "status": "ok"
+      }
+    },
+    "unauthenticated_analysis_status": 401
+  },
+  "predeploy_isolated_validation": [
+    {
+      "candidate": true,
+      "cases": [
+        {
+          "name": "one",
+          "seconds": 1.283050314999997,
+          "cache_seconds": 0.041005535000010696,
+          "scores": [
+            {
+              "type": "mate",
+              "value": 1,
+              "verified": true
+            },
+            {
+              "type": "mate",
+              "value": 3
+            }
+          ],
+          "engine_meta": {
+            "engine_rev": "v9.40@717da871e7a620702b8b9433bd8f9f181710435a+dfpn2",
+            "eval_sha256": "1141d275bceec911156801f27303dc9ff5beb24f4f59144cc069306c59e80782",
+            "nodes": 400000,
+            "threads": 1,
+            "multi_pv": 2,
+            "usi_hash": 128,
+            "fv_scale": 20,
+            "condition_name": "10435a+dfpn2-1141d275-n400000-t1-p2-h128-f20"
+          }
+        },
+        {
+          "name": "real69",
+          "seconds": 1.7074325260000052,
+          "cache_seconds": 0.020689976999989312,
+          "scores": [
+            {
+              "type": "mate",
+              "value": 13
+            }
+          ],
+          "engine_meta": {
+            "engine_rev": "v9.40@717da871e7a620702b8b9433bd8f9f181710435a+dfpn2",
+            "eval_sha256": "1141d275bceec911156801f27303dc9ff5beb24f4f59144cc069306c59e80782",
+            "nodes": 400000,
+            "threads": 1,
+            "multi_pv": 2,
+            "usi_hash": 128,
+            "fv_scale": 20,
+            "condition_name": "10435a+dfpn2-1141d275-n400000-t1-p2-h128-f20"
+          }
+        },
+        {
+          "name": "game116",
+          "seconds": 20.960438518999993,
+          "cache_seconds": 0.04751442399999917,
+          "scores": [
+            {
+              "type": "mate",
+              "value": 13
+            },
+            {
+              "type": "mate",
+              "value": 5,
+              "verified": true
+            },
+            {
+              "type": "mate",
+              "value": 7,
+              "verified": true
+            },
+            {
+              "type": "mate",
+              "value": -6
+            },
+            {
+              "type": "mate",
+              "value": 5,
+              "verified": true
+            },
+            {
+              "type": "mate",
+              "value": 3,
+              "verified": true
+            },
+            {
+              "type": "mate",
+              "value": 5,
+              "verified": true
+            },
+            {
+              "type": "mate",
+              "value": 13
+            },
+            {
+              "type": "mate",
+              "value": 21
+            },
+            {
+              "type": "mate",
+              "value": -8
+            },
+            {
+              "type": "mate",
+              "value": 11
+            },
+            {
+              "type": "mate",
+              "value": -10
+            },
+            {
+              "type": "mate",
+              "value": -8
+            },
+            {
+              "type": "mate",
+              "value": 9
+            },
+            {
+              "type": "mate",
+              "value": 17
+            },
+            {
+              "type": "mate",
+              "value": -4
+            },
+            {
+              "type": "mate",
+              "value": 7
+            },
+            {
+              "type": "mate",
+              "value": -6,
+              "verified": true
+            },
+            {
+              "type": "mate",
+              "value": -4
+            },
+            {
+              "type": "mate",
+              "value": 5,
+              "verified": true
+            },
+            {
+              "type": "mate",
+              "value": 5,
+              "verified": true
+            },
+            {
+              "type": "mate",
+              "value": -4,
+              "verified": true
+            },
+            {
+              "type": "mate",
+              "value": -4
+            },
+            {
+              "type": "mate",
+              "value": 3,
+              "verified": true
+            },
+            {
+              "type": "mate",
+              "value": -2,
+              "verified": true
+            },
+            {
+              "type": "mate",
+              "value": 1,
+              "verified": true
+            },
+            {
+              "type": "mate",
+              "value": 3,
+              "verified": true
+            },
+            {
+              "type": "mate",
+              "value": -2,
+              "verified": true
+            },
+            {
+              "type": "mate",
+              "value": 1,
+              "verified": true
+            },
+            {
+              "type": "mate",
+              "value": 0,
+              "verified": true
+            }
+          ],
+          "engine_meta": {
+            "engine_rev": "v9.40@717da871e7a620702b8b9433bd8f9f181710435a+dfpn2",
+            "eval_sha256": "1141d275bceec911156801f27303dc9ff5beb24f4f59144cc069306c59e80782",
+            "nodes": 400000,
+            "threads": 1,
+            "multi_pv": 2,
+            "usi_hash": 128,
+            "fv_scale": 20,
+            "condition_name": "10435a+dfpn2-1141d275-n400000-t1-p2-h128-f20"
+          }
+        }
+      ],
+      "scope": "isolated HTTP, JWT/JWKS, in-memory PostgREST fixture",
+      "old_client_mislabels_unverified_mate": true,
+      "game_proven_mates": 16,
+      "saved_jobs": 3,
+      "invalid_jwt_rejected": true
+    },
+    {
+      "candidate": false,
+      "cases": [
+        {
+          "name": "one",
+          "seconds": 1.3087941299999954,
+          "cache_seconds": 0.030831430999995746,
+          "scores": [
+            {
+              "type": "mate",
+              "value": 1
+            },
+            {
+              "type": "mate",
+              "value": 3
+            }
+          ],
+          "engine_meta": {
+            "engine_rev": "v9.40@717da871e7a620702b8b9433bd8f9f181710435a",
+            "eval_sha256": "1141d275bceec911156801f27303dc9ff5beb24f4f59144cc069306c59e80782",
+            "nodes": 400000,
+            "threads": 1,
+            "multi_pv": 2,
+            "usi_hash": 128,
+            "fv_scale": 20,
+            "condition_name": "9f181710435a-1141d275-n400000-t1-p2-h128-f20"
+          }
+        },
+        {
+          "name": "real69",
+          "seconds": 1.687282099000015,
+          "cache_seconds": 0.020249237000001585,
+          "scores": [
+            {
+              "type": "mate",
+              "value": 13
+            }
+          ],
+          "engine_meta": {
+            "engine_rev": "v9.40@717da871e7a620702b8b9433bd8f9f181710435a",
+            "eval_sha256": "1141d275bceec911156801f27303dc9ff5beb24f4f59144cc069306c59e80782",
+            "nodes": 400000,
+            "threads": 1,
+            "multi_pv": 2,
+            "usi_hash": 128,
+            "fv_scale": 20,
+            "condition_name": "9f181710435a-1141d275-n400000-t1-p2-h128-f20"
+          }
+        },
+        {
+          "name": "game116",
+          "seconds": 20.876794821999994,
+          "cache_seconds": 0.04836083399999325,
+          "scores": [
+            {
+              "type": "mate",
+              "value": 13
+            },
+            {
+              "type": "mate",
+              "value": 5
+            },
+            {
+              "type": "mate",
+              "value": 7
+            },
+            {
+              "type": "mate",
+              "value": -6
+            },
+            {
+              "type": "mate",
+              "value": 5
+            },
+            {
+              "type": "mate",
+              "value": 3
+            },
+            {
+              "type": "mate",
+              "value": 5
+            },
+            {
+              "type": "mate",
+              "value": 13
+            },
+            {
+              "type": "mate",
+              "value": 21
+            },
+            {
+              "type": "mate",
+              "value": -8
+            },
+            {
+              "type": "mate",
+              "value": 11
+            },
+            {
+              "type": "mate",
+              "value": -10
+            },
+            {
+              "type": "mate",
+              "value": -8
+            },
+            {
+              "type": "mate",
+              "value": 9
+            },
+            {
+              "type": "mate",
+              "value": 17
+            },
+            {
+              "type": "mate",
+              "value": -4
+            },
+            {
+              "type": "mate",
+              "value": 7
+            },
+            {
+              "type": "mate",
+              "value": -6
+            },
+            {
+              "type": "mate",
+              "value": -4
+            },
+            {
+              "type": "mate",
+              "value": 5
+            },
+            {
+              "type": "mate",
+              "value": 5
+            },
+            {
+              "type": "mate",
+              "value": -4
+            },
+            {
+              "type": "mate",
+              "value": -4
+            },
+            {
+              "type": "mate",
+              "value": 3
+            },
+            {
+              "type": "mate",
+              "value": -2
+            },
+            {
+              "type": "mate",
+              "value": 1
+            },
+            {
+              "type": "mate",
+              "value": 3
+            },
+            {
+              "type": "mate",
+              "value": -2
+            },
+            {
+              "type": "mate",
+              "value": 1
+            },
+            {
+              "type": "mate",
+              "value": -1
+            }
+          ],
+          "engine_meta": {
+            "engine_rev": "v9.40@717da871e7a620702b8b9433bd8f9f181710435a",
+            "eval_sha256": "1141d275bceec911156801f27303dc9ff5beb24f4f59144cc069306c59e80782",
+            "nodes": 400000,
+            "threads": 1,
+            "multi_pv": 2,
+            "usi_hash": 128,
+            "fv_scale": 20,
+            "condition_name": "9f181710435a-1141d275-n400000-t1-p2-h128-f20"
+          }
+        }
+      ],
+      "scope": "isolated HTTP, JWT/JWKS, in-memory PostgREST fixture",
+      "saved_jobs": 3,
+      "invalid_jwt_rejected": true
+    }
+  ],
+  "application_git_commit_created": false,
+  "application_git_push_performed": false,
+  "physical_dev_app_operation_verified": false,
+  "rollback_revision": "analysis-worker-00103-s52"
+}

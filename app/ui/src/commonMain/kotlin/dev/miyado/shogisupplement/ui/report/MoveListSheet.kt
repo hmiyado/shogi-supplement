@@ -80,6 +80,7 @@ fun MoveListSheet(
                         PositionEvalDisplay.format(
                             scoreCp = row.scoreCp,
                             mateIn = row.mateIn,
+                mateVerified = row.mateVerified,
                             userIsGote = userIsGote,
                             evalDisplay = evalDisplay,
                             ply = ply,

@@ -61,7 +61,7 @@ class RemoteAnalysisRunnerTest {
 
     private val resultLine =
         """{"result":[[{"multipv":1,"score":{"type":"cp","value":30},"pv":["7g7f"],"nodes":400000},""" +
-            """{"multipv":2,"score":{"type":"mate","value":-3},"pv":["2g2f"],"nodes":400000}]],""" +
+            """{"multipv":2,"score":{"type":"mate","value":-3,"verified":true},"pv":["2g2f"],"nodes":400000}]],""" +
             """"engine_meta":{"engine_rev":"rev","eval_sha256":"sha","nodes":400000,"threads":1,""" +
             """"multi_pv":2,"usi_hash":128,"fv_scale":20}}"""
 
