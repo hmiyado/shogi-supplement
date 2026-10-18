@@ -29,6 +29,7 @@ val CASTLE_DEFS: List<PlacementDef> = listOf(
         name = "矢倉",
         slug = "yagura",
         kind = OpeningKind.CASTLE,
+        developsFrom = "カニ囲い",
         required = listOf(p(KING, 8, 8), p(SILVER, 7, 7), p(GOLD, 7, 8), p(GOLD, 6, 7)),
         plyCap = CASTLE_PLY_CAP,
         source = "ja.wikipedia.org/wiki/矢倉囲い（基本形=玉8八・左金7八・右金6七・銀7七）",
@@ -124,7 +125,7 @@ val CASTLE_DEFS: List<PlacementDef> = listOf(
             sample("成立しない近い手順", "5i6h 1c1d 6h7h 9c9d 7i6h 2c2d", matches = false),
         ),
     ),
-)
+) + ADDITIONAL_CASTLE_DEFS
 
 /** 駒の配置で判定する戦法。 */
 val PLACEMENT_STRATEGY_DEFS: List<PlacementDef> = listOf(
@@ -278,6 +279,6 @@ val PLACEMENT_STRATEGY_DEFS: List<PlacementDef> = listOf(
             sample("成立しない近い手順", "7g7f 8c8d 6g6f 8d8e 7i6h 3c3d 6h6g 2b3c 5g5f 7a6b 3i4h 6c6d", matches = false),
         ),
     ),
-)
+) + ADDITIONAL_STRATEGY_DEFS
 
 val PLACEMENT_DEFS: List<PlacementDef> = CASTLE_DEFS + PLACEMENT_STRATEGY_DEFS

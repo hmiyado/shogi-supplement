@@ -46,6 +46,7 @@ class OpeningEvents private constructor(
     /** 自陣の最下段を通して飛車を端筋へ回した手数。 */
     val chikatetsuPly: Map<Side, Int>,
     private val rooksHomeAtPly: Set<Int>,
+    val firstMoves: Map<Side, ShogiMove>,
 ) {
 
     /** 双方が飛車先を伸ばし切った手数（遅い方）。 */
@@ -111,6 +112,7 @@ class OpeningEvents private constructor(
 
     /** 1パスで出来事を拾う。判定はここでは行わない。 */
     private class Builder {
+        private val firstMoves = mutableMapOf<Side, ShogiMove>()
         private val rookFile = mutableMapOf(Side.BLACK to ROOK_FILE, Side.WHITE to ROOK_FILE)
         private val furibishaPly = mutableMapOf<Side, Int>()
         private val rookPawnPushPly = mutableMapOf<Side, Int>()
@@ -131,6 +133,7 @@ class OpeningEvents private constructor(
         private val chikatetsuPly = mutableMapOf<Side, Int>()
 
         fun observe(ply: Int, move: ShogiMove, mover: Side, moving: ShogiPiece?, captured: ShogiPiece?) {
+            if (mover !in firstMoves) firstMoves[mover] = move
             val opponent = if (mover == Side.BLACK) Side.WHITE else Side.BLACK
             // 出来事はこの手を指す前の陣形で見る（横歩を取る手は飛車自身が筋を離れるため）。
             if (rookFile.values.all { it == ROOK_FILE }) rooksHomeAtPly += ply
@@ -237,6 +240,7 @@ class OpeningEvents private constructor(
             hineriPly = hineriPly.toMap(),
             chikatetsuPly = chikatetsuPly.toMap(),
             rooksHomeAtPly = rooksHomeAtPly.toSet(),
+            firstMoves = firstMoves.toMap(),
         )
     }
 }
