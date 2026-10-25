@@ -13,11 +13,16 @@ struct iosAppApp: App {
         // Kotlin側ロガーの出力実行はSwiftへ委ねる（Kotlin/Nativeは可変長引数のNSLogを
         // 正しく呼べないため）。他の初期化がエラーログを出す前に最初に登録する。
         LogSink.shared.handler = { line in NSLog("%@", line) }
-        Self.startSentry()
+        #if DEBUG
+        let useLocalBackend = UserDefaults.standard.string(forKey: "debug.backend.profile") != nil
+        #else
+        let useLocalBackend = false
+        #endif
+        if !useLocalBackend { Self.startSentry() }
         // App Check（匿名アカウント量産への防御）。プロバイダファクトリの設定は
         // FirebaseApp.configure()より前に行う必要があるため、他の初期化より先に呼ぶ
         // （IosFirebaseAppCheck.swift参照。plist未同梱ビルドではno-op）。
-        IosFirebaseAppCheck.configureIfAvailable()
+        if !useLocalBackend { IosFirebaseAppCheck.configureIfAvailable() }
         _ = KifFilePickerCoordinator.shared
         // WasmAnalysisHost の init で WasmAnalysisBridge へ実処理のクロージャを登録する。
         // 起動時に一度参照して確実に初期化させる（lazy static のため、参照するまではinitが

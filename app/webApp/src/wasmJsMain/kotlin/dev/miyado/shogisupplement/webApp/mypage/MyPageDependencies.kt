@@ -6,12 +6,15 @@ import dev.miyado.shogisupplement.crypto.TransferSecretStore
 import dev.miyado.shogisupplement.crypto.WasmJsTransferSecretStore
 import dev.miyado.shogisupplement.download.GameSummaryService
 import dev.miyado.shogisupplement.download.SupabaseGameSummaryService
+import dev.miyado.shogisupplement.gameshare.GameShareService
+import dev.miyado.shogisupplement.gameshare.RemoteGameShareService
 import dev.miyado.shogisupplement.transfer.RemoteTransferRestoreService
 import dev.miyado.shogisupplement.transfer.TransferRestoreService
 import dev.miyado.shogisupplement.webApp.js.fetchAppCheckToken
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
+import io.ktor.client.HttpClient
 
 /**
  * Web版マイページのDIハブ。モバイル版の`SupabaseServices`と異なりローカルDB
@@ -42,4 +45,12 @@ class MyPageDependencies {
 
     val gameSummaryService: GameSummaryService =
         SupabaseGameSummaryService(client, transferSecretStore, authRepository)
+
+    val gameShareService: GameShareService = RemoteGameShareService(
+        baseUrl = WORKER_BASE_URL,
+        authRepository = authRepository,
+        platform = "web",
+        httpClient = HttpClient(),
+        appCheckTokenProvider = ::fetchAppCheckToken,
+    )
 }

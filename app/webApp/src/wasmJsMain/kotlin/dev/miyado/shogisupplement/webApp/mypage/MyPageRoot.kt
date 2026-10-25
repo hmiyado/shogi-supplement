@@ -35,6 +35,7 @@ fun MyPageRoot() {
         key(detail.game.kifText, detail.game.studyKif) {
             RestoredStudyReport(
                 WebReportData(detail.game, detail.reports, emptyList(), null, null, null),
+                gameShareService = viewModel.gameShareService,
                 onBack = viewModel::backToGameList,
             )
         }
@@ -53,6 +54,8 @@ fun MyPageRoot() {
                 onBackFromDetail = viewModel::backToGameList,
                 onLogout = viewModel::logout,
                 onCopyKif = ::copyTextToClipboard,
+                onShareGameUrl = ::shareText,
+                gameShareService = viewModel.gameShareService,
                 onBackToList = viewModel::backToGameList,
             )
         }
@@ -60,7 +63,11 @@ fun MyPageRoot() {
 }
 
 @Composable
-private fun RestoredStudyReport(report: WebReportData, onBack: () -> Unit) {
+private fun RestoredStudyReport(
+    report: WebReportData,
+    gameShareService: dev.miyado.shogisupplement.gameshare.GameShareService?,
+    onBack: () -> Unit,
+) {
     val scope = rememberCoroutineScope()
     val model = remember { KentoViewModel(scope) }
     var ready by remember { mutableStateOf<Boolean?>(null) }
@@ -77,6 +84,8 @@ private fun RestoredStudyReport(report: WebReportData, onBack: () -> Unit) {
             onCancelSideSelection = model::cancelSideSelection,
             onReanalyze = model::reanalyze,
             onCopyKif = ::copyTextToClipboard,
+            onShareGameUrl = ::shareText,
+            gameShareService = gameShareService,
             onDiscardStudy = model::discardStudyAndContinue,
             onCancelDiscardStudy = model::cancelDiscardStudy,
             studyActions = model,

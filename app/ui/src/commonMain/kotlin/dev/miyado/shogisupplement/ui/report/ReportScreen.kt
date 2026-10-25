@@ -30,7 +30,9 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,6 +50,7 @@ import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.kifu.KifParser
 import dev.miyado.shogisupplement.db.PositionEvalRow
+import dev.miyado.shogisupplement.gameshare.GameShareService
 import dev.miyado.shogisupplement.ui.common.TwoPaneBoardHeightFraction
 import dev.miyado.shogisupplement.ui.common.WindowWidthClass
 import dev.miyado.shogisupplement.ui.common.adaptiveContentWidth
@@ -117,7 +120,9 @@ fun ReportScreen(
     onStudyAnalyze: () -> Unit = {},
     onStudyCandidateSelected: (String) -> Unit = {},
     onCopyKif: (String) -> Unit = {},
-    onShare: () -> Unit = {},
+    onShare: (() -> Unit)? = {},
+    gameShareService: GameShareService? = null,
+    onShareGameUrl: ((String) -> Unit)? = null,
     onDeleteGame: (
         deleteServer: Boolean,
         onResult: (DeleteGameOutcome) -> Unit,
@@ -168,6 +173,22 @@ fun ReportScreen(
     var pendingExtendAdvance by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val gameShareOwnerId = gameShareService?.currentOwner?.collectAsState()?.value?.id
+    val gameShareViewModel = key(gameShareService, game.id, game.contentHash, gameShareOwnerId) {
+        if (gameShareService != null && gameShareOwnerId != null) {
+            val sharingScope = rememberCoroutineScope()
+            remember {
+                GameShareViewModel(
+                    scope = sharingScope,
+                    service = gameShareService,
+                )
+            }
+        } else {
+            null
+        }
+    }
+    val gameShareState = gameShareViewModel?.state?.collectAsState()?.value
+    var showGameShareDialog by remember(gameShareViewModel) { mutableStateOf(false) }
 
     // 完了バナーはこの画面内で一度だけ消費する。
     var showCompletionBanner by remember { mutableStateOf(justCompleted) }
@@ -275,6 +296,18 @@ fun ReportScreen(
         pvExtensionEnabled = pvExtensionEnabled,
     )
 
+    val gameShareDraft = GameShareDraftFactory.from(game, clampedPly, studyState, flip)
+    val canShareGame = gameShareViewModel != null && gameShareDraft != null
+
+    if (showGameShareDialog && gameShareState != null && gameShareViewModel != null) {
+        GameShareDialog(
+            state = gameShareState,
+            onCreate = { gameShareDraft?.let(gameShareViewModel::create) },
+            onShare = { url -> onShareGameUrl?.invoke(url) },
+            onDismiss = { showGameShareDialog = false },
+        )
+    }
+
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val screenHeight = maxHeight
         val twoPane = rememberWindowWidthClass(maxWidth) == WindowWidthClass.EXPANDED
@@ -323,6 +356,11 @@ fun ReportScreen(
                     },
                     onDeleteClick = if (canDelete) { { showDeleteDialog = true } } else null,
                     onShareClick = onShare,
+                    onShareGameClick = if (canShareGame) {
+                        { gameShareViewModel?.reset(); showGameShareDialog = true }
+                    } else {
+                        null
+                    },
                 )
 
                 val studyCurrentSfen = remember(studyState) {

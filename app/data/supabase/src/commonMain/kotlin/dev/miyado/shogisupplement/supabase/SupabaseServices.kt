@@ -38,12 +38,15 @@ class SupabaseServices(
     settingsRepository: SettingsRepository,
     val transferSecretStore: TransferSecretStore,
     platform: String,
+    authStorage: AuthSessionStorage? = null,
 ) {
     private val client = createSupabaseClient(
         supabaseUrl = supabaseUrl,
         supabaseKey = supabaseKey,
     ) {
-        install(Auth)
+        install(Auth) {
+            if (authStorage != null) sessionManager = IsolatedSessionManager(authStorage)
+        }
         install(Postgrest)
     }
 

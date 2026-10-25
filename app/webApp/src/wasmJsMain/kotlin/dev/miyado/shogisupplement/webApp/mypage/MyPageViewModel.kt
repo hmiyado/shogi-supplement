@@ -11,6 +11,7 @@ import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.download.GameDetailOutcome
 import dev.miyado.shogisupplement.download.GameSummaryOutcome
 import dev.miyado.shogisupplement.download.GameSummaryService
+import dev.miyado.shogisupplement.gameshare.GameShareService
 import dev.miyado.shogisupplement.navigation.NavigationEvent
 import dev.miyado.shogisupplement.navigation.NavigationMachine
 import dev.miyado.shogisupplement.ui.transfercode.TransferCodeInputViewModel
@@ -33,6 +34,7 @@ class MyPageViewModel(
     private val authRepository: AuthRepository = dependencies.authRepository
     private val transferSecretStore: TransferSecretStore = dependencies.transferSecretStore
     private val gameSummaryService: GameSummaryService = dependencies.gameSummaryService
+    val gameShareService: GameShareService = dependencies.gameShareService
     private var requestGeneration = 0L
 
     private fun navigate(target: MyPageUiState, event: NavigationEvent = NavigationEvent.Open(target.destination)): Boolean {

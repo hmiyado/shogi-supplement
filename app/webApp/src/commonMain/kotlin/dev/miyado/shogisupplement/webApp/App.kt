@@ -20,6 +20,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.board.PieceType
+import dev.miyado.shogisupplement.gameshare.GameShareService
 import dev.miyado.shogisupplement.board.ShogiSquare
 import dev.miyado.shogisupplement.ui.common.UserSideDialog
 import dev.miyado.shogisupplement.ui.common.adaptiveContentWidth
@@ -80,6 +81,8 @@ fun App(
     onOpenSavedReport: (dev.miyado.shogisupplement.db.GameRecord) -> Unit = {},
     onDeleteSavedReport: ((dev.miyado.shogisupplement.db.GameRecord, Boolean, (dev.miyado.shogisupplement.upload.DeleteGameOutcome) -> Unit) -> Unit)? = null,
     onCopyKif: (String) -> Unit = {},
+    onShareGameUrl: (String) -> Unit = {},
+    gameShareService: GameShareService? = null,
     onDiscardStudy: () -> Unit = {},
     onCancelDiscardStudy: () -> Unit = {},
     studyActions: WebStudyActions? = null,
@@ -116,6 +119,8 @@ fun App(
                 onOpenSavedReport = onOpenSavedReport,
                 onDeleteSavedReport = onDeleteSavedReport,
                 onCopyKif = onCopyKif,
+                onShareGameUrl = onShareGameUrl,
+                gameShareService = gameShareService,
                 studyActions = studyActions,
             )
         }
@@ -138,6 +143,8 @@ private fun AppContent(
     onOpenSavedReport: (dev.miyado.shogisupplement.db.GameRecord) -> Unit,
     onDeleteSavedReport: ((dev.miyado.shogisupplement.db.GameRecord, Boolean, (dev.miyado.shogisupplement.upload.DeleteGameOutcome) -> Unit) -> Unit)?,
     onCopyKif: (String) -> Unit,
+    onShareGameUrl: (String) -> Unit,
+    gameShareService: GameShareService?,
     studyActions: WebStudyActions?,
 ) {
     val labelTextSideSente2 = stringResource(Res.string.text_side_sente_2)
@@ -177,6 +184,9 @@ private fun AppContent(
             canDelete = false,
             onReanalyze = onReanalyze,
             onCopyKif = { original -> onCopyKif(studyActions?.savedKifForExport(original) ?: original) },
+            onShare = null,
+            onShareGameUrl = onShareGameUrl,
+            gameShareService = gameShareService,
             onBack = onBack,
             studyState = studyState,
             onStartStudy = { baseSfen, flip, originIsBestPv, originPlyIndex, originSelectedIdx, originAbsolutePly, origin, tappedSquare, tappedHandPieceType ->

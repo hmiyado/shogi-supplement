@@ -202,13 +202,21 @@ targets:
           URL=""
           KEY=""
           ANALYSIS_BASE_URL=""
+          GAME_SHARE_WEB_URL=""
+          GAME_SHARE_API_BASE_URL=""
           if [ -f "$PROPS" ]; then
             URL=$(sed -n 's/^SUPABASE_URL=//p' "$PROPS" | head -1)
             KEY=$(sed -n 's/^SUPABASE_KEY=//p' "$PROPS" | head -1)
             ANALYSIS_BASE_URL=$(sed -n 's/^ANALYSIS_BASE_URL=//p' "$PROPS" | head -1)
+            case "$CONFIGURATION" in
+              Debug*)
+                GAME_SHARE_WEB_URL=$(sed -n 's/^GAME_SHARE_WEB_URL=//p' "$PROPS" | head -1)
+                GAME_SHARE_API_BASE_URL=$(sed -n 's/^GAME_SHARE_API_BASE_URL=//p' "$PROPS" | head -1)
+                ;;
+            esac
           fi
-          printf 'SUPABASE_URL=%s\nSUPABASE_KEY=%s\nANALYSIS_BASE_URL=%s\n' \
-            "$URL" "$KEY" "$ANALYSIS_BASE_URL" > "$OUT_DIR/SupabaseConfig.properties"
+          printf 'SUPABASE_URL=%s\nSUPABASE_KEY=%s\nANALYSIS_BASE_URL=%s\nGAME_SHARE_WEB_URL=%s\nGAME_SHARE_API_BASE_URL=%s\n' \
+            "$URL" "$KEY" "$ANALYSIS_BASE_URL" "$GAME_SHARE_WEB_URL" "$GAME_SHARE_API_BASE_URL" > "$OUT_DIR/SupabaseConfig.properties"
         basedOnDependencyAnalysis: false
       # Sentry DSN も同じ経路（app/local.properties→ビルド時生成）でバンドルする。
       # 公開するとイベントを外部から投げ込まれるリスクがあるためリポジトリに秘密を置かない。
@@ -298,6 +306,8 @@ targets:
       # Releaseの配布物には一切含めない。
       # バンドルIDを分けても、アイコンと名前が同じでは同居した2つを見分けられない。
       - name: "Mark the app as a development build (Debug only)"
+        inputFiles:
+          - "$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)"
         script: |
           set -e
           case "$CONFIGURATION" in
@@ -308,6 +318,8 @@ targets:
           esac
         basedOnDependencyAnalysis: false
       - name: "Allow local networking (Debug only, for local asset delivery)"
+        inputFiles:
+          - "$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)"
         script: |
           set -e
           case "$CONFIGURATION" in
@@ -315,9 +327,9 @@ targets:
               PLIST="$TARGET_BUILD_DIR/$INFOPLIST_PATH"
               /usr/libexec/PlistBuddy -c "Delete :NSAppTransportSecurity" "$PLIST" 2>/dev/null || true
               /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity dict" "$PLIST"
-              /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity:NSAllowsLocalNetworking bool true" "$PLIST"
+              /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity:NSAllowsArbitraryLoads bool true" "$PLIST"
               /usr/libexec/PlistBuddy -c "Delete :NSLocalNetworkUsageDescription" "$PLIST" 2>/dev/null || true
-              /usr/libexec/PlistBuddy -c "Add :NSLocalNetworkUsageDescription string 開発中のWASMバイナリをMacのローカル配信から取得する検証に使います" "$PLIST"
+              /usr/libexec/PlistBuddy -c "Add :NSLocalNetworkUsageDescription string 開発中のアプリをMacの開発環境に接続して検証するために使います" "$PLIST"
               ;;
           esac
         basedOnDependencyAnalysis: false

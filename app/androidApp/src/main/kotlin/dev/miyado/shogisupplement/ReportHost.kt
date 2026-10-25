@@ -25,6 +25,7 @@ fun ReportHost(vm: MainViewModel, state: MainUiState.ShowReport) {
     val studyState by vm.studyState.collectAsState()
     val context = LocalContext.current
     val view = LocalView.current
+    val app = context.applicationContext as ShogiApp
     val analyze: () -> Unit = { vm.analyzeStoredGame(state.report.game) }
     ReportScreen(
         game = state.report.game,
@@ -78,5 +79,7 @@ fun ReportHost(vm: MainViewModel, state: MainUiState.ShowReport) {
             context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(clip)
         },
         onShare = { shareScreen(context, view) },
+        gameShareService = app.gameShareService,
+        onShareGameUrl = { url -> shareText(context, url) },
     )
 }

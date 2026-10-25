@@ -6,3 +6,9 @@ SUPABASE_KEY=sb_publishable_xxxxxxxxxxxxxxxxxxxx
 ANALYSIS_BASE_URL=https://analysis-worker-xxxxxxxxxx-an.a.run.app
 # Sentry DSN（Sentry ダッシュボード → Project Settings → Client Keys (DSN) で取得。未設定ならクラッシュレポートは無効化される）
 SENTRY_DSN=https://xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx@oXXXXXXXXXXXXXXXX.ingest.us.sentry.io/XXXXXXXXXX
+# Firebase App Check（Android / Play Integrity）。FirebaseコンソールのAndroidアプリ登録で得られる
+# 公開識別子。秘密ではないが、プロジェクト識別子を公開リポジトリへ置かない方針のためここで管理する。
+# 3つ揃わない場合App Checkは無効（App Check必須のサーバーでは所有者向け共有APIが401になる）。
+FIREBASE_ANDROID_APPLICATION_ID=1:000000000000:android:xxxxxxxxxxxxxxxxxxxxxx
+FIREBASE_ANDROID_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+FIREBASE_ANDROID_PROJECT_ID=your-firebase-project

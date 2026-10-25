@@ -135,6 +135,8 @@ internal fun MoveListBottomSheet(
     evalDisplay: String,
     userIsGote: Boolean,
     onSelectPly: (Int) -> Unit,
+    initialSfen: String? = null,
+    includeInitial: Boolean = false,
 ) {
     if (!show) return
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -146,6 +148,8 @@ internal fun MoveListBottomSheet(
                 evalDisplay = evalDisplay,
                 userIsGote = userIsGote,
                 onSelectPly = onSelectPly,
+                initialSfen = initialSfen,
+                includeInitial = includeInitial,
             )
         }
     }

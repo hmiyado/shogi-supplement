@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.db.GameRecord
+import dev.miyado.shogisupplement.gameshare.GameShareService
 import dev.miyado.shogisupplement.ui.common.adaptiveContentWidth
 import dev.miyado.shogisupplement.ui.gamelist.GameListScreen
 import dev.miyado.shogisupplement.ui.report.ReportScreen
@@ -41,6 +42,8 @@ fun MyPageScreen(
     onBackFromDetail: () -> Unit,
     onLogout: () -> Unit,
     onCopyKif: (String) -> Unit,
+    onShareGameUrl: (String) -> Unit,
+    gameShareService: GameShareService?,
     onBackToList: () -> Unit,
 ) {
     var showLoginDialog by remember { mutableStateOf(false) }
@@ -68,6 +71,9 @@ fun MyPageScreen(
             canEdit = false,
             onBack = onBackFromDetail,
             onCopyKif = { original -> onCopyKif(state.detail.game.studyKif ?: original) },
+            onShare = null,
+            onShareGameUrl = onShareGameUrl,
+            gameShareService = gameShareService,
         )
         is MyPageUiState.Error -> ErrorView(
             message = state.message,

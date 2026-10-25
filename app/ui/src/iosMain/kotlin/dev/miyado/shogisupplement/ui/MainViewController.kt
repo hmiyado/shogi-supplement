@@ -142,6 +142,7 @@ import platform.UIKit.UIGraphicsGetImageFromCurrentImageContext
 /** Supabase設定時、未同意なら他ルートを遮断し、同意処理の完了後だけホームへ進める。 */
 @OptIn(ExperimentalNativeApi::class)
 fun MainViewController(): UIViewController = ComposeUIViewController {
+    remember { DatabaseFactory.configureNamespace(DebugBackendStore.namespace) }
     val gameRepository = remember { DatabaseFactory.gameRepository() }
     val drillRepository = remember { DatabaseFactory.drillRepository() }
     val settingsRepository = remember { DatabaseFactory.settingsRepository() }
@@ -155,9 +156,10 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
                 gameRepository,
                 drillRepository,
                 settingsRepository,
-                IosTransferSecretStore(),
+                IosTransferSecretStore(DebugBackendStore.namespace),
                 // framework実体との不一致を避けるため、Swift側ではなくKotlinバイナリのDebug判定を使う。
                 platform = resolvePolicyPlatform("ios", Platform.isDebugBinary),
+                authStorage = DebugBackendStore.authStorage(),
             )
         }
     }
@@ -625,6 +627,7 @@ private fun DemoApp(
                 controller = controller,
                 onBack = { navigate(DemoRoute.Home, NavigationEvent.Back) },
                 onShare = { shareCurrentScreen(shareTitle) },
+                onShareGameUrl = { shareText(it) },
             )
         }
         DemoRoute.Drill -> {
@@ -951,6 +954,7 @@ private fun IosReportScreenHost(
     onBack: () -> Unit,
     justCompleted: Boolean = false,
     onShare: () -> Unit = {},
+    onShareGameUrl: (String) -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     var report by remember(gameId) { mutableStateOf<ReportScreenState?>(null) }
@@ -1048,6 +1052,8 @@ private fun IosReportScreenHost(
         // （Android版 ReportHost.kt の ClipboardManager 相当・snackbar表示は ReportScreen 側）。
         onCopyKif = { kifText -> UIPasteboard.generalPasteboard.string = controller.savedKifForExport(g.id) ?: kifText },
         onShare = onShare,
+        gameShareService = controller.gameShareService,
+        onShareGameUrl = onShareGameUrl,
     )
 }
 
@@ -1203,6 +1209,11 @@ private fun IosDebugScreenHost(
 
     DebugScreen(
         onBack = onBack,
+        backendHostInitial = DebugBackendStore.savedHost(),
+        backendIsLan = DebugBackendStore.active != null,
+        onSaveBackend = { host ->
+            if (host == null) { DebugBackendStore.clear(); true } else DebugBackendStore.save(host)
+        },
         siteBaseUrlInputInitial = savedInitial,
         effectiveSiteBaseUrl = effectiveInfo.url,
         effectiveSiteBaseUrlSource = when (effectiveInfo.source) {
@@ -1307,10 +1318,10 @@ private fun IosTransferCodeInputHost(
             transferRestoreService = RemoteTransferRestoreService(
                 baseUrl = analysisBaseUrl,
                 authRepository = services.authRepository,
-                transferSecretStore = IosTransferSecretStore(),
+                transferSecretStore = services.transferSecretStore,
                 settingsRepository = settingsRepository,
                 platform = resolvePolicyPlatform("ios", Platform.isDebugBinary),
-                appCheckTokenProvider = AppCheckTokenBridge::getToken,
+                appCheckTokenProvider = { if (DebugBackendStore.active == null) AppCheckTokenBridge.getToken() else null },
             ),
         )
     }
@@ -1398,6 +1409,23 @@ private fun shareCurrentScreen(title: String) {
             activityItems = listOf(ScreenshotActivityItemSource(image, title)),
             applicationActivities = null,
         ),
+        animated = true,
+        completion = null,
+    )
+}
+
+@OptIn(ExperimentalForeignApi::class)
+private fun shareText(text: String) {
+    val scene = UIApplication.sharedApplication.connectedScenes
+        .asSequence()
+        .filterIsInstance<UIWindowScene>()
+        .firstOrNull() ?: return
+    val window = scene.windows.asSequence()
+        .filterIsInstance<UIWindow>()
+        .firstOrNull { it.isKeyWindow() } ?: return
+    val presenter = window.rootViewController ?: return
+    presenter.presentViewController(
+        UIActivityViewController(activityItems = listOf(text), applicationActivities = null),
         animated = true,
         completion = null,
     )
