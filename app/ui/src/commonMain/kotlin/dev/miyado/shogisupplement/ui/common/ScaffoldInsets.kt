@@ -1,5 +1,11 @@
 package dev.miyado.shogisupplement.ui.common
 
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.runtime.Composable
@@ -14,3 +20,14 @@ val LocalScaffoldContentInsets = compositionLocalOf<WindowInsets?> { null }
 @Composable
 fun scaffoldContentInsets(): WindowInsets =
     LocalScaffoldContentInsets.current ?: ScaffoldDefaults.contentWindowInsets
+
+/** 下端はリストのcontentPaddingに含めるため、ここでは上端と左右だけを適用する。 */
+@Composable
+fun Modifier.scaffoldTopAndSides(padding: PaddingValues): Modifier {
+    val direction = LocalLayoutDirection.current
+    return padding(
+        start = padding.calculateStartPadding(direction),
+        top = padding.calculateTopPadding(),
+        end = padding.calculateEndPadding(direction),
+    )
+}

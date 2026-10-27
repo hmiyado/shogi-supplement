@@ -34,6 +34,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import dev.miyado.shogisupplement.ui.common.scaffoldTopAndSides
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -219,7 +220,7 @@ fun GameListScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .testTag("game_list")
-                .padding(top = padding.calculateTopPadding())
+                .scaffoldTopAndSides(padding)
                 .adaptiveContentWidth(),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = padding.calculateBottomPadding() + 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),

@@ -28,6 +28,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.VerticalDivider
+import dev.miyado.shogisupplement.ui.common.rememberMovablePane
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -398,7 +399,7 @@ fun ReportScreen(
                     }
                 }
 
-                val boardPane: @Composable () -> Unit = {
+                val boardPane = rememberMovablePane {
                     ReportBoardArea(
                         studyState = studyState,
                         currentSfen = currentSfen,
@@ -533,7 +534,7 @@ fun ReportScreen(
                     Spacer(Modifier.height(4.dp))
                 }
 
-                val bodyPane: @Composable () -> Unit = {
+                val bodyPane = rememberMovablePane {
                     Box(modifier = Modifier.adaptiveContentWidth()) {
                         if (studyState != null) {
                             StudyPanel(

@@ -161,7 +161,7 @@ private fun RepertoireScreenContent(
                 modifier = Modifier.fillMaxWidth().padding(bottom = dev.miyado.shogisupplement.ui.navigation.LocalRootTabBottomPadding.current).padding(16.dp), shape = MaterialTheme.shapes.medium) { Text(labelRepertoireAdd) }
         },
     ) { padding ->
-        LazyColumn(Modifier.fillMaxSize().padding(top = padding.calculateTopPadding()).adaptiveContentWidth(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = padding.calculateBottomPadding() + 16.dp),
+        LazyColumn(Modifier.fillMaxSize().scaffoldTopAndSides(padding).adaptiveContentWidth(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = padding.calculateBottomPadding() + 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (owner == null) item { Text(labelRepertoireAccountRequired) }
             message?.let { item { Text(it, color = MaterialTheme.colorScheme.error) } }
