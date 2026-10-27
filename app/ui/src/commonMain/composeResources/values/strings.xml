@@ -607,4 +607,9 @@
     <string name="debug_backend_restart">棋譜・アカウントは接続先ごとに分けて保存します。変更はアプリの再起動後に反映します。</string>
     <string name="debug_backend_saved">保存しました。アプリを再起動してください。</string>
     <string name="debug_backend_failed">接続先を確認できませんでした。MacのURLと配信状態を確認してください。</string>
+    <string name="drill_mate_title">詰将棋</string>
+    <string name="drill_mate_description">詰みを確認できた局面から出題します。</string>
+    <string name="drill_mate_empty_title">出題できる詰将棋がありません。</string>
+    <string name="drill_mate_empty_body">詰みを確認できた局面がある棋譜を解析すると、ここから復習できます。</string>
+    <string name="home_drill_intro">自分の棋譜から復習します。</string>
 </resources>

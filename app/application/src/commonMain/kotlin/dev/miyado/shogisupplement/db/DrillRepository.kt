@@ -1,18 +1,18 @@
 package dev.miyado.shogisupplement.db
 
 import dev.miyado.shogisupplement.util.currentEpochSeconds
+import dev.miyado.shogisupplement.drill.DrillMode
 
 /** ドリル出題・解答履歴の永続化リポジトリのインターフェース。 */
 interface DrillRepository {
 
-    /**
-     * ドリル出題候補（verdict が ◎ または ○）を優先度順に返す。
-     * ◎ → ○ の順、同格内は priority 降順。
-     */
-    fun getDrillCandidates(): List<BlunderRecord>
-
     /** ホームの「今日の1問」で表示する、最優先の出題候補を1件だけ返す。 */
-    fun getFirstDrillCandidate(): BlunderRecord? = getDrillCandidates().firstOrNull()
+    fun getFirstDrillCandidate(): BlunderRecord?
+
+    /** モードに合う次の1問と、その解答回数・対象件数を同じスナップショットから返す。 */
+    fun getNextDrillQuestion(mode: DrillMode): DrillQuestionSelection
+
+    fun hasDrillCandidates(mode: DrillMode): Boolean
 
     /** 指定棋譜のドリル出題候補だけを優先度順に返す。 */
     fun getDrillCandidatesByGame(gameId: Long): List<BlunderRecord>
@@ -29,9 +29,6 @@ interface DrillRepository {
         attemptedAt: Long = currentEpochSeconds(),
         readPv: String? = null,
     ): Long
-
-    /** 全blunder_reportの解答回数を、IDから件数へのマップで返す。履歴がないIDは含めない。 */
-    fun getDrillAttemptCounts(): Map<Long, Int>
 
     /** 指定 blunder_report の解答履歴を返す（新しい順）。 */
     fun getDrillAttempts(blunderReportId: Long): List<DrillAttemptRecord>
@@ -69,3 +66,9 @@ interface DrillRepository {
 
 /** 7日間連続の達成1回分。日付は "YYYY-MM-DD"。 */
 data class WeekStreakDays(val ordinal: Int, val startDay: String, val endDay: String)
+
+data class DrillQuestionSelection(
+    val candidate: BlunderRecord?,
+    val attemptCount: Int,
+    val totalCandidates: Int,
+)

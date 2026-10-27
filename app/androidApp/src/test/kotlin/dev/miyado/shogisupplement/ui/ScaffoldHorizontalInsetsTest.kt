@@ -49,7 +49,7 @@ class ScaffoldHorizontalInsetsTest {
                 }
             }
         }
-        val card = composeRule.onNode(hasClickAction() and hasText("今日の1問", substring = true))
+        val card = composeRule.onNode(hasClickAction() and hasText("次の一手"))
             .fetchSemanticsNode().boundsInRoot
         assertTrue("Card crosses left safe area: $card", card.left >= 12f)
         assertTrue("Card crosses right safe area: $card", card.right <= 466f - 84f)

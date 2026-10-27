@@ -7,6 +7,7 @@ import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.db.DatabaseFactory
 import dev.miyado.shogisupplement.db.DrillRepository
 import dev.miyado.shogisupplement.db.GameRepository
+import dev.miyado.shogisupplement.drill.DrillMode
 import dev.miyado.shogisupplement.drill.DrillJudge
 import dev.miyado.shogisupplement.drill.EngineDrillSecondaryJudge
 import dev.miyado.shogisupplement.drill.RemoteDrillSecondaryJudge
@@ -48,6 +49,7 @@ object DrillDemoFactory {
         authRepository: AuthRepository? = null,
         analysisBaseUrl: String? = null,
         drillAttemptSync: DrillAttemptSync? = null,
+        mode: DrillMode = DrillMode.NORMAL,
     ): DrillViewModel {
         val gameRepository = DatabaseFactory.gameRepository()
         val drillRepository = DatabaseFactory.drillRepository()
@@ -59,6 +61,7 @@ object DrillDemoFactory {
             seedIfEmpty(gameRepository, drillRepository)
         }
         return DrillViewModel(
+            mode = mode,
             gameRepository = gameRepository,
             drillRepository = drillRepository,
             settingsRepository = settingsRepository,
@@ -186,7 +189,7 @@ object DrillDemoFactory {
 
     private fun seedIfEmpty(gameRepository: GameRepository, drillRepository: DrillRepository) {
         if (gameRepository.getByHash(SEED_CONTENT_HASH) != null) return
-        if (drillRepository.getDrillCandidates().isNotEmpty()) return
+        if (drillRepository.getFirstDrillCandidate() != null) return
 
         // sampleReportBlunder()（MainViewController.kt・ReportViewerScreenshotTest相当）と
         // 同一局面。手筋（両取り・素抜き）の問題で、合法な打ち歩（B*3d）が出題される。

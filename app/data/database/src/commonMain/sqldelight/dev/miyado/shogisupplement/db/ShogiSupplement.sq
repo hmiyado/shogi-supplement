@@ -304,13 +304,6 @@ VALUES (?, ?, ?, ?, ?, ?);
 getDrillAttemptsByBlunder:
 SELECT * FROM drill_attempt WHERE blunder_report_id = ? ORDER BY attempted_at DESC;
 
-getDrillCandidates:
-SELECT * FROM blunder_report
-WHERE verdict LIKE '◎%' OR verdict LIKE '○%'
-ORDER BY
-    CASE WHEN verdict LIKE '◎%' THEN 0 ELSE 1 END,
-    priority DESC;
-
 getDrillCandidatesByGame:
 SELECT * FROM blunder_report
 WHERE game_id = ? AND (verdict LIKE '◎%' OR verdict LIKE '○%')
@@ -328,9 +321,6 @@ LIMIT 1;
 
 getBlunderById:
 SELECT * FROM blunder_report WHERE id = ?;
-
-getDrillAttemptCountAll:
-SELECT blunder_report_id, COUNT(*) AS attempt_count FROM drill_attempt GROUP BY blunder_report_id;
 
 -- 棋譜一覧の絞り込み結果に対する悪手率の分子。1局ずつgetReportsを呼ぶとN回のクエリになる。
 getBlunderCountAll:
@@ -534,3 +524,31 @@ DELETE FROM user_settings;
 
 deleteAllRatingDeclarationHistory:
 DELETE FROM rating_declaration_history;
+
+nextDrillQuestion:
+SELECT b.* FROM blunder_report AS b
+LEFT JOIN (
+    SELECT blunder_report_id, COUNT(*) AS attempt_count
+    FROM drill_attempt GROUP BY blunder_report_id
+) AS attempts ON attempts.blunder_report_id = b.id
+WHERE (b.verdict LIKE '◎%' OR b.verdict LIKE '○%')
+  AND (:mateOnly = 0 OR (b.mate_verified != 0 AND b.missed_mate_in > 0))
+ORDER BY COALESCE(attempts.attempt_count, 0),
+    CASE WHEN b.verdict LIKE '◎%' THEN 0 ELSE 1 END,
+    b.priority DESC, RANDOM()
+LIMIT 1;
+
+countDrillCandidates:
+SELECT COUNT(*) FROM blunder_report
+WHERE (verdict LIKE '◎%' OR verdict LIKE '○%')
+  AND (:mateOnly = 0 OR (mate_verified != 0 AND missed_mate_in > 0));
+
+hasDrillCandidates:
+SELECT EXISTS(
+    SELECT 1 FROM blunder_report
+    WHERE (verdict LIKE '◎%' OR verdict LIKE '○%')
+      AND (:mateOnly = 0 OR (mate_verified != 0 AND missed_mate_in > 0))
+);
+
+countAttemptsForQuestion:
+SELECT COUNT(*) FROM drill_attempt WHERE blunder_report_id = ?;

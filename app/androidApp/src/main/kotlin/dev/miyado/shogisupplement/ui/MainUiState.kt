@@ -1,5 +1,6 @@
 package dev.miyado.shogisupplement.ui
 
+import dev.miyado.shogisupplement.drill.DrillMode
 import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.SavedGameFilter
@@ -61,7 +62,7 @@ sealed class MainUiState {
     ) : MainUiState()
     data class Error(val message: String, val pastGames: List<GameRecord> = emptyList()) : MainUiState()
     /** ドリル画面に遷移する。 */
-    object Drill : MainUiState()
+    data class Drill(val mode: DrillMode = DrillMode.NORMAL) : MainUiState()
     /** アカウント画面に遷移する。 */
     object Account : MainUiState()
     /** OSSライセンス一覧画面に遷移する（戻り先は設定画面）。 */
@@ -93,7 +94,7 @@ internal val MainUiState.destination: AppDestination
         is MainUiState.AnalyzingReport -> AppDestination.ANALYZING
         is MainUiState.ShowReport -> AppDestination.REPORT
         MainUiState.Repertoire -> AppDestination.REPERTOIRE
-        MainUiState.Drill -> AppDestination.DRILL
+        is MainUiState.Drill -> AppDestination.DRILL
         MainUiState.Account -> AppDestination.ACCOUNT
         MainUiState.Licenses -> AppDestination.LICENSES
         MainUiState.Settings -> AppDestination.SETTINGS

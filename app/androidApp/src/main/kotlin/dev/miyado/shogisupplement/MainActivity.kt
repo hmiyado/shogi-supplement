@@ -161,7 +161,7 @@ fun MainApp(vm: MainViewModel, state: MainUiState) {
             }
             is MainUiState.Drill -> {
                 BackHandler { vm.loadHome() }
-                DrillScreen(onBack = { vm.loadHome() })
+                DrillScreen(onBack = { vm.loadHome() }, mode = state.mode)
             }
             is MainUiState.Account -> {
                 AccountHost(vm)

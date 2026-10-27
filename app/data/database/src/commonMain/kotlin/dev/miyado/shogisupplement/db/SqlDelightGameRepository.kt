@@ -644,7 +644,6 @@ class SqlDelightGameRepository(private val database: ShogiSupplementDatabase) : 
 }
 
 // --- SQLDelight生成型 → ドメイン型への変換 ---
-// internal: DrillRepository（getDrillCandidates）からも悪手レコード変換を再利用するため。
 
 internal fun Game.toGameRecord() = GameRecord(
     id = id,

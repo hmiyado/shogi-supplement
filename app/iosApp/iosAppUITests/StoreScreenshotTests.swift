@@ -207,7 +207,8 @@ final class StoreScreenshotTests: XCTestCase {
         attachScreenshot(named: "01_home")
 
         // ── 6. 「今日の1問」→ 次の一手問題の出題画面（05_drill_question） ──────
-        let todaysDrill = element(labeledContainsAny: ["今日の1問", "次の一手"], timeout: 10)
+        let todaysDrill = app.buttons.matching(NSPredicate(format: "label == %@", "次の一手")).firstMatch
+        _ = todaysDrill.waitForExistence(timeout: 10)
         XCTAssertTrue(todaysDrill.exists, "「今日の1問」（または次の一手導線）が見つかりません")
         todaysDrill.tap()
 

@@ -1,5 +1,7 @@
 package dev.miyado.shogisupplement.ui
 
+import dev.miyado.shogisupplement.drill.DrillMode
+
 import dev.miyado.shogisupplement.ui.text.LocalizedStrings
 
 import androidx.compose.runtime.getValue
@@ -232,8 +234,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /** ドリル画面に遷移する。 */
-    fun startDrill() {
-        navigateTo(MainUiState.Drill)
+    fun startDrill(mode: DrillMode = DrillMode.NORMAL) {
+        navigateTo(MainUiState.Drill(mode))
     }
 
     /** アカウント画面に遷移する。 */

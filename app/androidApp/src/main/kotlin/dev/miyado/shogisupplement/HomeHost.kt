@@ -1,5 +1,7 @@
 package dev.miyado.shogisupplement
 
+import dev.miyado.shogisupplement.drill.DrillMode
+
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.runtime.Composable
@@ -32,6 +34,7 @@ fun HomeHost(
         onGameClick = { game -> vm.showReport(game.id) },
         onAnalyzingClick = { session -> vm.resumeAnalyzing(session.id) },
         onStartDrill = { vm.startDrill() },
+        onStartMateDrill = { vm.startDrill(DrillMode.MATE) },
         onOpenSettings = { vm.openSettings() },
         onOpenRepertoire = vm::openRepertoire,
         onViewAllGames = { vm.openGameList() },

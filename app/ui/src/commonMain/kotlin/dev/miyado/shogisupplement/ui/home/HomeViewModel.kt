@@ -1,6 +1,7 @@
 package dev.miyado.shogisupplement.ui.home
 
 import dev.miyado.shogisupplement.ui.text.LocalizedStrings
+import dev.miyado.shogisupplement.drill.DrillMode
 
 import dev.miyado.shogisupplement.db.DrillRepository
 import dev.miyado.shogisupplement.ui.drillrecord.DRILL_RECORD_WINDOW_DAYS
@@ -42,7 +43,7 @@ class HomeViewModel(
         val drillCandidate = drillRepository.getFirstDrillCandidate()
         val sc = computeStrengthCard(gameRepository.getGamesWithUserSide())
         val hint = drillCandidate?.let { blunder ->
-            if (gameRepository.getGameById(blunder.gameId) != null) TodaysDrillHint(blunder.ply) else null
+            if (gameRepository.getGameById(blunder.gameId) != null) TodaysDrillHint(blunder.ply, drillRepository.hasDrillCandidates(DrillMode.MATE)) else null
         }
         val record = computeDrillRecordCard()
         HomeResult(recentGames, sc, hint, record)

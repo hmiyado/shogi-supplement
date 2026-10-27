@@ -80,6 +80,7 @@ import dev.miyado.shogisupplement.ui.consent.ConsentScreen
 import dev.miyado.shogisupplement.ui.debug.DebugScreen
 import dev.miyado.shogisupplement.ui.drill.DrillQuestionContent
 import dev.miyado.shogisupplement.ui.drill.DrillResultContent
+import dev.miyado.shogisupplement.drill.DrillMode
 import dev.miyado.shogisupplement.ui.drill.DrillUiState
 import dev.miyado.shogisupplement.ui.forceupdate.ForceUpdateScreen
 import dev.miyado.shogisupplement.ui.gamelist.GameListScreen
@@ -285,7 +286,7 @@ private fun IosConsentScreenHost(
 private sealed class DemoRoute {
     object Home : DemoRoute()
     data class Report(val gameId: Long, val justCompleted: Boolean = false) : DemoRoute()
-    object Drill : DemoRoute()
+    data class Drill(val mode: DrillMode = DrillMode.NORMAL) : DemoRoute()
     object Settings : DemoRoute()
     object Licenses : DemoRoute()
     object Account : DemoRoute()
@@ -307,7 +308,7 @@ private val DemoRoute.destination: AppDestination
     get() = when (this) {
         DemoRoute.Home -> AppDestination.HOME
         is DemoRoute.Report -> AppDestination.REPORT
-        DemoRoute.Drill -> AppDestination.DRILL
+        is DemoRoute.Drill -> AppDestination.DRILL
         DemoRoute.Settings -> AppDestination.SETTINGS
         DemoRoute.Licenses -> AppDestination.LICENSES
         DemoRoute.Account -> AppDestination.ACCOUNT
@@ -547,7 +548,8 @@ private fun DemoApp(
                     onOpenKif = { showKifSourceDialog = true },
                     onGameClick = { game -> navigate(DemoRoute.Report(game.id)) },
                     onAnalyzingClick = { session -> controller.resumeAnalyzing(session.id) },
-                    onStartDrill = { navigate(DemoRoute.Drill) },
+                    onStartDrill = { navigate(DemoRoute.Drill()) },
+                    onStartMateDrill = { navigate(DemoRoute.Drill(DrillMode.MATE)) },
                     onOpenSettings = { navigate(DemoRoute.Settings) },
                     onOpenRepertoire = { navigate(DemoRoute.Repertoire) },
                     onViewAllGames = { navigate(DemoRoute.GameList) },
@@ -630,8 +632,9 @@ private fun DemoApp(
                 onShareGameUrl = { shareText(it) },
             )
         }
-        DemoRoute.Drill -> {
+        is DemoRoute.Drill -> {
             IosDrillScreen(
+                mode = r.mode,
                 authRepository = supabaseServices?.authRepository,
                 analysisBaseUrl = analysisBaseUrl,
                 services = supabaseServices,
@@ -1064,13 +1067,15 @@ private fun IosReportScreenHost(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun IosDrillScreen(
+    mode: DrillMode = DrillMode.NORMAL,
     onBack: () -> Unit,
     authRepository: AuthRepository? = null,
     analysisBaseUrl: String? = null,
     services: SupabaseServices? = null,
 ) {
-    val vm = remember(authRepository, analysisBaseUrl, services) {
+    val vm = remember(authRepository, analysisBaseUrl, services, mode) {
         DrillDemoFactory.create(
+            mode = mode,
             authRepository = authRepository,
             analysisBaseUrl = analysisBaseUrl,
             drillAttemptSync = services?.uploadOrchestrator,
@@ -1085,7 +1090,7 @@ private fun IosDrillScreen(
 
     Scaffold(contentWindowInsets = scaffoldContentInsets()) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            ShogiThinTopBar(title = stringResource(Res.string.drill_title), onBack = leave)
+            ShogiThinTopBar(title = stringResource(if (mode == DrillMode.MATE) Res.string.drill_mate_title else Res.string.drill_title), onBack = leave)
             when (val s = state) {
                 is DrillUiState.Loading -> {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -1094,7 +1099,7 @@ private fun IosDrillScreen(
                 }
                 is DrillUiState.NoCandidates -> {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(stringResource(Res.string.drill_empty_title), style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(if (mode == DrillMode.MATE) Res.string.drill_mate_empty_title else Res.string.drill_empty_title), style = MaterialTheme.typography.titleMedium)
                     }
                 }
                 is DrillUiState.Question -> {
