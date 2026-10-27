@@ -63,6 +63,7 @@ import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
@@ -96,6 +97,26 @@ class StoreImageTest {
         val source = ImageIO.read(File(path))
         finalizeImage(source, File(path), OutputWidthPx, OutputHeightPx)
         finalizeImage(source, File("../iosApp/fastlane/screenshots/ja/${fileName}_6.5.png"), 1284, 2778)
+        captureDuo(fileName, caption, inner = false, screen)
+        captureDuo(fileName, caption, inner = true, screen)
+    }
+
+    private fun captureDuo(fileName: String, caption: String, inner: Boolean, screen: @Composable () -> Unit) {
+        val night = if (fileName == "02_home_dark") "-night" else "-notnight"
+        val canvasWidth = if (inner) 1084 else 652
+        val canvasHeight = if (inner) 763 else 949
+        RuntimeEnvironment.setQualifiers("w${canvasWidth}dp-h${canvasHeight}dp$night-xxhdpi")
+        val suffix = if (inner) "inner" else "outer"
+        val file = File("../iosApp/fastlane/duo_screenshots/ja/${fileName}_duo_$suffix.png")
+        checkNotNull(file.parentFile).mkdirs()
+        captureRoboImage(filePath = file.path, roborazziOptions = storeRoborazziOptions) {
+            DuoStoreCard(caption, inner, screen)
+        }
+        val source = ImageIO.read(file)
+        val width = if (inner) 2853 else 1398
+        val height = if (inner) 2007 else 2034
+        check(source.width >= width && source.height >= height) { "Store images must not be upscaled" }
+        finalizeImage(source, file, width, height)
     }
 
     /**
@@ -332,6 +353,43 @@ private fun StoreCard(caption: String, screen: @Composable () -> Unit) {
                     .requiredSize(PhoneWidth, PhoneHeight)
                     .clip(RoundedCornerShape(topStart = 48.dp, topEnd = 48.dp)),
             ) {
+                ShogiTheme { Surface { screen() } }
+            }
+        }
+    }
+}
+
+/** Duo用の台紙。内側は画面を約77%の面積で表示し、OSの装飾は追加しない。 */
+@Composable
+private fun DuoStoreCard(caption: String, inner: Boolean, screen: @Composable () -> Unit) {
+    val appWidth = if (inner) 950.dp else 466.dp
+    val appHeight = if (inner) appWidth * (2007f / 2853f) else appWidth * (2034f / 1398f)
+    Box(
+        Modifier.fillMaxSize().background(
+            Brush.linearGradient(listOf(LightBg, LightPrimarySoft), Offset.Zero, Offset.Infinite),
+        ),
+    ) {
+        Text(
+            text = if (inner) caption.replace("\n", "") else caption,
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = if (inner) 12.dp else 36.dp),
+            style = TextStyle(
+                fontFamily = ShipporiMinchoFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = if (inner) 42.sp else 54.sp,
+                lineHeight = if (inner) 54.sp else 76.sp,
+                textAlign = TextAlign.Center,
+                color = LightInk,
+            ),
+        )
+        Box(
+            Modifier.align(Alignment.TopCenter)
+                .offset(y = if (inner) 76.dp else 210.dp)
+                .shadow(12.dp, RoundedCornerShape(16.dp))
+                .clip(RoundedCornerShape(16.dp))
+                .background(LightSurface)
+                .padding(6.dp),
+        ) {
+            Box(Modifier.requiredSize(appWidth, appHeight).clip(RoundedCornerShape(10.dp))) {
                 ShogiTheme { Surface { screen() } }
             }
         }

@@ -64,12 +64,18 @@
 
 UIが変わったリリースでは掲載画像も更新する。
 
+iPhone Duo対応版はXcode 27.1以降でビルドし、内側・外側の実画面と開閉時の状態保持を確認する。
+専用画像は`*_duo_inner.*`・`*_duo_outer.*`。指定寸法とテスト生成手順は
+[iPhone Duo 対応](../../docs/iphone-duo.md)を参照し、既存のiPhone画像の拡大で代用しない。
+
 ```bash
 cd app && ./gradlew :androidApp:recordRoborazziDebug --tests "*StoreImageTest*" -Pshogi.storeImages=true --rerun-tasks
 ```
 
 - 書き出し先は `app/iosApp/fastlane/screenshots/ja/`。6.9インチ枠（1290x2796）と
   6.5インチ枠（1284x2778・ファイル名末尾 `_6.5`）を各6枚、同じ見出し・画面から生成する。
+  Duo内外各6枚は `app/iosApp/fastlane/duo_screenshots/ja/` へ生成する。
+  現行fastlaneはDuo未対応のため自動提出へは含まれない。Apple側とfastlaneの対応後に提出経路を設定する。
   差分を目で確認してから準備コミットに含める。
 - 1枚は「見出し＋端末モック」の組み。見出しの文言・画面の中身の数値はどちらも
   `StoreImageTest.kt` にある。見出しは2行までに収める（はみ出すと端末に被る）。
