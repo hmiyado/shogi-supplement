@@ -62,12 +62,27 @@ cd app
 
 ### アップロード対応
 
-現在固定しているfastlane 2.239.0は、Duoの寸法と表示区分を認識しない。
-[Apple DTSの案内](https://developer.apple.com/forums/thread/845505)でも、App Store ConnectのDuo画像アップロード対応は今後提供予定とされている。
-そのため、Duo画像を通常iPhone向けの自動提出へ混ぜない。
-アップロード対応の公開後に、表示区分とfastlaneの対応を確認してDuo画像の提出経路を設定する。
-そのとき提出するのはこのテストが生成した完成画像であり、改めて端末を撮影する必要はない。
-現時点でDuo画像の自動アップロード対応や受理確認が済んでいるとは扱わない。
+fastlane 2.241.2はDuoの内外寸法を`APP_IPHONE_DUO`として認識する。
+[Appleの受付開始案内](https://developer.apple.com/news/?id=kkphp5qo)に従い、
+提出にはテストで生成した完成画像を使う。
+
+Duoの内外は同じ表示区分に入る。[表示区分あたりの上限10枚](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications)に合わせ、
+ホーム・形勢グラフ・悪手一覧・出題・結果を内外各5枚、計10枚提出する。
+ダークホームも含む生成物12枚はそのまま保持する。
+
+`fastlane/store_screenshot_upload.rb`は通常iPhone向け12枚とDuo向け10枚を
+`app/iosApp/build/store_screenshots/ja/`へコピーする。画像の再描画や変形はしない。
+fastlaneと同じ寸法判定で表示区分と枚数を検査し、不足・異なる寸法・10枚超過では停止する。
+`beta`の画像生成後と`submit`の提出前に準備し、`deliver`の`screenshots_path`へ渡す。
+
+```sh
+cd app/iosApp
+bundle exec ruby fastlane/tests/store_screenshot_upload_test.rb
+bundle exec ruby fastlane/store_screenshot_upload.rb
+```
+
+アップロード後はApp Store ConnectのDuo区分に内外の画像が反映されたことを確認する。
+ローカルの分類・準備テストの成功は、サーバーでの受理確認を代替しない。
 
 ### 掲載用画像
 

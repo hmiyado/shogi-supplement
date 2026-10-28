@@ -86,8 +86,10 @@ cd app && ./gradlew :androidApp:recordRoborazziDebug --tests "*StoreImageTest*" 
 - 書き出し先は `app/iosApp/fastlane/screenshots/ja/`。6.9インチ枠（1290x2796）と
   6.5インチ枠（1284x2778・ファイル名末尾 `_6.5`）を各6枚、同じ見出し・画面から生成する。
   Duo内外各6枚は `app/iosApp/fastlane/duo_screenshots/ja/` へ生成する。
-  現行fastlaneはDuo未対応のため自動提出へは含まれない。Apple側とfastlaneの対応後に提出経路を設定する。
-  差分を目で確認してから準備コミットに含める。
+  fastlane 2.241.2で提出用に通常12枚とDuo10枚を`app/iosApp/build/store_screenshots/ja/`へまとめる。
+  Duoは内外で同一区分のため、ホーム・形勢グラフ・悪手一覧・出題・結果を各5枚に絞る。
+  `beta`と`submit`が準備処理を実行し、`deliver`はこの提出用フォルダを使う。
+  差分を目で確認してから準備コミットに含め、アップロード後もDuo区分への反映を確認する。
 - 1枚は「見出し＋端末モック」の組み。見出しの文言・画面の中身の数値はどちらも
   `StoreImageTest.kt` にある。見出しは2行までに収める（はみ出すと端末に被る）。
 - 見出しの文言は `docs/wording.md` の対象。変えるときは表と突き合わせる。
