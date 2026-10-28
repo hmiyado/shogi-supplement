@@ -2,6 +2,8 @@ package dev.miyado.shogisupplement.ui
 
 import dev.miyado.shogisupplement.drill.DrillMode
 
+import dev.miyado.shogisupplement.importing.KifFileReader
+
 import dev.miyado.shogisupplement.ui.text.LocalizedStrings
 
 import androidx.compose.runtime.getValue
@@ -416,7 +418,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     /**
      * 選ばれたURIのKIFを読む。表示名と本文を1回の読み取りで返す
-     * （本文はUTF-8で読めなければnull）。
+     * （読み込み・文字コードの判定に失敗した本文はnull）。
      */
     suspend fun readKifFromUri(uri: Uri): Pair<String, String?> = withContext(Dispatchers.IO) {
         resolveKifFileName(uri) to runCatching { readKifContentFromUri(uri) }.getOrNull()
@@ -498,18 +500,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /**
-     * KIF ファイルの対局者名（先手・後手）をパースして返す。
-     * 読み込み・パースに失敗した場合は (null, null)。
-     */
-    /** KIF原文を読む（ファイルURI/コンテンツURIの両対応）。 */
     private fun readKifContentFromUri(uri: Uri): String =
-        if (uri.scheme == "file") {
-            java.io.File(uri.path!!).readText()
-        } else {
-            getApplication<Application>().contentResolver
-                .openInputStream(uri)!!.use { it.readBytes().decodeToString() }
-        }
+        KifFileReader.read(getApplication<Application>().contentResolver, uri)
 
     /** content URIでは末尾パスが表示名とは限らないため、Providerの表示名を優先する。 */
     private fun resolveKifFileName(uri: Uri): String {
