@@ -97,6 +97,7 @@ fun EstimatedStrengthDetailScreen(
             if (data.trend.isNotEmpty()) {
                 item { TrendCard(data.trend) }
             }
+            item { MateStatisticsCard(data.mateStatistics) }
             item { AccountsCard(data.services, onEditAccounts) }
         }
     }
