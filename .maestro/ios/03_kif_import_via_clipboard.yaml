@@ -14,6 +14,8 @@ env:
 ---
 - launchApp:
     clearState: false
+    arguments:
+      UITEST_PASTEBOARD_KIF_BASE64: "${typeof UITEST_PASTEBOARD_KIF_BASE64 === 'undefined' ? '' : UITEST_PASTEBOARD_KIF_BASE64}"
 - runFlow: subflows/handle_consent_onboarding.yaml
 - assertVisible: "将棋サプリ"
 - tapOn: "棋譜を追加する"

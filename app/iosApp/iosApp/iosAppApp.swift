@@ -65,11 +65,13 @@ struct iosAppApp: App {
     }
 
     /// 実機ではXCUITestランナー（バックグラウンドプロセス）からのUIPasteboard書き込みが
-    /// PBErrorDomain Code=10/11 で拒否されるため、スモークテストはlaunchEnvironment経由で
+    /// PBErrorDomain Code=10/11 で拒否されるため、スモークテストは起動環境・引数で
     /// KIFを渡し、フォアグラウンドのアプリ自身にクリップボードへ書き込ませる。
     private static func seedPasteboardForUITestIfNeeded() {
         #if DEBUG
-        guard let b64 = ProcessInfo.processInfo.environment["UITEST_PASTEBOARD_KIF_BASE64"],
+        guard let b64 = ProcessInfo.processInfo.environment["UITEST_PASTEBOARD_KIF_BASE64"]
+                ?? UserDefaults.standard.string(forKey: "UITEST_PASTEBOARD_KIF_BASE64"),
+              !b64.isEmpty,
               let data = Data(base64Encoded: b64),
               let text = String(data: data, encoding: .utf8) else {
             return

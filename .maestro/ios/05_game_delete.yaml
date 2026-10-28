@@ -16,6 +16,8 @@ env:
 ---
 - launchApp:
     clearState: true
+    arguments:
+      UITEST_PASTEBOARD_KIF_BASE64: "${typeof UITEST_PASTEBOARD_KIF_BASE64 === 'undefined' ? '' : UITEST_PASTEBOARD_KIF_BASE64}"
 - runFlow: subflows/handle_consent_onboarding.yaml
 - tapOn: "棋譜を追加する"
 - tapOn: "クリップボードから貼り付け"

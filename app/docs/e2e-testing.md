@@ -57,7 +57,8 @@ Maestro による実機（シミュレータ/エミュレータ）E2E。フロ�
 4. クリップボード経由の取込フロー（`03_kif_import_via_clipboard.yaml`）はOSクリップボードに
    有効なKIFが入っていることが前提。KIF投入込みの実行入口 `.maestro/run-ios.sh` を使えば
    手作業は不要（MaestroのsetClipboardは内部クリップボード専用でUIPasteboardには効かないため、
-   投入はフロー外のスクリプトで行う）
+   Debug専用の起動引数でアプリ自身に投入させる）。単体フローへは
+   `-e UITEST_PASTEBOARD_KIF_BASE64=<KIFテキストのBase64>` を渡す。
 
 ### Android
 
