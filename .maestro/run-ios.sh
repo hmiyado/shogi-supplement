@@ -24,6 +24,7 @@ run_maestro() {
 
 put_clipboard "not a kif"
 run_maestro .maestro/ios/01_home_smoke.yaml
+run_maestro .maestro/ios/10_root_tab_navigation.yaml
 run_maestro .maestro/ios/02_clipboard_paste_alert.yaml
 
 put_clipboard "$(cat "${KIF_FILE}")"

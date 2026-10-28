@@ -55,7 +55,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
-import androidx.compose.ui.window.ComposeUIViewController
 import com.mikepenz.aboutlibraries.Libs
 import dev.miyado.shogisupplement.auth.AuthRepository
 import dev.miyado.shogisupplement.crypto.IosTransferSecretStore
@@ -142,7 +141,7 @@ import platform.UIKit.UIGraphicsGetImageFromCurrentImageContext
 
 /** Supabase設定時、未同意なら他ルートを遮断し、同意処理の完了後だけホームへ進める。 */
 @OptIn(ExperimentalNativeApi::class)
-fun MainViewController(): UIViewController = ComposeUIViewController {
+fun MainViewController(): UIViewController = dev.miyado.shogisupplement.ui.navigation.rootTabHostController {
     remember { DatabaseFactory.configureNamespace(DebugBackendStore.namespace) }
     val gameRepository = remember { DatabaseFactory.gameRepository() }
     val drillRepository = remember { DatabaseFactory.drillRepository() }
