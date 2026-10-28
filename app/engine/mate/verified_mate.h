@@ -78,20 +78,37 @@ class Verifier {
 public:
     Verifier() { solver.alloc(16); }
 
-    Result shortest(Position& pos, bool defending) {
+    Result shortest(Position& pos, bool defending, int hint = 0) {
         if (!pos.pieces(BLACK, KING) || !pos.pieces(WHITE, KING)) return {};
-        auto found = bounded(pos, defending, 0);
-        if (found.status != Result::Mate || found.plies == 0) return found;
         const int offset = defending ? 2 : 1;
         const int cap = (63 - offset) / 2;
+        Result proof;
         int lower = -1;
-        int upper = std::min(cap, std::max(0, (found.plies - offset + 1) / 2));
-        auto proof = bounded(pos, defending, 2 * upper + offset);
-        while (proof.status != Result::Mate) {
-            if (proof.status == Result::Unknown || upper == cap) return {};
-            lower = upper;
-            upper = std::min(cap, 2 * upper + 1);
+        int upper = 0;
+        bool proven = false;
+        // A hinted bound cannot disprove a mate, so a failed hint falls back to unbounded discovery.
+        if (hint > 0 && hint <= 63) {
+            upper = (hint - offset + 1) / 2;
+            if (upper >= 0 && upper <= cap) {
+                auto result = bounded(pos, defending, 2 * upper + offset);
+                if (result.status == Result::Mate && result.plies > 0) {
+                    proof = result;
+                    upper = std::min(cap, std::max(0, (result.plies - offset + 1) / 2));
+                    proven = true;
+                }
+            }
+        }
+        if (!proven) {
+            auto found = bounded(pos, defending, 0);
+            if (found.status != Result::Mate || found.plies == 0) return found;
+            upper = std::min(cap, std::max(0, (found.plies - offset + 1) / 2));
             proof = bounded(pos, defending, 2 * upper + offset);
+            while (proof.status != Result::Mate) {
+                if (proof.status == Result::Unknown || upper == cap) return {};
+                lower = upper;
+                upper = std::min(cap, 2 * upper + 1);
+                proof = bounded(pos, defending, 2 * upper + offset);
+            }
         }
         while (upper - lower > 1) {
             int middle = (upper + lower) / 2;
@@ -131,13 +148,16 @@ public:
         for (const auto& [multi, entry] : pending) {
             Result result;
             // PV1 describes the whole position. Other positive PVs fix the first move.
-            if (multi == 1) result = verifier.shortest(pos, entry.mate <= 0);
-            else if (entry.mate > 0) {
+            if (multi == 1) {
+                long long hint = entry.mate;
+                if (hint < 0) hint = -hint;
+                result = verifier.shortest(pos, entry.mate <= 0, hint <= 63 ? int(hint) : 0);
+            } else if (entry.mate > 0) {
                 auto first = USIEngine::to_move(pos, entry.pv.substr(0, entry.pv.find(' ')));
                 if (first != Move::none() && pos.legal(first) && pos.gives_check(first)) {
                     StateInfo state;
                     pos.do_move(first, state);
-                    result = verifier.shortest(pos, true);
+                    result = verifier.shortest(pos, true, entry.mate - 1);
                     pos.undo_move(first);
                     if (result.status == Result::Mate) {
                         ++result.plies;
