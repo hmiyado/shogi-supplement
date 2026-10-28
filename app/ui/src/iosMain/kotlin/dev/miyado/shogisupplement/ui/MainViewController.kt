@@ -334,6 +334,7 @@ private fun DemoApp(
 ) {
     val shareTitle = stringResource(Res.string.app_title)
     val tabStateHolder = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
+    val gameListSession = dev.miyado.shogisupplement.ui.gamelist.rememberGameListSession()
     var route by remember { mutableStateOf<DemoRoute>(DemoRoute.Home) }
     var rootNavigation by remember { mutableStateOf(dev.miyado.shogisupplement.navigation.RootNavigation()) }
     fun rootRoute(destination: AppDestination): DemoRoute = when(destination) {
@@ -717,6 +718,7 @@ private fun DemoApp(
                 services = supabaseServices,
                 settingsRepository = settingsRepository,
                 controller = controller,
+                session = gameListSession,
                 onBack = { navigate(DemoRoute.Home, NavigationEvent.Back) },
                 onGameClick = { game -> navigate(DemoRoute.Report(game.id)) },
                 onAddGame = { showKifSourceDialog = true },
@@ -753,6 +755,7 @@ private fun IosGameListScreenHost(
     services: SupabaseServices?,
     settingsRepository: SettingsRepository,
     controller: IosMainController,
+    session: dev.miyado.shogisupplement.ui.gamelist.GameListSession,
     onBack: () -> Unit,
     onGameClick: (GameRecord) -> Unit,
     onAddGame: () -> Unit,
@@ -782,6 +785,7 @@ private fun IosGameListScreenHost(
     GameListScreen(
         games = emptyList(),
         queries = repository.gameListQueries,
+        session = session,
         labelOwner = labelOwner,
         dataRevision = dataRevision,
         onAddGame = onAddGame,

@@ -62,13 +62,14 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 /**
  * 棋譜一覧画面。絞り込み条件はボトムシートで編集し、条件チップの出し入れでも一覧側の
  * レイアウトは変えない（DESIGN.md No-jitter原則）。
- * 絞り込み状態はローカル state のみで保持し、画面を離れて戻ると必ず未フィルタから始まる。
+ * [session] を渡すと、レポートを開いている間もスクロール位置と読み込み済みページを保つ。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GameListScreen(
     games: List<GameRecord>,
     queries: dev.miyado.shogisupplement.db.GameListReader? = null,
+    session: GameListSession? = null,
     labelOwner: String? = null,
     dataRevision: Any? = null,
     onAddGame: (() -> Unit)? = null,
@@ -113,11 +114,12 @@ fun GameListScreen(
     // selectedIdsから都度導出しない: 絞り込み変更やダイアログを閉じずに再確定した場合の
     // games/selectedIdsの変化が、確認中の対象・件数・見出しへ即座に反映されないようにする。
     var dialogTargets by remember { mutableStateOf(emptyList<GameRecord>()) }
-    val paged = queries?.let { rememberPagedGameList(it, labelOwner, filter, dataRevision, localSavedFilters) }
+    val listSession = session ?: rememberGameListSession()
+    val paged = queries?.let { rememberPagedGameList(it, labelOwner, filter, dataRevision, localSavedFilters, listSession) }
     val snapshot = paged?.snapshot
     val filteredGames = if (paged == null) games.filterGames(filter) else snapshot?.page?.games.orEmpty()
     val totalCount = snapshot?.total ?: if (paged == null) games.size else 0
-    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val listState = listSession.listState
     val scope = rememberCoroutineScope()
     val shogiColors = MaterialTheme.shogiColors
 
@@ -137,9 +139,11 @@ fun GameListScreen(
             }
         }
     }
-    androidx.compose.runtime.LaunchedEffect(filter, labelOwner) {
-        selectedIds = emptySet()
-        listState.scrollToItem(0)
+    androidx.compose.runtime.LaunchedEffect(listSession, filter, labelOwner) {
+        if (listSession.consumeQueryChange(labelOwner, filter)) {
+            selectedIds = emptySet()
+            listState.scrollToItem(0)
+        }
     }
 
     Scaffold(
@@ -289,13 +293,13 @@ fun GameListScreen(
                     selected = game.id in selectedIds,
                 )
             }
-            if (paged != null && (paged.loading || paged.snapshot == null) && !paged.failed) {
+            if (paged != null && (paged.snapshot == null || paged.loadingMore) && !paged.failed) {
                 item { CircularProgressIndicator(Modifier.padding(16.dp).testTag("games_loading")) }
             }
             if (paged?.failed == true) {
                 item {
                     androidx.compose.material3.TextButton(onClick = { scope.launch {
-                        if (paged.snapshot == null) paged.refresh(localSavedFilters) else paged.loadMore()
+                        if (paged.snapshot == null || paged.failedRefresh) paged.refresh(localSavedFilters) else paged.loadMore()
                     } }) { Text(stringResource(Res.string.game_list_load_retry)) }
                 }
             }
