@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900">
+  <rect width="1200" height="900" fill="#F7F3EA"/>
+  <rect width="12" height="900" fill="#3A4B7C"/>
+  <text x="64" y="78" font-family="Shippori Mincho" font-size="36" fill="#211E1A">将棋サプリ</text>
+  <text x="64" y="126" font-family="IBM Plex Mono" font-size="24" fill="#3A4B7C">UPDATE 1.16</text>
+  <rect x="64" y="178" width="600" height="2" fill="#DDD5C4"/>
+  <text x="64" y="270" font-family="Shippori Mincho" font-size="30" fill="#211E1A">検討の手順や変化を見やすく。</text>
+  <text x="64" y="318" font-family="IBM Plex Sans JP" font-size="24" fill="#5C564C">分岐は横スクロールで表示。</text>
+  <text x="64" y="456" font-family="Shippori Mincho" font-size="30" fill="#211E1A">囲い・戦型を10種類追加</text>
+  <text x="64" y="504" font-family="IBM Plex Sans JP" font-size="24" fill="#5C564C">銀矢倉・天守閣美濃・ゴキゲン中飛車など。</text>
+  <text x="64" y="642" font-family="Shippori Mincho" font-size="30" fill="#211E1A">詰みの表示を、より確かに。</text>
+  <text x="64" y="690" font-family="IBM Plex Sans JP" font-size="24" fill="#5C564C">確認できた詰みだけを「N手詰」と表示。</text>
+  <text x="64" y="730" font-family="IBM Plex Sans JP" font-size="24" fill="#5C564C">未確認の勝ち・負けと区別します。</text>
+  <text x="744" y="54" font-family="IBM Plex Sans JP" font-size="18" fill="#5C564C">検討画面（表示例）</text>
+  <image x="744" y="80" width="400" height="800" href="release-1.16-study.png"/>
+  <text x="64" y="852" font-family="IBM Plex Sans JP" font-size="18" fill="#5C564C">自分の棋譜から、次の一手を。</text>
+</svg>
