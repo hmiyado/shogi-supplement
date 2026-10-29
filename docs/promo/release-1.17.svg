@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900">
+  <rect width="1200" height="900" fill="#F7F3EA"/>
+  <rect width="12" height="900" fill="#3A4B7C"/>
+  <image x="72" y="40" width="92" height="92" href="../../app/iosApp/iosApp/Assets.xcassets/AppIcon.appiconset/Icon-1024.png"/>
+  <text x="185" y="86" font-family="Shippori Mincho" font-size="40" fill="#211E1A">将棋サプリ</text>
+  <text x="185" y="127" font-family="IBM Plex Mono" font-size="25" fill="#3A4B7C">UPDATE 1.17</text>
+  <rect x="72" y="182" width="630" height="2" fill="#DDD5C4"/>
+  <text x="72" y="270" font-family="Shippori Mincho" font-size="40" fill="#211E1A">自分の棋譜で表れた</text>
+  <text x="72" y="328" font-family="Shippori Mincho" font-size="40" fill="#211E1A">実戦詰将棋を出題</text>
+  <rect x="72" y="386" width="630" height="2" fill="#DDD5C4"/>
+  <text x="72" y="478" font-family="Shippori Mincho" font-size="40" fill="#211E1A">詰み手数ごとの成功率を確認</text>
+  <rect x="72" y="586" width="630" height="2" fill="#DDD5C4"/>
+  <text x="72" y="678" font-family="Shippori Mincho" font-size="40" fill="#211E1A">棋譜をURLで共有</text>
+  <text x="750" y="210" font-family="IBM Plex Sans JP" font-size="20" fill="#5C564C">詰みの統計（表示例）</text>
+  <image x="750" y="235" width="400" height="543" href="../../app/androidApp/src/test/snapshots/mate_statistics_320_left.png"/>
+  <text x="72" y="852" font-family="IBM Plex Sans JP" font-size="20" fill="#5C564C">自分の棋譜から、次の一手を。</text>
+</svg>
