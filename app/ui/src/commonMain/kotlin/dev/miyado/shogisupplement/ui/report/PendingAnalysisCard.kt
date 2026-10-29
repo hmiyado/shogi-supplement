@@ -1,5 +1,8 @@
 package dev.miyado.shogisupplement.ui.report
 
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,7 +16,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import dev.miyado.shogisupplement.text.AppStrings
 
 @Composable
 internal fun PendingAnalysisCard(
@@ -29,14 +31,14 @@ internal fun PendingAnalysisCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(AppStrings.PENDING_ANALYSIS_TITLE, style = MaterialTheme.typography.titleMedium)
-            Text(AppStrings.PENDING_ANALYSIS_BODY, style = MaterialTheme.typography.bodyMedium)
+            Text(stringResource(Res.string.pending_analysis_title), style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(Res.string.pending_analysis_body), style = MaterialTheme.typography.bodyMedium)
             Button(
                 onClick = onAnalyze,
                 shape = MaterialTheme.shapes.medium,
                 modifier = Modifier.fillMaxWidth().testTag("pending_analysis_button"),
             ) {
-                Text(AppStrings.ANALYZE_GAME)
+                Text(stringResource(Res.string.analyze_game))
             }
         }
     }

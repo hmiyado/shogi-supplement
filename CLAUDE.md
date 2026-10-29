@@ -3,6 +3,12 @@
 セッション開始時は tmp/HANDOVER.md を読むこと（現在地と次の一手）。
 tmp/ は作業ログ置き場（git管理外）。設計資料は docs/ に置いてコミットする。
 
+## 開発の進め方
+
+機能追加・不具合修正・UI変更では `.claude/skills/development-workflow/SKILL.md` を読む。
+UI変更は実装前にモックを提示し、メンテナと方針を確定してから実装する。
+
+
 ## Design System
 
 UI・ビジュアルに関する判断の前に必ず DESIGN.md を読むこと。
@@ -23,3 +29,12 @@ QA・レビュー時は DESIGN.md に合わない実装をフラグする。
 
 バージョンを出すときは app/docs/release-checklist.md に従う。
 バージョン名・ビルド番号の値源は app/gradle.properties だけ。
+
+## Issue管理
+
+- `shogi-supplement` ではGitHub issueを新規作成しない。
+
+## 共通リソース
+
+文字列・画像・アイコン・フォントの管理は `docs/wording.md` の「リソース管理」に従う。
+Compose Multiplatformの `composeResources` と生成された `Res` を使い、新しい表示文言をKotlin定数や直書きで増やさない。

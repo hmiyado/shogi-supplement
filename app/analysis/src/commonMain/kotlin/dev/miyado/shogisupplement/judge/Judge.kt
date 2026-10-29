@@ -1,6 +1,6 @@
 package dev.miyado.shogisupplement.judge
 
-import dev.miyado.shogisupplement.text.AppStrings
+import dev.miyado.shogisupplement.text.StoredText
 
 /** 相応判定の種別（表示文言は今後変わり得るため種別をenumで持つ）。 */
 enum class VerdictKind(val symbol: String) {
@@ -40,8 +40,8 @@ object Judge {
      */
     const val AVG_MOVES_PER_PLAYER_GAME = 55
 
-    /** 悪手カテゴリ → 教材名。文言の実体は [AppStrings.problemByCategory]。 */
-    private val problemByCategory get() = AppStrings.problemByCategory
+    /** 悪手カテゴリ → 教材名。文言の実体は [StoredText.problemByCategory]。 */
+    private val problemByCategory get() = StoredText.problemByCategory
 
     /** 詰み手数 → 係数表のバケット名（1手/3手/5手/7手+）。 */
     fun mateBucket(mateIn: Int): String = when (mateIn) {
@@ -61,21 +61,21 @@ object Judge {
             val rate = coef.mateMissRate(band, bucket) ?: 0.0
             val pct = "${(rate * 100).toInt()}%"
             // 表示は実手数 missedMateIn を使う（「11手詰の詰将棋」等）。バケットは表示しない。
-            val problem = AppStrings.problemMate(input.missedMateIn)
-            val note = AppStrings.noteMate(input.missedMateIn, pct)
+            val problem = StoredText.problemMate(input.missedMateIn)
+            val note = StoredText.noteMate(input.missedMateIn, pct)
             return when {
                 rate < 0.05 -> Judgement(
-                    VerdictKind.SKIP, AppStrings.VERDICT_SKIP,
+                    VerdictKind.SKIP, StoredText.VERDICT_SKIP,
                     note,
                     problem, rate,
                 )
                 rate <= 0.60 -> Judgement(
-                    VerdictKind.PRIORITY, AppStrings.VERDICT_PRIORITY,
+                    VerdictKind.PRIORITY, StoredText.VERDICT_PRIORITY,
                     note,
                     problem, rate,
                 )
                 else -> Judgement(
-                    VerdictKind.TARGET, AppStrings.VERDICT_TARGET,
+                    VerdictKind.TARGET, StoredText.VERDICT_TARGET,
                     note,
                     problem, rate,
                 )
@@ -89,21 +89,21 @@ object Judge {
         val problem = problemByCategory[input.category] ?: ""
 
         val nBand = gamesPerBlunder(rBand)
-        val twoPointNote = AppStrings.noteTwoPoint(band, nBand)
+        val twoPointNote = StoredText.noteTwoPoint(band, nBand)
 
         return when {
             rBand < 2.0 -> Judgement(
-                VerdictKind.SKIP, AppStrings.VERDICT_SKIP,
-                AppStrings.noteSkipRare(band, nBand),
+                VerdictKind.SKIP, StoredText.VERDICT_SKIP,
+                StoredText.noteSkipRare(band, nBand),
                 problem, 0.0,
             )
             gradient >= 4.0 -> Judgement(
-                VerdictKind.PRIORITY, AppStrings.VERDICT_PRIORITY,
+                VerdictKind.PRIORITY, StoredText.VERDICT_PRIORITY,
                 twoPointNote,
                 problem, gradient,
             )
             else -> Judgement(
-                VerdictKind.TARGET, AppStrings.VERDICT_TARGET,
+                VerdictKind.TARGET, StoredText.VERDICT_TARGET,
                 twoPointNote,
                 problem, gradient,
             )

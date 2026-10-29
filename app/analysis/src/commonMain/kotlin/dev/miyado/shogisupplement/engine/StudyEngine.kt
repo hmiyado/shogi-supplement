@@ -10,6 +10,7 @@ interface StudyEngine {
         sfen: String,
         additionalMoves: List<String> = emptyList(),
         nodes: Int = Engine.DEFAULT_NODES,
+        multiPv: Int = Engine.MULTI_PV,
     ): List<PvInfo>
 
     fun quit()
@@ -21,8 +22,12 @@ class BlockingStudyEngine(
     private val engine: Engine,
     private val dispatcher: CoroutineDispatcher,
 ) : StudyEngine {
-    override suspend fun analyzeSfen(sfen: String, additionalMoves: List<String>, nodes: Int): List<PvInfo> =
-        withContext(dispatcher) { engine.analyzeSfen(sfen, additionalMoves, nodes) }
+    override suspend fun analyzeSfen(
+        sfen: String,
+        additionalMoves: List<String>,
+        nodes: Int,
+        multiPv: Int,
+    ): List<PvInfo> = withContext(dispatcher) { engine.analyzeSfen(sfen, additionalMoves, nodes, multiPv) }
 
     override fun quit() = engine.quit()
 }

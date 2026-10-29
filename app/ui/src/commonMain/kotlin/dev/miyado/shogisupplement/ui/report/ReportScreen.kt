@@ -1,9 +1,24 @@
 package dev.miyado.shogisupplement.ui.report
 
+
+import dev.miyado.shogisupplement.ui.text.UiStrings
+
+import org.jetbrains.compose.resources.getString
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
+import androidx.compose.material3.Text
+
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -12,9 +27,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.VerticalDivider
+import dev.miyado.shogisupplement.ui.common.rememberMovablePane
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -30,9 +49,14 @@ import dev.miyado.shogisupplement.board.ShogiMove
 import dev.miyado.shogisupplement.board.ShogiSquare
 import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.db.GameRecord
+import dev.miyado.shogisupplement.kifu.KifParser
 import dev.miyado.shogisupplement.db.PositionEvalRow
-import dev.miyado.shogisupplement.text.AppStrings
+import dev.miyado.shogisupplement.gameshare.GameShareService
+import dev.miyado.shogisupplement.ui.common.TwoPaneBoardHeightFraction
+import dev.miyado.shogisupplement.ui.common.WindowWidthClass
+import dev.miyado.shogisupplement.ui.common.adaptiveContentWidth
 import dev.miyado.shogisupplement.ui.common.boardMaxHeight
+import dev.miyado.shogisupplement.ui.common.rememberWindowWidthClass
 import dev.miyado.shogisupplement.ui.common.appendPlayerRating
 import dev.miyado.shogisupplement.ui.common.DeleteGameConfirmDialog
 import dev.miyado.shogisupplement.ui.common.PvExtState
@@ -58,6 +82,8 @@ fun ReportScreen(
     blunderRateDisplayText: String? = null,
     analysisPending: Boolean = false,
     onAnalyze: () -> Unit = {},
+    onReanalyze: (() -> Unit)? = null,
+    hasUnsavedStudy: (() -> Boolean)? = null,
     canDelete: Boolean = true,
     /** 対局者名編集の可否。Web版はローカル保存を持たないためfalseで渡す。 */
     canEdit: Boolean = true,
@@ -67,7 +93,7 @@ fun ReportScreen(
     pvExtensionEnabled: Boolean = true,
     onExtendBestPv: (blunderId: Long, sfenAtLineEnd: String, currentPvStr: String?) -> Unit = { _, _, _ -> },
     studyState: StudyState? = null,
-    onStartStudy: (
+    onStartStudy: ((
         baseSfen: String,
         flip: Boolean,
         originIsBestPv: Boolean,
@@ -77,19 +103,27 @@ fun ReportScreen(
         origin: StudyOrigin,
         tappedSquare: ShogiSquare?,
         tappedHandPieceType: PieceType?,
-    ) -> Unit = { _, _, _, _, _, _, _, _, _ -> },
+        // nullは検討を持たないホスト（Web版マイページ）。タブもそこから無効にする。
+    ) -> Unit)? = null,
     onStudySquareTapped: (ShogiSquare) -> Unit = {},
     onStudyHandPieceTapped: (PieceType) -> Unit = {},
     onStudyPromoteDecision: (Boolean) -> Unit = {},
     onStudyStepBack: () -> Unit = {},
     onStudyResetToStart: () -> Unit = {},
     onStudyEnd: () -> Unit = {},
+    onSaveStudy: (((Boolean) -> Unit) -> Unit)? = null,
+    onDeleteStudyBranch: ((String, List<String>, Long?) -> Boolean)? = null,
     onStudyChipTapped: (Int) -> Unit = {},
     onStudyBranchChipTapped: (Int) -> Unit = {},
     onStudyBranchPopupDismiss: () -> Unit = {},
-    onStudyBranchOptionSelected: (depth: Int, moveUsi: String) -> Unit = { _, _ -> },
+    onStudyBranchOptionSelected: (depth: Int, nodeId: Long) -> Unit = { _, _ -> },
+    onStudyAutoAnalyze: () -> Unit = {},
     onStudyAnalyze: () -> Unit = {},
+    onStudyCandidateSelected: (String) -> Unit = {},
     onCopyKif: (String) -> Unit = {},
+    onShare: (() -> Unit)? = {},
+    gameShareService: GameShareService? = null,
+    onShareGameUrl: ((String) -> Unit)? = null,
     onDeleteGame: (
         deleteServer: Boolean,
         onResult: (DeleteGameOutcome) -> Unit,
@@ -101,6 +135,31 @@ fun ReportScreen(
     initialBodyModeList: Boolean = false,
     justCompleted: Boolean = false,
 ) {
+    val labelGameResultLoss = stringResource(Res.string.game_result_loss)
+
+    var pendingDiscard by remember(game.id) { mutableStateOf<(() -> Unit)?>(null) }
+    fun guarded(action: () -> Unit) {
+        if (hasUnsavedStudy?.invoke() == true) pendingDiscard = action else action()
+    }
+    val guardedBack: () -> Unit = { guarded(onBack) }
+    ReportBackHandler(enabled = hasUnsavedStudy != null && studyState == null) { guardedBack() }
+    if (pendingDiscard != null) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { pendingDiscard = null },
+            title = { Text(stringResource(Res.string.study_discard_title)) },
+            text = { Text(stringResource(Res.string.study_discard_body)) },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    val action = pendingDiscard
+                    pendingDiscard = null
+                    action?.invoke()
+                }) { Text(stringResource(Res.string.manual_kifu_discard), color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { pendingDiscard = null }) { Text(stringResource(Res.string.cancel)) }
+            },
+        )
+    }
     var viewerMode by remember {
         mutableStateOf(if (initialViewerModeBestPv) ViewerMode.BEST_PV else ViewerMode.MAINLINE)
     }
@@ -115,6 +174,22 @@ fun ReportScreen(
     var pendingExtendAdvance by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val gameShareOwnerId = gameShareService?.currentOwner?.collectAsState()?.value?.id
+    val gameShareViewModel = key(gameShareService, game.id, game.contentHash, gameShareOwnerId) {
+        if (gameShareService != null && gameShareOwnerId != null) {
+            val sharingScope = rememberCoroutineScope()
+            remember {
+                GameShareViewModel(
+                    scope = sharingScope,
+                    service = gameShareService,
+                )
+            }
+        } else {
+            null
+        }
+    }
+    val gameShareState = gameShareViewModel?.state?.collectAsState()?.value
+    var showGameShareDialog by remember(gameShareViewModel) { mutableStateOf(false) }
 
     // 完了バナーはこの画面内で一度だけ消費する。
     var showCompletionBanner by remember { mutableStateOf(justCompleted) }
@@ -132,6 +207,20 @@ fun ReportScreen(
         buildEvalGraphPoints(positionEvals, userIsGote = game.userSide == "gote")
     }
     val blunderPlies = remember(reports) { reports.map { it.ply.toInt() }.toSet() }
+    val timeGraphData = remember(game.kifText, game.sourcePlace, game.timeControlRaw, game.timeControlByoyomiRaw, game.userSide) {
+        game.kifText?.let { text ->
+            runCatching {
+                val moveTimes = KifParser().parse(text).timesSeconds
+                buildTimeGraphData(
+                    sourcePlace = game.sourcePlace,
+                    timeControlRaw = game.timeControlRaw,
+                    timeControlByoyomiRaw = game.timeControlByoyomiRaw,
+                    moveTimesSeconds = moveTimes,
+                    userSide = game.userSide,
+                )
+            }.getOrNull()
+        }
+    }
 
     val exitStudy: () -> Unit = exit@{
         val s = studyState ?: return@exit
@@ -177,15 +266,15 @@ fun ReportScreen(
         }
     }
 
-    val senteSuffix = if (game.userSide == "sente") AppStrings.PLAYER_YOU else ""
-    val goteSuffix = if (game.userSide == "gote") AppStrings.PLAYER_YOU else ""
+    val senteSuffix = if (game.userSide == "sente") stringResource(Res.string.player_you) else ""
+    val goteSuffix = if (game.userSide == "gote") stringResource(Res.string.player_you) else ""
     val playersLine = buildAnnotatedString {
         append("▲")
-        append(game.senteName ?: AppStrings.PLAYER_UNKNOWN)
+        append(game.senteName ?: stringResource(Res.string.player_unknown))
         appendPlayerRating(game.senteRating)
         append(senteSuffix)
         append("　△")
-        append(game.goteName ?: AppStrings.PLAYER_UNKNOWN)
+        append(game.goteName ?: stringResource(Res.string.player_unknown))
         appendPlayerRating(game.goteRating)
         append(goteSuffix)
     }
@@ -208,8 +297,22 @@ fun ReportScreen(
         pvExtensionEnabled = pvExtensionEnabled,
     )
 
+    val gameShareDraft = GameShareDraftFactory.from(game, clampedPly, studyState, flip)
+    val canShareGame = gameShareViewModel != null && gameShareDraft != null
+
+    if (showGameShareDialog && gameShareState != null && gameShareViewModel != null) {
+        GameShareDialog(
+            state = gameShareState,
+            onCreate = { gameShareDraft?.let(gameShareViewModel::create) },
+            onShare = { url -> onShareGameUrl?.invoke(url) },
+            onDismiss = { showGameShareDialog = false },
+        )
+    }
+
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val screenHeight = maxHeight
+        val twoPane = rememberWindowWidthClass(maxWidth) == WindowWidthClass.EXPANDED
+        val twoPaneBoardMaxHeight = maxHeight * TwoPaneBoardHeightFraction
 
         // シートは盤を隠し切らない高さに制限する。
         MoveListBottomSheet(
@@ -239,8 +342,8 @@ fun ReportScreen(
             ) {
 
                 ReportTopBar(
-                    title = AppStrings.sourcePlaceLabel(game.sourcePlace) ?: game.fileName,
-                    onBack = onBack,
+                    title = UiStrings.sourcePlaceLabel(game.sourcePlace) ?: game.fileName,
+                    onBack = guardedBack,
                     onInfoClick = { showGameInfoDialog = true },
                     kifText = game.kifText,
                     onCopyKifClick = {
@@ -248,11 +351,17 @@ fun ReportScreen(
                         if (kifText != null) {
                             onCopyKif(kifText)
                             scope.launch {
-                                snackbarHostState.showSnackbar(AppStrings.KIF_COPIED_MESSAGE)
+                                snackbarHostState.showSnackbar(getString(Res.string.kif_copied_message))
                             }
                         }
                     },
                     onDeleteClick = if (canDelete) { { showDeleteDialog = true } } else null,
+                    onShareClick = onShare,
+                    onShareGameClick = if (canShareGame) {
+                        { gameShareViewModel?.reset(); showGameShareDialog = true }
+                    } else {
+                        null
+                    },
                 )
 
                 val studyCurrentSfen = remember(studyState) {
@@ -267,109 +376,18 @@ fun ReportScreen(
                     }
                 }
 
-                ReportBoardArea(
-                    studyState = studyState,
-                    currentSfen = currentSfen,
-                    studyCurrentSfen = studyCurrentSfen,
-                    flip = flip,
-                    lastMoveDest = lastMoveDest,
-                    studyLastMoveDest = studyLastMoveDest,
-                    clampedPly = clampedPly,
-                    maxPly = maxPly,
-                    viewerMode = viewerMode,
-                    selectedIdx = selectedIdx,
-                    studyOriginAbsolutePly = navInfo.studyOriginAbsolutePly,
-                    studyOrigin = navInfo.studyOrigin,
-                    onStartStudy = onStartStudy,
-                    onStudySquareTapped = onStudySquareTapped,
-                    onStudyHandPieceTapped = onStudyHandPieceTapped,
-                    onPlyIndexChange = { plyIndex = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = boardMaxHeight()),
-                )
-
-                StudyPromoteDialog(
-                    show = studyState?.showPromoteDialog == true,
-                    onDecision = onStudyPromoteDecision,
-                )
-
                 val studySenteToMove = remember(studyCurrentSfen, currentSfen) {
                     SfenPosition.parse(studyCurrentSfen ?: currentSfen).isBlackTurn
                 }
 
-                // 排他的な固定高スロットで検討モード切替時のY座標を保つ。
-                if (showCompletionBanner) {
-                    ReportNavBannerRow(
-                        text = AppStrings.ANALYSIS_COMPLETED_BANNER,
-                        textColor = MaterialTheme.colorScheme.primary,
-                        backgroundColor = MaterialTheme.shogiColors.primarySoft,
-                    )
-                } else {
-                    ReportNavRow(
-                        studyState = studyState,
-                        studySenteToMove = studySenteToMove,
-                        onStudyStepBack = onStudyStepBack,
-                        onStudyExit = exitStudy,
-                        navLabelAnnotated = navInfo.navLabelAnnotated,
-                        onLabelClick = { showMoveList = true },
-                        canGoFirst = clampedPly > 0,
-                        onFirst = { plyIndex = 0 },
-                        canGoPrev = clampedPly > 0,
-                        onPrev = { plyIndex = (clampedPly - 1).coerceAtLeast(0) },
-                        canGoNext = clampedPly < maxPly || navInfo.canTriggerExtend,
-                        onNext = {
-                            if (clampedPly < maxPly) {
-                                plyIndex = clampedPly + 1
-                            } else if (navInfo.canTriggerExtend) {
-                                selectedBlunder?.let { blunder ->
-                                    val sfenAtEnd = computeSfenAtStep(
-                                        blunder.sfenBefore,
-                                        movesInMode,
-                                        movesInMode.size,
-                                    )
-                                    pendingExtendAdvance = true
-                                    onExtendBestPv(blunder.id, sfenAtEnd, blunder.bestPv)
-                                }
-                            }
-                        },
-                        showExtendIndicator = navInfo.showExtendIndicator,
-                        canTriggerExtend = navInfo.canTriggerExtend,
-                        canGoLast = clampedPly < maxPly,
-                        onLast = { plyIndex = maxPly },
-                    )
-                }
-
-                if (studyState == null) {
-                    LaunchedEffect(maxPly) {
-                        if (pendingExtendAdvance) {
-                            plyIndex = clampedPly + 1
-                            pendingExtendAdvance = false
-                        }
-                    }
-                    LaunchedEffect(selectedBlunder?.let { pvExtState[it.id] }) {
-                        if (pendingExtendAdvance &&
-                            selectedBlunder != null &&
-                            pvExtState[selectedBlunder.id] is PvExtState.Error
-                        ) {
-                            pendingExtendAdvance = false
-                        }
-                    }
-                }
-
-                HorizontalDivider(
-                    color = MaterialTheme.shogiColors.line,
-                    modifier = Modifier.testTag("report_divider"),
-                )
-
                 val noBlundersMessage = when {
                     game.userSide != null && game.gameWinner != null ->
                         if (game.gameWinner == game.userSide) {
-                            AppStrings.NO_BLUNDERS_WIN
+                            stringResource(Res.string.no_blunders_win)
                         } else {
-                            AppStrings.noBlundersLoss(game.endReason ?: "負け")
+                            UiStrings.noBlundersLoss(game.endReason ?: labelGameResultLoss)
                         }
-                    else -> AppStrings.NO_BLUNDERS_UNKNOWN
+                    else -> stringResource(Res.string.no_blunders_unknown)
                 }
 
                 val selectBlunderAndShowList: (Int) -> Unit = { idx ->
@@ -381,74 +399,239 @@ fun ReportScreen(
                     }
                 }
 
-                if (studyState != null) {
-                    StudyPanel(
+                val boardPane = rememberMovablePane {
+                    ReportBoardArea(
                         studyState = studyState,
-                        onChipTapped = onStudyChipTapped,
-                        onBranchChipTapped = onStudyBranchChipTapped,
-                        onBranchPopupDismiss = onStudyBranchPopupDismiss,
-                        onBranchOptionSelected = onStudyBranchOptionSelected,
-                        onAnalyze = onStudyAnalyze,
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 4.dp),
+                        currentSfen = currentSfen,
+                        studyCurrentSfen = studyCurrentSfen,
+                        flip = flip,
+                        lastMoveDest = lastMoveDest,
+                        studyLastMoveDest = studyLastMoveDest,
+                        clampedPly = clampedPly,
+                        maxPly = maxPly,
+                        viewerMode = viewerMode,
+                        selectedIdx = selectedIdx,
+                        studyOriginAbsolutePly = navInfo.studyOriginAbsolutePly,
+                        studyOrigin = navInfo.studyOrigin,
+                        onStartStudy = onStartStudy ?: { _, _, _, _, _, _, _, _, _ -> },
+                        onStudySquareTapped = onStudySquareTapped,
+                        onStudyHandPieceTapped = onStudyHandPieceTapped,
+                        onPlyIndexChange = { plyIndex = it },
+                        modifier = if (twoPane) {
+                            Modifier.fillMaxWidth().heightIn(max = twoPaneBoardMaxHeight)
+                        } else {
+                            Modifier.adaptiveContentWidth().heightIn(max = boardMaxHeight())
+                        },
                     )
-                } else {
-                    when (bodyMode) {
-                        ReportBodyMode.SUMMARY -> {
-                            ReportSummaryBody(
-                                evalGraphPoints = evalGraphPoints,
-                                maxPly = game.movesUsi.size,
-                                blunderPlies = blunderPlies,
-                                currentPly = clampedPly,
-                                onPlyTapped = { ply ->
-                                    viewerMode = ViewerMode.MAINLINE
-                                    plyIndex = ply
-                                    val idx = reports.indexOfFirst { it.ply.toInt() == ply }
-                                    if (idx >= 0) {
-                                        selectedIdx = idx
-                                        bodyMode = ReportBodyMode.LIST
+
+                    StudyPromoteDialog(
+                        show = studyState?.showPromoteDialog == true,
+                        onDecision = onStudyPromoteDecision,
+                    )
+
+                    Box(modifier = Modifier.adaptiveContentWidth()) {
+                        // 排他的な固定高スロットで検討モード切替時のY座標を保つ。
+                        if (showCompletionBanner) {
+                            ReportNavBannerRow(
+                                text = stringResource(Res.string.analysis_completed_banner),
+                                textColor = MaterialTheme.colorScheme.primary,
+                                backgroundColor = MaterialTheme.shogiColors.primarySoft,
+                            )
+                        } else {
+                            ReportNavRow(
+                                studyState = studyState,
+                                studySenteToMove = studySenteToMove,
+                                onStudyStepBack = onStudyStepBack,
+                                onStudyStepForward = {
+                                    studyState?.let { onStudyChipTapped(it.moves.size + 1) }
+                                },
+                                // 終了はタブで行う（サマリー/悪手一覧を選べば検討から出る）。
+                                onStudyExit = null,
+                                navLabelAnnotated = navInfo.navLabelAnnotated,
+                                onLabelClick = { showMoveList = true },
+                                canGoFirst = clampedPly > 0,
+                                onFirst = { plyIndex = 0 },
+                                canGoPrev = clampedPly > 0,
+                                onPrev = { plyIndex = (clampedPly - 1).coerceAtLeast(0) },
+                                canGoNext = clampedPly < maxPly || navInfo.canTriggerExtend,
+                                onNext = {
+                                    if (clampedPly < maxPly) {
+                                        plyIndex = clampedPly + 1
+                                    } else if (navInfo.canTriggerExtend) {
+                                        selectedBlunder?.let { blunder ->
+                                            val sfenAtEnd = computeSfenAtStep(
+                                                blunder.sfenBefore,
+                                                movesInMode,
+                                                movesInMode.size,
+                                            )
+                                            pendingExtendAdvance = true
+                                            onExtendBestPv(blunder.id, sfenAtEnd, blunder.bestPv)
+                                        }
                                     }
                                 },
-                                onPlyDragged = { ply ->
-                                    viewerMode = ViewerMode.MAINLINE
-                                    plyIndex = ply
-                                },
-                                reports = reports,
-                                noBlundersMessage = noBlundersMessage,
-                                strengthDisplayText = strengthDisplayText,
-                                matchRateDisplayText = matchRateDisplayText,
-                                blunderRateDisplayText = blunderRateDisplayText,
-                                onViewList = { bodyMode = ReportBodyMode.LIST },
-                                analysisPending = analysisPending,
-                                onAnalyze = onAnalyze,
-                                modifier = Modifier.fillMaxSize(),
-                            )
-                        }
-                        ReportBodyMode.LIST -> {
-                            ReportBlunderListBody(
-                                onBackToSummary = {
-                                    bodyMode = ReportBodyMode.SUMMARY
-                                    viewerMode = ViewerMode.MAINLINE
-                                },
-                                viewerMode = viewerMode,
-                                hasBestPv = hasBestPv,
-                                onSelectMainlineTab = {
-                                    viewerMode = ViewerMode.MAINLINE
-                                    plyIndex = clampedPly.coerceAtMost(game.movesUsi.size)
-                                },
-                                onSelectBestPvTab = {
-                                    viewerMode = ViewerMode.BEST_PV
-                                    plyIndex = 0
-                                },
-                                reports = reports,
-                                noBlundersMessage = noBlundersMessage,
-                                selectedIdx = selectedIdx,
-                                evalDisplay = evalDisplay,
-                                onSelectBlunder = selectBlunderAndShowList,
-                                modifier = Modifier.fillMaxSize(),
+                                showExtendIndicator = navInfo.showExtendIndicator,
+                                canTriggerExtend = navInfo.canTriggerExtend,
+                                canGoLast = clampedPly < maxPly,
+                                onLast = { plyIndex = maxPly },
                             )
                         }
                     }
-                } // else (studyState == null)
+
+                    if (studyState == null) {
+                        LaunchedEffect(maxPly) {
+                            if (pendingExtendAdvance) {
+                                plyIndex = clampedPly + 1
+                                pendingExtendAdvance = false
+                            }
+                        }
+                        LaunchedEffect(selectedBlunder?.let { pvExtState[it.id] }) {
+                            if (pendingExtendAdvance &&
+                                selectedBlunder != null &&
+                                pvExtState[selectedBlunder.id] is PvExtState.Error
+                            ) {
+                                pendingExtendAdvance = false
+                            }
+                        }
+                    }
+                }
+
+                // 検討中かどうかは studyState が持つため、タブの実効状態はそこから導く。
+                val activeTab = if (studyState != null) ReportBodyMode.STUDY else bodyMode
+                val selectTab: (ReportBodyMode) -> Unit = { mode ->
+                    if (mode != ReportBodyMode.STUDY && studyState != null) exitStudy()
+                    when (mode) {
+                        ReportBodyMode.SUMMARY -> {
+                            bodyMode = ReportBodyMode.SUMMARY
+                            viewerMode = ViewerMode.MAINLINE
+                        }
+                        ReportBodyMode.LIST -> if (reports.isNotEmpty()) bodyMode = ReportBodyMode.LIST
+                        ReportBodyMode.STUDY -> if (studyState == null) {
+                            onStartStudy?.invoke(
+                                currentSfen, flip, viewerMode == ViewerMode.BEST_PV,
+                                clampedPly, selectedIdx,
+                                navInfo.studyOriginAbsolutePly, navInfo.studyOrigin, null, null,
+                            )
+                            onStudyAutoAnalyze()
+                        }
+                    }
+                }
+
+                val tabRow: @Composable () -> Unit = {
+                    ReportTabRow(
+                        active = activeTab,
+                        onSelect = selectTab,
+                        // 悪手が無いときに一覧を開けると、未解析でも「悪手は見つかりませんでした」と
+                        // 出て解析済みの結果に見える。
+                        isEnabled = { mode ->
+                            when (mode) {
+                                ReportBodyMode.LIST -> reports.isNotEmpty()
+                                ReportBodyMode.STUDY -> onStartStudy != null
+                                ReportBodyMode.SUMMARY -> true
+                            }
+                        },
+                    )
+                    // カード同士の間隔（上下4dpずつ）に合わせ、タブと本文の間も8dpにする。
+                    Spacer(Modifier.height(4.dp))
+                }
+
+                val bodyPane = rememberMovablePane {
+                    Box(modifier = Modifier.adaptiveContentWidth()) {
+                        if (studyState != null) {
+                            StudyPanel(
+                                studyState = studyState,
+                                onChipTapped = onStudyChipTapped,
+                                onBranchChipTapped = onStudyBranchChipTapped,
+                                onBranchPopupDismiss = onStudyBranchPopupDismiss,
+                                onBranchOptionSelected = onStudyBranchOptionSelected,
+                                onAnalyze = onStudyAnalyze,
+                                onCandidateTapped = onStudyCandidateSelected,
+                                onSave = onSaveStudy,
+                                onDeleteBranch = onDeleteStudyBranch,
+                                modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 4.dp),
+                            )
+                        } else {
+                            when (bodyMode) {
+                                ReportBodyMode.SUMMARY -> {
+                                    ReportSummaryBody(
+                                        evalGraphPoints = evalGraphPoints,
+                                        maxPly = game.movesUsi.size,
+                                        blunderPlies = blunderPlies,
+                                        timeGraphData = timeGraphData,
+                                        currentPly = clampedPly,
+                                        onPlyTapped = { ply ->
+                                            viewerMode = ViewerMode.MAINLINE
+                                            plyIndex = ply
+                                            val idx = reports.indexOfFirst { it.ply.toInt() == ply }
+                                            if (idx >= 0) {
+                                                selectedIdx = idx
+                                                bodyMode = ReportBodyMode.LIST
+                                            }
+                                        },
+                                        onPlyDragged = { ply ->
+                                            viewerMode = ViewerMode.MAINLINE
+                                            plyIndex = ply
+                                        },
+                                        reports = reports,
+                                        noBlundersMessage = noBlundersMessage,
+                                        strengthDisplayText = strengthDisplayText,
+                                        matchRateDisplayText = matchRateDisplayText,
+                                        blunderRateDisplayText = blunderRateDisplayText,
+                                        analysisPending = analysisPending,
+                                        onAnalyze = onAnalyze,
+                                        onReanalyze = onReanalyze?.let { action -> { guarded(action) } },
+                                        modifier = Modifier.fillMaxSize(),
+                                    )
+                                }
+                                ReportBodyMode.LIST -> {
+                                    ReportBlunderListBody(
+                                        viewerMode = viewerMode,
+                                        hasBestPv = hasBestPv,
+                                        onSelectMainlineTab = {
+                                            viewerMode = ViewerMode.MAINLINE
+                                            plyIndex = clampedPly.coerceAtMost(game.movesUsi.size)
+                                        },
+                                        onSelectBestPvTab = {
+                                            viewerMode = ViewerMode.BEST_PV
+                                            plyIndex = 0
+                                        },
+                                        reports = reports,
+                                        noBlundersMessage = noBlundersMessage,
+                                        selectedIdx = selectedIdx,
+                                        evalDisplay = evalDisplay,
+                                        onSelectBlunder = selectBlunderAndShowList,
+                                        modifier = Modifier.fillMaxSize(),
+                                    )
+                                }
+                                ReportBodyMode.STUDY -> Unit
+                            }
+                        } // else (studyState == null)
+                    }
+                }
+
+                // Why not 画面の底へ置く: edge-to-edgeでは底にsafe areaぶんの帯が残り、
+                // タブと画面の縁が離れて座りが悪い。
+                val bodyWithTabs: @Composable ColumnScope.() -> Unit = {
+                    tabRow()
+                    Box(modifier = Modifier.weight(1f)) { bodyPane() }
+                }
+
+                if (twoPane) {
+                    Row(modifier = Modifier.fillMaxSize()) {
+                        Column(modifier = Modifier.weight(1f).fillMaxHeight()) { boardPane() }
+                        VerticalDivider(
+                            color = MaterialTheme.shogiColors.line,
+                            modifier = Modifier.testTag("report_divider"),
+                        )
+                        Column(modifier = Modifier.weight(1f).fillMaxHeight()) { bodyWithTabs() }
+                    }
+                } else {
+                    boardPane()
+                    HorizontalDivider(
+                        color = MaterialTheme.shogiColors.line,
+                        modifier = Modifier.testTag("report_divider"),
+                    )
+                    bodyWithTabs()
+                }
             } // Column
         } // Scaffold content lambda
 
@@ -486,7 +669,7 @@ fun ReportScreen(
     } // BoxWithConstraints
 } // ReportScreen
 
-internal fun computeSfenAtStep(startSfen: String?, moves: List<String>, steps: Int): String {
+fun computeSfenAtStep(startSfen: String?, moves: List<String>, steps: Int): String {
     val board = if (startSfen != null) {
         runCatching { ShogiBoard.fromSfen(startSfen) }.getOrElse { ShogiBoard() }
     } else {

@@ -7,4 +7,7 @@ sealed class DeleteGameOutcome {
 
     /** サーバー削除に失敗した（ローカルは削除していない）。 */
     object ServerFailed : DeleteGameOutcome()
+
+    /** 端末内の削除失敗・保存内容の競合。 */
+    object LocalFailed : DeleteGameOutcome()
 }

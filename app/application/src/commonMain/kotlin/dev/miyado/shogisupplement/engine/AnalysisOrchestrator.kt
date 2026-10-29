@@ -14,8 +14,12 @@ import dev.miyado.shogisupplement.kifu.KifuParseException
 import dev.miyado.shogisupplement.pipeline.ReportPipeline
 import dev.miyado.shogisupplement.pipeline.toPositionEval
 import dev.miyado.shogisupplement.opening.OpeningClassifier
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.util.sha256Hex
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 /**
  * 判定ロジック・係数表・解析条件（go nodes 400000 / Threads=1 / MultiPV=2 / FV_SCALE=20）は
@@ -37,20 +41,20 @@ class AnalysisOrchestrator(
         data class Completed(val gameId: Long, val alreadyExisted: Boolean) : Outcome()
 
         /**
-         * @param message 表示用メッセージ（日本語）。[RemoteAnalysisException] 由来は
-         *   [RemoteAnalysisErrorMapper] でローカライズ済み、それ以外は例外の生メッセージ。
+         * @param message 元の診断メッセージ。表示文言はUIで解決する。
          * @param reason 失敗理由。省略時は [AnalysisFailureReason.Unknown]。
          */
         data class Failed(
             val message: String,
             val reason: AnalysisFailureReason = AnalysisFailureReason.Unknown,
+            val remoteError: RemoteAnalysisException? = null,
         ) : Outcome()
     }
 
     /**
      * @param contentHash nullならKIFから算出。非nullは再構成で原本と書式が変わる場合の原本ハッシュ。
      * @param sourcePlaceOverride nullならKIFから判定。非nullは再構成で失われた出典の正規化済み値。
-     * @param onPositionResult 局面ごとの中間結果。既定のno-opでは全局面完了後のみ評価・保存する。
+     * @param onPositionResult 局面ごとの中間結果。nullは進捗を表示しないホストで、テンポを作らず解析する。
      */
     suspend fun analyzeAndSave(
         kifContent: String,
@@ -61,25 +65,56 @@ class AnalysisOrchestrator(
         ratingRule: String? = null,
         contentHash: String? = null,
         sourcePlaceOverride: String? = null,
+        /** true only for an explicit user-requested reanalysis. */
+        forceReanalysis: Boolean = false,
+        /** One explicit request's stable id, reused after transport/session retry. */
+        requestId: String? = null,
         onProgress: (done: Int, total: Int) -> Unit = { _, _ -> },
-        onPositionResult: (ply: Int, pvs: List<PvInfo>) -> Unit = { _, _ -> },
+        onPositionResult: ((ply: Int, pvs: List<PvInfo>) -> Unit)? = null,
     ): Outcome {
         return try {
             val effectiveContentHash = contentHash ?: sha256Hex(kifContent)
+            requestId?.let { id ->
+                repository.getAppliedAnalysis(effectiveContentHash, id)?.let {
+                    return Outcome.Completed(it, alreadyExisted = true)
+                }
+            }
 
             val existingId = repository.getByHash(effectiveContentHash)
             val existing = existingId?.let(repository::getGameById)
-            if (existingId != null && existing?.analysisStatus == dev.miyado.shogisupplement.db.GameAnalysisStatus.COMPLETED) {
+            if (!forceReanalysis && existingId != null && existing?.analysisStatus == dev.miyado.shogisupplement.db.GameAnalysisStatus.COMPLETED) {
                 return Outcome.Completed(existingId, alreadyExisted = true)
             }
 
             val game = KifParser().parse(kifContent)
 
-            val allPv = analyzer.analyzeGame(
-                moves = game.moves,
-                onPositionResult = onPositionResult,
-                onProgress = onProgress,
-            )
+            // Why not 届いた順にそのまま渡す: 並列ワーカーの完了はまとまって届くため、
+            // 盤が数手ぶん飛んでから止まる見え方になる。一定間隔で1手ずつ出す。
+            val analyzed = if (onPositionResult == null) {
+                analyzer.analyzeGame(
+                    moves = game.moves,
+                    onProgress = onProgress,
+                    forceReanalysis = forceReanalysis,
+                    requestId = requestId,
+                )
+            } else {
+                coroutineScope {
+                    val pacer = PositionRevealPacer(onPositionResult)
+                    val pacing = launch { pacer.pace() }
+                    val analyzed = analyzer.analyzeGame(
+                        moves = game.moves,
+                        onPositionResult = pacer::submit,
+                        onProgress = onProgress,
+                        forceReanalysis = forceReanalysis,
+                        requestId = requestId,
+                    )
+                    pacing.cancelAndJoin()
+                    pacer.revealRemaining()
+                    analyzed
+                }
+            }
+            val allPv = analyzed.positions
+            val engineMetaJson = analyzed.engineMeta?.let { Json.encodeToString(it) }
 
             // 再解析なしで第2候補まで判定できるよう、MultiPV=2の結果を保持する。
             val evals = allPv.map { pvList -> pvList.toPositionEval() }
@@ -104,7 +139,8 @@ class AnalysisOrchestrator(
             // 選択肢を作るため、「未分類」を保存すると選べる項目として出てしまう。
             fun classified(value: String?): String? = value?.takeIf { it != OpeningClassifier.UNCLASSIFIED }
 
-            val gameId = repository.saveAnalysis(
+            val saveRequest = GameRepository.AnalysisSaveRequest(
+                requestId = requestId,
                 fileName = fileName,
                 contentHash = effectiveContentHash,
                 moves = game.moves,
@@ -133,6 +169,7 @@ class AnalysisOrchestrator(
                 goteRating = players.goteRating,
                 timeControlRaw = game.headers["持ち時間"],
                 timeControlByoyomiRaw = game.headers["秒読み"],
+                engineMetaJson = engineMetaJson,
             )
 
             // 評価値はsente視点に正規化し、後からの計算に必要な第2候補も保存する。
@@ -154,6 +191,8 @@ class AnalysisOrchestrator(
                         secondScoreCp = secondScoreCp,
                         secondMateIn = secondMateIn,
                         secondUsi = posEval.pv2MoveUsi,
+                        mateVerified = false,
+                        secondMateVerified = (posEval.pv2Score as? Score.Mate)?.verified == true,
                     )
                     is Score.Mate -> PositionEvalRow(
                         ply = t,
@@ -163,10 +202,14 @@ class AnalysisOrchestrator(
                         secondScoreCp = secondScoreCp,
                         secondMateIn = secondMateIn,
                         secondUsi = posEval.pv2MoveUsi,
+                        mateVerified = score.verified,
+                        secondMateVerified = (posEval.pv2Score as? Score.Mate)?.verified == true,
                     )
                 }
             }
-            repository.savePositionEvals(gameId, positionEvalRows)
+            val gameId = repository.saveAnalysisAtomically(
+                saveRequest.copy(positionEvalRows = positionEvalRows),
+            )
 
             Outcome.Completed(gameId, alreadyExisted = false)
         } catch (e: kotlinx.coroutines.CancellationException) {
@@ -179,12 +222,7 @@ class AnalysisOrchestrator(
             if (!expected && !e.isAlreadyReported()) {
                 crashReporter.captureException(e)
             }
-            val message = if (e is RemoteAnalysisException) {
-                RemoteAnalysisErrorMapper.map(e)
-            } else {
-                e.message ?: AppStrings.UNKNOWN_ERROR
-            }
-            Outcome.Failed(message, AnalysisFailureReason.from(e))
+            Outcome.Failed(e.message.orEmpty(), AnalysisFailureReason.from(e), e as? RemoteAnalysisException)
         }
     }
 }

@@ -1,0 +1,10 @@
+{
+  "kind": "component",
+  "kindLabel": "コンポーネント",
+  "category": "game_card",
+  "categoryLabel": "棋譜カード",
+  "screen": "棋譜カード",
+  "screenLabel": "棋譜カード",
+  "state": "表示あり・持ち時間・持ち時間設定",
+  "stateLabel": "表示あり・持ち時間・持ち時間設定"
+}

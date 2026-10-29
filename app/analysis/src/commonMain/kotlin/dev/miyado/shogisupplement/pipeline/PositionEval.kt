@@ -14,7 +14,9 @@ data class PositionEval(
 /** 1局面のMultiPV結果をPositionEvalへ変換する。multipv=1/2の抽出を一箇所に集約する。 */
 fun List<PvInfo>.toPositionEval(): PositionEval {
     val pv1 = firstOrNull { it.multipv == 1 }
-    val pv2 = firstOrNull { it.multipv == 2 }
+    val pv2 = firstOrNull { it.multipv == 2 }?.takeUnless {
+        pv1?.pv?.firstOrNull() != null && it.pv.firstOrNull() == pv1.pv.first()
+    }
     return PositionEval(
         score = pv1?.score,
         pv = pv1?.pv ?: emptyList(),

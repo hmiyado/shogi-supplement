@@ -1,5 +1,12 @@
 package dev.miyado.shogisupplement.ui.license
 
+import org.jetbrains.compose.resources.vectorResource
+
+import dev.miyado.shogisupplement.ui.text.UiStrings
+
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -16,14 +23,12 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.mikepenz.aboutlibraries.Libs
 import com.mikepenz.aboutlibraries.ui.compose.m3.LibrariesContainer
-import dev.miyado.shogisupplement.text.AppStrings
+import dev.miyado.shogisupplement.ui.common.adaptiveContentWidth
 import dev.miyado.shogisupplement.ui.common.scaffoldContentInsets
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
 import org.jetbrains.compose.ui.tooling.preview.Preview
@@ -40,12 +45,12 @@ fun LicenseInfoScreen(
         contentWindowInsets = scaffoldContentInsets(),
         topBar = {
             TopAppBar(
-                title = { Text(AppStrings.LICENSE_SCREEN_TITLE) },
+                title = { Text(stringResource(Res.string.license_screen_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = AppStrings.BACK,
+                            imageVector = vectorResource(Res.drawable.ic_auto_mirrored_filled_arrow_back),
+                            contentDescription = stringResource(Res.string.back),
                         )
                     }
                 },
@@ -56,7 +61,8 @@ fun LicenseInfoScreen(
             libraries = libraries,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
+                .padding(padding)
+                .adaptiveContentWidth(),
             header = { item { LicenseInfoHeader() } },
             footer = { item { LicenseSourceFooter(onOpenSourceRepo = onOpenSourceRepo) } },
         )
@@ -76,12 +82,12 @@ fun LicenseInfoHeader(modifier: Modifier = Modifier) {
             .padding(16.dp),
     ) {
         Text(
-            text = AppStrings.LICENSE_APP_HEADER,
+            text = stringResource(Res.string.license_app_header),
             style = MaterialTheme.typography.titleMedium,
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            text = AppStrings.LICENSE_APP_BODY,
+            text = UiStrings.LICENSE_APP_BODY,
             style = MaterialTheme.typography.bodyMedium,
         )
         Spacer(Modifier.height(16.dp))
@@ -89,12 +95,12 @@ fun LicenseInfoHeader(modifier: Modifier = Modifier) {
         Spacer(Modifier.height(16.dp))
 
         Text(
-            text = AppStrings.LICENSE_ENGINE_HEADER,
+            text = stringResource(Res.string.license_engine_header),
             style = MaterialTheme.typography.titleSmall,
         )
         Spacer(Modifier.height(4.dp))
         Text(
-            text = AppStrings.LICENSE_ENGINE_BODY,
+            text = UiStrings.LICENSE_ENGINE_BODY,
             style = MaterialTheme.typography.bodyMedium,
         )
         Spacer(Modifier.height(16.dp))
@@ -102,17 +108,17 @@ fun LicenseInfoHeader(modifier: Modifier = Modifier) {
         Spacer(Modifier.height(16.dp))
 
         Text(
-            text = AppStrings.LICENSE_FONT_HEADER,
+            text = stringResource(Res.string.license_font_header),
             style = MaterialTheme.typography.titleSmall,
         )
         Spacer(Modifier.height(4.dp))
         Text(
-            text = AppStrings.LICENSE_FONT_INTRO,
+            text = UiStrings.LICENSE_FONT_INTRO,
             style = MaterialTheme.typography.bodyMedium,
         )
         Spacer(Modifier.height(4.dp))
         Text(
-            text = AppStrings.LICENSE_FONT_BODY,
+            text = UiStrings.LICENSE_FONT_BODY,
             style = MaterialTheme.typography.bodyMedium,
         )
         Spacer(Modifier.height(16.dp))
@@ -120,7 +126,7 @@ fun LicenseInfoHeader(modifier: Modifier = Modifier) {
         Spacer(Modifier.height(16.dp))
 
         Text(
-            text = AppStrings.LICENSE_OSS_LIST_HEADER,
+            text = stringResource(Res.string.license_oss_list_header),
             style = MaterialTheme.typography.titleMedium,
         )
     }
@@ -137,12 +143,12 @@ fun LicenseSourceFooter(onOpenSourceRepo: () -> Unit, modifier: Modifier = Modif
         HorizontalDivider()
         Spacer(Modifier.height(16.dp))
         Text(
-            text = AppStrings.LICENSE_SOURCE_HEADER,
+            text = stringResource(Res.string.license_source_header),
             style = MaterialTheme.typography.titleSmall,
         )
         Spacer(Modifier.height(4.dp))
         Text(
-            text = AppStrings.LICENSE_SOURCE_URL,
+            text = stringResource(Res.string.license_source_url),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier

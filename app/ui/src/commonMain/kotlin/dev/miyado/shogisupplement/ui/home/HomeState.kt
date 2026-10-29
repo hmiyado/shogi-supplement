@@ -19,6 +19,7 @@ data class StrengthCardData(
 /** 「今日の1問」ヒント（ネタバレなし: 手数のみで出典局名は表示しない）。 */
 data class TodaysDrillHint(
     val ply: Long,
+    val hasMateDrill: Boolean = false,
 )
 
 /**

@@ -1,0 +1,18 @@
+CREATE TABLE analysis_remote_base (
+    game_id INTEGER NOT NULL REFERENCES game(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL,
+    generation TEXT,
+    PRIMARY KEY (game_id, user_id)
+);
+
+saveBase:
+INSERT OR REPLACE INTO analysis_remote_base(game_id, user_id, generation) VALUES (?, ?, ?);
+
+getBase:
+SELECT user_id, generation FROM analysis_remote_base WHERE game_id = ? AND user_id = ?;
+
+deleteBases:
+DELETE FROM analysis_remote_base WHERE game_id = ?;
+
+deleteAllBases:
+DELETE FROM analysis_remote_base;

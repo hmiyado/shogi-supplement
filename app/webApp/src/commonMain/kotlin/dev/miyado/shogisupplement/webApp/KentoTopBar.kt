@@ -1,5 +1,8 @@
 package dev.miyado.shogisupplement.webApp
 
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,10 +18,8 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.theme.ShipporiMinchoFamily
 
-private const val BACK_LABEL = "← トップ"
 @Composable
 internal fun KentoTopBar(onBack: () -> Unit) {
     Row(
@@ -26,14 +27,14 @@ internal fun KentoTopBar(onBack: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            BACK_LABEL,
+            stringResource(Res.string.kento_back_top),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.clickable(onClick = onBack),
         )
         Spacer(Modifier.width(10.dp))
         Text(
-            AppStrings.KENTO_TITLE,
+            stringResource(Res.string.kento_title),
             style = TextStyle(fontFamily = ShipporiMinchoFamily, fontWeight = FontWeight.Bold, fontSize = 17.sp),
         )
     }

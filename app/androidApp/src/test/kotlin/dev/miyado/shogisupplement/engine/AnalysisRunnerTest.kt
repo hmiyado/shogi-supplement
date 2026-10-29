@@ -36,7 +36,7 @@ class AnalysisRunnerTest {
                 lastCommandName = lastCmd,
             )
 
-        override fun analyzeSfen(sfen: String, additionalMoves: List<String>, nodes: Int): List<PvInfo> =
+        override fun analyzeSfen(sfen: String, additionalMoves: List<String>, nodes: Int, multiPv: Int): List<PvInfo> =
             throw EngineAbnormalExitException(
                 message = "Engine stdout closed unexpectedly (test)",
                 exitCode = exitCode,
@@ -52,7 +52,7 @@ class AnalysisRunnerTest {
         override fun analyze(moves: List<String>, nodes: Int): List<PvInfo> =
             throw RuntimeException("unexpected generic error")
 
-        override fun analyzeSfen(sfen: String, additionalMoves: List<String>, nodes: Int): List<PvInfo> =
+        override fun analyzeSfen(sfen: String, additionalMoves: List<String>, nodes: Int, multiPv: Int): List<PvInfo> =
             throw RuntimeException("unexpected generic error")
 
         override fun quit() {}
@@ -62,7 +62,7 @@ class AnalysisRunnerTest {
     /** analyze() が正常終了するフェイク。 */
     private class HealthyEngine : Engine {
         override fun analyze(moves: List<String>, nodes: Int): List<PvInfo> = emptyList()
-        override fun analyzeSfen(sfen: String, additionalMoves: List<String>, nodes: Int): List<PvInfo> = emptyList()
+        override fun analyzeSfen(sfen: String, additionalMoves: List<String>, nodes: Int, multiPv: Int): List<PvInfo> = emptyList()
         override fun quit() {}
         override fun newGame() {}
     }

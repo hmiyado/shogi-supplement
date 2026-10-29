@@ -14,14 +14,15 @@ import platform.Foundation.NSUUID
  * バッチ解析とはホストを分離し、position形式をネイティブ実装と一致させる。
  * 未準備またはビジーなら即時に例外を返し、サーバー経路へ切り替えられるようにする。
  */
-class WasmStudyEngine : Engine {
+class WasmStudyEngine private constructor(private val purpose: String?) : Engine {
+    constructor() : this(null)
 
     override fun analyze(moves: List<String>, nodes: Int): List<PvInfo> =
         analyzeSfen(ShogiBoard().toSfen(), moves, nodes)
 
-    // nodes: study-worker.js が本番不変条件のノード数を自前で固定するため受け取っても使わない
-    // （[RemoteStudyEngine] と同じ理由）。
-    override fun analyzeSfen(sfen: String, additionalMoves: List<String>, nodes: Int): List<PvInfo> {
+    // nodes: study-worker.js が EngineInvariants.DRILL_SECONDARY_NODES (=400k) を固定するため、
+    // 受け取っても使わない。
+    override fun analyzeSfen(sfen: String, additionalMoves: List<String>, nodes: Int, multiPv: Int): List<PvInfo> {
         val start = WasmStudyBridge.analyzeHandler
             ?: throw WasmAnalysisException("常駐WKWebViewホスト（WasmStudyHost）が未初期化です")
 
@@ -45,7 +46,7 @@ class WasmStudyEngine : Engine {
                 )
                 cont.invokeOnCancellation { WasmStudyBridge.endRequest(requestId) }
 
-                val accepted = start(requestId, "sfen $sfen", movesJson)
+                val accepted = start(requestId, "sfen $sfen", movesJson, multiPv, purpose)
                 if (!accepted) {
                     WasmStudyBridge.endRequest(requestId)
                     cont.resumeWithException(WasmAnalysisException("対話的解析ホストが未準備です"))
@@ -61,6 +62,8 @@ class WasmStudyEngine : Engine {
     override fun quit() { /* no-op */ }
 
     companion object {
+        /** 検討設定を受け取らないドリル専用のWASM入口。 */
+        fun drillEvaluationEngine(): DrillEvaluationEngine = InvariantDrillEngine(WasmStudyEngine("drill"))
         private val json = Json
     }
 }

@@ -1,0 +1,70 @@
+{
+  "date": "2026-09-27",
+  "status": "SUCCESS",
+  "build_id": "e25dd91f-5695-472b-a6a4-2a3a61fc4378",
+  "candidate_tag": "analysis-worker-study:verify-20260927-02",
+  "candidate_digest": "sha256:622a8479c177cbb208ae79c3acd9cd7d6228d108d67f4e9dde858f3252c827b9",
+  "base_digest": "sha256:9258800e8546a8208bc53ab2e2133626b16408b916fdd768e332c4023962042e",
+  "worker_cpu_limit": 4,
+  "worker_memory_bytes": 2147483648,
+  "build_machine": "E2_HIGHCPU_8",
+  "http_checks": {
+    "study_seconds": 2.666459966000005,
+    "cache_seconds": 0.030778139999995346,
+    "legacy_seconds": 1.4058130899999952,
+    "drill_seconds": 1.496756763999997,
+    "saved_jobs": 3,
+    "study_meta": {
+      "engine_rev": "v9.80@d47c9bfb94210fb1f9b741d5ee16ce081b35cacd",
+      "eval_sha256": "f8ee839ae8c08537036f23345dd5ed0416958b22425476fc60177942903219b5",
+      "nodes": 400000,
+      "threads": 1,
+      "multi_pv": 3,
+      "usi_hash": 128,
+      "fv_scale": 40,
+      "condition_name": "ce081b35cacd-f8ee839a-n400000-t1-p3-h128-f40"
+    },
+    "legacy_meta": {
+      "engine_rev": "v9.40@717da871e7a620702b8b9433bd8f9f181710435a",
+      "eval_sha256": "1141d275bceec911156801f27303dc9ff5beb24f4f59144cc069306c59e80782",
+      "nodes": 400000,
+      "threads": 1,
+      "multi_pv": 3,
+      "usi_hash": 128,
+      "fv_scale": 20,
+      "condition_name": "9f181710435a-1141d275-n400000-t1-p3-h128-f20"
+    },
+    "drill_meta": {
+      "engine_rev": "v9.40@717da871e7a620702b8b9433bd8f9f181710435a",
+      "eval_sha256": "1141d275bceec911156801f27303dc9ff5beb24f4f59144cc069306c59e80782",
+      "nodes": 400000,
+      "threads": 1,
+      "multi_pv": 2,
+      "usi_hash": 128,
+      "fv_scale": 20,
+      "condition_name": "9f181710435a-1141d275-n400000-t1-p2-h128-f20"
+    },
+    "invalid_jwt_rejected": true,
+    "pv_legality": true,
+    "scope": "Production worker entrypoint with isolated JWKS/PostgREST fixture; not a real Supabase database"
+  },
+  "engine_stop_resume_ok": true,
+  "engine_vm_hwm_kib": 495296,
+  "engine_vm_rss_kib": 440828,
+  "worker_post_test_memory_mib": 157.8,
+  "oom_killed": false,
+  "production_revision_before": "analysis-worker-00099-28f",
+  "production_revision_after": "analysis-worker-00099-28f",
+  "production_tag_digest_unchanged": true,
+  "production_deployed": false,
+  "limitations": [
+    "In-memory PostgREST fixture, not actual Supabase/PostgreSQL/RLS",
+    "Sequential smoke test, not concurrent load or Cloud Run performance proof",
+    "Memory high-water mark is the engine process in stop/resume probe, not whole-worker peak"
+  ],
+  "first_attempt": {
+    "build_id": "964719a4-1adf-4e8b-901f-1fcbecd8c4e1",
+    "status": "FAILURE",
+    "reason": "2 CPU build host rejected 4 CPU container before startup; retried on 8 CPU host"
+  }
+}

@@ -51,10 +51,7 @@ targets:
     sources:
       - path: iosApp
         excludes:
-          - "Resources/**"
           - "Info.plist"
-      - path: iosApp/Resources
-        buildPhase: resources
       # engine_wrapper.h/.cpp はKotlin(:shared)のcinterop経由でのみ使う
       # （build_ios.shがlibshogiengine.aへコンパイル込み。実体はSharedUi.frameworkに
       # 埋め込まれるため、Xcodeターゲットのソースとしては含めない）。
@@ -80,8 +77,8 @@ targets:
         # CADisableMinimumFrameDurationOnPhone は GENERATE_INFOPLIST_FILE の
         # INFOPLIST_KEY_ 機構（既知キーのみ対応）では注入できないため、実ファイルを使用。
         GENERATE_INFOPLIST_FILE: NO
-        CURRENT_PROJECT_VERSION: 11
-        MARKETING_VERSION: "1.10"
+        CURRENT_PROJECT_VERSION: 18
+        MARKETING_VERSION: "1.17"
         INFOPLIST_FILE: iosApp/Info.plist
         # :ui が :shared を export した umbrella framework（SharedUi）に統一。
         # :shared.framework は二重リンクせず、SharedUi 経由で :shared の公開APIも使う。
@@ -99,7 +96,10 @@ targets:
         # SWIFT_OBJC_BRIDGING_HEADER/HEADER_SEARCH_PATHSは不要。
         # -ObjC はFirebase（Objective-Cカテゴリを含む静的ライブラリ）を正しくロードするために
         # 必須（Firebase公式README・「Integration Instructions」手順8）。
-        OTHER_LDFLAGS: "-framework SharedUi -lsqlite3 -lc++ -lshogiengine -ObjC"
+        # 通常の-lでは静的初期化だけのエンジン登録が欠落し、起動時にexit(1)する。
+        OTHER_LDFLAGS: '-framework SharedUi -lsqlite3 -lc++ -Wl,-force_load,"$(SRCROOT)/engine/build/$(SHOGI_ENGINE_TARGET)/libshogiengine.a" -ObjC'
+        "SHOGI_ENGINE_TARGET[sdk=iphoneos*]": device
+        "SHOGI_ENGINE_TARGET[sdk=iphonesimulator*]": sim
         # アプリアイコン（駒型二色カプセル。androidApp のアダプティブアイコンと同意匠）。
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         # App Attest（Firebase App Check）に必須のentitlements。無いとRelease実機で
@@ -131,14 +131,14 @@ targets:
           "FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]": "$(SRCROOT)/../ui/build/bin/iosSimulatorArm64/releaseFramework"
           "FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]": "$(SRCROOT)/../ui/build/bin/iosArm64/releaseFramework"
         # engineless: フレームワーク出力先はDebug/Releaseと同じ（:uiのGradleタスク名・出力パスは
-        # iosEngineless有無で変わらない。中身が違うだけ）。OTHER_LDFLAGSだけ -lshogiengine を外す
+        # iosEngineless有無で変わらない。中身が違うだけ）。OTHER_LDFLAGSからエンジンの強制リンクを外す
         # （リンク自体を外すのが目的のため、baseの値を丸ごと上書きする）。
         Debug-Engineless:
           PRODUCT_BUNDLE_IDENTIFIER: dev.miyado.shogisupplement.ios.debug
           "FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]": "$(SRCROOT)/../ui/build/bin/iosSimulatorArm64/debugFramework"
           "FRAMEWORK_SEARCH_PATHS[sdk=iphoneos*]": "$(SRCROOT)/../ui/build/bin/iosArm64/debugFramework"
           OTHER_LDFLAGS: "-framework SharedUi -lsqlite3 -lc++ -ObjC"
-          # Swift側のエンジン依存コード（DEBUG用EngineView等）を#if !ENGINELESSで外すためのフラグ
+          # engineless構成をSwift側から判定するためのフラグ（DEBUGはUIテスト用の分岐が使う）
           SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) DEBUG ENGINELESS"
         Release-Engineless:
           "FRAMEWORK_SEARCH_PATHS[sdk=iphonesimulator*]": "$(SRCROOT)/../ui/build/bin/iosSimulatorArm64/releaseFramework"
@@ -202,13 +202,21 @@ targets:
           URL=""
           KEY=""
           ANALYSIS_BASE_URL=""
+          GAME_SHARE_WEB_URL=""
+          GAME_SHARE_API_BASE_URL=""
           if [ -f "$PROPS" ]; then
             URL=$(sed -n 's/^SUPABASE_URL=//p' "$PROPS" | head -1)
             KEY=$(sed -n 's/^SUPABASE_KEY=//p' "$PROPS" | head -1)
             ANALYSIS_BASE_URL=$(sed -n 's/^ANALYSIS_BASE_URL=//p' "$PROPS" | head -1)
+            case "$CONFIGURATION" in
+              Debug*)
+                GAME_SHARE_WEB_URL=$(sed -n 's/^GAME_SHARE_WEB_URL=//p' "$PROPS" | head -1)
+                GAME_SHARE_API_BASE_URL=$(sed -n 's/^GAME_SHARE_API_BASE_URL=//p' "$PROPS" | head -1)
+                ;;
+            esac
           fi
-          printf 'SUPABASE_URL=%s\nSUPABASE_KEY=%s\nANALYSIS_BASE_URL=%s\n' \
-            "$URL" "$KEY" "$ANALYSIS_BASE_URL" > "$OUT_DIR/SupabaseConfig.properties"
+          printf 'SUPABASE_URL=%s\nSUPABASE_KEY=%s\nANALYSIS_BASE_URL=%s\nGAME_SHARE_WEB_URL=%s\nGAME_SHARE_API_BASE_URL=%s\n' \
+            "$URL" "$KEY" "$ANALYSIS_BASE_URL" "$GAME_SHARE_WEB_URL" "$GAME_SHARE_API_BASE_URL" > "$OUT_DIR/SupabaseConfig.properties"
         basedOnDependencyAnalysis: false
       # Sentry DSN も同じ経路（app/local.properties→ビルド時生成）でバンドルする。
       # 公開するとイベントを外部から投げ込まれるリスクがあるためリポジトリに秘密を置かない。
@@ -298,6 +306,8 @@ targets:
       # Releaseの配布物には一切含めない。
       # バンドルIDを分けても、アイコンと名前が同じでは同居した2つを見分けられない。
       - name: "Mark the app as a development build (Debug only)"
+        inputFiles:
+          - "$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)"
         script: |
           set -e
           case "$CONFIGURATION" in
@@ -308,6 +318,8 @@ targets:
           esac
         basedOnDependencyAnalysis: false
       - name: "Allow local networking (Debug only, for local asset delivery)"
+        inputFiles:
+          - "$(TARGET_BUILD_DIR)/$(INFOPLIST_PATH)"
         script: |
           set -e
           case "$CONFIGURATION" in
@@ -315,9 +327,9 @@ targets:
               PLIST="$TARGET_BUILD_DIR/$INFOPLIST_PATH"
               /usr/libexec/PlistBuddy -c "Delete :NSAppTransportSecurity" "$PLIST" 2>/dev/null || true
               /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity dict" "$PLIST"
-              /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity:NSAllowsLocalNetworking bool true" "$PLIST"
+              /usr/libexec/PlistBuddy -c "Add :NSAppTransportSecurity:NSAllowsArbitraryLoads bool true" "$PLIST"
               /usr/libexec/PlistBuddy -c "Delete :NSLocalNetworkUsageDescription" "$PLIST" 2>/dev/null || true
-              /usr/libexec/PlistBuddy -c "Add :NSLocalNetworkUsageDescription string 開発中のWASMバイナリをMacのローカル配信から取得する検証に使います" "$PLIST"
+              /usr/libexec/PlistBuddy -c "Add :NSLocalNetworkUsageDescription string 開発中のアプリをMacの開発環境に接続して検証するために使います" "$PLIST"
               ;;
           esac
         basedOnDependencyAnalysis: false

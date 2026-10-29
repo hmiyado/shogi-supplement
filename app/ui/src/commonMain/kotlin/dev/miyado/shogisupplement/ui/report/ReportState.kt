@@ -1,5 +1,7 @@
 package dev.miyado.shogisupplement.ui.report
 
+import dev.miyado.shogisupplement.ui.text.text
+
 import dev.miyado.shogisupplement.blunder.PositionEvalDisplay
 import dev.miyado.shogisupplement.board.PieceType
 import dev.miyado.shogisupplement.board.ShogiBoard
@@ -23,15 +25,25 @@ sealed class StudyEvalState {
     /**
      * @param label 表示用ラベル。
      * @param userCp 自分視点のcp。差は非線形な勝率軸でなくcp軸で計算する。
-     * @param bestMoveText PV先頭手の棋譜表記。PVが空または整形失敗ならnull。
+     * @param candidates エンジンが返した候補手（評価の高い順）。整形に失敗した手は含まない。
      */
     data class Value(
         val label: PositionEvalDisplay.EvalLabel,
         val userCp: Int? = null,
-        val bestMoveText: String? = null,
+        val candidates: List<StudyCandidate> = emptyList(),
     ) : StudyEvalState()
     object Error : StudyEvalState()
 }
+
+/**
+ * 検討モードの候補手1つ。
+ * @param moveUsi 着手のUSI表記。 @param moveText 棋譜表記。 @param label その手を指した局面の表示用ラベル。
+ */
+data class StudyCandidate(
+    val moveUsi: String,
+    val moveText: String,
+    val label: PositionEvalDisplay.EvalLabel,
+)
 
 /**
  * 検討開始時に固定する分岐元情報。
@@ -40,10 +52,12 @@ sealed class StudyEvalState {
  */
 data class StudyOrigin(val label: String, val userCp: Int?)
 
+
 data class StudyBranchOption(
     val moveUsi: String,
     val evalState: StudyEvalState,
     val isCurrent: Boolean,
+    val nodeId: Long = 0,
 )
 
 /** 検討モードの状態。 @param baseSfen 開始局面。 @param moves 現在局面までのUSI手列。 @param displayLine 表示用のUSI手列。 @param chipEvalStates チップ用評価結果。 @param origin 分岐元情報。 @param branchFlags 兄弟変化の有無。 @param openBranchPopupDepth 開いたポップアップの深さ。 @param branchPopupOptions 兄弟変化一覧。 @param originIsBestPv 開始タブ。 @param originPlyIndex 開始手数。 @param originSelectedIdx 開始時の悪手インデックス。 @param originAbsolutePly 本譜上の開始手数。 @param flip 盤面の反転状態。 */
@@ -54,6 +68,7 @@ data class StudyState(
     val chipEvalStates: List<StudyEvalState> = emptyList(),
     val origin: StudyOrigin,
     val branchFlags: List<Boolean> = emptyList(),
+    val moveOptions: List<List<StudyBranchOption>> = emptyList(),
     val openBranchPopupDepth: Int? = null,
     val branchPopupOptions: List<StudyBranchOption> = emptyList(),
     val originIsBestPv: Boolean,
@@ -68,6 +83,9 @@ data class StudyState(
     val pendingPromoteMove: ShogiMove? = null,
     val evalState: StudyEvalState = StudyEvalState.None,
     val showTurnHint: Boolean = false,
+    val canDeleteBranch: Boolean = false,
+    val saveFailed: Boolean = false,
+    val nodeId: Long = 0,
 )
 
 /**
@@ -124,4 +142,4 @@ fun buildInitialStudyState(
 internal enum class ViewerMode { MAINLINE, BEST_PV }
 
 /** レポート画面下部の表示モード。グラフと悪手一覧は領域確保のため排他表示する。 */
-internal enum class ReportBodyMode { SUMMARY, LIST }
+internal enum class ReportBodyMode { SUMMARY, LIST, STUDY }

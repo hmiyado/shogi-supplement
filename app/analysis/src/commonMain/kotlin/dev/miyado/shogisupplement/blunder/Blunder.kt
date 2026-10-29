@@ -7,11 +7,11 @@ import kotlin.math.min
 
 /**
  * エンジンスコア（USI infoのcp/mate）。
- * 常に「その局面の手番側から見た値」。mate>0 は手番側が詰ます、mate<0 は詰まされる。
+ * 常に「その局面の手番側から見た値」。mate>0 は手番側の勝ち、mate<0 は負け。verifiedだけが最短詰み確認済み。
  */
 sealed interface Score {
     data class Cp(val value: Int) : Score
-    data class Mate(val plies: Int) : Score
+    data class Mate(val plies: Int, val verified: Boolean = true) : Score
 }
 
 /** 悪手の種別（悪手定義 v1.1）。 */
@@ -71,8 +71,8 @@ object BlunderJudge {
             return BlunderVerdict(false, null, lossCp, wpBefore, wpAfter)
         }
 
-        val mateBefore = (before as? Score.Mate)?.plies
-        val mateAfter = (after as? Score.Mate)?.plies
+        val mateBefore = (before as? Score.Mate)?.takeIf { it.verified }?.plies
+        val mateAfter = (after as? Score.Mate)?.takeIf { it.verified }?.plies
 
         if (mateBefore != null && mateBefore > 0 && !(mateAfter != null && mateAfter <= 0)) {
             return BlunderVerdict(true, BlunderType.MATE_MISS, lossCp, wpBefore, wpAfter)

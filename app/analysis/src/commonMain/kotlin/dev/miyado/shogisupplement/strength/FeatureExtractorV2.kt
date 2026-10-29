@@ -94,7 +94,7 @@ object FeatureExtractorV2 {
             }
 
             // 詰み対応: 次局面もmateスコアの場合のみ「機会」とみなす（cpに切り替わった場合は数えない）。
-            if (curScore is Score.Mate && curScore.plies > 0 && nxtScore is Score.Mate) {
+            if (curScore is Score.Mate && curScore.verified && curScore.plies > 0 && nxtScore is Score.Mate && nxtScore.verified) {
                 mateOpportunities++
                 if (nxtScore.plies > 0) mateMisses++
             }

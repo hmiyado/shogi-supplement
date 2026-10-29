@@ -1,5 +1,12 @@
 package dev.miyado.shogisupplement.ui.transfercode
 
+import org.jetbrains.compose.resources.vectorResource
+
+import dev.miyado.shogisupplement.ui.text.UiStrings
+
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -7,10 +14,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
 import dev.miyado.shogisupplement.ui.common.ShogiSecondaryButton
@@ -34,7 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.miyado.shogisupplement.text.AppStrings
+import dev.miyado.shogisupplement.ui.common.adaptiveContentWidth
 import dev.miyado.shogisupplement.ui.common.scaffoldContentInsets
 import dev.miyado.shogisupplement.ui.theme.IbmPlexMonoFamily
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
@@ -83,12 +86,12 @@ fun TransferCodeScreen(
         contentWindowInsets = scaffoldContentInsets(),
         topBar = {
             TopAppBar(
-                title = { Text(AppStrings.TRANSFER_CODE_TITLE) },
+                title = { Text(stringResource(Res.string.transfer_code_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = AppStrings.BACK,
+                            imageVector = vectorResource(Res.drawable.ic_auto_mirrored_filled_arrow_back),
+                            contentDescription = stringResource(Res.string.back),
                         )
                     }
                 },
@@ -105,11 +108,12 @@ fun TransferCodeScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(24.dp),
+                        .padding(24.dp)
+                        .adaptiveContentWidth(),
                     verticalArrangement = Arrangement.spacedBy(20.dp),
                 ) {
                     Text(
-                        text = AppStrings.TRANSFER_CODE_DESCRIPTION,
+                        text = UiStrings.TRANSFER_CODE_DESCRIPTION,
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     Row(
@@ -129,11 +133,11 @@ fun TransferCodeScreen(
                             modifier = Modifier.testTag("transfer_code_reveal_toggle"),
                         ) {
                             Icon(
-                                imageVector = if (revealed) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                                imageVector = if (revealed) vectorResource(Res.drawable.ic_filled_visibility_off) else vectorResource(Res.drawable.ic_filled_visibility),
                                 contentDescription = if (revealed) {
-                                    AppStrings.TRANSFER_CODE_HIDE_ICON_DESC
+                                    stringResource(Res.string.transfer_code_hide_icon_desc)
                                 } else {
-                                    AppStrings.TRANSFER_CODE_REVEAL_ICON_DESC
+                                    stringResource(Res.string.transfer_code_reveal_icon_desc)
                                 },
                             )
                         }
@@ -147,9 +151,9 @@ fun TransferCodeScreen(
                     ) {
                         Text(
                             if (justCopied) {
-                                AppStrings.TRANSFER_CODE_COPIED
+                                stringResource(Res.string.transfer_code_copied)
                             } else {
-                                AppStrings.TRANSFER_CODE_COPY_BUTTON
+                                stringResource(Res.string.transfer_code_copy_button)
                             },
                         )
                     }
@@ -159,7 +163,7 @@ fun TransferCodeScreen(
                             onClick = { showRegenerateConfirm = true },
                             modifier = Modifier.fillMaxWidth(),
                         ) {
-                            Text(AppStrings.TRANSFER_CODE_REGENERATE_BUTTON)
+                            Text(stringResource(Res.string.transfer_code_regenerate_button))
                         }
                     }
                     if (regenerateError != null) {
@@ -177,16 +181,16 @@ fun TransferCodeScreen(
     if (showRegenerateConfirm && onRegenerate != null) {
         AlertDialog(
             onDismissRequest = { showRegenerateConfirm = false },
-            title = { Text(AppStrings.TRANSFER_CODE_REGENERATE_DIALOG_TITLE) },
-            text = { Text(AppStrings.TRANSFER_CODE_REGENERATE_DIALOG_TEXT) },
+            title = { Text(stringResource(Res.string.transfer_code_regenerate_dialog_title)) },
+            text = { Text(UiStrings.TRANSFER_CODE_REGENERATE_DIALOG_TEXT) },
             confirmButton = {
                 TextButton(onClick = {
                     showRegenerateConfirm = false
                     onRegenerate()
-                }) { Text(AppStrings.TRANSFER_CODE_REGENERATE_CONFIRM) }
+                }) { Text(stringResource(Res.string.transfer_code_regenerate_confirm)) }
             },
             dismissButton = {
-                TextButton(onClick = { showRegenerateConfirm = false }) { Text(AppStrings.CANCEL) }
+                TextButton(onClick = { showRegenerateConfirm = false }) { Text(stringResource(Res.string.cancel)) }
             },
         )
     }

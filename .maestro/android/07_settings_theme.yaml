@@ -5,4 +5,7 @@ env:
 ---
 - launchApp:
     clearState: false
+- extendedWaitUntil:
+    visible: "将棋サプリ"
+    timeout: 60000
 - runFlow: ../common/settings_theme.yaml

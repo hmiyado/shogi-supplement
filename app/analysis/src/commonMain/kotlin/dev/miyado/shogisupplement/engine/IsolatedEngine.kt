@@ -17,9 +17,9 @@ class IsolatedEngine(private val delegate: Engine) : Engine {
         return delegate.analyze(moves, nodes)
     }
 
-    override fun analyzeSfen(sfen: String, additionalMoves: List<String>, nodes: Int): List<PvInfo> {
+    override fun analyzeSfen(sfen: String, additionalMoves: List<String>, nodes: Int, multiPv: Int): List<PvInfo> {
         delegate.newGame()
-        return delegate.analyzeSfen(sfen, additionalMoves, nodes)
+        return delegate.analyzeSfen(sfen, additionalMoves, nodes, multiPv)
     }
 
     override fun newGame() = delegate.newGame()

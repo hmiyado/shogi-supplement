@@ -1,0 +1,6 @@
+CREATE TABLE analysis_remote_base (
+    game_id INTEGER NOT NULL REFERENCES game(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL,
+    generation TEXT,
+    PRIMARY KEY (game_id, user_id)
+);

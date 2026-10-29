@@ -1,0 +1,131 @@
+{
+  "manifest": {
+    "positions_sha256": "f2f21f418e229856b866ae96069de782114ee7c49120d904b704fc93eff16b78",
+    "runner_sha256": "ff1aa1f1859211aeec2f25b538def7a793905ab9015afbc0faf555256e612968",
+    "engine_sha256": "6f817a869642aacd0499999e40814ea8c6e2056430a28bb63831e0c4725312ac",
+    "evaluation_sha256": "1141d275bceec911156801f27303dc9ff5beb24f4f59144cc069306c59e80782",
+    "nodes": [
+      400000,
+      4000000
+    ],
+    "threads": 1,
+    "hash_mb": 128,
+    "multipv": 2,
+    "fv_scale": 20,
+    "reset": "isready/readyok/usinewgame per search",
+    "position": "startpos with full move history",
+    "count": 1670
+  },
+  "all_latest_values": {
+    "count": 1670,
+    "bestmove_changed": 325,
+    "pv_first_changed": 325,
+    "is_blunder_changed": 270,
+    "type_changed": 275,
+    "category_changed": 618,
+    "baseline_not_blunder": 0,
+    "blunder_to_not_blunder": 270,
+    "cp_before_delta": {
+      "count": 1213,
+      "mean": -80.98598516075845,
+      "p05": -476.0,
+      "p50": -65.0,
+      "p95": 259.39999999999986,
+      "min": -1282.0,
+      "max": 1305.0
+    },
+    "cp_before_absolute_delta": {
+      "count": 1213,
+      "mean": 180.26875515251442,
+      "p05": 12.0,
+      "p50": 127.0,
+      "p95": 521.1999999999982,
+      "min": 0.0,
+      "max": 1305.0
+    },
+    "cp_after_delta": {
+      "count": 1213,
+      "mean": 218.03215169002473,
+      "p05": -90.6,
+      "p50": 137.0,
+      "p95": 453.39999999999986,
+      "min": -1022.0,
+      "max": 27365.0
+    },
+    "cp_after_absolute_delta": {
+      "count": 1213,
+      "mean": 245.8573784006595,
+      "p05": 21.0,
+      "p50": 145.0,
+      "p95": 459.1999999999996,
+      "min": 0.0,
+      "max": 27365.0
+    }
+  },
+  "unbounded_latest_values_only": {
+    "count": 818,
+    "bestmove_changed": 152,
+    "pv_first_changed": 152,
+    "is_blunder_changed": 161,
+    "type_changed": 162,
+    "category_changed": 279,
+    "baseline_not_blunder": 0,
+    "blunder_to_not_blunder": 161,
+    "cp_before_delta": {
+      "count": 448,
+      "mean": -149.35714285714286,
+      "p05": -529.65,
+      "p50": -129.5,
+      "p95": 142.0,
+      "min": -1282.0,
+      "max": 1256.0
+    },
+    "cp_before_absolute_delta": {
+      "count": 448,
+      "mean": 194.19642857142858,
+      "p05": 15.0,
+      "p50": 151.0,
+      "p95": 543.6499999999995,
+      "min": 0.0,
+      "max": 1282.0
+    },
+    "cp_after_delta": {
+      "count": 448,
+      "mean": 220.44419642857142,
+      "p05": -41.0,
+      "p50": 146.5,
+      "p95": 418.65,
+      "min": -343.0,
+      "max": 27365.0
+    },
+    "cp_after_absolute_delta": {
+      "count": 448,
+      "mean": 232.75669642857142,
+      "p05": 31.050000000000004,
+      "p50": 147.0,
+      "p95": 418.65,
+      "min": 0.0,
+      "max": 27365.0
+    }
+  },
+  "pair_seconds": {
+    "400000": {
+      "count": 1670,
+      "mean": 1.0048556730743448,
+      "p05": 0.7704077439015237,
+      "p50": 1.02204404150325,
+      "p95": 1.15495334140287,
+      "min": 0.22588474999793107,
+      "max": 1.4611413329985226
+    },
+    "4000000": {
+      "count": 1670,
+      "mean": 10.062436453502523,
+      "p05": 6.900964874754209,
+      "p50": 10.31178072900002,
+      "p95": 11.560556902193275,
+      "min": 0.4195668329994078,
+      "max": 15.10196575000009
+    }
+  }
+}

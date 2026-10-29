@@ -1,5 +1,8 @@
 package dev.miyado.shogisupplement.ui.report
 
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -15,7 +18,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.exposeTestTags
 
 /** 対局情報ダイアログから開く、対局者名だけの編集ダイアログ。 */
@@ -35,7 +37,7 @@ internal fun EditPlayersDialog(
     AlertDialog(
         modifier = Modifier.exposeTestTags(),
         onDismissRequest = onDismiss,
-        title = { Text(AppStrings.EDIT_PLAYERS_DIALOG_TITLE) },
+        title = { Text(stringResource(Res.string.edit_players_dialog_title)) },
         text = {
             Column {
                 // 値が入るとラベルが枠線へ浮き、ラベルの文字をタップしても入力欄へ
@@ -43,7 +45,7 @@ internal fun EditPlayersDialog(
                 OutlinedTextField(
                     value = sente,
                     onValueChange = { sente = it },
-                    label = { Text(AppStrings.EDIT_PLAYERS_SENTE_LABEL) },
+                    label = { Text(stringResource(Res.string.edit_players_sente_label)) },
                     singleLine = true,
                     modifier = Modifier.testTag("edit_players_sente"),
                 )
@@ -51,7 +53,7 @@ internal fun EditPlayersDialog(
                 OutlinedTextField(
                     value = gote,
                     onValueChange = { gote = it },
-                    label = { Text(AppStrings.EDIT_PLAYERS_GOTE_LABEL) },
+                    label = { Text(stringResource(Res.string.edit_players_gote_label)) },
                     singleLine = true,
                     modifier = Modifier.testTag("edit_players_gote"),
                 )
@@ -59,12 +61,12 @@ internal fun EditPlayersDialog(
         },
         confirmButton = {
             TextButton(onClick = { onConfirm(sente.trim().ifBlank { null }, gote.trim().ifBlank { null }) }) {
-                Text(AppStrings.SAVE)
+                Text(stringResource(Res.string.save))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(AppStrings.CANCEL)
+                Text(stringResource(Res.string.cancel))
             }
         },
     )

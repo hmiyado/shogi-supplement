@@ -22,11 +22,16 @@ interface Engine {
     /** 初期局面から手を進めた局面を固定ノードで解析する。 @param moves USI手列。 @param nodes 探索ノード数。 @return MultiPV分のPV。 */
     fun analyze(moves: List<String>, nodes: Int = DEFAULT_NODES): List<PvInfo>
 
-    /** SFEN局面を固定ノードで解析する。 @param sfen SFEN文字列。 @param additionalMoves 追加のUSI手列。 @param nodes 探索ノード数。 @return MultiPV分のPV。 */
+    /**
+     * SFEN局面を固定ノードで解析する。 @param sfen SFEN文字列。 @param additionalMoves 追加のUSI手列。
+     * @param nodes 探索ノード数。 @param multiPv 候補手の本数（[MULTI_PV] 以外はgoldenパリティの
+     * 対象外である検討モードだけが渡してよい）。 @return multiPv 分のPV（出せた本数まで）。
+     */
     fun analyzeSfen(
         sfen: String,
         additionalMoves: List<String> = emptyList(),
         nodes: Int = DEFAULT_NODES,
+        multiPv: Int = MULTI_PV,
     ): List<PvInfo>
 
     /** エンジンプロセス/インスタンスの終了。 */
@@ -38,5 +43,11 @@ interface Engine {
     companion object {
         const val DEFAULT_NODES = 400_000
         const val MULTI_PV = 2
+
+        /**
+         * 検討モードの候補手の本数。[MULTI_PV] と違い解析結果の保存には関わらないため、
+         * goldenパリティの不変条件（[EngineInvariants]）には含めない。
+         */
+        const val STUDY_MULTI_PV = 3
     }
 }

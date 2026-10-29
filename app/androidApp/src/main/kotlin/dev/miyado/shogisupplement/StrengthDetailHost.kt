@@ -2,6 +2,8 @@ package dev.miyado.shogisupplement
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import dev.miyado.shogisupplement.ui.MainUiState
 import dev.miyado.shogisupplement.ui.MainViewModel
 import dev.miyado.shogisupplement.ui.strength.EstimatedStrengthDetailScreen
@@ -14,9 +16,12 @@ fun StrengthDetailHost(
     onEditAccounts: () -> Unit,
 ) {
     BackHandler { vm.loadHome() }
+    val context = LocalContext.current
+    val view = LocalView.current
     EstimatedStrengthDetailScreen(
         data = state.data,
         onBack = { vm.loadHome() },
         onEditAccounts = onEditAccounts,
+        onShare = { shareScreen(context, view) },
     )
 }

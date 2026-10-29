@@ -1,0 +1,1 @@
+ALTER TABLE game ADD COLUMN rating_declared_at INTEGER;

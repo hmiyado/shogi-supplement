@@ -7,10 +7,12 @@ import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.db.DatabaseFactory
 import dev.miyado.shogisupplement.db.DrillRepository
 import dev.miyado.shogisupplement.db.GameRepository
+import dev.miyado.shogisupplement.drill.DrillMode
 import dev.miyado.shogisupplement.drill.DrillJudge
 import dev.miyado.shogisupplement.drill.EngineDrillSecondaryJudge
 import dev.miyado.shogisupplement.drill.RemoteDrillSecondaryJudge
 import dev.miyado.shogisupplement.engine.Engine
+import dev.miyado.shogisupplement.engine.InvariantDrillEngine
 import dev.miyado.shogisupplement.engine.FailoverEngine
 import dev.miyado.shogisupplement.engine.IosEngineHost
 import dev.miyado.shogisupplement.engine.RemoteAnalysisRunner
@@ -47,6 +49,7 @@ object DrillDemoFactory {
         authRepository: AuthRepository? = null,
         analysisBaseUrl: String? = null,
         drillAttemptSync: DrillAttemptSync? = null,
+        mode: DrillMode = DrillMode.NORMAL,
     ): DrillViewModel {
         val gameRepository = DatabaseFactory.gameRepository()
         val drillRepository = DatabaseFactory.drillRepository()
@@ -58,6 +61,7 @@ object DrillDemoFactory {
             seedIfEmpty(gameRepository, drillRepository)
         }
         return DrillViewModel(
+            mode = mode,
             gameRepository = gameRepository,
             drillRepository = drillRepository,
             settingsRepository = settingsRepository,
@@ -106,13 +110,13 @@ object DrillDemoFactory {
             httpClient = httpClient,
             appCheckTokenProvider = AppCheckTokenBridge::getToken,
         )
-        val remoteEngine = RemoteStudyEngine { sfen, moves ->
+        val remoteEngine = RemoteStudyEngine { sfen, moves, multiPv ->
             // サーバー解析はJWT必須のため、未ログインならここで匿名サインインする
             // （通常はドリル到達前に済んでいるはずで、ここに来るのは保険）。
             if (authRepository.currentUser.value == null) {
                 authRepository.signInAnonymously()
             }
-            runner.analyzePosition(sfen, moves)
+            runner.analyzePosition(sfen, moves, multiPv)
         }
         return { FailoverEngine(primary = WasmStudyEngine(), secondary = remoteEngine) }
     }
@@ -138,9 +142,11 @@ object DrillDemoFactory {
                 httpClient = httpClient,
                 appCheckTokenProvider = AppCheckTokenBridge::getToken,
             )
-            val remoteJudge = RemoteDrillSecondaryJudge { sfen -> runner.analyzePosition(sfen) }
+            val remoteJudge = RemoteDrillSecondaryJudge {
+                sfen -> runner.analyzeDrillPosition(sfen)
+            }
             // 判定単位で切り替え、サーバー側の解析回数を1回に抑える。
-            val wasmJudge = EngineDrillSecondaryJudge { sfen -> WasmStudyEngine().analyzeSfen(sfen) }
+            val wasmJudge = EngineDrillSecondaryJudge(WasmStudyEngine.drillEvaluationEngine())
             return { blunder, userMoveUsi ->
                 // フォールバック後もJWTを保証するため、判定前に認証する。
                 if (authRepository.currentUser.value == null) {
@@ -168,7 +174,7 @@ object DrillDemoFactory {
         return { blunder, userMoveUsi ->
             val engine = IosEngineHost.getOrCreate()
             if (engine != null) {
-                EngineDrillSecondaryJudge { sfen -> engine.analyzeSfen(sfen) }.judge(blunder, userMoveUsi)
+                EngineDrillSecondaryJudge(InvariantDrillEngine(engine)).judge(blunder, userMoveUsi)
             } else {
                 DrillJudge.DrillResult(
                     isCorrect = false,
@@ -183,7 +189,7 @@ object DrillDemoFactory {
 
     private fun seedIfEmpty(gameRepository: GameRepository, drillRepository: DrillRepository) {
         if (gameRepository.getByHash(SEED_CONTENT_HASH) != null) return
-        if (drillRepository.getDrillCandidates().isNotEmpty()) return
+        if (drillRepository.getFirstDrillCandidate() != null) return
 
         // sampleReportBlunder()（MainViewController.kt・ReportViewerScreenshotTest相当）と
         // 同一局面。手筋（両取り・素抜き）の問題で、合法な打ち歩（B*3d）が出題される。

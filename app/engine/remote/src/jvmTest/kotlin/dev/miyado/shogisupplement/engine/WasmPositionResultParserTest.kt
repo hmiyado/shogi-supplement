@@ -30,12 +30,18 @@ class WasmPositionResultParserTest {
 
     @Test
     fun `mateスコアを変換する`() {
-        val json = """{"ply":0,"score":{"mate":5},"nodes":1000,"pv":["5i4h"]}"""
+        val json = """{"ply":0,"score":{"mate":5,"verified":true},"nodes":1000,"pv":["5i4h"]}"""
 
         val result = parseWasmPositionResult(json)
 
         val pv1 = result.pvs.first { it.multipv == 1 }
         assertEquals(Score.Mate(5), pv1.score)
+    }
+
+    @Test
+    fun `未確認の旧mateは勝ち手数と確認状態を保持する`() {
+        val result = parseWasmPositionResult("""{"ply":0,"score":{"mate":-5},"pv":["5i4h"]}""")
+        assertEquals(Score.Mate(-5, verified = false), result.pvs.single().score)
     }
 
     @Test

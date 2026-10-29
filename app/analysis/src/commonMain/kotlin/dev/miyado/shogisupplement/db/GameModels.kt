@@ -1,5 +1,7 @@
 package dev.miyado.shogisupplement.db
 
+import kotlinx.serialization.Serializable
+
 enum class GameAnalysisStatus(val wireValue: String) {
     PENDING("pending"),
     COMPLETED("completed"),
@@ -12,6 +14,7 @@ enum class GameAnalysisStatus(val wireValue: String) {
 }
 
 /** ゲームレコードのドメインモデル（UI用）。 */
+@Serializable
 data class GameRecord(
     val id: Long,
     val fileName: String,
@@ -31,6 +34,8 @@ data class GameRecord(
     val ratingService: String? = null,
     val ratingRaw: Long? = null,
     val ratingRule: String? = null,
+    /** 申告棋力を保存した日時（Unix epoch秒）。日時不明の移行データは0。 */
+    val ratingDeclaredAt: Long? = null,
     /**
      * 出典サービスの正規化値（[dev.miyado.shogisupplement.kifu.KifuSource.wireValue]。
      * "wars"/"lishogi"/"kiou"/"other"）。生の「場所」ヘッダ値は含まない
@@ -53,9 +58,15 @@ data class GameRecord(
     val timeControlRaw: String? = null,
     /** KIF「秒読み」ヘッダの原文。ヘッダが無ければnull。 */
     val timeControlByoyomiRaw: String? = null,
+    /** 解析に使ったエンジン条件のJSON。来歴を取得できないデータはnull。 */
+    val engineMetaJson: String? = null,
+    /** 保存済み検討文書。取込原文とは区別し、バックアップ時は暗号化対象にのみ含める。 */
+    val studyKif: String? = null,
+    val positionLabels: Set<String> = emptySet(),
 )
 
 /** 悪手レポートのドメインモデル（UI用）。 */
+@Serializable
 data class BlunderRecord(
     val id: Long,
     val gameId: Long,
@@ -101,6 +112,7 @@ data class BlunderRecord(
  * - scoreCp: 評価値 cp。詰み局面は null にして mateIn を使う。
  * - mateIn: 詰みまでの手数（正 = 先手が詰ます、負 = 後手が詰ます）。非詰み局面は null。
  */
+@Serializable
 data class PositionEvalRow(
     val ply: Int,
     val scoreCp: Int?,
@@ -116,6 +128,8 @@ data class PositionEvalRow(
      * 列追加前に保存された旧レコードは null（一致率計算では best_usi のみで判定される）。
      */
     val secondUsi: String? = null,
+    val mateVerified: Boolean = false,
+    val secondMateVerified: Boolean = mateVerified,
 )
 
 /** 保存されている戦型タグを分解する。 */

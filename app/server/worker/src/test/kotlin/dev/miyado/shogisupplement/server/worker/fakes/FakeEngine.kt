@@ -29,7 +29,7 @@ class FakeEngine(
         )
     }
 
-    override fun analyzeSfen(sfen: String, additionalMoves: List<String>, nodes: Int): List<PvInfo> {
+    override fun analyzeSfen(sfen: String, additionalMoves: List<String>, nodes: Int, multiPv: Int): List<PvInfo> {
         analyzeCallCount++
         if (fail) error("fake engine failure")
         return listOf(

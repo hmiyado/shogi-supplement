@@ -1,8 +1,9 @@
 package dev.miyado.shogisupplement.ui.transfercode
 
+import dev.miyado.shogisupplement.ui.generated.resources.allStringResources
+
 import dev.miyado.shogisupplement.auth.AuthUser
 import dev.miyado.shogisupplement.auth.FakeAuthRepository
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.transfer.TransferRestoreResult
 import dev.miyado.shogisupplement.transfer.TransferRestoreService
 import kotlinx.coroutines.Dispatchers
@@ -17,13 +18,18 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
-/**
- * [TransferCodeInputViewModel] の単体テスト。
- * FakeAuthRepository（androidApp/src/test）とテスト専用の [FakeTransferRestoreService] を注入する
- * （AccountViewModelTest と同じ流儀）。
- */
 @OptIn(ExperimentalCoroutinesApi::class)
+@org.junit.runner.RunWith(org.robolectric.RobolectricTestRunner::class)
+@org.robolectric.annotation.Config(sdk = [34], application = android.app.Application::class)
 class TransferCodeInputViewModelTest {
+    @org.junit.Before
+    fun prepareStringResources() = kotlinx.coroutines.runBlocking {
+        // Resolve the same resource environment before assertions on synchronous test dispatchers.
+        dev.miyado.shogisupplement.ui.generated.resources.Res.allStringResources.values.forEach {
+            org.jetbrains.compose.resources.getString(it)
+        }
+    }
+
 
     private val testDispatcher = UnconfinedTestDispatcher()
 
@@ -60,7 +66,6 @@ class TransferCodeInputViewModelTest {
         assertTrue(vm.uiState.value is TransferCodeInputUiState.Idle)
     }
 
-    // ─── 未ログイン端末（確認ダイアログ不要） ───────────────────────────────────
 
     @Test
     fun submit_notLoggedIn_restoresImmediately_andBecomesSuccess() {
@@ -82,7 +87,7 @@ class TransferCodeInputViewModelTest {
 
         val state = vm.uiState.value
         assertTrue(state is TransferCodeInputUiState.Error)
-        assertEquals(AppStrings.TRANSFER_CODE_INPUT_ERROR_INVALID, (state as TransferCodeInputUiState.Error).message)
+        assertEquals("コードが正しくありません。入力し直してください。", (state as TransferCodeInputUiState.Error).message)
     }
 
     @Test
@@ -93,7 +98,7 @@ class TransferCodeInputViewModelTest {
         vm.submit("some-code")
 
         val state = vm.uiState.value as TransferCodeInputUiState.Error
-        assertEquals(AppStrings.TRANSFER_CODE_INPUT_ERROR_NOT_FOUND, state.message)
+        assertEquals("一致するコードが見つかりません。コードを確認してください。", state.message)
     }
 
     @Test
@@ -101,7 +106,7 @@ class TransferCodeInputViewModelTest {
         val vm = buildVm(restoreService = FakeTransferRestoreService(TransferRestoreResult.RateLimited))
         vm.submit("some-code")
         val state = vm.uiState.value as TransferCodeInputUiState.Error
-        assertEquals(AppStrings.TRANSFER_CODE_INPUT_ERROR_RATE_LIMITED, state.message)
+        assertEquals("しばらく時間をおいて再度お試しください。", state.message)
     }
 
     @Test
@@ -109,7 +114,7 @@ class TransferCodeInputViewModelTest {
         val vm = buildVm(restoreService = FakeTransferRestoreService(TransferRestoreResult.UpgradeRequired))
         vm.submit("some-code")
         val state = vm.uiState.value as TransferCodeInputUiState.Error
-        assertEquals(AppStrings.TRANSFER_CODE_INPUT_ERROR_UPGRADE_REQUIRED, state.message)
+        assertEquals("アップデートが必要です。最新版に更新してから再度お試しください。", state.message)
     }
 
     @Test
@@ -119,7 +124,7 @@ class TransferCodeInputViewModelTest {
         )
         vm.submit("some-code")
         val state = vm.uiState.value as TransferCodeInputUiState.Error
-        assertEquals(AppStrings.TRANSFER_CODE_INPUT_ERROR_GENERIC, state.message)
+        assertEquals("通信に失敗しました。しばらくしてから再度お試しください。", state.message)
     }
 
     @Test
@@ -129,10 +134,9 @@ class TransferCodeInputViewModelTest {
         )
         vm.submit("some-code")
         val state = vm.uiState.value as TransferCodeInputUiState.Error
-        assertEquals(AppStrings.TRANSFER_CODE_INPUT_ERROR_GENERIC, state.message)
+        assertEquals("通信に失敗しました。しばらくしてから再度お試しください。", state.message)
     }
 
-    // ─── ログイン中端末（確認ダイアログを経由する） ─────────────────────────────
 
     @Test
     fun submit_alreadyLoggedIn_needsConfirmation_doesNotCallRestoreYet() {
@@ -186,7 +190,6 @@ class TransferCodeInputViewModelTest {
         assertNull(restoreService.lastCode)
     }
 
-    // ─── エラー解除 ───────────────────────────────────────────────────────────
 
     @Test
     fun dismissError_returnsToIdle() {

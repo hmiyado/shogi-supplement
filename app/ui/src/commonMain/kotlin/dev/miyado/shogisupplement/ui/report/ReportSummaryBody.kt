@@ -22,15 +22,16 @@ internal fun ReportSummaryBody(
     strengthDisplayText: String?,
     matchRateDisplayText: String?,
     blunderRateDisplayText: String?,
-    onViewList: () -> Unit,
+    timeGraphData: TimeGraphData? = null,
     analysisPending: Boolean = false,
     onAnalyze: () -> Unit = {},
+    onReanalyze: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     // 縦に余裕が無い端末ではColumnが最後の子（悪手一覧ボタン）を潰すためスクロールさせる。
     Column(modifier = modifier.verticalScroll(rememberScrollState())) {
         // 未解析では空のグラフを無効表示し、解析済みの空データは表示しない。
-        if (evalGraphPoints.isNotEmpty() || analysisPending) {
+        if (evalGraphPoints.isNotEmpty() || timeGraphData != null || analysisPending) {
             EvalGraphCard(
                 points = evalGraphPoints,
                 maxPly = maxPly,
@@ -40,6 +41,7 @@ internal fun ReportSummaryBody(
                 onPlyTapped = onPlyTapped,
                 onPlyDragged = onPlyDragged,
                 enabled = !analysisPending,
+                timeGraphData = timeGraphData,
             )
         }
         if (analysisPending) {
@@ -54,9 +56,14 @@ internal fun ReportSummaryBody(
                 strengthDisplayText = strengthDisplayText,
                 matchRateDisplayText = matchRateDisplayText,
                 blunderRateDisplayText = blunderRateDisplayText,
-                onViewList = onViewList,
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             )
+            if (onReanalyze != null) {
+                ReanalysisCard(
+                    onReanalyze = onReanalyze,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                )
+            }
         }
     }
 }

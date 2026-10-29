@@ -4,6 +4,8 @@ import dev.miyado.shogisupplement.blunder.BlunderJudge
 import dev.miyado.shogisupplement.blunder.Score
 import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.engine.PvInfo
+import dev.miyado.shogisupplement.engine.Engine
+import dev.miyado.shogisupplement.engine.InvariantDrillEngine
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -17,6 +19,35 @@ import kotlin.test.assertTrue
  * （それらは DrillJudge.judge のステップ1/2で既に処理済みという前提）。
  */
 class DrillSecondaryJudgeTest {
+    @Test
+    fun strongerStudyDoesNotChangeSecondaryJudgementOrItsConditions() = runTest {
+        val calls = mutableListOf<Pair<Int, Int>>()
+        var previousSearch = false
+        var resets = 0
+        val engine = object : Engine {
+            override fun analyze(moves: List<String>, nodes: Int): List<PvInfo> = error("Not used")
+            override fun analyzeSfen(sfen: String, additionalMoves: List<String>, nodes: Int, multiPv: Int): List<PvInfo> {
+                assertTrue(additionalMoves.isEmpty())
+                calls.add(nodes to multiPv)
+                val score = if (!previousSearch && nodes == 400_000 && multiPv == 2) {
+                    if (sfen == initialSfen) 300 else 0
+                } else -900
+                previousSearch = true
+                return listOf(PvInfo(1, Score.Cp(score), emptyList(), nodes.toLong()))
+            }
+            override fun newGame() { previousSearch = false; resets++ }
+            override fun quit() = Unit
+        }
+        val judge = EngineDrillSecondaryJudge(InvariantDrillEngine(engine))
+        val before = judge.judge(sampleBlunder(), "7g7f")
+        engine.analyzeSfen(initialSfen, nodes = 4_000_000, multiPv = 3)
+        val after = judge.judge(sampleBlunder(), "7g7f")
+        assertEquals(before, after)
+        assertFalse(after.isCorrect)
+        assertEquals(4, resets)
+        assertEquals(listOf(400_000 to 2, 400_000 to 2, 4_000_000 to 3, 400_000 to 2, 400_000 to 2), calls)
+    }
+
 
     private val initialSfen =
         "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1"

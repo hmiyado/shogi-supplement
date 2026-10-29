@@ -23,9 +23,11 @@ class AnalysisRunner(
 
     override suspend fun analyzeGame(
         moves: List<String>,
+        forceReanalysis: Boolean,
+        requestId: String?,
         onPositionResult: ((ply: Int, pvs: List<PvInfo>) -> Unit)?,
         onProgress: ((done: Int, total: Int) -> Unit)?,
-    ): List<List<PvInfo>> = coroutineScope {
+    ): GameAnalysisResult = coroutineScope {
         val total = moves.size + 1
         val results = arrayOfNulls<List<PvInfo>>(total)
         var doneCount = 0
@@ -79,6 +81,6 @@ class AnalysisRunner(
 
         jobs.awaitAll()
 
-        results.map { it ?: emptyList() }
+        GameAnalysisResult(positions = results.map { it ?: emptyList() })
     }
 }

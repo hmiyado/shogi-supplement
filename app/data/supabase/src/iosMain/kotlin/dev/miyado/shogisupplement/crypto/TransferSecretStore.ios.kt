@@ -52,7 +52,8 @@ private const val KEYCHAIN_ACCOUNT = "S"
  * ThisDeviceOnlyとAfterFirstUnlockで同期を避け、初回解除後のバックグラウンド読込を許可する。
  */
 @OptIn(ExperimentalForeignApi::class)
-class IosTransferSecretStore : TransferSecretStore {
+class IosTransferSecretStore(namespace: String? = null) : TransferSecretStore {
+    private val serviceName = namespace?.let { "$KEYCHAIN_SERVICE.$it" } ?: KEYCHAIN_SERVICE
 
     override suspend fun load(): ByteArray? = memScoped {
         val query = baseQuery()
@@ -110,7 +111,7 @@ class IosTransferSecretStore : TransferSecretStore {
         CFDictionarySetValue(dict, kSecClass, kSecClassGenericPassword)
         // CFDictionarySetValueはkCFTypeDictionaryValueCallBacksにより値をretainするため、
         // 辞書に入れた直後に自分の参照はreleaseしてよい（辞書自体のCFRelease時に解放される）。
-        val service = cfString(KEYCHAIN_SERVICE)
+        val service = cfString(serviceName)
         CFDictionarySetValue(dict, kSecAttrService, service)
         CFRelease(service)
         val account = cfString(KEYCHAIN_ACCOUNT)

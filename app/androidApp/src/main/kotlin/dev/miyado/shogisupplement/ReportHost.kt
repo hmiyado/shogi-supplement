@@ -1,18 +1,16 @@
 package dev.miyado.shogisupplement
 
-import android.Manifest
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import android.content.ClipData
 import android.content.ClipboardManager
-import android.content.pm.PackageManager
-import android.os.Build
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
-import androidx.core.content.ContextCompat
+import androidx.compose.ui.platform.LocalView
 import dev.miyado.shogisupplement.db.GameAnalysisStatus
 import dev.miyado.shogisupplement.ui.MainUiState
 import dev.miyado.shogisupplement.ui.MainViewModel
@@ -20,23 +18,15 @@ import dev.miyado.shogisupplement.ui.report.ReportScreen
 
 @Composable
 fun ReportHost(vm: MainViewModel, state: MainUiState.ShowReport) {
+    val labelReportFallbackTitle = stringResource(Res.string.report_fallback_title)
+
     BackHandler { vm.loadHome() }
     val pvExtState by vm.pvExtState.collectAsState()
     val studyState by vm.studyState.collectAsState()
     val context = LocalContext.current
-    val analyzeLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
-        vm.analyzeStoredGame(state.report.game)
-    }
-    val analyze: () -> Unit = {
-        val needsPermission = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
-            PackageManager.PERMISSION_GRANTED
-        if (needsPermission) {
-            analyzeLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        } else {
-            vm.analyzeStoredGame(state.report.game)
-        }
-    }
+    val view = LocalView.current
+    val app = context.applicationContext as ShogiApp
+    val analyze: () -> Unit = { vm.analyzeStoredGame(state.report.game) }
     ReportScreen(
         game = state.report.game,
         reports = state.report.reports,
@@ -48,6 +38,8 @@ fun ReportHost(vm: MainViewModel, state: MainUiState.ShowReport) {
         blunderRateDisplayText = state.report.blunderRateDisplayText,
         analysisPending = state.report.game.analysisStatus == GameAnalysisStatus.PENDING,
         onAnalyze = analyze,
+        onReanalyze = { vm.analyzeStoredGame(state.report.game, forceReanalysis = true) },
+        hasUnsavedStudy = vm::hasUnsavedStudy,
         onDeleteGame = { deleteServer, onResult ->
             vm.deleteGame(state.report.game, deleteServer, onResult)
         },
@@ -73,14 +65,21 @@ fun ReportHost(vm: MainViewModel, state: MainUiState.ShowReport) {
         onStudyStepBack = { vm.studyStepBack() },
         onStudyResetToStart = { vm.studyResetToStart() },
         onStudyEnd = { vm.endStudy() },
+        onSaveStudy = vm::saveStudy,
+        onDeleteStudyBranch = vm::deleteStudyBranch,
         onStudyChipTapped = { depth -> vm.onStudyChipTapped(depth) },
         onStudyBranchChipTapped = { depth -> vm.onStudyBranchChipTapped(depth) },
         onStudyBranchPopupDismiss = { vm.onStudyBranchPopupDismiss() },
         onStudyBranchOptionSelected = { depth, moveUsi -> vm.onStudyBranchOptionSelected(depth, moveUsi) },
         onStudyAnalyze = { vm.onStudyAnalyze() },
+        onStudyAutoAnalyze = { vm.onStudyAutoAnalyze() },
+        onStudyCandidateSelected = { moveUsi -> vm.onStudyCandidateSelected(moveUsi) },
         onCopyKif = { kifText ->
-            val clip = ClipData.newPlainText("棋譜", kifText)
+            val clip = ClipData.newPlainText(labelReportFallbackTitle, vm.savedKifForExport(state.report.game.id) ?: kifText)
             context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(clip)
         },
+        onShare = { shareScreen(context, view) },
+        gameShareService = app.gameShareService,
+        onShareGameUrl = { url -> shareText(context, url) },
     )
 }

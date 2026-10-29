@@ -9,6 +9,31 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 
 class GameImporterTest {
+    @Test
+    fun `原文と検討文書を同時復元し不正な検討なら棋譜も残さない`() {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        ShogiSupplementDatabase.Schema.create(driver)
+        val repository = SqlDelightGameRepository(ShogiSupplementDatabase(driver))
+        val importer = GameImporter(repository)
+        val original = "1 ７六歩(77)\n2 投了"
+        val edited = "1 ７六歩(77)\n*検討メモ\n2 投了"
+        val success = assertIs<GameImporter.Outcome.Imported>(importer.importGame(
+            original, "restore.kif", "sente", contentHash = "restore", studyKif = edited,
+        ))
+        assertEquals(original, repository.getGameById(success.gameId)?.kifText)
+        assertEquals(edited, repository.getStudyKif(success.gameId))
+        repository.updateUploadedAt(success.gameId, 100)
+        assertEquals(emptyList(), repository.getPendingStudyUploads())
+        val next = "$edited\n*復元後の追記"
+        assertEquals(true, repository.saveStudyKif(success.gameId, edited, next))
+        assertEquals(edited, repository.getPendingStudyUploads().single().expectedRemoteKif)
+        assertIs<GameImporter.Outcome.Failed>(importer.importGame(
+            original, "invalid.kif", "sente", contentHash = "invalid", studyKif = "1 ２六歩(27)\n2 投了",
+        ))
+        assertEquals(null, repository.getByHash("invalid"))
+        assertEquals(1, repository.getAllGames().size)
+        driver.close()
+    }
 
     @Test
     fun `KIFを未解析状態で保存し同じ棋譜は重複登録しない`() {
@@ -88,5 +113,33 @@ class GameImporterTest {
         )
         val game = repository.getGameById(outcome.gameId)
         assertEquals("5分+30秒", game?.timeControlRaw)
+    }
+
+    @Test
+    fun `取込時の申告日時をゲームへ保存し復元できる`() {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        ShogiSupplementDatabase.Schema.create(driver)
+        val repository = SqlDelightGameRepository(ShogiSupplementDatabase(driver))
+        val kif = """
+            手合割：平手
+            先手：miyado
+            後手：相手
+            手数----指手---------消費時間--
+            1 ７六歩(77)
+            2 投了
+        """.trimIndent()
+
+        val outcome = assertIs<GameImporter.Outcome.Imported>(
+            GameImporter(repository).importGame(
+                kifContent = kif,
+                fileName = "game.kif",
+                userSide = "sente",
+                ratingService = "lishogi",
+                ratingRaw = 1600,
+                ratingDeclaredAt = 1_780_000_000L,
+            ),
+        )
+
+        assertEquals(1_780_000_000L, repository.getGameById(outcome.gameId)?.ratingDeclaredAt)
     }
 }

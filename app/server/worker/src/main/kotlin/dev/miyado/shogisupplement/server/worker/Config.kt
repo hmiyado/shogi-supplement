@@ -20,6 +20,7 @@ data class WorkerConfig(
     // ローカルのdocs/mypage.html（python http.server等）からの動作確認用。
     // 本番のCloud Run環境変数には設定しないため既定false。
     val allowLocalhostCors: Boolean,
+    val studyEngine: StudyEngineConfig? = null,
 ) {
     companion object {
         fun fromEnv(env: (String) -> String? = System::getenv): WorkerConfig {
@@ -43,6 +44,7 @@ data class WorkerConfig(
                 firebaseProjectNumber = env("FIREBASE_PROJECT_NUMBER") ?: "",
                 transferRateLimitPerMinute = (env("TRANSFER_RATE_LIMIT_PER_MINUTE") ?: "5").toInt(),
                 allowLocalhostCors = (env("ALLOW_LOCALHOST_CORS") ?: "false").toBooleanStrict(),
+                studyEngine = StudyEngineConfig.fromEnv(env),
             )
         }
 

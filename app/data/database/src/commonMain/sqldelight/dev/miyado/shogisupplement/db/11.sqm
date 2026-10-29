@@ -1,0 +1,15 @@
+ALTER TABLE user_settings ADD COLUMN rating_declared_at INTEGER;
+
+-- 既存端末には申告日時の記録が無い。申告したときにしか入らない値から申告の有無だけを
+-- 復元し、日時不明を表す0を入れる。rating_service/rating_rawの既定値（lishogi/1750）の
+-- まま申告し、段級位もアカウント名も入れていない端末だけは未申告と区別できず、
+-- 申告し直しになる。
+-- Why not 全行を申告済みにする: 未申告の端末が既定値の1750を申告値として持ち回る状態が
+-- 残り、この移行の目的自体が果たせない。
+UPDATE user_settings SET rating_declared_at = 0
+WHERE rating_service <> 'lishogi'
+   OR rating_raw <> 1750
+   OR rating_rule IS NOT NULL
+   OR service_account_name IS NOT NULL
+   OR EXISTS (SELECT 1 FROM service_rank)
+   OR EXISTS (SELECT 1 FROM service_account);

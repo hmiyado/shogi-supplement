@@ -7,6 +7,7 @@ import dev.miyado.shogisupplement.judge.VerdictKind
 import dev.miyado.shogisupplement.pipeline.BlunderReport
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 /** version 1の実スキーマから最新までの移行と公開APIの往復を検証する。 */
 class SchemaMigrationTest {
@@ -164,6 +165,7 @@ class SchemaMigrationTest {
     fun `v1スキーマのDBにSchema_migrateを適用するとINSERT_SELECTが成功する`() {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         createV1Schema(driver)
+        createRankTables(driver)
 
         ShogiSupplementDatabase.Schema.migrate(
             driver,
@@ -172,7 +174,9 @@ class SchemaMigrationTest {
         )
 
         val repo = SqlDelightGameRepository(ShogiSupplementDatabase(driver))
-        assertEquals(GameAnalysisStatus.COMPLETED, repo.getGameById(1)!!.analysisStatus)
+        val migratedGame = repo.getGameById(1)!!
+        assertEquals(GameAnalysisStatus.COMPLETED, migratedGame.analysisStatus)
+        assertNull(migratedGame.engineMetaJson)
         val gameId = repo.saveAnalysis(
             fileName = "legacy.kif",
             contentHash = "legacy-hash",
@@ -196,6 +200,58 @@ class SchemaMigrationTest {
         val restoredEvals = repo.getPositionEvals(gameId)
         assertEquals(1, restoredEvals.size)
         assertEquals("2g2f", restoredEvals[0].secondUsi)
+    }
+
+    /** 9.sqm確定直後（バージョン10）相当の user_settings テーブル（11.sqmの移行先）。 */
+    private fun createV10UserSettingsTable(driver: JdbcSqliteDriver) {
+        driver.execute(
+            null,
+            """
+            CREATE TABLE user_settings (
+                id INTEGER NOT NULL PRIMARY KEY,
+                rating INTEGER NOT NULL DEFAULT 1750,
+                consent_accepted_at INTEGER,
+                auto_upload INTEGER NOT NULL DEFAULT 0,
+                rating_service TEXT NOT NULL DEFAULT 'lishogi',
+                rating_raw INTEGER NOT NULL DEFAULT 1750,
+                last_user_side TEXT,
+                service_account_name TEXT,
+                rating_rule TEXT,
+                theme_mode TEXT NOT NULL DEFAULT 'system',
+                eval_display TEXT NOT NULL DEFAULT 'cp',
+                skip_side_confirm INTEGER NOT NULL DEFAULT 0,
+                app_policy_cache TEXT,
+                account_declined INTEGER NOT NULL DEFAULT 0
+            )
+            """.trimIndent(),
+            0,
+        )
+    }
+
+    /** 段級位・アカウント名のテーブル（初回公開から形が変わっていない）。 */
+    private fun createRankTables(driver: JdbcSqliteDriver) {
+        driver.execute(
+            null,
+            """
+            CREATE TABLE service_rank (
+                service TEXT NOT NULL,
+                rule TEXT NOT NULL,
+                rank_raw INTEGER NOT NULL,
+                PRIMARY KEY(service, rule)
+            )
+            """.trimIndent(),
+            0,
+        )
+        driver.execute(
+            null,
+            """
+            CREATE TABLE service_account (
+                service TEXT NOT NULL PRIMARY KEY,
+                account_name TEXT NOT NULL
+            )
+            """.trimIndent(),
+            0,
+        )
     }
 
     /** 9.sqm確定直後（バージョン10）相当の game テーブル。 */
@@ -243,6 +299,8 @@ class SchemaMigrationTest {
     fun `9sqm確定直後(v10)のtime_control列は10sqmの移行で新2列へ復元される`() {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         createV10GameTable(driver)
+        createV10UserSettingsTable(driver)
+        createRankTables(driver)
         driver.execute(
             null,
             """
@@ -264,7 +322,7 @@ class SchemaMigrationTest {
         ShogiSupplementDatabase.Schema.migrate(
             driver,
             oldVersion = 10,
-            newVersion = ShogiSupplementDatabase.Schema.version,
+            newVersion = 27,
         )
 
         val repo = SqlDelightGameRepository(ShogiSupplementDatabase(driver))
@@ -288,5 +346,52 @@ class SchemaMigrationTest {
 
         val unset = repo.getByHash("hash-unset")!!.let { repo.getGameById(it)!! }
         assertEquals(null, unset.timeControlRaw)
+    }
+
+    @Test
+    fun `11sqmの移行は段級位だけを申告した端末を日時不明の申告済みにする`() {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        createV10GameTable(driver)
+        driver.execute(null, "ALTER TABLE game ADD COLUMN time_control_raw TEXT", 0)
+        driver.execute(null, "ALTER TABLE game ADD COLUMN time_control_byoyomi_raw TEXT", 0)
+        createV10UserSettingsTable(driver)
+        createRankTables(driver)
+        // 選択中サービスが既定（lishogi/1750）のまま、段級位だけ入れた端末。
+        driver.execute(null, "INSERT INTO user_settings (id, rating) VALUES (1, 1750)", 0)
+        driver.execute(null, "INSERT INTO service_rank VALUES ('shogi_wars', '10min', 1)", 0)
+        driver.execute(null, "PRAGMA user_version = 11", 0)
+
+        ShogiSupplementDatabase.Schema.migrate(
+            driver,
+            oldVersion = 11,
+            newVersion = 27,
+        )
+
+        val database = ShogiSupplementDatabase(driver)
+        assertEquals(true, SqlDelightSettingsRepository(database).hasUserSavedRatingSettings())
+        // 申告があったことは分かるが、いつ申告したかは復元できない。
+        assertEquals(0L, database.shogiSupplementQueries.getRatingDeclaredAt().executeAsOne().rating_declared_at)
+    }
+
+    @Test
+    fun `11sqmの移行は何も申告していない端末を未申告のままにする`() {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        createV10GameTable(driver)
+        driver.execute(null, "ALTER TABLE game ADD COLUMN time_control_raw TEXT", 0)
+        driver.execute(null, "ALTER TABLE game ADD COLUMN time_control_byoyomi_raw TEXT", 0)
+        createV10UserSettingsTable(driver)
+        createRankTables(driver)
+        // テーマ保存などで行だけができた端末。
+        driver.execute(null, "INSERT INTO user_settings (id, rating) VALUES (1, 1750)", 0)
+        driver.execute(null, "PRAGMA user_version = 11", 0)
+
+        ShogiSupplementDatabase.Schema.migrate(
+            driver,
+            oldVersion = 11,
+            newVersion = 27,
+        )
+
+        val repo = SqlDelightSettingsRepository(ShogiSupplementDatabase(driver))
+        assertEquals(false, repo.hasUserSavedRatingSettings())
     }
 }

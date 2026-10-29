@@ -94,3 +94,20 @@ val generateOpeningDocs by tasks.registering(JavaExec::class) {
     mainClass.set("dev.miyado.shogisupplement.opening.GenerateOpeningDocsKt")
     args(rootProject.file("docs/opening").absolutePath)
 }
+
+// 入力キャッシュを本番の出題判定に通して実測対象を固定する。出力は管理外のtmp等を指定する。
+tasks.register<JavaExec>("exportDrillComparisonPositions") {
+    group = "verification"
+    workingDir(rootProject.projectDir)
+    val jvmMain = kotlin.jvm().compilations.getByName("main")
+    classpath(jvmMain.output.allOutputs, jvmMain.runtimeDependencyFiles)
+    mainClass.set("dev.miyado.shogisupplement.engine.ExportDrillComparisonPositionsKt")
+}
+
+tasks.register<JavaExec>("summarizeDrillComparison") {
+    group = "verification"
+    workingDir(rootProject.projectDir)
+    val jvmMain = kotlin.jvm().compilations.getByName("main")
+    classpath(jvmMain.output.allOutputs, jvmMain.runtimeDependencyFiles)
+    mainClass.set("dev.miyado.shogisupplement.engine.SummarizeDrillComparisonKt")
+}

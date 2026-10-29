@@ -16,6 +16,8 @@ class EngineInvariantsTest {
     fun 解析条件は保存済みの結果と同じ値のまま() {
         assertEquals(400_000, EngineInvariants.NODES)
         assertEquals(2, EngineInvariants.MULTI_PV)
+        assertEquals(EngineInvariants.NODES, EngineInvariants.DRILL_SECONDARY_NODES)
+        assertEquals(EngineInvariants.MULTI_PV, EngineInvariants.DRILL_SECONDARY_MULTI_PV)
         assertEquals(1, EngineInvariants.THREADS)
         assertEquals(128, EngineInvariants.USI_HASH_MB)
         assertEquals(20, EngineInvariants.FV_SCALE)

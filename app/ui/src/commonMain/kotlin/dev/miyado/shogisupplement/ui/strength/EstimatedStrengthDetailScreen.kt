@@ -1,5 +1,12 @@
 package dev.miyado.shogisupplement.ui.strength
 
+import org.jetbrains.compose.resources.vectorResource
+
+import dev.miyado.shogisupplement.ui.text.UiStrings
+
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -16,8 +23,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -42,11 +47,12 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.miyado.shogisupplement.text.AppStrings
+import dev.miyado.shogisupplement.ui.common.adaptiveContentWidth
 import dev.miyado.shogisupplement.ui.common.scaffoldContentInsets
 import dev.miyado.shogisupplement.ui.theme.TextStyleData
 import dev.miyado.shogisupplement.ui.theme.TextStyleDataLarge
 import dev.miyado.shogisupplement.ui.theme.shogiColors
+import dev.miyado.shogisupplement.strength.formatStrengthDecimal
 import kotlin.math.roundToInt
 
 /**
@@ -59,25 +65,31 @@ fun EstimatedStrengthDetailScreen(
     data: StrengthDetailData,
     onBack: () -> Unit,
     onEditAccounts: () -> Unit,
+    onShare: () -> Unit = {},
 ) {
     Scaffold(
         contentWindowInsets = scaffoldContentInsets(),
         topBar = {
             TopAppBar(
-                title = { Text(AppStrings.STRENGTH_DETAIL_TITLE) },
+                title = { Text(stringResource(Res.string.strength_detail_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = AppStrings.BACK,
+                            imageVector = vectorResource(Res.drawable.ic_auto_mirrored_filled_arrow_back),
+                            contentDescription = stringResource(Res.string.back),
                         )
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onShare) {
+                        Icon(vectorResource(Res.drawable.ic_outlined_share), contentDescription = stringResource(Res.string.share_screen))
                     }
                 },
             )
         },
     ) { padding ->
         LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding),
+            modifier = Modifier.fillMaxSize().padding(padding).adaptiveContentWidth(),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -85,6 +97,7 @@ fun EstimatedStrengthDetailScreen(
             if (data.trend.isNotEmpty()) {
                 item { TrendCard(data.trend) }
             }
+            item { MateStatisticsCard(data.mateStatistics) }
             item { AccountsCard(data.services, onEditAccounts) }
         }
     }
@@ -105,19 +118,19 @@ private fun OverviewCard(data: StrengthDetailData) {
         ) {
             Column {
                 Text(
-                    AppStrings.STRENGTH_DETAIL_EYEBROW,
+                    stringResource(Res.string.strength_detail_eyebrow),
                     style = MaterialTheme.typography.labelMedium,
                     color = shogiColors.ink2,
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = data.deviation.toString(),
+                    text = formatStrengthDecimal(data.deviation),
                     style = TextStyleDataLarge,
                     color = MaterialTheme.colorScheme.primary,
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    AppStrings.strengthDetailRange(data.rangeLow, data.rangeHigh),
+                    UiStrings.strengthDetailRange(data.rangeLow, data.rangeHigh),
                     style = TextStyleData,
                     color = shogiColors.ink2,
                 )
@@ -125,7 +138,7 @@ private fun OverviewCard(data: StrengthDetailData) {
             if (data.bestRank != null) {
                 Column(horizontalAlignment = Alignment.End) {
                     Text(
-                        AppStrings.STRENGTH_DETAIL_BEST_RANK_CAPTION,
+                        stringResource(Res.string.strength_detail_best_rank_caption),
                         style = MaterialTheme.typography.labelMedium,
                         color = shogiColors.ink2,
                     )
@@ -166,9 +179,9 @@ private fun TrendCard(trend: List<StrengthTrendPoint>) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Bottom,
             ) {
-                Text(AppStrings.STRENGTH_DETAIL_TREND_TITLE, style = MaterialTheme.typography.titleLarge)
+                Text(stringResource(Res.string.strength_detail_trend_title), style = MaterialTheme.typography.titleLarge)
                 Text(
-                    AppStrings.strengthDetailTrendLabel(trend.size),
+                    UiStrings.strengthDetailTrendLabel(trend.size),
                     style = MaterialTheme.typography.labelMedium,
                     color = shogiColors.ink2,
                 )
@@ -179,12 +192,12 @@ private fun TrendCard(trend: List<StrengthTrendPoint>) {
             val maxY = remember(trend) { trend.maxOf { it.deviation + it.deviationWidth } + 3 }
             Row(Modifier.fillMaxWidth().height(TREND_CHART_HEIGHT_DP.dp)) {
                 Column(
-                    modifier = Modifier.width(28.dp).fillMaxHeight().padding(vertical = 2.dp),
+                    modifier = Modifier.width(48.dp).fillMaxHeight().padding(vertical = 2.dp),
                     verticalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Text(maxY.toString(), style = TextStyleData, color = shogiColors.ink3)
-                    Text(((minY + maxY) / 2).toString(), style = TextStyleData, color = shogiColors.ink3)
-                    Text(minY.toString(), style = TextStyleData, color = shogiColors.ink3)
+                    Text(formatStrengthDecimal(maxY), style = TextStyleData, color = shogiColors.ink3)
+                    Text(formatStrengthDecimal((minY + maxY) / 2), style = TextStyleData, color = shogiColors.ink3)
+                    Text(formatStrengthDecimal(minY), style = TextStyleData, color = shogiColors.ink3)
                 }
                 Spacer(Modifier.width(4.dp))
                 TrendChart(
@@ -196,7 +209,7 @@ private fun TrendCard(trend: List<StrengthTrendPoint>) {
                     modifier = Modifier.weight(1f).fillMaxHeight(),
                 )
             }
-            Row(Modifier.fillMaxWidth().padding(start = 32.dp, top = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+            Row(Modifier.fillMaxWidth().padding(start = 52.dp, top = 4.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(trend.first().dateLabel, style = TextStyleData, color = shogiColors.ink3)
                 Text(trend.last().dateLabel, style = TextStyleData, color = shogiColors.ink3)
             }
@@ -205,7 +218,7 @@ private fun TrendCard(trend: List<StrengthTrendPoint>) {
             SelectedGameRow(selected)
             Spacer(Modifier.height(10.dp))
             Text(
-                AppStrings.STRENGTH_DETAIL_TREND_CAPTION,
+                stringResource(Res.string.strength_detail_trend_caption),
                 style = MaterialTheme.typography.labelSmall,
                 color = shogiColors.ink2,
             )
@@ -216,8 +229,8 @@ private fun TrendCard(trend: List<StrengthTrendPoint>) {
 @Composable
 private fun TrendChart(
     trend: List<StrengthTrendPoint>,
-    minY: Int,
-    maxY: Int,
+    minY: Double,
+    maxY: Double,
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
@@ -229,7 +242,7 @@ private fun TrendChart(
     val dotFill = MaterialTheme.colorScheme.surface
     val currentDotFill = shogiColors.highlight
     val currentDotStroke = MaterialTheme.colorScheme.onSurface
-    val yRange = (maxY - minY).coerceAtLeast(1)
+    val yRange = (maxY - minY).coerceAtLeast(1.0)
 
     Canvas(
         modifier = modifier.pointerInput(trend) {
@@ -241,7 +254,7 @@ private fun TrendChart(
         val w = size.width
         val h = size.height
         fun xOf(i: Int): Float = if (trend.size <= 1) w / 2f else w * i / (trend.size - 1)
-        fun yOf(v: Int): Float = h - h * (v - minY).toFloat() / yRange
+        fun yOf(v: Double): Float = h - h * ((v - minY) / yRange).toFloat()
 
         listOf(0f, 0.5f, 1f).forEach { frac ->
             val y = h * frac
@@ -301,13 +314,13 @@ private fun SelectedGameRow(point: StrengthTrendPoint) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        val meta = AppStrings.strengthDetailSelectedMeta(
-            point.blunderRateText ?: AppStrings.STRENGTH_DETAIL_RULE_UNSET,
-            point.matchRateText ?: AppStrings.STRENGTH_DETAIL_RULE_UNSET,
+        val meta = UiStrings.strengthDetailSelectedMeta(
+            point.blunderRateText ?: stringResource(Res.string.strength_detail_rule_unset),
+            point.matchRateText ?: stringResource(Res.string.strength_detail_rule_unset),
         )
         Text(meta, style = MaterialTheme.typography.labelMedium, color = shogiColors.ink2)
         Text(
-            point.deviation.toString(),
+            formatStrengthDecimal(point.deviation),
             style = TextStyleData.copy(fontSize = 16.sp, fontWeight = FontWeight.SemiBold),
             color = MaterialTheme.colorScheme.primary,
         )
@@ -329,21 +342,21 @@ private fun AccountsCard(services: List<StrengthDetailService>, onEdit: () -> Un
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(AppStrings.STRENGTH_DETAIL_ACCOUNTS_TITLE, style = MaterialTheme.typography.titleLarge)
+                Text(stringResource(Res.string.strength_detail_accounts_title), style = MaterialTheme.typography.titleLarge)
                 TextButton(onClick = onEdit) {
-                    Text(AppStrings.STRENGTH_DETAIL_ACCOUNTS_EDIT, style = MaterialTheme.typography.labelMedium)
+                    Text(stringResource(Res.string.strength_detail_accounts_edit), style = MaterialTheme.typography.labelMedium)
                 }
             }
             Spacer(Modifier.height(2.dp))
             Text(
-                AppStrings.STRENGTH_DETAIL_ACCOUNTS_LEDE,
+                stringResource(Res.string.strength_detail_accounts_lede),
                 style = MaterialTheme.typography.labelMedium,
                 color = shogiColors.ink2,
             )
             if (services.isEmpty()) {
                 Spacer(Modifier.height(14.dp))
                 Text(
-                    AppStrings.STRENGTH_DETAIL_ACCOUNTS_EMPTY,
+                    stringResource(Res.string.strength_detail_accounts_empty),
                     style = MaterialTheme.typography.bodyMedium,
                     color = shogiColors.ink3,
                 )
@@ -371,7 +384,7 @@ private fun ServiceBlock(service: StrengthDetailService, isFirst: Boolean) {
         Text(service.label, style = MaterialTheme.typography.titleSmall)
         Spacer(Modifier.height(3.dp))
         Text(
-            service.accountName ?: AppStrings.STRENGTH_DETAIL_ACCOUNT_NAME_UNSET,
+            service.accountName ?: stringResource(Res.string.strength_detail_account_name_unset),
             style = MaterialTheme.typography.labelMedium,
             color = if (service.accountName == null) shogiColors.ink3 else shogiColors.ink2,
         )
@@ -385,7 +398,7 @@ private fun ServiceBlock(service: StrengthDetailService, isFirst: Boolean) {
         } else if (service.ratingText != null) {
             Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(AppStrings.STRENGTH_DETAIL_LISHOGI_RATING_LABEL, style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(Res.string.strength_detail_lishogi_rating_label), style = MaterialTheme.typography.bodyMedium)
                 Text(service.ratingText, style = TextStyleData.copy(fontSize = 13.sp))
             }
         }
@@ -401,7 +414,7 @@ private fun ServiceRuleRow(rule: StrengthDetailServiceRule) {
             Text(rule.rankLabel, style = TextStyleData.copy(fontSize = 13.sp))
         } else {
             Text(
-                AppStrings.STRENGTH_DETAIL_RULE_UNSET,
+                stringResource(Res.string.strength_detail_rule_unset),
                 style = MaterialTheme.typography.bodyMedium,
                 color = shogiColors.ink3,
             )

@@ -1,5 +1,11 @@
 package dev.miyado.shogisupplement.ui.manual
 
+
+import org.jetbrains.compose.resources.vectorResource
+
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
@@ -12,13 +18,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.filled.LastPage
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.FirstPage
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -51,10 +50,10 @@ import dev.miyado.shogisupplement.kifu.KifuSource
 import dev.miyado.shogisupplement.kifu.PrivateKifuFields
 import dev.miyado.shogisupplement.kifu.PublicKifuFields
 import dev.miyado.shogisupplement.notation.JapaneseNotation
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.ShogiBoardView
 import dev.miyado.shogisupplement.ui.common.ShogiSecondaryButton
 import dev.miyado.shogisupplement.ui.common.ReportBackHandler
+import dev.miyado.shogisupplement.ui.common.adaptiveContentWidth
 import dev.miyado.shogisupplement.ui.common.currentLocalDateTime
 import dev.miyado.shogisupplement.ui.common.scaffoldContentInsets
 import dev.miyado.shogisupplement.ui.theme.shogiColors
@@ -187,23 +186,23 @@ fun ManualKifuScreen(
         contentWindowInsets = scaffoldContentInsets(),
         topBar = {
             TopAppBar(
-                title = { Text(AppStrings.MANUAL_KIFU_TITLE) },
+                title = { Text(stringResource(Res.string.manual_kifu_title)) },
                 navigationIcon = {
                     IconButton(onClick = ::closeOrConfirm) {
-                        Icon(Icons.Default.Close, contentDescription = AppStrings.CLOSE)
+                        Icon(vectorResource(Res.drawable.ic_filled_close), contentDescription = stringResource(Res.string.close))
                     }
                 },
                 actions = {
-                    TextButton(onClick = { showDetails = true }) { Text(AppStrings.MANUAL_KIFU_DETAILS) }
+                    TextButton(onClick = { showDetails = true }) { Text(stringResource(Res.string.manual_kifu_details)) }
                     TextButton(onClick = {
                         onSave(ManualKifuDraft(moves, senteName, goteName, startedAt, place, resigned = false))
-                    }, enabled = moves.isNotEmpty()) { Text(AppStrings.SAVE) }
+                    }, enabled = moves.isNotEmpty()) { Text(stringResource(Res.string.save)) }
                 },
             )
         },
     ) { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 8.dp),
+            modifier = Modifier.fillMaxSize().padding(padding).padding(horizontal = 8.dp).adaptiveContentWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             ShogiBoardView(
@@ -235,7 +234,7 @@ fun ManualKifuScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 ShogiSecondaryButton(onClick = { flip = !flip }, modifier = Modifier.weight(1f)) {
-                    Text(AppStrings.MANUAL_KIFU_FLIP)
+                    Text(stringResource(Res.string.manual_kifu_flip))
                 }
                 OutlinedButton(
                     onClick = {
@@ -249,7 +248,7 @@ fun ManualKifuScreen(
                         contentColor = MaterialTheme.shogiColors.loss,
                     ),
                     border = BorderStroke(1.dp, MaterialTheme.shogiColors.loss),
-                ) { Text(AppStrings.MANUAL_KIFU_RESIGN) }
+                ) { Text(stringResource(Res.string.manual_kifu_resign)) }
             }
         }
     }
@@ -257,19 +256,19 @@ fun ManualKifuScreen(
     if (promotionChoices.isNotEmpty()) {
         AlertDialog(
             onDismissRequest = { promotionChoices = emptyList() },
-            title = { Text(AppStrings.MANUAL_KIFU_PROMOTION_TITLE) },
-            text = { Text(AppStrings.MANUAL_KIFU_PROMOTION_BODY) },
+            title = { Text(stringResource(Res.string.manual_kifu_promotion_title)) },
+            text = { Text(stringResource(Res.string.manual_kifu_promotion_body)) },
             confirmButton = {
                 TextButton(onClick = {
                     promotionChoices.firstOrNull { it.promote }?.let(::applyMove)
                     promotionChoices = emptyList()
-                }) { Text(AppStrings.MANUAL_KIFU_PROMOTE) }
+                }) { Text(stringResource(Res.string.manual_kifu_promote)) }
             },
             dismissButton = {
                 TextButton(onClick = {
                     promotionChoices.firstOrNull { !it.promote }?.let(::applyMove)
                     promotionChoices = emptyList()
-                }) { Text(AppStrings.MANUAL_KIFU_NOT_PROMOTE) }
+                }) { Text(stringResource(Res.string.manual_kifu_not_promote)) }
             },
         )
     }
@@ -277,11 +276,11 @@ fun ManualKifuScreen(
     if (showMoveList) {
         ModalBottomSheet(onDismissRequest = { showMoveList = false }) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                Text(AppStrings.MOVE_LIST_TITLE, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(16.dp))
+                Text(stringResource(Res.string.move_list_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(16.dp))
                 LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
                     item {
                         ManualMoveRow(
-                            label = AppStrings.VIEWER_START_POSITION,
+                            label = stringResource(Res.string.viewer_start_position),
                             selected = currentPly == 0,
                             onClick = { currentPly = 0; clearSelection(); showMoveList = false },
                         )
@@ -292,7 +291,7 @@ fun ManualKifuScreen(
                             JapaneseNotation.format(move, previous)
                         }.getOrElse { move }
                         ManualMoveRow(
-                            label = "${index + 1}手目　$notation",
+                            label = stringResource(Res.string.move_number_notation, index + 1, notation),
                             selected = currentPly == index + 1,
                             onClick = { currentPly = index + 1; clearSelection(); showMoveList = false },
                         )
@@ -319,12 +318,12 @@ fun ManualKifuScreen(
     if (showDiscard) {
         AlertDialog(
             onDismissRequest = { showDiscard = false },
-            title = { Text(AppStrings.MANUAL_KIFU_DISCARD_TITLE) },
-            text = { Text(AppStrings.MANUAL_KIFU_DISCARD_BODY) },
+            title = { Text(stringResource(Res.string.manual_kifu_discard_title)) },
+            text = { Text(stringResource(Res.string.manual_kifu_discard_body)) },
             confirmButton = {
-                TextButton(onClick = { showDiscard = false; onClose() }) { Text(AppStrings.MANUAL_KIFU_DISCARD) }
+                TextButton(onClick = { showDiscard = false; onClose() }) { Text(stringResource(Res.string.manual_kifu_discard)) }
             },
-            dismissButton = { TextButton(onClick = { showDiscard = false }) { Text(AppStrings.CANCEL) } },
+            dismissButton = { TextButton(onClick = { showDiscard = false }) { Text(stringResource(Res.string.cancel)) } },
         )
     }
 }
@@ -339,22 +338,31 @@ private fun ManualNavRow(
     onLast: () -> Unit,
     onShowList: () -> Unit,
 ) {
-    val label = remember(moves, currentPly) {
-        if (currentPly == 0) {
-            AppStrings.VIEWER_START_POSITION
-        } else {
-            runCatching {
-                val previous = ShogiBoard().also { b -> moves.take(currentPly - 1).forEach { b.push(ShogiMove.fromUsi(it)) } }
-                "${currentPly}手目　${JapaneseNotation.format(moves[currentPly - 1], previous)} ▼"
-            }.getOrElse { "${currentPly}手目 ▼" }
-        }
+    val labelMoveFirst = stringResource(Res.string.move_first)
+    val labelMovePrevious = stringResource(Res.string.move_previous)
+    val labelMoveNext = stringResource(Res.string.move_next)
+    val labelMoveLast = stringResource(Res.string.move_last)
+
+    val textViewerStartPosition = stringResource(Res.string.viewer_start_position)
+    val notation = remember(moves, currentPly) {
+        if (currentPly == 0) null else runCatching {
+            val previous = ShogiBoard().also { board ->
+                moves.take(currentPly - 1).forEach { board.push(ShogiMove.fromUsi(it)) }
+            }
+            JapaneseNotation.format(moves[currentPly - 1], previous)
+        }.getOrNull()
+    }
+    val label = when {
+        currentPly == 0 -> textViewerStartPosition
+        notation != null -> stringResource(Res.string.move_number_notation_dropdown, currentPly, notation)
+        else -> stringResource(Res.string.move_number_dropdown, currentPly)
     }
     Row(modifier = Modifier.fillMaxWidth().height(40.dp), verticalAlignment = Alignment.CenterVertically) {
         TextButton(onClick = onFirst, enabled = currentPly > 0, contentPadding = PaddingValues(0.dp)) {
-            Icon(Icons.Default.FirstPage, contentDescription = "最初へ")
+            Icon(vectorResource(Res.drawable.ic_filled_first_page), contentDescription = labelMoveFirst)
         }
         TextButton(onClick = onPrevious, enabled = currentPly > 0, contentPadding = PaddingValues(0.dp)) {
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "1手戻る")
+            Icon(vectorResource(Res.drawable.ic_auto_mirrored_filled_keyboard_arrow_left), contentDescription = labelMovePrevious)
         }
         Text(
             text = label,
@@ -364,10 +372,10 @@ private fun ManualNavRow(
             maxLines = 1,
         )
         TextButton(onClick = onNext, enabled = currentPly < moves.size, contentPadding = PaddingValues(0.dp)) {
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "1手進む")
+            Icon(vectorResource(Res.drawable.ic_auto_mirrored_filled_keyboard_arrow_right), contentDescription = labelMoveNext)
         }
         TextButton(onClick = onLast, enabled = currentPly < moves.size, contentPadding = PaddingValues(0.dp)) {
-            Icon(Icons.AutoMirrored.Filled.LastPage, contentDescription = "最後へ")
+            Icon(vectorResource(Res.drawable.ic_auto_mirrored_filled_last_page), contentDescription = labelMoveLast)
         }
     }
 }
@@ -400,25 +408,25 @@ private fun ManualGameInfoScreen(
         contentWindowInsets = scaffoldContentInsets(),
         topBar = {
             TopAppBar(
-                title = { Text(AppStrings.MANUAL_KIFU_INFO_TITLE) },
-                navigationIcon = { IconButton(onClick = onDone) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = AppStrings.BACK) } },
-                actions = { TextButton(onClick = onDone) { Text(AppStrings.DONE) } },
+                title = { Text(stringResource(Res.string.manual_kifu_info_title)) },
+                navigationIcon = { IconButton(onClick = onDone) { Icon(vectorResource(Res.drawable.ic_auto_mirrored_filled_arrow_back), contentDescription = stringResource(Res.string.back)) } },
+                actions = { TextButton(onClick = onDone) { Text(stringResource(Res.string.done)) } },
             )
         },
     ) { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
+            modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp).adaptiveContentWidth(),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
-                AppStrings.MANUAL_KIFU_INFO_DESCRIPTION,
+                stringResource(Res.string.manual_kifu_info_description),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.shogiColors.ink2,
             )
-            OutlinedTextField(senteName, onSenteChange, label = { Text(AppStrings.MANUAL_KIFU_SENTE) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(goteName, onGoteChange, label = { Text(AppStrings.MANUAL_KIFU_GOTE) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(startedAt, onStartedAtChange, label = { Text(AppStrings.MANUAL_KIFU_STARTED_AT) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(place, onPlaceChange, label = { Text(AppStrings.MANUAL_KIFU_PLACE) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(senteName, onSenteChange, label = { Text(stringResource(Res.string.manual_kifu_sente)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(goteName, onGoteChange, label = { Text(stringResource(Res.string.manual_kifu_gote)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(startedAt, onStartedAtChange, label = { Text(stringResource(Res.string.manual_kifu_started_at)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(place, onPlaceChange, label = { Text(stringResource(Res.string.manual_kifu_place)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
         }
     }
 }

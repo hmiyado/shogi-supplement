@@ -1,11 +1,10 @@
 #!/usr/bin/env node
-// Why 子プロセスとして実行する: ネイティブバイナリと同じ「標準入出力にUSIコマンドを
-// 流し込む」形で疎通できるかどうかを確かめる。ブラウザ向け成果物
-// (out-browser/yaneuraou-*.js、-sENVIRONMENT=worker)はこの方式では動かない
-// (fetch/XMLHttpRequestに依存するため。ブラウザでの動作確認は実ブラウザでページを
-// 開いて別途行う)。
-import { spawn } from "node:child_process";
+// Why Node向けに再リンクした成果物へ、ブラウザ版と互換の「callMain(argv)にUSIコマンド列を
+// 渡す」形で疎通する。ブラウザ向け成果物(-sENVIRONMENT=worker)はNodeのファイルAPIに
+// 依存する評価関数を扱えないため、このスクリプトでは直接実行しない。
 import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { pathToFileURL } from "node:url";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
@@ -13,8 +12,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = path.join(__dirname, "out-browser", "node-smoke");
 const EVAL_NN = path.join(__dirname, "..", "app", "androidApp", "src", "main", "assets", "eval", "nn.bin");
 
-// go nodes 400000 は数秒〜数十秒かかりうるので、余裕を持ったタイムアウトにする。
-const TIMEOUT_MS = 120_000;
 const GO_NODES = 400_000;
 
 const VARIANTS = ["nosimd", "simd"];
@@ -38,50 +35,46 @@ function buildCommands() {
 	lines.push("usinewgame");
 	lines.push("position startpos");
 	lines.push(`go nodes ${GO_NODES}`);
-	lines.push("quit");
+	for (const sfen of [
+        "3lkl3/3p1p3/4G4/9/9/9/9/9/K8 b GP 1",
+        "3sks3/9/4+P4/9/9/+B8/9/9/K8 b S2rb4gs4n4l17p 1",
+        "3sks3/4+B4/4+P4/9/9/9/9/9/K8 w S2rb4gs4n4l17p 2",
+        "3sks3/9/4+P4/9/9/+B8/9/9/K8 b S2rb4gs4n4l17p 1 moves 9i8i 4a3b 8i9i 3b4a",
+    ]) {
+        lines.push("isready", "usinewgame", `position sfen ${sfen}`, `go nodes ${GO_NODES}`);
+    }
+    lines.push("quit");
 	return lines.join("\n") + "\n";
 }
 
-function runVariant(variant) {
-	return new Promise((resolve, reject) => {
-		const jsPath = path.join(OUT_DIR, `yaneuraou-${variant}.js`);
-		try {
-			readFileSync(jsPath);
-		} catch {
-			reject(
-				new Error(`ビルド成果物が見つかりません: ${jsPath} (先にbuild_wasm_browser.shを実行してください)`)
-			);
-			return;
-		}
+async function runVariant(variant) {
+	const jsPath = path.join(OUT_DIR, `yaneuraou-${variant}.js`);
+	try {
+		readFileSync(jsPath);
+	} catch {
+		throw new Error(`ビルド成果物が見つかりません: ${jsPath} (先にbuild_wasm_browser.shを実行してください)`);
+	}
 
-		const child = spawn(process.execPath, [jsPath], { stdio: ["pipe", "pipe", "pipe"] });
-
-		let stdout = "";
-		let stderr = "";
-		const timer = setTimeout(() => {
-			child.kill("SIGKILL");
-			reject(new Error(`[${variant}] タイムアウト(${TIMEOUT_MS}ms)。ここまでの出力:\n${stdout}\n--- stderr ---\n${stderr}`));
-		}, TIMEOUT_MS);
-
-		child.stdout.on("data", (d) => {
-			stdout += d.toString();
-		});
-		child.stderr.on("data", (d) => {
-			stderr += d.toString();
-		});
-
-		child.on("close", (code) => {
-			clearTimeout(timer);
-			resolve({ code, stdout, stderr });
-		});
-		child.on("error", (err) => {
-			clearTimeout(timer);
-			reject(err);
-		});
-
-		child.stdin.write(buildCommands());
-		child.stdin.end();
+	const argv = [];
+	for (const command of buildCommands().trimEnd().split("\n")) {
+		argv.push(command, ",");
+	}
+	const runner = `
+import { pathToFileURL } from "node:url";
+const factory = (await import(${JSON.stringify(pathToFileURL(jsPath).href)})).default;
+const module = await factory({
+  locateFile: (file) => ${JSON.stringify(OUT_DIR)} + "/" + file,
+});
+module.callMain(${JSON.stringify(argv)});
+`;
+	// Emscripten 4.xのNode glueはTTY出力をプロセスのconsoleへ直結するため、
+	// 別プロセスのstdout/stderrを捕捉して判定する。
+	const result = spawnSync(process.execPath, ["--input-type=module", "-e", runner], {
+		encoding: "utf8",
+		maxBuffer: 10 * 1024 * 1024,
+		timeout: 120_000,
 	});
+	return { stdout: result.stdout, stderr: result.stderr, code: result.status };
 }
 
 function check(condition, message, results) {
@@ -117,6 +110,13 @@ async function main() {
 		check(/usiok/.test(stdout), "usi -> usiok", results);
 		check(/readyok/.test(stdout), "isready -> readyok", results);
 		check(/bestmove /.test(stdout), "go -> bestmove", results);
+        for (const length of [1, 3, -2]) {
+            check(stdout.includes(`score mate ${length} mateverified`), `verified mate ${length}`, results);
+        }
+
+        const lastPosition = stdout.split("readyok").at(-1);
+        check(!lastPosition.includes("mateverified") && /score mate -?\d+/.test(lastPosition),
+              "history-dependent proof stays unconfirmed", results);
 
 		for (const line of results) {
 			console.log(`  ${line.ok ? "OK  " : "NG  "} ${line.message}`);
@@ -139,7 +139,7 @@ async function main() {
 
 		const bestmoveLine = stdout.split("\n").find((l) => l.startsWith("bestmove"));
 		console.log(`  bestmove行: ${bestmoveLine ?? "(なし)"}`);
-		console.log(`  プロセス全体の所要時間: ${elapsedMs}ms (exit code=${result.code})`);
+		console.log(`  プロセス全体の所要時間: ${elapsedMs}ms`);
 	}
 
 	console.log(`\n=== 結果: ${overallOk ? "全変種OK" : "失敗あり"} ===`);

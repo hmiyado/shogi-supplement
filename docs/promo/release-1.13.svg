@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1200" height="720" viewBox="0 0 1200 720">
+  <defs>
+    <style>
+      @font-face { font-family: "Shippori Mincho"; src: url("../assets/fonts/shippori_mincho_bold.ttf"); font-weight: 700; }
+      @font-face { font-family: "IBM Plex Sans JP"; src: url("../assets/fonts/ibm_plex_sans_jp_regular.ttf"); font-weight: 400; }
+      @font-face { font-family: "IBM Plex Sans JP"; src: url("../assets/fonts/ibm_plex_sans_jp_bold.ttf"); font-weight: 700; }
+      @font-face { font-family: "IBM Plex Mono"; src: url("../assets/fonts/ibm_plex_mono_regular.ttf"); font-weight: 400; }
+    </style>
+    <clipPath id="screen-clip"><rect x="684" y="100" width="420" height="546" rx="22"/></clipPath>
+  </defs>
+
+  <rect width="1200" height="720" fill="#F7F3EA"/>
+  <rect width="12" height="720" fill="#3A4B7C"/>
+
+  <g fill="#211E1A" font-family="IBM Plex Sans JP, sans-serif">
+    <text x="66" y="78" font-family="Shippori Mincho, serif" font-size="38" font-weight="700">将棋サプリ</text>
+    <text x="66" y="126" fill="#3A4B7C" font-family="IBM Plex Mono, monospace" font-size="22" font-weight="600" letter-spacing="2">UPDATE 1.13</text>
+  </g>
+
+  <g font-family="IBM Plex Sans JP, sans-serif">
+    <rect x="66" y="174" width="530" height="126" rx="12" fill="#FFFDF7" stroke="#DDD5C4"/>
+    <rect x="66" y="174" width="5" height="126" rx="2" fill="#3A4B7C"/>
+    <text x="94" y="216" fill="#3A4B7C" font-family="IBM Plex Mono, monospace" font-size="18" font-weight="600">01</text>
+    <text x="148" y="218" fill="#211E1A" font-size="24" font-weight="700">持ち時間・秒読みの振り返り</text>
+    <text x="148" y="258" fill="#5C564C" font-size="18">残り時間と秒読み中の消費時間を確認</text>
+
+    <rect x="66" y="324" width="530" height="126" rx="12" fill="#FFFDF7" stroke="#DDD5C4"/>
+    <rect x="66" y="324" width="5" height="126" rx="2" fill="#3A4B7C"/>
+    <text x="94" y="366" fill="#3A4B7C" font-family="IBM Plex Mono, monospace" font-size="18" font-weight="600">02</text>
+    <text x="148" y="368" fill="#211E1A" font-size="24" font-weight="700">絞り込み条件の保存と期間比較</text>
+    <text x="148" y="408" fill="#5C564C" font-size="18">絞り込み条件を保存して比較</text>
+
+    <rect x="66" y="474" width="530" height="126" rx="12" fill="#FFFDF7" stroke="#DDD5C4"/>
+    <rect x="66" y="474" width="5" height="126" rx="2" fill="#3A4B7C"/>
+    <text x="94" y="516" fill="#3A4B7C" font-family="IBM Plex Mono, monospace" font-size="18" font-weight="600">03</text>
+    <text x="148" y="518" fill="#211E1A" font-size="24" font-weight="700">画面のSNS共有</text>
+    <text x="148" y="558" fill="#5C564C" font-size="18">レポートなどの画面を画像で共有</text>
+  </g>
+
+  <g>
+    <rect x="676" y="92" width="436" height="562" rx="30" fill="#211E1A"/>
+    <image x="684" y="-166" width="420" height="840" clip-path="url(#screen-clip)" xlink:href="../../app/androidApp/src/test/snapshots/report_viewer_time_control_transition_same_lane.png"/>
+  </g>
+</svg>

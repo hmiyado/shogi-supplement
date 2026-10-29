@@ -5,6 +5,8 @@ import androidx.compose.material3.Surface
 import com.github.takahirom.roborazzi.captureRoboImage
 import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.drill.DrillJudge
+import dev.miyado.shogisupplement.board.ShogiBoard
+import dev.miyado.shogisupplement.board.ShogiMove
 import dev.miyado.shogisupplement.ui.drill.DrillQuestionContent
 import dev.miyado.shogisupplement.ui.drill.DrillResultContent
 import dev.miyado.shogisupplement.ui.drill.DrillUiState
@@ -12,6 +14,7 @@ import dev.miyado.shogisupplement.ui.report.StudyEvalState
 import dev.miyado.shogisupplement.ui.report.StudyOrigin
 import dev.miyado.shogisupplement.ui.report.StudyState
 import org.junit.Test
+import org.junit.Assert.assertTrue
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
@@ -25,6 +28,17 @@ import org.robolectric.annotation.GraphicsMode
     application = android.app.Application::class,
 )
 class DrillScreenScreenshotTest {
+
+    @Test
+    fun fixturePv_isLegalFromItsStartingPosition() {
+        val fixture = vrtBlunderRecord()
+        val bestPv = requireNotNull(fixture.bestPv)
+        assertLegalLine(fixture.sfenBefore, bestPv)
+        assertLegalLine(fixture.sfenBefore, requireNotNull(fixture.punishPv))
+
+        val board = boardAfter(fixture.sfenBefore, bestPv)
+        assertLegalLine(board.toSfen(), "6f2f")
+    }
 
     @Test
     fun drillQuestion() {
@@ -101,7 +115,7 @@ class DrillScreenScreenshotTest {
                         ),
                         blunder = vrtBlunderRecord(),
                         // bestPv（2手）の続きとして足された3手目を表示位置に置く。
-                        userLineExtension = listOf("2g2f"),
+                        userLineExtension = listOf("6f2f"),
                         initialPlyIndex = 3,
                         onNext = {},
                         onBack = {},
@@ -436,6 +450,16 @@ private fun vrtBlunderRecord() = BlunderRecord(
     note = "あなたの棋力帯(偏差値47-59): 約3局に1回",
     problemType = "手筋 (両取り・素抜き) の問題",
     priority = 2.9978349024480666,
-    bestPv = "2f6f 2d2e",
-    punishPv = "2d2e 2f2e",
+    bestPv = "2f6f 2e2f",
+    punishPv = "2f6f 8c8d",
 )
+
+private fun boardAfter(sfen: String, pv: String): ShogiBoard =
+    ShogiBoard.fromSfen(sfen).also { board ->
+        pv.split(" ").filter { it.isNotBlank() }.forEach { board.push(ShogiMove.fromUsi(it)) }
+    }
+
+private fun assertLegalLine(sfen: String, pv: String) {
+    val result = runCatching { boardAfter(sfen, pv) }
+    assertTrue("PV must be legal: $pv (${result.exceptionOrNull()?.message})", result.isSuccess)
+}

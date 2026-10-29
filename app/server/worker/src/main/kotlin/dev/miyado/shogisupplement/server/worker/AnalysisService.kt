@@ -5,12 +5,14 @@ import dev.miyado.shogisupplement.api.analysis.AnalysisResultJson
 import dev.miyado.shogisupplement.api.analysis.EngineMetaJson
 import dev.miyado.shogisupplement.api.analysis.PositionPayloadJson
 import dev.miyado.shogisupplement.api.analysis.PositionResultJson
+import dev.miyado.shogisupplement.api.analysis.PositionAnalysisPurpose
 import dev.miyado.shogisupplement.api.analysis.PvInfoJson
 import dev.miyado.shogisupplement.api.analysis.ProgressJson
 import dev.miyado.shogisupplement.api.analysis.toJson
 import dev.miyado.shogisupplement.crash.NoopCrashReporter
 import dev.miyado.shogisupplement.engine.AnalysisRunner
 import dev.miyado.shogisupplement.engine.Engine
+import dev.miyado.shogisupplement.engine.EngineInvariants
 import dev.miyado.shogisupplement.engine.PvInfo
 import dev.miyado.shogisupplement.server.worker.auth.AppCheckResult
 import dev.miyado.shogisupplement.server.worker.auth.AppCheckVerifier
@@ -79,7 +81,14 @@ class AnalysisService(
     private val quotaLimitRepository: QuotaLimitRepository,
     private val analysisJobRepository: AnalysisJobRepository,
     private val engineFactory: () -> Engine,
-    private val engineMetaProvider: () -> EngineMetaJson,
+    private val engineMetaProvider: (multiPv: Int) -> EngineMetaJson,
+    // エンジン版が変わっても結果を取り違えないため、解析キャッシュキーへ来歴を含める。
+    // 空文字列ではprefixを付けず、保存済みキーの検索規則との互換性を保つ。
+    private val cacheKeyPrefix: String = "",
+    // 条件をキーへ追加する前のprefix。旧キーは、保存されたengine_metaが現在条件と一致する
+    // 場合だけ再利用する。NULL/不一致の結果を返すと、条件の違う解析結果を混ぜるため再解析へ回す。
+    private val legacyCacheKeyPrefixes: List<String> = emptyList(),
+    private val studyEngineProfile: StudyEngineProfile? = null,
     private val clock: Clock = Clock.systemUTC(),
     private val pollIntervalMs: Long = 500,
     private val pollTimeoutMs: Long = 280_000,
@@ -154,13 +163,26 @@ class AnalysisService(
 
         recordAppUsage(userId, platformHeader, buildHeader)
 
-        val movesHash = sha256Hex(input.hashSeed)
+        val movesHash = cacheHash(input)
 
         // Why not クォータ判定を先に: 既存ジョブの再取得は新規消費ではないため、
         // 冪等チェックはクォータ判定より前に行う（不変条件）。
         val existingBeforeQuota = analysisJobRepository.find(userId, movesHash)
         if (existingBeforeQuota != null) {
             return resolveExisting(userId, movesHash, existingBeforeQuota, input)
+        }
+
+        // 条件をキーへ追加した移行期間だけ、旧キーも確認する。強制再解析は新しいrequest_id
+        // で別ジョブにするため、旧結果を再利用しない。旧ジョブをクォータ判定より
+        // 前に見ることで、同じ条件の完了済み結果を新規消費扱いにしない。旧RUNNINGは
+        // 排他を証明できないため触らず、条件不一致も安全性を優先して新キーへ進める。
+        val legacyExisting = if (input is EngineInput.Game && input.forceReanalysis) {
+            null
+        } else {
+            findReusableLegacyJob(userId, input)
+        }
+        if (legacyExisting != null) {
+            return AnalysisRequestOutcome.Stream(cachedEmitter(legacyExisting.record))
         }
 
         // モードごとに完全に独立したクォータで判定する（1局解析=DB管理のquota_limits、
@@ -185,13 +207,83 @@ class AnalysisService(
         }
     }
 
+    private data class LegacyJob(
+        val movesHash: String,
+        val record: AnalysisJobRecord,
+    )
+
+    private suspend fun findReusableLegacyJob(userId: String, input: EngineInput): LegacyJob? {
+        if (input is EngineInput.Position && input.purpose == PositionAnalysisPurpose.STUDY) return null
+        val currentHash = cacheHash(input)
+        val candidates = mutableListOf<LegacyJob>()
+        val visitedHashes = mutableSetOf<String>()
+        for (prefix in legacyCacheKeyPrefixes) {
+            val hash = sha256Hex(if (prefix.isBlank()) input.hashSeed else "$prefix|${input.hashSeed}")
+            if (hash == currentHash || !visitedHashes.add(hash)) continue
+            analysisJobRepository.find(userId, hash)?.let { candidates += LegacyJob(hash, it) }
+        }
+
+        // 旧RUNNINGは旧workerとの排他を証明できないため再利用しない。resetして新条件で
+        // 同じ行を走らせると、旧workerとの二重実行やquota bypassを起こし得るためである。
+        // 旧RUNNINGの待機・昇格はDBのlease/fencing設計が決まってから追加する。
+        return candidates.firstOrNull {
+            it.record.status == AnalysisJobStatus.DONE && isReusableLegacyDone(it.record, input)
+        }
+    }
+
+    private fun cacheHash(input: EngineInput): String {
+        val prefix = studyProfile(input)?.cacheKeyPrefix ?: cacheKeyPrefix
+        val cacheSeed = if (prefix.isBlank()) input.hashSeed else "$prefix|${input.hashSeed}"
+        return sha256Hex(cacheSeed)
+    }
+
+    private fun studyProfile(input: EngineInput): StudyEngineProfile? =
+        studyEngineProfile.takeIf { input is EngineInput.Position && input.purpose == PositionAnalysisPurpose.STUDY }
+
+    private fun isCurrentEngineResult(record: AnalysisJobRecord, input: EngineInput): Boolean {
+        val expected = when (input) {
+            is EngineInput.Game -> engineMetaProvider(EngineInvariants.MULTI_PV)
+            is EngineInput.Position -> studyProfile(input)?.meta(input.multiPv) ?: engineMetaProvider(input.multiPv)
+        }
+        val actual = record.engineMeta?.let {
+            runCatching { json.decodeFromJsonElement(EngineMetaJson.serializer(), it) }.getOrNull()
+        }
+        // condition_name は表示用の短縮名であり、旧結果には存在しないため、
+        // キャッシュ再利用の互換判定から除外する。
+        return actual != null && actual.engineRev == expected.engineRev &&
+            actual.evalSha256 == expected.evalSha256 &&
+            actual.nodes == expected.nodes &&
+            actual.threads == expected.threads &&
+            actual.multiPv == expected.multiPv &&
+            actual.usiHash == expected.usiHash &&
+            actual.fvScale == expected.fvScale
+    }
+
+    private fun isReusableLegacyDone(record: AnalysisJobRecord, input: EngineInput): Boolean {
+        if (!isCurrentEngineResult(record, input)) return false
+        val positions = record.resultJson?.let {
+            runCatching {
+                json.decodeFromJsonElement<List<List<PvInfoJson>>>(
+                    ListSerializer(ListSerializer(PvInfoJson.serializer())),
+                    it,
+                )
+            }.getOrNull()
+        } ?: return false
+        val expectedPositions = when (input) {
+            is EngineInput.Game -> input.movesUsi.size + 1
+            is EngineInput.Position -> 1
+        }
+        return positions.size == expectedPositions
+    }
+
     /** find() または createRunning() の競合で見つかった既存行を、状態に応じて処理する。 */
     private suspend fun resolveExisting(
         userId: String,
         movesHash: String,
         existing: AnalysisJobRecord,
         input: EngineInput,
-    ): AnalysisRequestOutcome = when (existing.status) {
+    ): AnalysisRequestOutcome {
+        return when (existing.status) {
         AnalysisJobStatus.DONE -> AnalysisRequestOutcome.Stream(cachedEmitter(existing))
         AnalysisJobStatus.RUNNING -> {
             val ageMs = Duration.between(existing.createdAt, clock.instant()).toMillis()
@@ -212,6 +304,7 @@ class AnalysisService(
             // エラー後の再試行は同じ行を running に戻して使う（新規行を作ると unique制約に阻まれるため）。
             analysisJobRepository.resetToRunning(existing.id)
             AnalysisRequestOutcome.Stream(runEmitter(existing.id, input))
+        }
         }
     }
 
@@ -286,7 +379,7 @@ class AnalysisService(
             crashReporter = NoopCrashReporter,
             engineFactory = engineFactory,
         )
-        val allPv: List<List<PvInfo>> = runner.analyzeGame(
+        val analyzed = runner.analyzeGame(
             input.movesUsi,
             // プログレッシブ解析表示向けの局面単位イベント。並列ワーカーの完了順のまま
             // ply順に揃えず送る（クライアント側のin-order watermarkアキュムレータが
@@ -299,8 +392,8 @@ class AnalysisService(
             emitLine(json.encodeToString(ProgressJson(done, total)) + "\n")
         }
         return AnalysisResultJson(
-            result = allPv.map { pvList -> pvList.map { it.toJson() } },
-            engineMeta = engineMetaProvider(),
+            result = analyzed.positions.map { pvList -> pvList.map { it.toJson() } },
+            engineMeta = engineMetaProvider(EngineInvariants.MULTI_PV),
         )
     }
 
@@ -309,16 +402,17 @@ class AnalysisService(
         emitLine: (String) -> Unit,
     ): AnalysisResultJson {
         emitLine(json.encodeToString(ProgressJson(0, 1)) + "\n")
-        val engine = engineFactory()
+        val profile = studyProfile(input)
+        val engine = profile?.create() ?: engineFactory()
         val pvList = try {
-            engine.analyzeSfen(input.sfen, input.moves)
+            engine.analyzeSfen(input.sfen, input.moves, nodes = EngineInvariants.NODES, multiPv = input.multiPv)
         } finally {
             runCatching { engine.quit() }
         }
         emitLine(json.encodeToString(ProgressJson(1, 1)) + "\n")
         return AnalysisResultJson(
             result = listOf(pvList.map { it.toJson() }),
-            engineMeta = engineMetaProvider(),
+            engineMeta = profile?.meta(input.multiPv) ?: engineMetaProvider(input.multiPv),
         )
     }
 
@@ -355,10 +449,14 @@ private fun EngineInput.toStoragePayload(): JsonElement = when (this) {
     is EngineInput.Game -> buildJsonObject {
         put("mode", "game")
         put("moves_usi", JsonArray(movesUsi.map { JsonPrimitive(it) }))
+        put("force_reanalysis", forceReanalysis)
+        requestId?.let { put("request_id", it) }
     }
     is EngineInput.Position -> buildJsonObject {
         put("mode", "position")
         put("sfen", sfen)
         put("moves", JsonArray(moves.map { JsonPrimitive(it) }))
+        put("multi_pv", multiPv)
+        purpose?.let { put("purpose", Json.encodeToJsonElement(it)) }
     }
 }

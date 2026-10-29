@@ -15,10 +15,10 @@ private val wasmResultJson = Json { ignoreUnknownKeys = true }
  * の{type,value}形式）とは別物で、無理に揃えない。
  */
 @Serializable
-internal data class RawWasmScore(val cp: Int? = null, val mate: Int? = null) {
+internal data class RawWasmScore(val cp: Int? = null, val mate: Int? = null, val verified: Boolean = false) {
     fun toScore(): Score? = when {
         cp != null -> Score.Cp(cp)
-        mate != null -> Score.Mate(mate)
+        mate != null -> Score.Mate(mate, verified = verified)
         else -> null
     }
 }
@@ -27,21 +27,38 @@ internal data class RawWasmScore(val cp: Int? = null, val mate: Int? = null) {
 internal data class RawWasmPv2(val score: RawWasmScore? = null, val pv: List<String> = emptyList())
 
 @Serializable
+internal data class RawWasmPv(
+    val multipv: Int,
+    val score: RawWasmScore? = null,
+    val nodes: Long? = null,
+    val pv: List<String> = emptyList(),
+)
+
+@Serializable
 internal data class RawWasmPositionResult(
     val ply: Int,
     val score: RawWasmScore? = null,
     val nodes: Long? = null,
     val pv: List<String> = emptyList(),
     val multipv2: RawWasmPv2? = null,
+    val pvs: List<RawWasmPv> = emptyList(),
 )
 
 /** [ply] とその局面の MultiPV 結果（[PvInfo] リスト）。 */
 /** JSからの結果はiOSのWKWebViewブリッジ（:engine:ios）が読むためモジュール外へ公開する。 */
 data class WasmPositionResult(val ply: Int, val pvs: List<PvInfo>)
 
-/** WKWebViewのposition結果を解析する。multipv2のnodesは仕様上0として扱う。 @param resultJson RawWasmPositionResult形式のJSON。 */
+// Why not pvs だけを読まない理由: バッチ側（analysis-worker.js）は pvs を持たず、
+// 先頭2本を score/multipv2 に置いた形しか出さない。
+/** WKWebViewのposition結果を解析する。multipv2のnodesは仕様上0として扱う。 @param resultJson 結果JSON。 */
 fun parseWasmPositionResult(resultJson: String): WasmPositionResult {
     val raw = wasmResultJson.decodeFromString(RawWasmPositionResult.serializer(), resultJson)
+    if (raw.pvs.isNotEmpty()) {
+        val parsed = raw.pvs.mapNotNull { p ->
+            p.score?.toScore()?.let { PvInfo(multipv = p.multipv, score = it, pv = p.pv, nodes = p.nodes ?: 0L) }
+        }
+        return WasmPositionResult(ply = raw.ply, pvs = parsed)
+    }
     val pvs = buildList {
         raw.score?.toScore()?.let { score1 ->
             add(PvInfo(multipv = 1, score = score1, pv = raw.pv, nodes = raw.nodes ?: 0L))

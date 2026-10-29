@@ -35,6 +35,25 @@ class ReportViewerScreenshotTest {
     @get:Rule
     val composeRule = createComposeRule()
 
+    /** 評価スロットの候補手3件（先頭が最善で、2件目以降は評価が下がる）。 */
+    private fun studyCandidates() = listOf(
+        dev.miyado.shogisupplement.ui.report.StudyCandidate(
+            moveUsi = "2g2f",
+            moveText = "▲２六歩",
+            label = PositionEvalDisplay.EvalLabel(text = "+120", sign = 1),
+        ),
+        dev.miyado.shogisupplement.ui.report.StudyCandidate(
+            moveUsi = "6i7h",
+            moveText = "▲７八金",
+            label = PositionEvalDisplay.EvalLabel(text = "+40", sign = 1),
+        ),
+        dev.miyado.shogisupplement.ui.report.StudyCandidate(
+            moveUsi = "3i4h",
+            moveText = "▲４八銀",
+            label = PositionEvalDisplay.EvalLabel(text = "−60", sign = -1),
+        ),
+    )
+
     /**
      * Why not ラムダ版 captureRoboImage: Espresso の idle 待ちが、フレームを流し続ける
      * 無限アニメーションでは終わらない。Compose テスト規則はこれを idle 判定から除く。
@@ -233,6 +252,58 @@ class ReportViewerScreenshotTest {
         }
     }
 
+    /** 主時間を使い切った後、同じ時間レーンで秒読み表示へ切り替わる。 */
+    @Test
+    fun report_viewer_time_control_transition_same_lane() {
+        val game = sampleGame().copy(
+            fileName = "time_control_transition.kif",
+            moveCount = 12L,
+            movesUsi = listOf(
+                "7g7f", "3c3d", "2g2f", "4c4d", "3i4h", "3a4b",
+                "5g5f", "5c5d", "4i5h", "4b4c", "5i6h", "8b3b",
+            ),
+            kifText = """
+                開始日時：2026/09/13 12:00:00
+                先手：miyado
+                後手：相手
+                手合割：平手
+                持ち時間：1分
+                秒読み：30秒
+                手数----指手---------消費時間--
+                   1 ７六歩(77)   ( 0:20/00:00:20)
+                   2 ３四歩(33)   ( 0:01/00:00:01)
+                   3 ２六歩(27)   ( 0:25/00:00:45)
+                   4 ４四歩(43)   ( 0:01/00:00:02)
+                   5 ４八銀(39)   ( 0:20/00:01:05)
+                   6 ４二銀(31)   ( 0:01/00:00:03)
+                   7 ５六歩(57)   ( 0:08/00:01:13)
+                   8 ５四歩(53)   ( 0:01/00:00:04)
+                   9 ５八金(49)   ( 0:12/00:01:25)
+                  10 ４二玉(51)   ( 0:01/00:00:05)
+                  11 ６八銀(79)   ( 0:05/00:01:30)
+                  12 ３二玉(51)   ( 0:01/00:00:06)
+            """.trimIndent(),
+            timeControlRaw = "1分",
+            timeControlByoyomiRaw = "30秒",
+        )
+        captureRoboImage(
+            filePath = "src/test/snapshots/report_viewer_time_control_transition_same_lane.png",
+            roborazziOptions = screenshotRoborazziOptions,
+        ) {
+            ShogiTheme {
+                Surface {
+                    ReportScreen(
+                        game = game,
+                        reports = emptyList(),
+                        flip = false,
+                        strengthDisplayText = null,
+                        onBack = {},
+                    )
+                }
+            }
+        }
+    }
+
     /** 最善の変化タブは選択中の悪手が無いため無効表示になる。 */
     @Test
     fun report_viewer_list_no_selection() {
@@ -421,7 +492,6 @@ class ReportViewerScreenshotTest {
                                 dev.miyado.shogisupplement.ui.report.StudyEvalState.Value(
                                     PositionEvalDisplay.EvalLabel(text = "+120", sign = 1),
                                     userCp = 120,
-                                    bestMoveText = "▲2六歩",
                                 ),
                             ),
                             origin = dev.miyado.shogisupplement.ui.report.StudyOrigin(
@@ -437,7 +507,7 @@ class ReportViewerScreenshotTest {
                             evalState = dev.miyado.shogisupplement.ui.report.StudyEvalState.Value(
                                 PositionEvalDisplay.EvalLabel(text = "+120", sign = 1),
                                 userCp = 120,
-                                bestMoveText = "▲2六歩",
+                                candidates = studyCandidates(),
                             ),
                         ),
                     )
@@ -446,7 +516,7 @@ class ReportViewerScreenshotTest {
         }
     }
 
-    /** 分岐チェブロン付きチップと解析中スピナーを同時に示す。 */
+    /** 分岐の横スクロール候補と解析中スピナーを同時に示す。 */
     @Test
     fun report_viewer_study_branch() {
         val blunder = sampleBlunder()
@@ -473,6 +543,10 @@ class ReportViewerScreenshotTest {
                             originAbsolutePly = 44,
                             flip = false,
                             branchFlags = listOf(false, true),
+                            moveOptions = listOf(emptyList(), listOf(
+                                dev.miyado.shogisupplement.ui.report.StudyBranchOption("3c3d", dev.miyado.shogisupplement.ui.report.StudyEvalState.None, true, 1),
+                                dev.miyado.shogisupplement.ui.report.StudyBranchOption("8c8d", dev.miyado.shogisupplement.ui.report.StudyEvalState.None, false, 2),
+                            )),
                             evalState = dev.miyado.shogisupplement.ui.report.StudyEvalState.Loading,
                         ),
                     )
@@ -543,7 +617,6 @@ class ReportViewerScreenshotTest {
                                 dev.miyado.shogisupplement.ui.report.StudyEvalState.Value(
                                     PositionEvalDisplay.EvalLabel(text = "+120", sign = 1),
                                     userCp = 120,
-                                    bestMoveText = "▲2六歩",
                                 ),
                             ),
                             origin = dev.miyado.shogisupplement.ui.report.StudyOrigin(
@@ -559,7 +632,7 @@ class ReportViewerScreenshotTest {
                             evalState = dev.miyado.shogisupplement.ui.report.StudyEvalState.Value(
                                 PositionEvalDisplay.EvalLabel(text = "+120", sign = 1),
                                 userCp = 120,
-                                bestMoveText = "▲2六歩",
+                                candidates = studyCandidates(),
                             ),
                         ),
                     )
@@ -603,7 +676,7 @@ class ReportViewerScreenshotTest {
         }
     }
 
-    /** 40手を折り返してカード内だけをスクロールし、パネル外形を保つ。 */
+    /** 40手をカード内だけで縦スクロールし、パネル外形を保つ。 */
     @Test
     fun report_viewer_study_pv_scroll() {
         val blunder = sampleBlunder()
@@ -619,10 +692,7 @@ class ReportViewerScreenshotTest {
             "9f9e", "9a9e", "8e8d", "8c8d", "P*8e", "8d8e",
         )
         val displayLine = playedMoves + futureMoves
-        captureRoboImage(
-            filePath = "src/test/snapshots/report_viewer_study_pv_scroll.png",
-            roborazziOptions = screenshotRoborazziOptions,
-        ) {
+        captureViaComposeRule("report_viewer_study_pv_scroll") {
             ShogiTheme {
                 Surface {
                     ReportScreen(
@@ -648,7 +718,7 @@ class ReportViewerScreenshotTest {
                             evalState = dev.miyado.shogisupplement.ui.report.StudyEvalState.Value(
                                 PositionEvalDisplay.EvalLabel(text = "+820", sign = 1),
                                 userCp = 820,
-                                bestMoveText = "▲６八玉",
+                                candidates = studyCandidates(),
                             ),
                         ),
                     )
@@ -657,7 +727,6 @@ class ReportViewerScreenshotTest {
         }
     }
 
-    // Why not 兄弟変化ポップのVRT: Popupは別ウィンドウに開き、captureRoboImageで取得できない。
 
     /** 棋戦名があってもトップバーをタイトルと対局者の2行に保つ。 */
     @Test
@@ -682,7 +751,7 @@ class ReportViewerScreenshotTest {
 
     // AlertDialogは別ウィンドウに描画されるため、対局情報VRTはcaptureScreenRoboImage側で扱う。
 
-    /** justCompleted=true の遷移直後。ナビ行スロットが完了通知バナーに排他入替される。 */
+    /** justCompleted=true の遷移直後。ナビ行スロットが解析完了バナーに排他入替される。 */
     @Test
     fun report_viewer_completion_banner() {
         captureRoboImage(

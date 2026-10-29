@@ -15,7 +15,6 @@ import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.PositionEvalRow
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.report.ReportScreen
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
 import org.junit.Rule
@@ -28,8 +27,8 @@ import org.robolectric.annotation.GraphicsMode
 /**
  * 縦に詰まった端末でレポートのサマリーが潰れないことを確かめる。
  *
- * 実機はsafe areaを引くと本文が650dp程度になる。この高さでは、Columnが最後の子である
- * 「悪手一覧を見る」を押し潰して26dpまで縮めていた。
+ * 実機はsafe areaを引くと本文が650dp程度になる。この高さでは、Columnが最後の子を
+ * 押し潰して26dpまで縮めていた。いまの最後の子は表示切替のタブ行。
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -129,11 +128,11 @@ class ReportSummaryCompactHeightTest {
     }
 
     @Test
-    fun 縦に詰まった端末でも悪手一覧ボタンが潰れない() {
+    fun 縦に詰まった端末でもタブ行が潰れない() {
         setContentWithRootHeight(null)
 
-        val bounds = composeRule.onNodeWithText(AppStrings.VIEW_BLUNDER_LIST).getUnclippedBoundsInRoot()
+        val bounds = composeRule.onNodeWithText("悪手一覧").getUnclippedBoundsInRoot()
         val height = bounds.bottom - bounds.top
-        assert(height >= 40.dp) { "悪手一覧ボタンが潰れている: $height" }
+        assert(height >= 40.dp) { "タブ行が潰れている: $height" }
     }
 }

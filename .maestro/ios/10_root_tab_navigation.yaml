@@ -1,0 +1,42 @@
+appId: dev.miyado.shogisupplement.ios.debug
+---
+- launchApp:
+    clearState: false
+- runFlow: subflows/handle_consent_onboarding.yaml
+- tapOn: "ホーム"
+- extendedWaitUntil:
+    visible: "将棋サプリ"
+    timeout: 15000
+- tapOn: "棋譜"
+- extendedWaitUntil:
+    visible: "棋譜一覧"
+    timeout: 15000
+- tapOn: "ホーム"
+- extendedWaitUntil:
+    visible: "将棋サプリ"
+    timeout: 15000
+- tapOn: "定跡"
+- extendedWaitUntil:
+    visible: "定跡一覧"
+    timeout: 15000
+- tapOn: "ホーム"
+- extendedWaitUntil:
+    visible: "将棋サプリ"
+    timeout: 15000
+- tapOn: "設定"
+- extendedWaitUntil:
+    visible: "テーマ"
+    timeout: 15000
+- assertNotVisible: "ホーム"
+- tapOn: "戻る"
+- extendedWaitUntil:
+    visible: "将棋サプリ"
+    timeout: 15000
+- tapOn: "棋譜"
+- extendedWaitUntil:
+    visible: "棋譜一覧"
+    timeout: 15000
+- tapOn: "ホーム"
+- extendedWaitUntil:
+    visible: "将棋サプリ"
+    timeout: 15000

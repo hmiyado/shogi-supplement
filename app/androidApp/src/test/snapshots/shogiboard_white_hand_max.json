@@ -1,0 +1,10 @@
+{
+  "kind": "component",
+  "kindLabel": "コンポーネント",
+  "category": "shogiboard",
+  "categoryLabel": "将棋盤",
+  "screen": "先手持ち駒最大・hand・持ち駒最大",
+  "screenLabel": "先手持ち駒最大・hand・持ち駒最大",
+  "state": "標準状態",
+  "stateLabel": "標準状態"
+}

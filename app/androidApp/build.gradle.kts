@@ -13,6 +13,44 @@ tasks.matching { it.name.startsWith("prepareLibraryDefinitions") }.configureEach
     enabled = false
 }
 
+tasks.register("generateNavigationDiagram") {
+    group = "verification"
+    description = "共通状態機械から画面遷移図を生成する"
+    dependsOn(":application:generateNavigationDiagram")
+}
+
+// Why not画像をdocsへ複製する: goldenの更新元はVRT側に一つだけ置き、
+// UIカタログはローカル確認用の自己完結HTMLとして都度生成する。
+val generateUiCatalog by tasks.registering(Exec::class) {
+    dependsOn(":application:generateNavigationDiagram")
+    group = "verification"
+    description = "RoborazziのスクリーンショットからUIカタログを生成する"
+    val repositoryRoot = rootProject.projectDir.parentFile
+    val snapshots = file("src/test/snapshots")
+    val tests = file("src/test/kotlin")
+    val output = layout.buildDirectory.file("ui-catalog/index.html").get().asFile
+    val navigation = layout.buildDirectory.file("navigation-diagram/index.html").get().asFile
+    inputs.file(navigation)
+    inputs.dir(snapshots)
+    inputs.dir(tests)
+    inputs.file(repositoryRoot.resolve("tools/generate_ui_catalog.py"))
+    inputs.dir(repositoryRoot.resolve("docs/assets/fonts"))
+    outputs.file(output)
+    workingDir(repositoryRoot)
+    commandLine(
+        "python3",
+        "tools/generate_ui_catalog.py",
+        "--snapshots", snapshots.absolutePath,
+        "--tests", tests.absolutePath,
+        "--output", output.absolutePath,
+        "--navigation", navigation.absolutePath,
+    )
+}
+
+tasks.matching { it.name == "recordRoborazziDebug" }.configureEach {
+    finalizedBy(generateUiCatalog)
+}
+
 // Why not Androidビルド時生成: Android/iOSで同じ確定済みJSONを使い、
 // 依存更新とアプリビルドを分離する。
 aboutLibraries {
@@ -52,6 +90,23 @@ android {
         // 使わず、debugビルドの疎通確認（DebugServerAnalysisReceiver）だけが参照する。
         // 未設定なら空文字になり、受信側が「未設定」として弾く。
         buildConfigField("String", "ANALYSIS_BASE_URL", "\"${localProps["ANALYSIS_BASE_URL"] ?: ""}\"")
+        // App Check用の公開識別子。秘密ではないが、プロジェクト識別子を公開リポジトリへ
+        // 置かない方針のためlocal.propertiesから注入する。3つ揃わないとApp Checkは無効。
+        buildConfigField(
+            "String",
+            "FIREBASE_ANDROID_APPLICATION_ID",
+            "\"${localProps["FIREBASE_ANDROID_APPLICATION_ID"] ?: ""}\"",
+        )
+        buildConfigField(
+            "String",
+            "FIREBASE_ANDROID_API_KEY",
+            "\"${localProps["FIREBASE_ANDROID_API_KEY"] ?: ""}\"",
+        )
+        buildConfigField(
+            "String",
+            "FIREBASE_ANDROID_PROJECT_ID",
+            "\"${localProps["FIREBASE_ANDROID_PROJECT_ID"] ?: ""}\"",
+        )
     }
 
     // リリース署名: app/keystore.properties から読み込み（git管理外）。
@@ -116,6 +171,11 @@ android {
             isReturnDefaultValues = true
             all {
                 it.systemProperty("robolectric.graphicsMode", "NATIVE")
+                // ストア画像の書き出し（StoreImageTest）は -Pshogi.storeImages=true のときだけ走る。
+                it.systemProperty(
+                    "shogi.storeImages",
+                    providers.gradleProperty("shogi.storeImages").getOrElse("false"),
+                )
                 // ゴールデン画像はAsia/Tokyoで生成されているため、対局日時のSimpleDateFormat
                 // （ui/ReportPlatform.android.kt）がCI実行環境のタイムゾーンに引きずられて
                 // ズレないようテストJVM自体のタイムゾーンを固定する。
@@ -154,7 +214,6 @@ dependencies {
     implementation(platform(libs.compose.bom))
     implementation(libs.androidx.activity.compose)
     implementation(libs.compose.material3)
-    implementation(libs.compose.material.icons.extended)
     implementation(libs.compose.ui)
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.kotlinx.coroutines.android)
@@ -173,11 +232,15 @@ dependencies {
     // クラッシュレポート（Sentry Android SDK）
     implementation(libs.sentry.android)
 
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.appcheck.playintegrity)
+
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.kotlinx.coroutines.test)
 
     // VRT: Roborazzi + Robolectric（JVM スクリーンショットテスト）
+    testImplementation(kotlin("test"))
     testImplementation(libs.roborazzi)
     testImplementation(libs.roborazzi.compose)
     testImplementation(libs.roborazzi.junit.rule)

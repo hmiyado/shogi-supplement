@@ -1,0 +1,10 @@
+{
+  "kind": "component",
+  "kindLabel": "コンポーネント",
+  "category": "game_delete_dialog",
+  "categoryLabel": "棋譜削除ダイアログ",
+  "screen": "棋譜削除ダイアログ",
+  "screenLabel": "棋譜削除ダイアログ",
+  "state": "複数選択・件数",
+  "stateLabel": "複数選択・件数"
+}

@@ -103,9 +103,10 @@
     for (let ply = 0; ply <= totalMoves; ply++) {
       jobs.push({ ply, moves: moves.slice(0, ply) });
     }
-    const half = Math.ceil(jobs.length / 2);
-    const group1 = jobs.slice(0, half);
-    const group2 = jobs.slice(half);
+    // Why not 前半・後半で分ける: 画面はply=0から連続して確定した区間だけを出すため、
+    // 後半を担当したWorkerの結果は前半が終わるまで1手も表示されない。
+    const group1 = jobs.filter((job) => job.ply % 2 === 0);
+    const group2 = jobs.filter((job) => job.ply % 2 === 1);
 
     const workerScriptUrl = resolveWorkerScriptUrl();
     let activeWorkers = [];
@@ -155,7 +156,7 @@
 
   /**
    * @typedef {Object} StudyEngine
-   * @property {(baseSfenArg: string, movesJson: string, onResult: (resultJson: string) => void, onError: (message: string) => void) => void} analyze
+   * @property {(baseSfenArg: string, movesJson: string, onResult: (resultJson: string) => void, onError: (message: string) => void, multiPv?: number) => void} analyze
    * @property {() => void} dispose
    */
 
@@ -220,6 +221,7 @@
             type: "analyze",
             baseSfenArg: activeRequest.baseSfenArg,
             movesJson: activeRequest.movesJson,
+            multiPv: activeRequest.multiPv,
           });
         }
       } else if (msg.type === "result") {
@@ -242,7 +244,9 @@
     startWorker();
 
     return {
-      analyze(baseSfenArg, movesJson, onResult, onError) {
+      // multiPvを末尾に置く理由: webApp.js と別々にキャッシュされるため、
+      // 片方だけ古い組み合わせでも既存の引数位置がずれない。
+      analyze(baseSfenArg, movesJson, onResult, onError, multiPv) {
         // 黙って返すと待ち側が永久に再開しないため、破棄済みでも必ず応答する。
         if (disposed) {
           onError("検討エンジンは破棄済みです");
@@ -252,10 +256,10 @@
           onError("検討エンジンはすでに解析中です");
           return;
         }
-        const request = { baseSfenArg, movesJson, onResult, onError, finished: false };
+        const request = { baseSfenArg, movesJson, multiPv, onResult, onError, finished: false };
         if (prepared) {
           activeRequest = request;
-          worker.postMessage({ type: "analyze", baseSfenArg, movesJson });
+          worker.postMessage({ type: "analyze", baseSfenArg, movesJson, multiPv });
         } else {
           pendingRequest = request;
         }

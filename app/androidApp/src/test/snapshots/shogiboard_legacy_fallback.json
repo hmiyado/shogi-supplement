@@ -1,0 +1,10 @@
+{
+  "kind": "component",
+  "kindLabel": "コンポーネント",
+  "category": "shogiboard",
+  "categoryLabel": "将棋盤",
+  "screen": "旧形式フォールバック・fallback",
+  "screenLabel": "旧形式フォールバック・fallback",
+  "state": "標準状態",
+  "stateLabel": "標準状態"
+}

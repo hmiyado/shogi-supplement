@@ -5,11 +5,13 @@
 # 1回通るまでは、既存スクリプトと並存させる（app/docs/release.md参照）。
 # 署名方式・APIキー認証・ビルド番号の取得元は同スクリプトを踏襲している。
 
+require_relative "store_screenshot_upload"
+
 IOS_PROJECT_DIR = File.expand_path("..", __dir__)
 APP_DIR = File.expand_path("../..", __dir__)
 REPO_ROOT = File.expand_path("../../..", __dir__)
-KEY_ID = "BM62Q97564"
-ISSUER_ID = "9f6a60f5-d95c-484a-9c8c-574f65a93b7b"
+KEY_ID = ENV.fetch("ASC_KEY_ID", "BM62Q97564")
+ISSUER_ID = ENV.fetch("ASC_ISSUER_ID", "9f6a60f5-d95c-484a-9c8c-574f65a93b7b")
 TEAM_ID = "C8DX3743C6"
 BUNDLE_ID = "dev.miyado.shogisupplement.ios"
 PROFILE_NAME = "shogisup ios appstore"
@@ -43,6 +45,15 @@ def read_gradle_property(key)
   line.split("=", 2).last.strip
 end
 
+# UIが変わるリリースでは、提出前に掲載画像を最新のStoreImageTestから作り直す。
+def generate_store_images
+  Dir.chdir(APP_DIR) do
+    sh("./gradlew :androidApp:recordRoborazziDebug --tests '*StoreImageTest*' -Pshogi.storeImages=true --rerun-tasks")
+  end
+  StoreScreenshotUpload.prepare(project_dir: IOS_PROJECT_DIR)
+  UI.success("ストア画像の再生成と提出用画像の準備が完了")
+end
+
 # Why not key_filepathだけ: 鍵をディスクへ書き出す運用は、置き場所と消し忘れが
 # 人任せになる。中身を環境変数で受け取れれば、ファイルを作らずに提出できる。
 # パス指定も残すのは、中身を環境変数へ入れられない端末からでも出せる退避路のため。
@@ -71,8 +82,8 @@ def upload_dsyms_to_sentry
     UI.message("sentry-cli未インストールのためdSYMアップロードをスキップ")
     return
   end
-  unless ENV["SENTRY_AUTH_TOKEN"]
-    UI.message("SENTRY_AUTH_TOKEN未設定のためdSYMアップロードをスキップ")
+  unless ENV["SENTRY_AUTH_TOKEN"] && ENV["SENTRY_ORG"] && ENV["SENTRY_PROJECT"]
+    UI.message("Sentry設定（SENTRY_AUTH_TOKEN/SENTRY_ORG/SENTRY_PROJECT）が揃っていないためdSYMアップロードをスキップ")
     return
   end
   system("sentry-cli", "debug-files", "upload", File.join(ARCHIVE_PATH, "dSYMs")) \
@@ -91,6 +102,7 @@ platform :ios do
     api_key = asc_api_key
 
     sh(File.join(REPO_ROOT, ".maestro/run-ios.sh"))
+    generate_store_images
 
     build_app(
       scheme: "iosApp-Engineless",
@@ -130,6 +142,7 @@ platform :ios do
     asc_api_key
 
     deliver(
+      screenshots_path: StoreScreenshotUpload.prepare(project_dir: IOS_PROJECT_DIR),
       submit_for_review: true,
       automatic_release: false,
       skip_binary_upload: true, # バイナリはbetaのpilotで送信済み

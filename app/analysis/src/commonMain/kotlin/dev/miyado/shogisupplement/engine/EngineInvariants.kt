@@ -5,6 +5,9 @@ package dev.miyado.shogisupplement.engine
 object EngineInvariants {
     const val NODES: Int = Engine.DEFAULT_NODES
     const val MULTI_PV: Int = Engine.MULTI_PV
+    /** ドリル二次判定は保存済み解析と同じ物差しを使う。検討モードの条件とは分離する。 */
+    const val DRILL_SECONDARY_NODES: Int = NODES
+    const val DRILL_SECONDARY_MULTI_PV: Int = MULTI_PV
     const val THREADS: Int = 1
     const val USI_HASH_MB: Int = 128
     const val FV_SCALE: Int = 20

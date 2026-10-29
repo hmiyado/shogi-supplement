@@ -1,0 +1,10 @@
+{
+  "kind": "screen",
+  "kindLabel": "画面（Screen）",
+  "category": "home",
+  "categoryLabel": "ホーム",
+  "screen": "ホーム",
+  "screenLabel": "ホーム",
+  "state": "少ない棋譜・games・表示あり・表示・all",
+  "stateLabel": "少ない棋譜・games・表示あり・表示・all"
+}

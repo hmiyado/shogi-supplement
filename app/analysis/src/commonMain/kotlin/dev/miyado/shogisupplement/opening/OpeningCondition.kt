@@ -247,3 +247,20 @@ data class ChikatetsuTunnel(val plyCap: Int) : OpeningCondition {
         return ply <= plyCap
     }
 }
+
+internal data object BishopPathOpenBeforeAchievement : OpeningCondition {
+    override fun describe() = "成立までに角道を止める歩（先手6六・後手4四）を突いていない"
+    override fun holds(context: OpeningContext, side: Side): Boolean {
+        val achievement = context.achievementPly ?: return false
+        val closed = context.events.bishopPathClosedPly[side] ?: return true
+        return closed > achievement
+    }
+}
+
+internal data object UreshinoFirstMove : OpeningCondition {
+    override fun describe() = "自分の最初の着手が6八銀（後手4二銀）である"
+    override fun holds(context: OpeningContext, side: Side): Boolean {
+        val move = context.events.firstMoves[side] ?: return false
+        return move.from == BfSquare(7, 9).toSquare(side) && move.to == BfSquare(6, 8).toSquare(side)
+    }
+}

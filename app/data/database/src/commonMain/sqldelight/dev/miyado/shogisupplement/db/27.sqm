@@ -1,0 +1,2 @@
+ALTER TABLE position_eval ADD COLUMN mate_verified INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE blunder_report ADD COLUMN mate_verified INTEGER NOT NULL DEFAULT 0;

@@ -1,5 +1,8 @@
 package dev.miyado.shogisupplement.ui.common
 
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -37,6 +40,8 @@ import androidx.compose.ui.unit.Dp
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.miyado.shogisupplement.board.EditorPieceLocation
+import dev.miyado.shogisupplement.board.Side
 import dev.miyado.shogisupplement.board.PieceType
 import dev.miyado.shogisupplement.board.ShogiSquare
 import dev.miyado.shogisupplement.ui.theme.LightInk
@@ -242,7 +247,12 @@ fun computeBoardCellSize(maxWidth: Dp, maxHeight: Dp): Dp {
 
 // ─── Composable ──────────────────────────────────────────────────────────────
 
-/** SFEN局面を描画する将棋盤。選択、合法手、持ち駒タップ、反転表示を共通化する。 @param sfen 局面のSFEN文字列。 */
+data class BoardEditorActions(
+    val selectedHandSide: Side?,
+    val onHandSelected: (Side, PieceType) -> Unit,
+    val onHandRegionTapped: (Side) -> Unit,
+)
+
 @Composable
 fun ShogiBoardView(
     sfen: String,
@@ -254,6 +264,7 @@ fun ShogiBoardView(
     legalDestinations: Set<ShogiSquare> = emptySet(),
     onSquareTapped: ((ShogiSquare) -> Unit)? = null,
     onHandPieceTapped: ((PieceType) -> Unit)? = null,
+    editorActions: BoardEditorActions? = null,
 ) {
     val position = remember(sfen) { SfenPosition.parse(sfen) }
     ShogiBoardContent(
@@ -266,6 +277,7 @@ fun ShogiBoardView(
         legalDestinations = legalDestinations,
         onSquareTapped = onSquareTapped,
         onHandPieceTapped = onHandPieceTapped,
+        editorActions = editorActions,
     )
 }
 
@@ -280,6 +292,7 @@ private fun ShogiBoardContent(
     legalDestinations: Set<ShogiSquare> = emptySet(),
     onSquareTapped: ((ShogiSquare) -> Unit)? = null,
     onHandPieceTapped: ((PieceType) -> Unit)? = null,
+    editorActions: BoardEditorActions? = null,
 ) {
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
         TopBottomBoardLayout(
@@ -293,6 +306,7 @@ private fun ShogiBoardContent(
                 legalDestinations = legalDestinations,
                 onSquareTapped = onSquareTapped,
                 onHandPieceTapped = onHandPieceTapped,
+                editorActions = editorActions,
         )
     }
 }
@@ -309,6 +323,7 @@ private fun TopBottomBoardLayout(
     legalDestinations: Set<ShogiSquare>,
     onSquareTapped: ((ShogiSquare) -> Unit)?,
     onHandPieceTapped: ((PieceType) -> Unit)?,
+    editorActions: BoardEditorActions?,
 ) {
     val cellSize: Dp = computeBoardCellSize(maxWidth, maxHeight)
     val boardWidth = cellSize * 9 + CoordinateLabelTrack + CoordinateLabelGap
@@ -326,10 +341,17 @@ private fun TopBottomBoardLayout(
             HandRow(
                 hand = if (flip) position.blackHand else position.whiteHand,
                 isBlack = flip,
-                isCurrentTurn = if (flip) position.isBlackTurn else !position.isBlackTurn,
-                selectedDropType = if ((if (flip) position.isBlackTurn else !position.isBlackTurn)) selectedDropType else null,
+                isCurrentTurn = editorActions != null || if (flip) position.isBlackTurn else !position.isBlackTurn,
+                selectedDropType = if (editorActions != null) {
+                    selectedDropType.takeIf { editorActions.selectedHandSide == if (flip) Side.BLACK else Side.WHITE }
+                } else if ((if (flip) position.isBlackTurn else !position.isBlackTurn)) selectedDropType else null,
                 cellSize = cellSize,
-                onHandPieceTapped = onHandPieceTapped,
+                onHandPieceTapped = editorActions?.let { actions ->
+                    { type -> actions.onHandSelected(if (flip) Side.BLACK else Side.WHITE, type) }
+                } ?: onHandPieceTapped,
+                onRegionTapped = editorActions?.let { actions ->
+                    { actions.onHandRegionTapped(if (flip) Side.BLACK else Side.WHITE) }
+                },
             )
 
             // ── 盤面 ─────────────────────────────────────────────────────
@@ -347,10 +369,17 @@ private fun TopBottomBoardLayout(
             HandRow(
                 hand = if (flip) position.whiteHand else position.blackHand,
                 isBlack = !flip,
-                isCurrentTurn = if (flip) !position.isBlackTurn else position.isBlackTurn,
-                selectedDropType = if ((if (flip) !position.isBlackTurn else position.isBlackTurn)) selectedDropType else null,
+                isCurrentTurn = editorActions != null || if (flip) !position.isBlackTurn else position.isBlackTurn,
+                selectedDropType = if (editorActions != null) {
+                    selectedDropType.takeIf { editorActions.selectedHandSide == if (!flip) Side.BLACK else Side.WHITE }
+                } else if ((if (flip) !position.isBlackTurn else position.isBlackTurn)) selectedDropType else null,
                 cellSize = cellSize,
-                onHandPieceTapped = onHandPieceTapped,
+                onHandPieceTapped = editorActions?.let { actions ->
+                    { type -> actions.onHandSelected(if (!flip) Side.BLACK else Side.WHITE, type) }
+                } ?: onHandPieceTapped,
+                onRegionTapped = editorActions?.let { actions ->
+                    { actions.onHandRegionTapped(if (!flip) Side.BLACK else Side.WHITE) }
+                },
             )
         }
     }
@@ -433,6 +462,16 @@ private fun BoardGrid(
     legalDestinations: Set<ShogiSquare> = emptySet(),
     onSquareTapped: ((ShogiSquare) -> Unit)? = null,
 ) {
+    val labelShogiBoardViewText1 = stringResource(Res.string.shogi_board_view_text_1)
+    val labelShogiBoardViewText2 = stringResource(Res.string.shogi_board_view_text_2)
+    val labelShogiBoardViewText3 = stringResource(Res.string.shogi_board_view_text_3)
+    val labelShogiBoardViewText4 = stringResource(Res.string.shogi_board_view_text_4)
+    val labelShogiBoardViewText5 = stringResource(Res.string.shogi_board_view_text_5)
+    val labelShogiBoardViewText6 = stringResource(Res.string.shogi_board_view_text_6)
+    val labelShogiBoardViewText7 = stringResource(Res.string.shogi_board_view_text_7)
+    val labelShogiBoardViewText8 = stringResource(Res.string.shogi_board_view_text_8)
+    val labelShogiBoardViewText9 = stringResource(Res.string.shogi_board_view_text_9)
+
     val ranks = if (flip) (9 downTo 1).toList() else (1..9).toList()
     val files = if (flip) (1..9).toList() else (9 downTo 1).toList()
 
@@ -440,7 +479,7 @@ private fun BoardGrid(
     val fileLabels = files.map { it.toString() }
 
     // 段ラベル（右辺）: 先手=一〜九（上→下）、後手=九〜一（上→下）
-    val rankKanji = listOf("一", "二", "三", "四", "五", "六", "七", "八", "九")
+    val rankKanji = listOf(labelShogiBoardViewText1, labelShogiBoardViewText2, labelShogiBoardViewText3, labelShogiBoardViewText4, labelShogiBoardViewText5, labelShogiBoardViewText6, labelShogiBoardViewText7, labelShogiBoardViewText8, labelShogiBoardViewText9)
     val rankLabels = if (flip) rankKanji.reversed() else rankKanji
 
     val shogiColors = MaterialTheme.shogiColors
@@ -513,7 +552,9 @@ private fun BoardGrid(
                                         },
                                     )
                                     // interactionテスト用のタグ（board_sq_<file>_<rank>）。
-                                    .testTag("board_sq_${file}_$rank"),
+                                    .testTag("board_sq_${file}_$rank")
+                                    .editorDropTarget(EditorDropTarget.Square(sq))
+                                    .editorDragSource(EditorPieceLocation.Board(sq), piece != null),
                                 contentAlignment = Alignment.Center,
                             ) {
                                 if (piece != null) {
@@ -570,7 +611,10 @@ private fun HandRow(
     isCurrentTurn: Boolean = false,
     selectedDropType: PieceType? = null,
     onHandPieceTapped: ((PieceType) -> Unit)? = null,
+    onRegionTapped: (() -> Unit)? = null,
 ) {
+    val labelHandEmpty = stringResource(Res.string.hand_empty)
+
     // 持ち駒の表示順: 飛,角,金,銀,桂,香,歩
     val handOrder = listOf('R', 'B', 'G', 'S', 'N', 'L', 'P')
     val handItems = handOrder.mapNotNull { pc ->
@@ -584,6 +628,9 @@ private fun HandRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .testTag("hand_region_${if (isBlack) "sente" else "gote"}")
+            .editorDropTarget(EditorDropTarget.Hand(if (isBlack) Side.BLACK else Side.WHITE))
+            .then(if (onRegionTapped != null) Modifier.clickable(onClick = onRegionTapped) else Modifier)
             .wrapContentHeight()
             .padding(vertical = 2.dp),
         verticalAlignment = Alignment.Top,
@@ -601,7 +648,7 @@ private fun HandRow(
                 contentAlignment = Alignment.CenterStart,
             ) {
                 Text(
-                    text = "なし",
+                    text = labelHandEmpty,
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 1,
                 )
@@ -622,6 +669,7 @@ private fun HandRow(
                     Box(
                         modifier = Modifier
                             .testTag("hand_piece_${if (isBlack) "sente" else "gote"}_$pc")
+                            .then(if (pt != null) Modifier.editorDragSource(EditorPieceLocation.Hand(if (isBlack) Side.BLACK else Side.WHITE, pt)) else Modifier)
                             .height(cellSize)
                             .widthIn(min = cellSize * 0.75f)
                             .border(
@@ -670,6 +718,7 @@ fun HandRowLabel(isBlack: Boolean) {
 }
 
 /** wasmJsでは☗/☖が欠落するため、フォントにある▲/△へ置換する。 */
+@Composable
 internal expect fun handRowLabelText(isBlack: Boolean): String
 
 // ─── Preview ─────────────────────────────────────────────────────────────────

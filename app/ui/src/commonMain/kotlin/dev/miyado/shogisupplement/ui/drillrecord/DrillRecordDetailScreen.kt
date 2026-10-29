@@ -1,5 +1,12 @@
 package dev.miyado.shogisupplement.ui.drillrecord
 
+import org.jetbrains.compose.resources.vectorResource
+
+import dev.miyado.shogisupplement.ui.text.UiStrings
+
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -17,8 +24,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -38,7 +43,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import dev.miyado.shogisupplement.text.AppStrings
+import dev.miyado.shogisupplement.ui.common.adaptiveContentWidth
 import dev.miyado.shogisupplement.ui.common.scaffoldContentInsets
 import dev.miyado.shogisupplement.ui.theme.IbmPlexMonoFamily
 import dev.miyado.shogisupplement.ui.theme.TextStyleData
@@ -56,25 +61,31 @@ private const val GRID_COLUMNS = 10
 fun DrillRecordDetailScreen(
     data: DrillRecordDetailData,
     onBack: () -> Unit,
+    onShare: () -> Unit = {},
 ) {
     Scaffold(
         contentWindowInsets = scaffoldContentInsets(),
         topBar = {
             TopAppBar(
-                title = { Text(AppStrings.DRILL_RECORD_DETAIL_TITLE) },
+                title = { Text(stringResource(Res.string.drill_record_detail_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = AppStrings.BACK,
+                            imageVector = vectorResource(Res.drawable.ic_auto_mirrored_filled_arrow_back),
+                            contentDescription = stringResource(Res.string.back),
                         )
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onShare) {
+                        Icon(vectorResource(Res.drawable.ic_outlined_share), contentDescription = stringResource(Res.string.share_screen))
                     }
                 },
             )
         },
     ) { padding ->
         LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding),
+            modifier = Modifier.fillMaxSize().padding(padding).adaptiveContentWidth(),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -96,7 +107,7 @@ private fun OverviewCard(data: DrillRecordDetailData) {
     ) {
         Column(modifier = Modifier.fillMaxWidth().padding(18.dp)) {
             Text(
-                AppStrings.DRILL_RECORD_DETAIL_ACTIVE_DAYS_LABEL,
+                stringResource(Res.string.drill_record_detail_active_days_label),
                 style = MaterialTheme.typography.labelMedium,
                 color = shogiColors.ink2,
             )
@@ -108,7 +119,7 @@ private fun OverviewCard(data: DrillRecordDetailData) {
                     color = MaterialTheme.colorScheme.primary,
                 )
                 Text(
-                    text = AppStrings.DRILL_RECORD_ACTIVE_DAYS_SUFFIX,
+                    text = stringResource(Res.string.drill_record_active_days_suffix),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(bottom = 4.dp),
@@ -116,11 +127,11 @@ private fun OverviewCard(data: DrillRecordDetailData) {
                 Spacer(Modifier.width(6.dp))
                 Text(
                     text = buildAnnotatedString {
-                        append(AppStrings.DRILL_RECORD_WINDOW_PREFIX)
+                        append(stringResource(Res.string.drill_record_window_prefix))
                         withStyle(SpanStyle(fontFamily = IbmPlexMonoFamily)) {
                             append(data.windowDays.toString())
                         }
-                        append(AppStrings.DRILL_RECORD_WINDOW_SUFFIX)
+                        append(stringResource(Res.string.drill_record_window_suffix))
                     },
                     style = MaterialTheme.typography.bodyLarge,
                     color = shogiColors.ink2,
@@ -130,15 +141,15 @@ private fun OverviewCard(data: DrillRecordDetailData) {
             Spacer(Modifier.height(8.dp))
             Text(
                 text = buildAnnotatedString {
-                    append(AppStrings.DRILL_RECORD_TOTAL_PREFIX)
+                    append(stringResource(Res.string.drill_record_total_prefix))
                     withStyle(SpanStyle(fontFamily = IbmPlexMonoFamily)) {
                         append(data.totalAttempts.toString())
                     }
-                    append(AppStrings.DRILL_RECORD_TOTAL_SUFFIX)
+                    append(stringResource(Res.string.drill_record_total_suffix))
                     append(" ・ ")
-                    append(AppStrings.DRILL_RECORD_CORRECT_PREFIX)
+                    append(stringResource(Res.string.drill_record_correct_prefix))
                     withStyle(SpanStyle(fontFamily = IbmPlexMonoFamily)) {
-                        append(AppStrings.drillRecordAccuracy(data.correctAttempts, data.totalAttempts))
+                        append(UiStrings.drillRecordAccuracy(data.correctAttempts, data.totalAttempts))
                     }
                 },
                 style = MaterialTheme.typography.labelMedium,
@@ -161,7 +172,7 @@ private fun DensityGridCard(dailyCounts: List<Int>) {
             modifier = Modifier.fillMaxWidth().padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Text(AppStrings.DRILL_RECORD_DETAIL_GRID_TITLE, style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(Res.string.drill_record_detail_grid_title), style = MaterialTheme.typography.titleLarge)
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 dailyCounts.chunked(GRID_COLUMNS).forEachIndexed { rowIndex, row ->
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -178,7 +189,7 @@ private fun DensityGridCard(dailyCounts: List<Int>) {
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    AppStrings.DRILL_RECORD_DETAIL_GRID_LESS,
+                    stringResource(Res.string.drill_record_detail_grid_less),
                     style = MaterialTheme.typography.labelMedium,
                     color = shogiColors.ink3,
                 )
@@ -195,13 +206,13 @@ private fun DensityGridCard(dailyCounts: List<Int>) {
                 }
                 Spacer(Modifier.width(2.dp))
                 Text(
-                    AppStrings.DRILL_RECORD_DETAIL_GRID_MORE,
+                    stringResource(Res.string.drill_record_detail_grid_more),
                     style = MaterialTheme.typography.labelMedium,
                     color = shogiColors.ink3,
                 )
                 Spacer(Modifier.weight(1f))
                 Text(
-                    AppStrings.DRILL_RECORD_DETAIL_GRID_TODAY,
+                    stringResource(Res.string.drill_record_detail_grid_today),
                     style = MaterialTheme.typography.labelMedium,
                     color = shogiColors.ink3,
                 )
@@ -258,11 +269,11 @@ private fun WeekStreakCard(streaks: List<WeekStreakRow>) {
             modifier = Modifier.fillMaxWidth().padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Text(AppStrings.DRILL_RECORD_DETAIL_STREAK_TITLE, style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(Res.string.drill_record_detail_streak_title), style = MaterialTheme.typography.titleLarge)
             if (streaks.isEmpty()) {
                 // Why not カードごと消す: 達成の有無で画面の高さが変わってしまう。
                 Text(
-                    AppStrings.DRILL_RECORD_DETAIL_STREAK_EMPTY,
+                    stringResource(Res.string.drill_record_detail_streak_empty),
                     style = MaterialTheme.typography.bodyMedium,
                     color = shogiColors.ink3,
                     modifier = Modifier.padding(vertical = 8.dp),
@@ -276,12 +287,12 @@ private fun WeekStreakCard(streaks: List<WeekStreakRow>) {
                         verticalAlignment = Alignment.Bottom,
                     ) {
                         Text(
-                            AppStrings.drillRecordStreakOrdinal(streak.ordinal),
+                            UiStrings.drillRecordStreakOrdinal(streak.ordinal),
                             style = MaterialTheme.typography.bodyMedium,
                             color = shogiColors.ink2,
                         )
                         Text(
-                            AppStrings.drillRecordStreakRange(streak.startLabel, streak.endLabel),
+                            UiStrings.drillRecordStreakRange(streak.startLabel, streak.endLabel),
                             style = TextStyleData,
                             color = shogiColors.ink2,
                         )

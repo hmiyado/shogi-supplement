@@ -14,7 +14,6 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.db.GameRecord
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.ShogiThinTopBar
 import dev.miyado.shogisupplement.ui.drill.DrillQuestionContent
 import dev.miyado.shogisupplement.ui.drill.DrillUiState
@@ -68,7 +67,7 @@ class DrillBoardSizeParityTest {
     private fun DrillHostLikeContent() {
         Scaffold { padding ->
             Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-                ShogiThinTopBar(title = AppStrings.DRILL_TITLE, onBack = {})
+                ShogiThinTopBar(title = "次の一手", onBack = {})
                 DrillQuestionContent(
                     state = DrillUiState.Question(
                         blunder = sampleBlunder(),

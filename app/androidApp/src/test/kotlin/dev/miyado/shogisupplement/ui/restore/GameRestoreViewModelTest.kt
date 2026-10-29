@@ -1,10 +1,11 @@
 package dev.miyado.shogisupplement.ui.restore
 
+import dev.miyado.shogisupplement.ui.generated.resources.allStringResources
+
 import dev.miyado.shogisupplement.download.GameDownloadOutcome
 import dev.miyado.shogisupplement.download.GameDownloadService
 import dev.miyado.shogisupplement.download.GameImportOutcome
 import dev.miyado.shogisupplement.download.ReconstructedGame
-import dev.miyado.shogisupplement.text.AppStrings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -16,13 +17,18 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
-/**
- * [GameRestoreViewModel] の単体テスト。
- * FakeGameDownloadService を注入し、件数確認→ダウンロード開始→進捗→完了/エラーの
- * 状態遷移を検証する（TransferCodeInputViewModelTest と同じ流儀）。
- */
 @OptIn(ExperimentalCoroutinesApi::class)
+@org.junit.runner.RunWith(org.robolectric.RobolectricTestRunner::class)
+@org.robolectric.annotation.Config(sdk = [34], application = android.app.Application::class)
 class GameRestoreViewModelTest {
+    @org.junit.Before
+    fun prepareStringResources() = kotlinx.coroutines.runBlocking {
+        // Resolve the same resource environment before assertions on synchronous test dispatchers.
+        dev.miyado.shogisupplement.ui.generated.resources.Res.allStringResources.values.forEach {
+            org.jetbrains.compose.resources.getString(it)
+        }
+    }
+
 
     private val testDispatcher = UnconfinedTestDispatcher()
 
@@ -74,7 +80,7 @@ class GameRestoreViewModelTest {
         val vm = buildVm(FakeGameDownloadService(countResult = Result.failure(RuntimeException("boom"))))
         val state = vm.uiState.value
         assertTrue(state is GameRestoreUiState.Error)
-        assertEquals(AppStrings.GAME_RESTORE_ERROR_NETWORK, (state as GameRestoreUiState.Error).message)
+        assertEquals("棋譜を取得できませんでした。しばらくしてから再度お試しください。", (state as GameRestoreUiState.Error).message)
     }
 
     /** 1回目は失敗・2回目以降は成功する（retryが実際にcountRemoteGamesをやり直すことを確認するため）。 */
@@ -143,7 +149,7 @@ class GameRestoreViewModelTest {
         vm.startDownload()
 
         val state = vm.uiState.value as GameRestoreUiState.Error
-        assertEquals(AppStrings.GAME_RESTORE_ERROR_NOT_AUTHENTICATED, state.message)
+        assertEquals("ログイン状態を確認できませんでした。設定からやり直してください。", state.message)
     }
 
     @Test
@@ -157,7 +163,7 @@ class GameRestoreViewModelTest {
         vm.startDownload()
 
         val state = vm.uiState.value as GameRestoreUiState.Error
-        assertEquals(AppStrings.GAME_RESTORE_ERROR_NO_SECRET, state.message)
+        assertEquals("復元用のデータが見つかりませんでした。もう一度お試しください。", state.message)
     }
 
     @Test
@@ -171,7 +177,7 @@ class GameRestoreViewModelTest {
         vm.startDownload()
 
         val state = vm.uiState.value as GameRestoreUiState.Error
-        assertEquals(AppStrings.GAME_RESTORE_ERROR_NETWORK, state.message)
+        assertEquals("棋譜を取得できませんでした。しばらくしてから再度お試しください。", state.message)
     }
 
     @Test

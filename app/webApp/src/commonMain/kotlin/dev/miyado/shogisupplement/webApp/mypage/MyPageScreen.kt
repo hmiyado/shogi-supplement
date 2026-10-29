@@ -1,5 +1,8 @@
 package dev.miyado.shogisupplement.webApp.mypage
 
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,7 +23,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.db.GameRecord
-import dev.miyado.shogisupplement.text.AppStrings
+import dev.miyado.shogisupplement.gameshare.GameShareService
+import dev.miyado.shogisupplement.ui.common.adaptiveContentWidth
 import dev.miyado.shogisupplement.ui.gamelist.GameListScreen
 import dev.miyado.shogisupplement.ui.report.ReportScreen
 import dev.miyado.shogisupplement.ui.transfercode.TransferCodeInputDialog
@@ -38,6 +42,8 @@ fun MyPageScreen(
     onBackFromDetail: () -> Unit,
     onLogout: () -> Unit,
     onCopyKif: (String) -> Unit,
+    onShareGameUrl: (String) -> Unit,
+    gameShareService: GameShareService?,
     onBackToList: () -> Unit,
 ) {
     var showLoginDialog by remember { mutableStateOf(false) }
@@ -53,7 +59,7 @@ fun MyPageScreen(
             // マイページはトップレベルのページで戻り先が無いため、矢印自体を出さない。
             onBack = null,
             onGameClick = onGameClick,
-            topBarActions = { TextButton(onClick = onLogout) { Text(AppStrings.MYPAGE_LOGOUT_BUTTON) } },
+            topBarActions = { TextButton(onClick = onLogout) { Text(stringResource(Res.string.mypage_logout_button)) } },
         )
         MyPageUiState.LoggedOut -> LoginPrompt(onOpenLogin = { showLoginDialog = true })
         MyPageUiState.LoadingGames, MyPageUiState.LoadingDetail -> LoadingView()
@@ -64,7 +70,10 @@ fun MyPageScreen(
             canDelete = false,
             canEdit = false,
             onBack = onBackFromDetail,
-            onCopyKif = onCopyKif,
+            onCopyKif = { original -> onCopyKif(state.detail.game.studyKif ?: original) },
+            onShare = null,
+            onShareGameUrl = onShareGameUrl,
+            gameShareService = gameShareService,
         )
         is MyPageUiState.Error -> ErrorView(
             message = state.message,
@@ -91,12 +100,12 @@ fun MyPageScreen(
 private fun LoginPrompt(onOpenLogin: () -> Unit) {
     Scaffold { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(24.dp),
+            modifier = Modifier.fillMaxSize().adaptiveContentWidth().padding(padding).padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
         ) {
-            Text(AppStrings.MYPAGE_LOGIN_DESCRIPTION, style = MaterialTheme.typography.bodyMedium)
+            Text(stringResource(Res.string.mypage_login_description), style = MaterialTheme.typography.bodyMedium)
             Button(onClick = onOpenLogin) {
-                Text(AppStrings.MYPAGE_LOGIN_BUTTON)
+                Text(stringResource(Res.string.mypage_login_button))
             }
         }
     }
@@ -106,7 +115,7 @@ private fun LoginPrompt(onOpenLogin: () -> Unit) {
 private fun LoadingView() {
     Scaffold { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding),
+            modifier = Modifier.fillMaxSize().adaptiveContentWidth().padding(padding),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
         ) {
@@ -120,17 +129,17 @@ private fun LoadingView() {
 private fun ErrorView(message: String, onLogout: () -> Unit, onBackToList: (() -> Unit)?) {
     Scaffold { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding).padding(24.dp),
+            modifier = Modifier.fillMaxSize().adaptiveContentWidth().padding(padding).padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text(message, color = MaterialTheme.colorScheme.error)
             if (onBackToList != null) {
                 Button(onClick = onBackToList) {
-                    Text(AppStrings.MYPAGE_BACK_TO_LIST_BUTTON)
+                    Text(stringResource(Res.string.mypage_back_to_list_button))
                 }
             }
             Button(onClick = onLogout) {
-                Text(AppStrings.MYPAGE_LOGOUT_BUTTON)
+                Text(stringResource(Res.string.mypage_logout_button))
             }
         }
     }

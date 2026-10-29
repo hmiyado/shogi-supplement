@@ -1,0 +1,10 @@
+{
+  "kind": "component",
+  "kindLabel": "コンポーネント",
+  "category": "game_card",
+  "categoryLabel": "棋譜カード",
+  "screen": "selectable",
+  "screenLabel": "selectable",
+  "state": "選択中",
+  "stateLabel": "選択中"
+}

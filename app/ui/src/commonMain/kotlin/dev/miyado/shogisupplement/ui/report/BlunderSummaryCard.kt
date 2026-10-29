@@ -1,5 +1,8 @@
 package dev.miyado.shogisupplement.ui.report
 
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -18,7 +21,6 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.db.BlunderRecord
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.ShogiSecondaryButton
 import dev.miyado.shogisupplement.ui.theme.IbmPlexMonoFamily
 import dev.miyado.shogisupplement.ui.theme.shogiColors
@@ -30,7 +32,6 @@ internal fun BlunderSummaryCard(
     strengthDisplayText: String?,
     matchRateDisplayText: String?,
     blunderRateDisplayText: String?,
-    onViewList: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val shogiColors = MaterialTheme.shogiColors
@@ -46,11 +47,11 @@ internal fun BlunderSummaryCard(
             }
 
             if (blunderRateDisplayText != null) {
-                StatLine(AppStrings.BLUNDER_RATE_LABEL, blunderRateDisplayText)
+                StatLine(stringResource(Res.string.blunder_rate_label), blunderRateDisplayText)
             }
             if (matchRateDisplayText != null) {
                 if (blunderRateDisplayText != null) Spacer(Modifier.height(2.dp))
-                StatLine(AppStrings.MATCH_RATE_LABEL, matchRateDisplayText)
+                StatLine(stringResource(Res.string.match_rate_label), matchRateDisplayText)
             }
 
             if (strengthDisplayText != null) {
@@ -59,7 +60,7 @@ internal fun BlunderSummaryCard(
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        AppStrings.GAME_STRENGTH_PREFIX,
+                        stringResource(Res.string.game_strength_prefix),
                         style = MaterialTheme.typography.labelSmall,
                         color = shogiColors.ink2,
                     )
@@ -71,12 +72,6 @@ internal fun BlunderSummaryCard(
                 }
             }
 
-            if (reports.isNotEmpty()) {
-                Spacer(Modifier.height(8.dp))
-                ShogiSecondaryButton(onClick = onViewList, modifier = Modifier.fillMaxWidth()) {
-                    Text(AppStrings.VIEW_BLUNDER_LIST, style = MaterialTheme.typography.labelMedium)
-                }
-            }
         }
     }
 }

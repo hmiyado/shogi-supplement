@@ -25,7 +25,7 @@ class AnalysisRunnerDisposalTest {
             return listOf(PvInfo(multipv = 1, score = Score.Cp(0), pv = emptyList(), nodes = 0L))
         }
 
-        override fun analyzeSfen(sfen: String, additionalMoves: List<String>, nodes: Int): List<PvInfo> =
+        override fun analyzeSfen(sfen: String, additionalMoves: List<String>, nodes: Int, multiPv: Int): List<PvInfo> =
             analyze(additionalMoves, nodes)
 
         override fun quit() {

@@ -1,21 +1,19 @@
 package dev.miyado.shogisupplement
 
+import dev.miyado.shogisupplement.drill.DrillMode
+
 import android.content.Intent
 import android.net.Uri
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.ui.LegalLinks
 import dev.miyado.shogisupplement.ui.MainUiState
 import dev.miyado.shogisupplement.ui.MainViewModel
 import dev.miyado.shogisupplement.ui.home.HomeScreen
 
-/** ホーム画面への MainViewModel 配線。titleIcon（Android専用リソース）をホイストして渡す。 */
+/** ホーム画面への MainViewModel 配線。 */
 @Composable
 fun HomeHost(
     vm: MainViewModel,
@@ -23,8 +21,10 @@ fun HomeHost(
     onOpenKif: () -> Unit,
 ) {
     val context = LocalContext.current
+    val owner by vm.repertoireOwner.collectAsState()
+    val games = dev.miyado.shogisupplement.ui.repertoire.rememberLabelledGames(state.pastGames, vm.repertoireRepository, owner?.id, vm.repertoireSync)
     HomeScreen(
-        pastGames = state.pastGames,
+        pastGames = games,
         isLoggedIn = state.isLoggedIn,
         strengthCard = state.strengthCard,
         todaysDrillHint = state.todaysDrillHint,
@@ -34,7 +34,9 @@ fun HomeHost(
         onGameClick = { game -> vm.showReport(game.id) },
         onAnalyzingClick = { session -> vm.resumeAnalyzing(session.id) },
         onStartDrill = { vm.startDrill() },
+        onStartMateDrill = { vm.startDrill(DrillMode.MATE) },
         onOpenSettings = { vm.openSettings() },
+        onOpenRepertoire = vm::openRepertoire,
         onViewAllGames = { vm.openGameList() },
         onOpenStrengthHelp = {
             // 推定棋力の説明はWebヘルプの該当節へ直接遷移（アプリ内ヘルプ画面は廃止しWebに統一）
@@ -44,15 +46,5 @@ fun HomeHost(
         },
         onOpenStrengthDetail = { vm.openStrengthDetail() },
         onOpenDrillRecordDetail = { vm.openDrillRecordDetail() },
-        // Android専用リソース（R.drawable.ic_app_title_icon）のためホイストしている。
-        titleIcon = {
-            Image(
-                painter = painterResource(id = R.drawable.ic_app_title_icon),
-                contentDescription = null,
-                modifier = Modifier
-                    .height(30.dp)
-                    .width(24.dp),
-            )
-        },
     )
 }

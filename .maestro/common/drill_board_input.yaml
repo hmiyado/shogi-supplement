@@ -14,20 +14,19 @@
 # 呼び出し元フローのenvで指定（iOS/Android両方から使うため固定しない）
 appId: ${APP_ID}
 ---
-- extendedWaitUntil:
-    visible: "今日の1問"
-    timeout: 120000
-- tapOn: "今日の1問"
-- extendedWaitUntil:
-    visible: "次の1手は？"
-    timeout: 30000
+- runFlow: open_drill_question.yaml
 
 # 入力前は「1手戻す」「最初から」が押せない（moves が空）。
+#
+# Why not ラベルのテキストにenabledを重ねる: Androidはラベルと押せる領域が別ノードに
+# 分かれ、ラベル側は無効でもenabled=trueを返す。子のラベルから親のボタンを特定する。
 - assertVisible:
-    text: "1手戻す"
+    containsChild:
+      text: "1手戻す"
     enabled: false
 - assertVisible:
-    text: "最初から"
+    containsChild:
+      text: "最初から"
     enabled: false
 
 # 盤が操作を受け付けること自体は、マスをタップしてアプリが落ちないことで見る。

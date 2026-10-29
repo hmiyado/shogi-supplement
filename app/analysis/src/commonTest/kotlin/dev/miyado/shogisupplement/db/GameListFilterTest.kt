@@ -167,6 +167,18 @@ class GameListFilterTest {
         assertEquals(listOf(2L, 3L), result.map { it.id })
     }
 
+    @Test
+    fun `dateFromとdateToは両端を含む期間として絞り込む`() {
+        val games = listOf(
+            game(1, analyzedAt = 99L),
+            game(2, analyzedAt = 100L),
+            game(3, analyzedAt = 200L),
+            game(4, analyzedAt = 201L),
+        )
+        val result = games.filterGames(GameListFilter(dateFrom = 100L, dateTo = 200L))
+        assertEquals(listOf(2L, 3L), result.map { it.id })
+    }
+
     // ─── AND結合 ─────────────────────────────────────────────────────────────
 
     @Test

@@ -1,5 +1,14 @@
 package dev.miyado.shogisupplement.kifu
 
+import kotlinx.serialization.Serializable
+
+/** KIFの局面コメント（*）としおり（&）。複数行・複数名を原文順で保持する。 */
+@Serializable
+data class KifuPositionNotes(
+    val comments: List<String> = emptyList(),
+    val bookmarks: List<String> = emptyList(),
+)
+
 /** パース済みの1局。 @property moves USI手列。 @property timesSeconds 各手の消費秒。 @property headers KIFヘッダ。 @property endReason 終局理由。 @property winner 勝者。 @property displayMoves 原文の手表記。 */
 data class KifuGame(
     val moves: List<String>,
@@ -8,6 +17,8 @@ data class KifuGame(
     val endReason: String? = null,
     val winner: String? = null,
     val displayMoves: List<String> = emptyList(),
+    /** 0は開始局面、nはn手目を指した後の局面。 */
+    val positionNotes: Map<Int, KifuPositionNotes> = emptyMap(),
 ) {
     val senteName: String? get() = headers["先手"]
     val goteName: String? get() = headers["後手"]

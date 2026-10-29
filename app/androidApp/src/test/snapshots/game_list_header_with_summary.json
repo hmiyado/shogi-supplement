@@ -1,0 +1,10 @@
+{
+  "kind": "screen",
+  "kindLabel": "画面（Screen）",
+  "category": "game",
+  "categoryLabel": "棋譜管理",
+  "screen": "一覧・ヘッダー",
+  "screenLabel": "一覧・ヘッダー",
+  "state": "表示あり・サマリー",
+  "stateLabel": "表示あり・サマリー"
+}

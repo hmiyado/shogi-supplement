@@ -9,6 +9,8 @@ import dev.miyado.shogisupplement.auth.SupabaseAuthRepository
 import dev.miyado.shogisupplement.crypto.AndroidTransferSecretStore
 import dev.miyado.shogisupplement.crypto.TransferSecretStore
 import dev.miyado.shogisupplement.db.AppDatabase
+import dev.miyado.shogisupplement.gameshare.GameShareService
+import dev.miyado.shogisupplement.gameshare.RemoteGameShareService
 import dev.miyado.shogisupplement.policy.AppPolicyRepository
 import dev.miyado.shogisupplement.policy.ForceUpdateJudge
 import dev.miyado.shogisupplement.policy.ForceUpdatePolicyChecker
@@ -22,6 +24,7 @@ import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
+import io.ktor.client.HttpClient
 import io.sentry.android.core.SentryAndroid
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -60,6 +63,10 @@ class ShogiApp : Application() {
         AndroidTransferSecretStore(this)
     }
 
+    val repertoireRemote by lazy {
+        dev.miyado.shogisupplement.repertoire.SupabaseRepertoireRemote(supabaseClient, transferSecretStore)
+    }
+
     /** アップロードリポジトリのシングルトン。 */
     val uploadRepository: UploadRepository by lazy {
         SupabaseUploadRepository(supabaseClient, transferSecretStore)
@@ -74,6 +81,30 @@ class ShogiApp : Application() {
             drillRepository = AppDatabase.drillRepository(this),
             settingsRepository = AppDatabase.settingsRepository(this),
         )
+    }
+
+    /**
+     * 3つの公開識別子が揃ったときだけApp Checkトークンを返す。
+     * 未設定でも匿名の共有閲覧は動くが、App Check必須の所有者操作は401で失敗する。
+     */
+    private val gameShareAppCheckTokenProvider: (suspend () -> String?)? by lazy {
+        AndroidAppCheckSettings.from(
+            applicationId = BuildConfig.FIREBASE_ANDROID_APPLICATION_ID,
+            apiKey = BuildConfig.FIREBASE_ANDROID_API_KEY,
+            projectId = BuildConfig.FIREBASE_ANDROID_PROJECT_ID,
+        )?.let { settings -> AndroidAppCheckTokenProvider(this, settings)::token }
+    }
+
+    val gameShareService: GameShareService? by lazy {
+        BuildConfig.ANALYSIS_BASE_URL.takeIf { it.isNotBlank() }?.let { baseUrl ->
+            RemoteGameShareService(
+                baseUrl = baseUrl,
+                authRepository = authRepository,
+                platform = "android",
+                httpClient = HttpClient(),
+                appCheckTokenProvider = gameShareAppCheckTokenProvider,
+            )
+        }
     }
 
     /** 強制アップデートポリシー（`app_policy`）のanon SELECT。 */

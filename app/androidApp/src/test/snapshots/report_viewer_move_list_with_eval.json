@@ -1,0 +1,10 @@
+{
+  "kind": "screen",
+  "kindLabel": "画面（Screen）",
+  "category": "report",
+  "categoryLabel": "レポート",
+  "screen": "指し手・一覧",
+  "screenLabel": "指し手・一覧",
+  "state": "表示あり・評価値あり",
+  "stateLabel": "表示あり・評価値あり"
+}

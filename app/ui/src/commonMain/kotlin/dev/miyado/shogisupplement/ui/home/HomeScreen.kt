@@ -1,5 +1,16 @@
 package dev.miyado.shogisupplement.ui.home
 
+
+import dev.miyado.shogisupplement.ui.text.title
+
+import org.jetbrains.compose.resources.vectorResource
+
+import dev.miyado.shogisupplement.ui.text.UiStrings
+
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -16,8 +27,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -29,6 +40,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import dev.miyado.shogisupplement.ui.common.scaffoldTopAndSides
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -40,9 +52,10 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.pipeline.InProgressAnalysis
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.AnalyzingGameCard
+import dev.miyado.shogisupplement.ui.common.AppTitleIcon
 import dev.miyado.shogisupplement.ui.common.GameCard
+import dev.miyado.shogisupplement.ui.common.adaptiveContentWidth
 import dev.miyado.shogisupplement.ui.common.scaffoldContentInsets
 import dev.miyado.shogisupplement.ui.theme.IbmPlexMonoFamily
 import dev.miyado.shogisupplement.ui.theme.ShogiColors
@@ -51,8 +64,6 @@ import dev.miyado.shogisupplement.ui.theme.TextStyleDataLarge
 import dev.miyado.shogisupplement.ui.theme.shogiColors
 
 // HomeScreen・StrengthCard を持つ（GameCard は ui.common で共用）。
-// タイトル左のアプリアイコンは commonMain が Android リソースを直接参照できないため、
-// titleIcon: @Composable () -> Unit スロットへホイストしている。
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,55 +79,64 @@ fun HomeScreen(
     onGameClick: (GameRecord) -> Unit,
     onAnalyzingClick: (InProgressAnalysis) -> Unit = {},
     onStartDrill: () -> Unit = {},
+    onStartMateDrill: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
+    onOpenRepertoire: (() -> Unit)? = null,
     onViewAllGames: (() -> Unit)? = null,
     onOpenStrengthHelp: () -> Unit = {},
     /** 推定棋力カードのタップ（「?」アイコン部分を除く）。推定棋力詳細画面へ遷移する。 */
     onOpenStrengthDetail: () -> Unit = {},
     onOpenDrillRecordDetail: () -> Unit = {},
-    /** タイトル左の小さなアプリアイコン（Android専用リソースのためホイスト。既定は非表示）。 */
-    titleIcon: @Composable () -> Unit = {},
 ) {
+    val labelHomeRepertoire = stringResource(Res.string.home_repertoire)
+
     val shogiColors = MaterialTheme.shogiColors
+    val rootTabHost = dev.miyado.shogisupplement.ui.navigation.LocalRootTabHost.current
     Scaffold(
         contentWindowInsets = scaffoldContentInsets(),
         topBar = {
             TopAppBar(
+                colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(containerColor = if (dev.miyado.shogisupplement.ui.navigation.rootTabsOverlayContent) androidx.compose.ui.graphics.Color.Transparent else MaterialTheme.colorScheme.surface),
                 title = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        titleIcon()
+                        AppTitleIcon()
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            AppStrings.APP_TITLE,
+                            stringResource(Res.string.app_title),
                             style = MaterialTheme.typography.headlineMedium,
                         )
                     }
                 },
                 actions = {
                     // 設定画面への導線（⚙）
-                    IconButton(onClick = onOpenSettings) {
-                        Icon(
-                            imageVector = Icons.Outlined.Settings,
-                            contentDescription = AppStrings.SETTINGS_TITLE,
-                            tint = shogiColors.ink2,
-                        )
+                    if (dev.miyado.shogisupplement.ui.navigation.rootTabsOverlayContent) {
+                        dev.miyado.shogisupplement.ui.navigation.PlatformGlassAction("gearshape", stringResource(Res.string.settings_title), vectorResource(Res.drawable.ic_outlined_settings), onOpenSettings)
+                    } else {
+                        IconButton(onClick = onOpenSettings) {
+                            Icon(vectorResource(Res.drawable.ic_outlined_settings), contentDescription = stringResource(Res.string.settings_title), tint = shogiColors.ink2)
+                        }
                     }
                 },
             )
         },
         bottomBar = {
-            // 「棋譜を追加する」を最下部固定
-            Box(
+            if (!dev.miyado.shogisupplement.ui.navigation.rootTabsOverlayContent) Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surface)
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(bottom = dev.miyado.shogisupplement.ui.navigation.LocalRootTabBottomPadding.current),
             ) {
-                Button(
-                    onClick = onOpenKif,
-                    modifier = Modifier.fillMaxWidth(),
+                // 余白を最大幅の内側に置く: 外側だと本文のカードより16dpずつ広いボタンになる。
+                Box(
+                    modifier = Modifier
+                        .adaptiveContentWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
                 ) {
-                    Text(AppStrings.HOME_OPEN_KIF)
+                    Button(
+                        onClick = onOpenKif,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(stringResource(Res.string.home_open_kif))
+                    }
                 }
             }
         },
@@ -124,10 +144,14 @@ fun HomeScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                .scaffoldTopAndSides(padding)
+                .adaptiveContentWidth(),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = padding.calculateBottomPadding() + 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            if (onOpenRepertoire != null && !rootTabHost) {
+                item { TextButton(onClick = onOpenRepertoire) { Text(labelHomeRepertoire) } }
+            }
             if (strengthCard != null) {
                 item {
                     StrengthCard(
@@ -153,29 +177,42 @@ fun HomeScreen(
                 item {
                     Card(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(onClick = onStartDrill),
+                            .fillMaxWidth(),
                         colors = CardDefaults.cardColors(
-                            containerColor = shogiColors.highlightSoft,
+                            containerColor = MaterialTheme.colorScheme.surface,
                         ),
-                        border = BorderStroke(1.dp, shogiColors.highlight),
+                        border = BorderStroke(1.dp, shogiColors.line),
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text(
-                                AppStrings.HOME_TODAYS_DRILL_TITLE,
+                                stringResource(Res.string.home_todays_drill_title),
                                 style = MaterialTheme.typography.labelLarge,
                                 color = shogiColors.ink2,
                             )
                             Spacer(Modifier.height(4.dp))
-                            // ファイル名は出さない（対局が特定できるとネタバレになるため）
                             Text(
-                                text = AppStrings.homeTodaysDrillPly(todaysDrillHint.ply),
-                                style = TextStyleData,
+                                text = stringResource(Res.string.home_drill_intro),
+                                style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurface,
                             )
                             Spacer(Modifier.height(4.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Button(onClick = onStartDrill, modifier = Modifier.weight(1f), shape = RoundedCornerShape(8.dp)) {
+                                    Text(stringResource(Res.string.drill_title))
+                                }
+                                OutlinedButton(
+                                    onClick = onStartMateDrill,
+                                    enabled = todaysDrillHint.hasMateDrill,
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
+                                    border = BorderStroke(1.dp, if (todaysDrillHint.hasMateDrill) MaterialTheme.colorScheme.primary else shogiColors.line),
+                                    modifier = Modifier.weight(1f),
+                                ) {
+                                    Text(stringResource(Res.string.drill_mate_title))
+                                }
+                            }
                             Text(
-                                AppStrings.HOME_TODAYS_DRILL_TAP,
+                                stringResource(if (todaysDrillHint.hasMateDrill) Res.string.drill_mate_description else Res.string.drill_mate_empty_body),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = shogiColors.ink3,
                             )
@@ -187,7 +224,7 @@ fun HomeScreen(
             if (pastGames.isEmpty() && analyzingSessions.isEmpty()) {
                 item {
                     Text(
-                        AppStrings.HOME_NO_GAMES,
+                        stringResource(Res.string.home_no_games),
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.padding(top = 8.dp),
                     )
@@ -200,7 +237,7 @@ fun HomeScreen(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
-                            AppStrings.HOME_RECENT_ANALYSES,
+                            stringResource(Res.string.home_recent_analyses),
                             style = MaterialTheme.typography.titleLarge,
                         )
                         // 絞り込みが棋譜一覧固有の機能のため、件数によらず棋譜が1件でもあれば導線を出す
@@ -208,7 +245,7 @@ fun HomeScreen(
                         if (pastGames.isNotEmpty() && onViewAllGames != null) {
                             TextButton(onClick = onViewAllGames) {
                                 Text(
-                                    AppStrings.HOME_VIEW_ALL,
+                                    stringResource(Res.string.home_view_all),
                                     style = MaterialTheme.typography.labelMedium,
                                 )
                             }
@@ -257,7 +294,7 @@ fun StrengthCard(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(
-                    text = AppStrings.STRENGTH_CARD_TITLE,
+                    text = stringResource(Res.string.strength_card_title),
                     style = MaterialTheme.typography.labelLarge,
                     color = shogiColors.ink2,
                     modifier = Modifier.weight(1f),
@@ -279,7 +316,7 @@ fun StrengthCard(
             Spacer(Modifier.height(4.dp))
             // "51 ±25" / "77+ ±22" / "30未満 ±27" → 値(Mono大) / 接尾語(Sans ink2) / 誤差幅(Mono小・ink3) に分解
             val match = remember(strengthCard.displayText) {
-                Regex("""^(\d+\+?)([^±]*)(±\d+)?$""").find(strengthCard.displayText)
+                Regex("""^(-?\d+(?:\.\d+)?\+?)([^±]*)(±\d+(?:\.\d+)?)$""").find(strengthCard.displayText)
             }
             val valueText = match?.groupValues?.get(1) ?: strengthCard.displayText
             val suffixText = match?.groupValues?.get(2)?.trim().orEmpty()
@@ -343,7 +380,7 @@ fun DrillRecordCard(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = AppStrings.DRILL_RECORD_CARD_TITLE,
+                text = stringResource(Res.string.drill_record_card_title),
                 style = MaterialTheme.typography.labelLarge,
                 color = shogiColors.ink2,
             )
@@ -355,7 +392,7 @@ fun DrillRecordCard(
                     color = MaterialTheme.colorScheme.primary,
                 )
                 Text(
-                    text = AppStrings.DRILL_RECORD_ACTIVE_DAYS_SUFFIX,
+                    text = stringResource(Res.string.drill_record_active_days_suffix),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(bottom = 4.dp),
@@ -363,11 +400,11 @@ fun DrillRecordCard(
                 Spacer(Modifier.width(6.dp))
                 Text(
                     text = buildAnnotatedString {
-                        append(AppStrings.DRILL_RECORD_WINDOW_PREFIX)
+                        append(stringResource(Res.string.drill_record_window_prefix))
                         withStyle(SpanStyle(fontFamily = IbmPlexMonoFamily)) {
                             append(drillRecordCard.windowDays.toString())
                         }
-                        append(AppStrings.DRILL_RECORD_WINDOW_SUFFIX)
+                        append(stringResource(Res.string.drill_record_window_suffix))
                     },
                     style = MaterialTheme.typography.bodyLarge,
                     color = shogiColors.ink2,
@@ -377,19 +414,19 @@ fun DrillRecordCard(
             Spacer(Modifier.height(8.dp))
             Text(
                 text = buildAnnotatedString {
-                    append(AppStrings.DRILL_RECORD_TOTAL_PREFIX)
+                    append(stringResource(Res.string.drill_record_total_prefix))
                     withStyle(SpanStyle(fontFamily = IbmPlexMonoFamily)) {
                         append(drillRecordCard.totalAttempts.toString())
                     }
-                    append(AppStrings.DRILL_RECORD_TOTAL_SUFFIX)
+                    append(stringResource(Res.string.drill_record_total_suffix))
                     // 未達成（0回）は0を見せるより丸ごと省く方が素直なので条件付きで足す
                     if (drillRecordCard.weekStreakCount > 0) {
                         append(" ・ ")
-                        append(AppStrings.DRILL_RECORD_WEEK_STREAK_PREFIX)
+                        append(stringResource(Res.string.drill_record_week_streak_prefix))
                         withStyle(SpanStyle(fontFamily = IbmPlexMonoFamily)) {
                             append(drillRecordCard.weekStreakCount.toString())
                         }
-                        append(AppStrings.DRILL_RECORD_WEEK_STREAK_SUFFIX)
+                        append(stringResource(Res.string.drill_record_week_streak_suffix))
                     }
                 },
                 style = MaterialTheme.typography.labelMedium,

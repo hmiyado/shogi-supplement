@@ -1,5 +1,12 @@
 package dev.miyado.shogisupplement.ui.account
 
+import org.jetbrains.compose.resources.vectorResource
+
+import dev.miyado.shogisupplement.ui.text.UiStrings
+
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,8 +25,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -39,10 +44,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import dev.miyado.shogisupplement.ui.common.adaptiveContentWidth
 import dev.miyado.shogisupplement.ui.common.scaffoldContentInsets
 import org.jetbrains.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
 
 /** アカウント画面。作成・削除が主で、棋譜の保存は切り替えとして分ける。 */
@@ -61,12 +66,12 @@ fun AccountScreen(
         contentWindowInsets = scaffoldContentInsets(),
         topBar = {
             TopAppBar(
-                title = { Text(AppStrings.ACCOUNT_SECTION_TITLE) },
+                title = { Text(stringResource(Res.string.account_section_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = AppStrings.BACK,
+                            imageVector = vectorResource(Res.drawable.ic_auto_mirrored_filled_arrow_back),
+                            contentDescription = stringResource(Res.string.back),
                         )
                     }
                 },
@@ -121,16 +126,17 @@ fun AccountNotProvidingContent(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
-            .verticalScroll(rememberScrollState()),
+            .verticalScroll(rememberScrollState())
+            .adaptiveContentWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text(
-            text = AppStrings.ACCOUNT_SECTION_TITLE,
+            text = stringResource(Res.string.account_section_title),
             style = MaterialTheme.typography.headlineSmall,
         )
 
         Text(
-            text = AppStrings.ACCOUNT_NOT_PROVIDING_DESCRIPTION,
+            text = UiStrings.ACCOUNT_NOT_PROVIDING_DESCRIPTION,
             style = MaterialTheme.typography.bodyMedium,
         )
 
@@ -141,7 +147,7 @@ fun AccountNotProvidingContent(
             ),
         ) {
             Column(modifier = Modifier.padding(12.dp)) {
-                AppStrings.CONSENT_WITH_ACCOUNT_POINTS.forEach { point ->
+                UiStrings.CONSENT_WITH_ACCOUNT_POINTS.forEach { point ->
                     Row {
                         Text(text = "・", style = MaterialTheme.typography.bodySmall)
                         Text(text = point, style = MaterialTheme.typography.bodySmall)
@@ -171,7 +177,7 @@ fun AccountNotProvidingContent(
             onClick = onSignInAnonymously,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text(AppStrings.ACCOUNT_ENABLE_BUTTON)
+            Text(stringResource(Res.string.account_enable_button))
         }
 
         LegalLinksRow(onOpenTerms = onOpenTerms)
@@ -209,24 +215,25 @@ fun AccountProvidingContent(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
-            .verticalScroll(rememberScrollState()),
+            .verticalScroll(rememberScrollState())
+            .adaptiveContentWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text(
-            text = AppStrings.ACCOUNT_SECTION_TITLE,
+            text = stringResource(Res.string.account_section_title),
             style = MaterialTheme.typography.headlineSmall,
         )
 
         Card {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = AppStrings.ACCOUNT_PROVIDING_STATUS,
+                    text = stringResource(Res.string.account_providing_status),
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary,
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = AppStrings.accountUploadedCount(uploadedCount),
+                    text = UiStrings.accountUploadedCount(uploadedCount),
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
@@ -234,7 +241,7 @@ fun AccountProvidingContent(
 
         // 機種変更注意書き
         Text(
-            text = AppStrings.ACCOUNT_DEVICE_TRANSFER_NOTE,
+            text = UiStrings.ACCOUNT_DEVICE_TRANSFER_NOTE,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -250,11 +257,11 @@ fun AccountProvidingContent(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = AppStrings.ACCOUNT_AUTO_UPLOAD_LABEL,
+                        text = stringResource(Res.string.account_auto_upload_label),
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     Text(
-                        text = AppStrings.ACCOUNT_AUTO_UPLOAD_DESC,
+                        text = UiStrings.ACCOUNT_AUTO_UPLOAD_DESC,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -280,7 +287,7 @@ fun AccountProvidingContent(
                         color = MaterialTheme.colorScheme.onPrimary,
                     )
                 } else {
-                    Text(AppStrings.accountManualUploadButton(pendingCount))
+                    Text(UiStrings.accountManualUploadButton(pendingCount))
                 }
             }
             if (uploadResultMessage != null) {
@@ -322,7 +329,7 @@ fun AccountProvidingContent(
             ),
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text(AppStrings.ACCOUNT_DISABLE_BUTTON)
+            Text(stringResource(Res.string.account_disable_button))
         }
 
         LegalLinksRow(onOpenTerms = onOpenTerms)
@@ -340,21 +347,21 @@ fun DeleteDataConfirmDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(AppStrings.ACCOUNT_DELETE_DIALOG_TITLE) },
+        title = { Text(stringResource(Res.string.account_delete_dialog_title)) },
         text = {
-            Text(AppStrings.ACCOUNT_DELETE_DIALOG_TEXT)
+            Text(UiStrings.ACCOUNT_DELETE_DIALOG_TEXT)
         },
         confirmButton = {
             TextButton(onClick = onConfirm) {
                 Text(
-                    text = AppStrings.ACCOUNT_DELETE_CONFIRM,
+                    text = stringResource(Res.string.account_delete_confirm),
                     color = MaterialTheme.colorScheme.error,
                 )
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(AppStrings.CANCEL)
+                Text(stringResource(Res.string.cancel))
             }
         },
     )
@@ -377,7 +384,7 @@ fun LegalLinksRow(
     ) {
         TextButton(onClick = onOpenTerms) {
             Text(
-                text = AppStrings.SETTINGS_ROW_TERMS,
+                text = stringResource(Res.string.settings_row_terms),
                 style = MaterialTheme.typography.bodySmall,
             )
         }
@@ -402,7 +409,7 @@ private fun PreviewNotProvidingWithError() {
     ShogiTheme {
         Surface {
             AccountNotProvidingContent(
-                error = AppStrings.AUTH_ERROR_ANON_SIGN_IN_GENERIC,
+                error = stringResource(Res.string.auth_error_anon_sign_in_generic),
             )
         }
     }

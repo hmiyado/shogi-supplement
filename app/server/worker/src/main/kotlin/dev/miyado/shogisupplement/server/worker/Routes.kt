@@ -29,7 +29,7 @@ private val requestJson = Json { ignoreUnknownKeys = true }
  * ボディを[maxBytes]まで読み、超えていればnullを返す。
  * Why not Content-Lengthだけで判定: chunked転送ではヘッダが無く、上限を素通りするため。
  */
-private suspend fun ApplicationCall.receiveBodyWithin(maxBytes: Long): String? {
+internal suspend fun ApplicationCall.receiveBodyWithin(maxBytes: Long): String? {
     val declaredLength = request.contentLength()
     if (declaredLength != null && declaredLength > maxBytes) return null
     val bytes = receiveChannel().readRemaining(maxBytes + 1).readByteArray()

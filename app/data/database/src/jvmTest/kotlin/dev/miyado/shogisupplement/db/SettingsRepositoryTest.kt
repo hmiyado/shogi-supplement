@@ -89,7 +89,65 @@ class SettingsRepositoryTest {
         assertFalse(repo.getAutoUpload())
     }
 
+    @Test
+    fun `棋譜一覧の保存条件は同名更新と削除を含めて復元できる`() {
+        val repo = newRepository()
+        val first = SavedGameFilter(name = "ウォーズ", source = "wars", periodDays = 7)
+        val updated = first.copy(timeControl = "10分", periodDays = 30)
+        val second = SavedGameFilter(name = "後手", userSide = "gote", periodDays = null)
+
+        assertEquals(emptyList(), repo.getSavedGameFilters())
+        repo.saveGameFilter(first)
+        repo.saveGameFilter(second)
+        repo.saveGameFilter(updated)
+        assertEquals(listOf(updated, second), repo.getSavedGameFilters())
+        assertEquals(null, repo.getSavedGameFilters().last().periodDays)
+
+        repo.deleteGameFilter("ウォーズ")
+        assertEquals(listOf(second), repo.getSavedGameFilters())
+    }
+
     // ─── service_rank ────────────────────────────────────────────────────────
+
+    @Test
+    fun `棋力と無関係な保存では未申告のままになる`() {
+        val repo = newRepository()
+        assertFalse(repo.hasUserSavedRatingSettings())
+
+        // いずれも user_settings の行を作るが、棋力の申告ではない。
+        repo.saveThemeMode("dark")
+        repo.saveAppPolicyCache("{}")
+        repo.saveLastUserSide("sente")
+        repo.saveAccountDeclined(true)
+
+        assertFalse(repo.hasUserSavedRatingSettings(), "行ができただけで申告済みにならないはず")
+    }
+
+    @Test
+    fun `棋力設定を保存すると申告日時が入る`() {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        ShogiSupplementDatabase.Schema.create(driver)
+        val database = ShogiSupplementDatabase(driver)
+        val repo = SqlDelightSettingsRepository(database)
+
+        repo.saveRatingSettings("shogi_wars", null, null, "miyado")
+
+        assertTrue(repo.hasUserSavedRatingSettings())
+        val declaredAt = database.shogiSupplementQueries.getRatingDeclaredAt().executeAsOne().rating_declared_at
+        assertNotNull(declaredAt)
+        assertTrue(declaredAt > 1_700_000_000L, "現在時刻が入るはず")
+    }
+
+    @Test
+    fun `申告済みの印は他の設定を保存しても消えない`() {
+        val repo = newRepository()
+        repo.saveRatingSettings("lishogi", 1600, null, "miyado")
+
+        repo.saveThemeMode("dark")
+
+        assertTrue(repo.hasUserSavedRatingSettings())
+        assertEquals(1600, repo.getRatingSettings().ratingRaw)
+    }
 
     @Test
     fun `service_rankの保存と取得が正しく動作する`() {

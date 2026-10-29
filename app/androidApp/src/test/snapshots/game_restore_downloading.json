@@ -1,0 +1,10 @@
+{
+  "kind": "screen",
+  "kindLabel": "画面（Screen）",
+  "category": "game",
+  "categoryLabel": "棋譜管理",
+  "screen": "restore",
+  "screenLabel": "restore",
+  "state": "ダウンロード中",
+  "stateLabel": "ダウンロード中"
+}

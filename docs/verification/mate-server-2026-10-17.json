@@ -1,0 +1,438 @@
+{
+  "date": "2026-10-17",
+  "cloud_build_id": "46ed31b8-b958-4d40-ba33-7673d736c7d0",
+  "status": "SUCCESS",
+  "scope": "Isolated Linux x86_64 AVX2 worker, 4 CPU / 2 GiB; JWT/JWKS and in-memory PostgREST fixture; no production DB or Cloud Run deployment",
+  "baseline_digest": "sha256:09f3ac6e8f26152f6d7fe697431624189bdd44348950926184eed4ba5167a36e",
+  "memory_peak_bytes": {
+    "candidate": 1312927744,
+    "baseline": 1238130688
+  },
+  "memory_limit_bytes": 2147483648,
+  "oom": false,
+  "production_unchanged": true,
+  "production_revision": "analysis-worker-00103-s52",
+  "all_pvs_legal": true,
+  "all_verified_pvs_end_in_checkmate": true,
+  "runs": [
+    {
+      "candidate": true,
+      "cases": [
+        {
+          "name": "one",
+          "seconds": 1.2721981850000077,
+          "cache_seconds": 0.03884192799999653,
+          "scores": [
+            {
+              "type": "mate",
+              "value": 1,
+              "verified": true
+            },
+            {
+              "type": "mate",
+              "value": 3
+            }
+          ],
+          "engine_meta": {
+            "engine_rev": "v9.40@717da871e7a620702b8b9433bd8f9f181710435a+dfpn2",
+            "eval_sha256": "1141d275bceec911156801f27303dc9ff5beb24f4f59144cc069306c59e80782",
+            "nodes": 400000,
+            "threads": 1,
+            "multi_pv": 2,
+            "usi_hash": 128,
+            "fv_scale": 20,
+            "condition_name": "10435a+dfpn2-1141d275-n400000-t1-p2-h128-f20"
+          }
+        },
+        {
+          "name": "real69",
+          "seconds": 1.707483099000001,
+          "cache_seconds": 0.025028384000009396,
+          "scores": [
+            {
+              "type": "mate",
+              "value": 13
+            }
+          ],
+          "engine_meta": {
+            "engine_rev": "v9.40@717da871e7a620702b8b9433bd8f9f181710435a+dfpn2",
+            "eval_sha256": "1141d275bceec911156801f27303dc9ff5beb24f4f59144cc069306c59e80782",
+            "nodes": 400000,
+            "threads": 1,
+            "multi_pv": 2,
+            "usi_hash": 128,
+            "fv_scale": 20,
+            "condition_name": "10435a+dfpn2-1141d275-n400000-t1-p2-h128-f20"
+          }
+        },
+        {
+          "name": "game116",
+          "seconds": 21.492002084000006,
+          "cache_seconds": 0.042820255999998835,
+          "scores": [
+            {
+              "type": "mate",
+              "value": 13
+            },
+            {
+              "type": "mate",
+              "value": 5,
+              "verified": true
+            },
+            {
+              "type": "mate",
+              "value": 7,
+              "verified": true
+            },
+            {
+              "type": "mate",
+              "value": -6
+            },
+            {
+              "type": "mate",
+              "value": 5,
+              "verified": true
+            },
+            {
+              "type": "mate",
+              "value": 3,
+              "verified": true
+            },
+            {
+              "type": "mate",
+              "value": 5,
+              "verified": true
+            },
+            {
+              "type": "mate",
+              "value": 13
+            },
+            {
+              "type": "mate",
+              "value": 21
+            },
+            {
+              "type": "mate",
+              "value": -8
+            },
+            {
+              "type": "mate",
+              "value": 11
+            },
+            {
+              "type": "mate",
+              "value": -10
+            },
+            {
+              "type": "mate",
+              "value": -8
+            },
+            {
+              "type": "mate",
+              "value": 9
+            },
+            {
+              "type": "mate",
+              "value": 17
+            },
+            {
+              "type": "mate",
+              "value": -4
+            },
+            {
+              "type": "mate",
+              "value": 7
+            },
+            {
+              "type": "mate",
+              "value": -6,
+              "verified": true
+            },
+            {
+              "type": "mate",
+              "value": -4
+            },
+            {
+              "type": "mate",
+              "value": 5,
+              "verified": true
+            },
+            {
+              "type": "mate",
+              "value": 5,
+              "verified": true
+            },
+            {
+              "type": "mate",
+              "value": -4,
+              "verified": true
+            },
+            {
+              "type": "mate",
+              "value": -4
+            },
+            {
+              "type": "mate",
+              "value": 3,
+              "verified": true
+            },
+            {
+              "type": "mate",
+              "value": -2,
+              "verified": true
+            },
+            {
+              "type": "mate",
+              "value": 1,
+              "verified": true
+            },
+            {
+              "type": "mate",
+              "value": 3,
+              "verified": true
+            },
+            {
+              "type": "mate",
+              "value": -2,
+              "verified": true
+            },
+            {
+              "type": "mate",
+              "value": 1,
+              "verified": true
+            },
+            {
+              "type": "mate",
+              "value": 0,
+              "verified": true
+            }
+          ],
+          "engine_meta": {
+            "engine_rev": "v9.40@717da871e7a620702b8b9433bd8f9f181710435a+dfpn2",
+            "eval_sha256": "1141d275bceec911156801f27303dc9ff5beb24f4f59144cc069306c59e80782",
+            "nodes": 400000,
+            "threads": 1,
+            "multi_pv": 2,
+            "usi_hash": 128,
+            "fv_scale": 20,
+            "condition_name": "10435a+dfpn2-1141d275-n400000-t1-p2-h128-f20"
+          }
+        }
+      ],
+      "scope": "isolated HTTP, JWT/JWKS, in-memory PostgREST fixture",
+      "old_client_mislabels_unverified_mate": true,
+      "game_proven_mates": 16,
+      "saved_jobs": 3,
+      "invalid_jwt_rejected": true
+    },
+    {
+      "candidate": false,
+      "cases": [
+        {
+          "name": "one",
+          "seconds": 1.2614890859999832,
+          "cache_seconds": 0.032444087000016,
+          "scores": [
+            {
+              "type": "mate",
+              "value": 1
+            },
+            {
+              "type": "mate",
+              "value": 3
+            }
+          ],
+          "engine_meta": {
+            "engine_rev": "v9.40@717da871e7a620702b8b9433bd8f9f181710435a",
+            "eval_sha256": "1141d275bceec911156801f27303dc9ff5beb24f4f59144cc069306c59e80782",
+            "nodes": 400000,
+            "threads": 1,
+            "multi_pv": 2,
+            "usi_hash": 128,
+            "fv_scale": 20,
+            "condition_name": "9f181710435a-1141d275-n400000-t1-p2-h128-f20"
+          }
+        },
+        {
+          "name": "real69",
+          "seconds": 1.6103407789999835,
+          "cache_seconds": 0.021228906999994024,
+          "scores": [
+            {
+              "type": "mate",
+              "value": 13
+            }
+          ],
+          "engine_meta": {
+            "engine_rev": "v9.40@717da871e7a620702b8b9433bd8f9f181710435a",
+            "eval_sha256": "1141d275bceec911156801f27303dc9ff5beb24f4f59144cc069306c59e80782",
+            "nodes": 400000,
+            "threads": 1,
+            "multi_pv": 2,
+            "usi_hash": 128,
+            "fv_scale": 20,
+            "condition_name": "9f181710435a-1141d275-n400000-t1-p2-h128-f20"
+          }
+        },
+        {
+          "name": "game116",
+          "seconds": 21.480991622999994,
+          "cache_seconds": 0.039488020000021606,
+          "scores": [
+            {
+              "type": "mate",
+              "value": 13
+            },
+            {
+              "type": "mate",
+              "value": 5
+            },
+            {
+              "type": "mate",
+              "value": 7
+            },
+            {
+              "type": "mate",
+              "value": -6
+            },
+            {
+              "type": "mate",
+              "value": 5
+            },
+            {
+              "type": "mate",
+              "value": 3
+            },
+            {
+              "type": "mate",
+              "value": 5
+            },
+            {
+              "type": "mate",
+              "value": 13
+            },
+            {
+              "type": "mate",
+              "value": 21
+            },
+            {
+              "type": "mate",
+              "value": -8
+            },
+            {
+              "type": "mate",
+              "value": 11
+            },
+            {
+              "type": "mate",
+              "value": -10
+            },
+            {
+              "type": "mate",
+              "value": -8
+            },
+            {
+              "type": "mate",
+              "value": 9
+            },
+            {
+              "type": "mate",
+              "value": 17
+            },
+            {
+              "type": "mate",
+              "value": -4
+            },
+            {
+              "type": "mate",
+              "value": 7
+            },
+            {
+              "type": "mate",
+              "value": -6
+            },
+            {
+              "type": "mate",
+              "value": -4
+            },
+            {
+              "type": "mate",
+              "value": 5
+            },
+            {
+              "type": "mate",
+              "value": 5
+            },
+            {
+              "type": "mate",
+              "value": -4
+            },
+            {
+              "type": "mate",
+              "value": -4
+            },
+            {
+              "type": "mate",
+              "value": 3
+            },
+            {
+              "type": "mate",
+              "value": -2
+            },
+            {
+              "type": "mate",
+              "value": 1
+            },
+            {
+              "type": "mate",
+              "value": 3
+            },
+            {
+              "type": "mate",
+              "value": -2
+            },
+            {
+              "type": "mate",
+              "value": 1
+            },
+            {
+              "type": "mate",
+              "value": -1
+            }
+          ],
+          "engine_meta": {
+            "engine_rev": "v9.40@717da871e7a620702b8b9433bd8f9f181710435a",
+            "eval_sha256": "1141d275bceec911156801f27303dc9ff5beb24f4f59144cc069306c59e80782",
+            "nodes": 400000,
+            "threads": 1,
+            "multi_pv": 2,
+            "usi_hash": 128,
+            "fv_scale": 20,
+            "condition_name": "9f181710435a-1141d275-n400000-t1-p2-h128-f20"
+          }
+        }
+      ],
+      "scope": "isolated HTTP, JWT/JWKS, in-memory PostgREST fixture",
+      "saved_jobs": 3,
+      "invalid_jwt_rejected": true
+    }
+  ],
+  "tests": {
+    "worker": 125,
+    "contracts": 13,
+    "node": 8,
+    "pv_verifier": 11
+  },
+  "opencode": {
+    "parser_commit": "97fa5d3",
+    "pv_verifier_commit": "7d90e20",
+    "patches_reviewed_and_applied": true,
+    "sandboxes_stopped": true
+  },
+  "limitations": [
+    "One game per build; not a statistical performance study or Cloud Run capacity guarantee",
+    "Real Supabase PostgreSQL/RLS/concurrent transactions not exercised",
+    "Parser fix not manually checked on physical iOS device",
+    "Old app device UI not exercised; old DTO and mapping reproduced in compatibility tests"
+  ]
+}

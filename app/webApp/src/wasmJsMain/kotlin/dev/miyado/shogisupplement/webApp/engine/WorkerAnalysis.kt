@@ -13,10 +13,10 @@ import kotlinx.serialization.json.Json
 private val json = Json { ignoreUnknownKeys = true }
 
 @Serializable
-private data class RawScore(val cp: Int? = null, val mate: Int? = null) {
+private data class RawScore(val cp: Int? = null, val mate: Int? = null, val verified: Boolean = false) {
     fun toScore(): Score? = when {
         cp != null -> Score.Cp(cp)
-        mate != null -> Score.Mate(mate)
+        mate != null -> Score.Mate(mate, verified = verified)
         else -> null
     }
 }

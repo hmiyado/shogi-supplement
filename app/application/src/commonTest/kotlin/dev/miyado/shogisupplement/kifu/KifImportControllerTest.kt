@@ -1,6 +1,9 @@
 package dev.miyado.shogisupplement.kifu
 
+import dev.miyado.shogisupplement.db.RatingDeclaration
+import dev.miyado.shogisupplement.rating.ShogiRank
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -8,6 +11,7 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /** KIFを受け取ってから保存を依頼するまでの分岐（アカウント確認・棋力設定・先後確認）を保証する。 */
@@ -15,6 +19,31 @@ import kotlin.test.assertTrue
 class KifImportControllerTest {
 
     private val kif = """
+        手合割：平手
+        先手：miyado
+        後手：相手
+        手数----指手---------消費時間--
+        1 ７六歩(77)
+        2 ３四歩(33)
+        3 投了
+    """.trimIndent()
+
+    // 出典と持ち時間が読める棋譜。段級位はルール別の申告のため、この2つが無いと引けない。
+    private val warsKif = """
+        場所：将棋ウォーズ
+        持ち時間：10分切れ負け
+        手合割：平手
+        先手：miyado
+        後手：相手
+        手数----指手---------消費時間--
+        1 ７六歩(77)
+        2 ３四歩(33)
+        3 投了
+    """.trimIndent()
+
+    private val datedLishogiKif = """
+        開始日時：2026/01/01 12:00
+        場所：https://lishogi.org/abcd1234
         手合割：平手
         先手：miyado
         後手：相手
@@ -134,15 +163,111 @@ class KifImportControllerTest {
     @Test
     fun `申告棋力を棋譜へ記録する`() {
         val settings = FakeSettingsRepository(serviceAccounts = mutableMapOf("lishogi" to "miyado"))
-        settings.saveRatingSettings("shogi_wars", 1600, "standard", "miyado")
+        settings.saveRatingSettings("lishogi", 1600, null, "miyado")
         val (controller, recorder) = build(settings)
 
         controller.beginFromFile("game.kif", kif)
         controller.confirmSide("sente", skipNext = false)
 
-        assertEquals("shogi_wars", recorder.last.ratingService)
+        assertEquals("lishogi", recorder.last.ratingService)
         assertEquals(1600L, recorder.last.ratingRaw)
-        assertEquals("standard", recorder.last.ratingRule)
+        assertTrue(recorder.last.ratingDeclaredAt != null)
+    }
+
+    @Test
+    fun `日時つき棋譜には対局時点で有効だった申告棋力を記録する`() {
+        val settings = FakeSettingsRepository(
+            service = "lishogi",
+            ratingRaw = 1800,
+            hasSavedRatingSettings = true,
+            serviceAccounts = mutableMapOf("lishogi" to "miyado"),
+        )
+        settings.ratingDeclarations += RatingDeclaration(
+            service = "lishogi",
+            ratingRaw = 1600,
+            ratingRule = null,
+            declaredAt = parseKifStartAtJst("2025/12/31 12:00")!!,
+        )
+        settings.ratingDeclarations += RatingDeclaration(
+            service = "lishogi",
+            ratingRaw = 1800,
+            ratingRule = null,
+            declaredAt = parseKifStartAtJst("2026/01/02 12:00")!!,
+        )
+        val (controller, recorder) = build(settings)
+
+        controller.beginFromFile("game.kif", datedLishogiKif)
+        controller.confirmSide("sente", skipNext = false)
+
+        assertEquals(1600L, recorder.last.ratingRaw)
+        assertEquals(parseKifStartAtJst("2025/12/31 12:00"), recorder.last.ratingDeclaredAt)
+    }
+
+    @Test
+    fun `日時つき棋譜には未来の申告棋力を遡って記録しない`() {
+        val settings = FakeSettingsRepository(
+            serviceAccounts = mutableMapOf("lishogi" to "miyado"),
+            hasSavedRatingSettings = true,
+        )
+        settings.ratingDeclarations += RatingDeclaration(
+            service = "lishogi",
+            ratingRaw = 1800,
+            ratingRule = null,
+            declaredAt = parseKifStartAtJst("2026/01/02 12:00")!!,
+        )
+        val (controller, recorder) = build(settings)
+
+        controller.beginFromFile("game.kif", datedLishogiKif)
+        controller.confirmSide("sente", skipNext = false)
+
+        assertNull(recorder.last.ratingService)
+        assertNull(recorder.last.ratingRaw)
+        assertNull(recorder.last.ratingDeclaredAt)
+    }
+
+    @Test
+    fun `棋力を申告していなければ棋譜へ記録しない`() {
+        val settings = FakeSettingsRepository(serviceAccounts = mutableMapOf("lishogi" to "miyado"))
+        val (controller, recorder) = build(settings)
+
+        controller.beginFromFile("game.kif", kif)
+        controller.confirmSide("sente", skipNext = false)
+
+        assertNull(recorder.last.ratingService, "既定値を申告値として記録しないはず")
+        assertNull(recorder.last.ratingRaw)
+        assertNull(recorder.last.ratingRule)
+    }
+
+    @Test
+    fun `段級位制のサービスでは棋譜のルールで申告段級位を記録する`() {
+        val settings = FakeSettingsRepository(serviceAccounts = mutableMapOf("shogi_wars" to "miyado"))
+        settings.saveRatingSettings("shogi_wars", null, null, "miyado")
+        settings.saveServiceRank("shogi_wars", "10min", ShogiRank.Dan(1).toRaw())
+        settings.saveServiceRank("shogi_wars", "3min", ShogiRank.Kyu(2).toRaw())
+        val (controller, recorder) = build(settings)
+
+        controller.beginFromFile("game.kif", warsKif)
+        controller.confirmSide("sente", skipNext = false)
+
+        assertEquals("shogi_wars", recorder.last.ratingService)
+        assertEquals(ShogiRank.Dan(1).toRaw().toLong(), recorder.last.ratingRaw)
+        assertEquals("10min", recorder.last.ratingRule)
+    }
+
+    @Test
+    fun `ルールを判定できない棋譜にはサービス名だけ記録する`() {
+        val settings = FakeSettingsRepository(serviceAccounts = mutableMapOf("shogi_wars" to "miyado"))
+        settings.saveRatingSettings("shogi_wars", null, null, "miyado")
+        settings.saveServiceRank("shogi_wars", "10min", ShogiRank.Dan(1).toRaw())
+        val (controller, recorder) = build(settings)
+
+        // 出典ヘッダが無く、どのルールの対局か決められない棋譜。
+        controller.beginFromFile("game.kif", kif)
+        controller.confirmSide("sente", skipNext = false)
+
+        assertEquals("shogi_wars", recorder.last.ratingService)
+        assertNull(recorder.last.ratingRaw, "段級位制で単一値の0を記録しないはず")
+        assertNull(recorder.last.ratingRule)
     }
 
     @Test
@@ -260,7 +385,11 @@ class KifImportControllerTest {
         val settings = FakeSettingsRepository(serviceAccounts = mutableMapOf("lishogi" to "別人"))
         val controller = KifImportController(
             settingsRepository = settings,
-            scope = CoroutineScope(UnconfinedTestDispatcher() + SupervisorJob()),
+            // 保存の失敗はscopeへ伝わる。ここで受けないとJVM全体の未捕捉例外になり、
+            // 同じワーカーで次に走るテストの失敗として報告される。
+            scope = CoroutineScope(
+                UnconfinedTestDispatcher() + SupervisorJob() + CoroutineExceptionHandler { _, _ -> },
+            ),
             dateTimeLabel = { "2026-09-01 12:00" },
             onImport = { error("保存に失敗") },
         )

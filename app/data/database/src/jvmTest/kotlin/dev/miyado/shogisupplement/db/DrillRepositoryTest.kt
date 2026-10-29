@@ -88,10 +88,9 @@ class DrillRepositoryTest {
         val drillRepo = newDrillRepository(db)
         saveDrillFixture(gameRepo)
 
-        val candidates = drillRepo.getDrillCandidates()
-        assertEquals(2, candidates.size, "△見送りは出題しない")
-        assertEquals("◎ 優先出題", candidates[0].verdict)
-        assertEquals("○ 出題対象", candidates[1].verdict)
+        val selected = drillRepo.getNextDrillQuestion(dev.miyado.shogisupplement.drill.DrillMode.NORMAL)
+        assertEquals(2, selected.totalCandidates, "△見送りは出題しない")
+        assertEquals("◎ 優先出題", selected.candidate!!.verdict)
     }
 
     @Test

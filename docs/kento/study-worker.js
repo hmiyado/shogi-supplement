@@ -32,6 +32,10 @@
  * @property {string} baseSfenArg USIの `position` コマンドへ連結する文字列
  *   （`"startpos"` または `"sfen <SFEN文字列>"`）。
  * @property {string} movesJson baseSfenArgの局面からさらに進めるUSI手列のJSON配列文字列。
+ * @property {number | undefined} multiPv 候補手の本数。省略時は DEFAULT_MULTI_PV。
+ * @property {"drill" | null | undefined} purpose ドリルは物差しの条件を固定する。省略は従来の検討。
+ *   公開済みアプリはこの項目を送らないため、省略時の値を変えると過去のバージョンの
+ *   解析条件が動く。
  */
 
 /** @typedef {PrepareMessage | AnalyzeMessage} HostToWorkerMessage このWorkerが受け取るメッセージ。 */
@@ -46,6 +50,14 @@
  */
 
 /**
+ * @typedef {Object} Pv
+ * @property {number} multipv MultiPV番号（1始まり）。
+ * @property {ScoreCp | ScoreMate | null} score
+ * @property {number | null} nodes
+ * @property {string[]} pv
+ */
+
+/**
  * @typedef {Object} PositionResult
  * @property {number} ply 常に0（1局面のみを扱うため）。
  * @property {string | null} bestmove
@@ -53,6 +65,10 @@
  * @property {number | null} nodes MultiPV1の探索ノード数。
  * @property {string[]} pv MultiPV1の読み筋。
  * @property {MultiPv2 | null} multipv2
+ * @property {Pv[]} pvs 得られたPVの全本数。
+ *
+ * score/nodes/pv/multipv2 は pvs の先頭2本と同じ内容を重複して持つ。公開済みアプリが
+ * この4項目しか読まないため、消すとそれらの検討が壊れる。
  */
 
 /** @typedef {{type: "prepared"}} PreparedMessage */
@@ -74,7 +90,7 @@ self.onmessage = async (ev) => {
       await prepareEngine(msg.variant, msg.assetDirUrl);
       post({ type: "prepared" });
     } else if (msg.type === "analyze") {
-      const result = await analyzeOnce(msg.baseSfenArg, msg.movesJson);
+      const result = await analyzeOnce(msg.baseSfenArg, msg.movesJson, msg.multiPv, msg.purpose);
       post({ type: "result", result });
     }
   } catch (err) {
@@ -89,7 +105,7 @@ function post(msg) {
 
 // analysis-worker.js と同じパース仕様（項目を揃えないと結果の形が一致しない）。
 function parseInfo(line) {
-  const toks = line.split(/\s+/);
+  const toks = line.trim().split(/\s+/);
   const d = {};
   let i = 0;
   while (i < toks.length) {
@@ -109,6 +125,10 @@ function parseInfo(line) {
       i += 1;
     }
   }
+  if (d.score && d.score.mate !== undefined) {
+    if (toks.includes("mateverified")) d.score.verified = true;
+    else d.score.verified = false;
+  }
   return d;
 }
 
@@ -118,12 +138,16 @@ const SETOPTIONS = [
   ["USI_OwnBook", "false"],
   ["Threads", "1"],
   ["USI_Hash", "128"],
-  ["MultiPV", "2"],
   ["NetworkDelay", "0"],
   ["NetworkDelay2", "0"],
   ["FV_SCALE", "20"],
 ];
 const GO_NODES = 400000;
+const DEFAULT_MULTI_PV = 2;
+const MAX_MULTI_PV = 3;
+// 検討条件を将来拡張しても、ドリルの物差しは変更しない。
+const DRILL_NODES = 400000;
+const DRILL_MULTI_PV = 2;
 
 let preparedModule = null;
 
@@ -142,7 +166,7 @@ async function prepareEngine(variant, assetDirUrl) {
     throw new Error(`createYaneuraOu が見つかりません(${jsUrl})`);
   }
 
-  const state = { latestMultipv: { 1: null, 2: null }, results: [] };
+  const state = { latestMultipv: {}, results: [] };
   const Module = await factory({
     locateFile: (path) => (path.endsWith(".wasm") ? wasmUrl : path),
     print: (line) => handleStdout(state, line),
@@ -161,17 +185,28 @@ async function prepareEngine(variant, assetDirUrl) {
 
 function handleStdout(state, line) {
   if (line === "readyok") {
-    state.latestMultipv = { 1: null, 2: null };
+    state.latestMultipv = {};
     return;
   }
   if (line.startsWith("info depth") && line.includes(" pv ")) {
     const parsed = parseInfo(line);
     const mpv = parsed.multipv === undefined ? 1 : parsed.multipv;
-    if (mpv === 1 || mpv === 2) state.latestMultipv[mpv] = parsed;
+    if (mpv >= 1 && mpv <= MAX_MULTI_PV) state.latestMultipv[mpv] = parsed;
     return;
   }
   if (line.startsWith("bestmove")) {
     const bestmove = line.split(/\s+/)[1] || null;
+    const pvs = [];
+    for (let mpv = 1; mpv <= MAX_MULTI_PV; mpv += 1) {
+      const parsed = state.latestMultipv[mpv];
+      if (!parsed) continue;
+      pvs.push({
+        multipv: mpv,
+        score: parsed.score || null,
+        nodes: parsed.nodes ?? null,
+        pv: parsed.pv || [],
+      });
+    }
     const mpv1 = state.latestMultipv[1];
     const mpv2 = state.latestMultipv[2];
     state.results.push({
@@ -181,6 +216,7 @@ function handleStdout(state, line) {
       nodes: mpv1 ? mpv1.nodes ?? null : null,
       pv: mpv1 ? mpv1.pv || [] : [],
       multipv2: mpv2 ? { score: mpv2.score || null, pv: mpv2.pv || [] } : null,
+      pvs,
     });
   }
 }
@@ -188,9 +224,12 @@ function handleStdout(state, line) {
 /**
  * @param {AnalyzeMessage["baseSfenArg"]} baseSfenArg USIの position コマンドへそのまま連結される。
  * @param {AnalyzeMessage["movesJson"]} movesJson
+ * @param {AnalyzeMessage["multiPv"]} multiPv
+ * @param {AnalyzeMessage["purpose"]} purpose
  * @returns {Promise<PositionResult>}
  */
-async function analyzeOnce(baseSfenArg, movesJson) {
+async function analyzeOnce(baseSfenArg, movesJson, multiPv, purpose) {
+  if (purpose != null && purpose !== "drill") throw new Error("Unknown analysis purpose");
   if (!preparedModule) {
     throw new Error("study-worker: prepare前にanalyzeが呼ばれました");
   }
@@ -200,14 +239,18 @@ async function analyzeOnce(baseSfenArg, movesJson) {
   const moves = JSON.parse(movesJson);
   const posArg = moves.length ? `${baseSfenArg} moves ${moves.join(" ")}` : baseSfenArg;
 
+  const requestedMultiPv = Number(multiPv) || DEFAULT_MULTI_PV;
+  const effectiveMultiPv = purpose === "drill" ? DRILL_MULTI_PV : Math.min(Math.max(requestedMultiPv, 1), MAX_MULTI_PV);
+
   const lines = ["usi"];
   for (const [name, value] of SETOPTIONS) {
     lines.push(`setoption name ${name} value ${value}`);
   }
+  lines.push(`setoption name MultiPV value ${effectiveMultiPv}`);
   lines.push("isready");
   lines.push("usinewgame");
   lines.push(`position ${posArg}`);
-  lines.push(`go nodes ${GO_NODES}`);
+  lines.push(`go nodes ${purpose === "drill" ? DRILL_NODES : GO_NODES}`);
   lines.push("quit");
 
   const argv = [];

@@ -1,4 +1,5 @@
 import XCTest
+import UIKit
 
 /// 実機スモーク: クリップボード経由のKIF取込フローをE2Eで検証する。
 ///
@@ -230,5 +231,73 @@ final class PasteboardImportSmokeTests: XCTestCase {
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+}
+
+final class RootNavigationRegressionTests: XCTestCase {
+    private let app = XCUIApplication()
+
+    override func setUpWithError() throws {
+        continueAfterFailure = false
+        app.launch()
+        XCTAssertTrue(app.staticTexts["将棋サプリ"].waitForExistence(timeout: 30), "同意済みのテスト用シミュレータで実行してください")
+    }
+
+    func testGlassLayoutAndGlobalActions() throws {
+        let tabs = app.tabBars.firstMatch
+        let add = app.buttons["棋譜を追加する"]
+        let settings = app.buttons["設定"]
+        XCTAssertTrue(tabs.waitForExistence(timeout: 10))
+        XCTAssertTrue(add.exists)
+        XCTAssertTrue(settings.exists)
+        XCTAssertLessThanOrEqual(tabs.frame.maxX, add.frame.minX)
+        XCTAssertEqual(add.frame.width, add.frame.height, accuracy: 1)
+        XCTAssertGreaterThanOrEqual(add.frame.width, 44)
+        XCTAssertLessThanOrEqual(add.frame.maxY, app.frame.maxY)
+        XCTAssertEqual(settings.frame.width, settings.frame.height, accuracy: 1)
+        let shot = app.screenshot()
+        let image = try XCTUnwrap(shot.image.cgImage)
+        let reference = try pixel(image, x: 10, y: image.height / 2)
+        let bottom = try pixel(image, x: image.width / 2, y: image.height - 3)
+        let scale = CGFloat(image.height) / app.frame.height
+        let header = try pixel(image, x: 10, y: Int(app.staticTexts["将棋サプリ"].frame.midY * scale))
+        for channel in 0..<3 {
+            XCTAssertEqual(reference[channel], bottom[channel], accuracy: 0.04, "safe areaに不透明な帯がある")
+            XCTAssertEqual(reference[channel], header[channel], accuracy: 0.04, "タイトル背景に不透明な帯がある")
+        }
+        let attachment = XCTAttachment(screenshot: shot)
+        attachment.lifetime = .keepAlways
+        self.add(attachment)
+        add.tap()
+        XCTAssertTrue(app.buttons["ファイルから選ぶ"].waitForExistence(timeout: 5))
+        app.buttons["キャンセル"].tap()
+        settings.tap()
+        XCTAssertTrue(app.staticTexts["プロフィール"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["棋譜を追加する"].exists)
+        XCTAssertFalse(app.tabBars.firstMatch.exists)
+        app.buttons["戻る"].tap()
+        XCTAssertTrue(app.buttons["棋譜を追加する"].waitForExistence(timeout: 5))
+    }
+
+    func testRootTabsKeepTheGlobalAddAction() {
+        let tabs = app.tabBars.firstMatch
+        XCTAssertTrue(tabs.waitForExistence(timeout: 10))
+        tabs.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+        XCTAssertTrue(app.staticTexts["棋譜一覧"].waitForExistence(timeout: 30))
+        XCTAssertTrue(app.buttons["棋譜を追加する"].exists)
+        tabs.coordinate(withNormalizedOffset: CGVector(dx: 0.83, dy: 0.5)).tap()
+        XCTAssertTrue(app.staticTexts["定跡一覧"].waitForExistence(timeout: 15))
+        XCTAssertTrue(app.buttons["棋譜を追加する"].exists)
+        tabs.coordinate(withNormalizedOffset: CGVector(dx: 0.17, dy: 0.5)).tap()
+        XCTAssertTrue(app.staticTexts["将棋サプリ"].waitForExistence(timeout: 10))
+    }
+
+    private func pixel(_ image: CGImage, x: Int, y: Int) throws -> [Double] {
+        let sample = try XCTUnwrap(image.cropping(to: CGRect(x: x, y: y, width: 1, height: 1)))
+        var bytes = [UInt8](repeating: 0, count: 4)
+        let context = try XCTUnwrap(CGContext(data: &bytes, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+        context.draw(sample, in: CGRect(x: 0, y: 0, width: 1, height: 1))
+        return bytes.prefix(3).map { Double($0) / 255 }
     }
 }

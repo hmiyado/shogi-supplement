@@ -1,0 +1,10 @@
+{
+  "kind": "screen",
+  "kindLabel": "画面（Screen）",
+  "category": "settings",
+  "categoryLabel": "設定",
+  "screen": "設定",
+  "screenLabel": "設定",
+  "state": "標準テーマ",
+  "stateLabel": "標準テーマ"
+}

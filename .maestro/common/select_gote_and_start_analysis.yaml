@@ -4,6 +4,7 @@
 # 呼び出し元フローのenvで指定（iOS/Android両方から使うため固定しない）
 appId: ${APP_ID}
 ---
+- runFlow: accept_account_creation.yaml
 - extendedWaitUntil:
     visible: "棋力設定"
     timeout: 8000

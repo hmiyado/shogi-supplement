@@ -72,32 +72,43 @@ kotlin {
         browser {
             binaries.executable()
             testTask {
-                enabled = false
+                enabled = providers.gradleProperty("browserTests").orNull == "true"
+                useKarma { useChromeHeadless() }
             }
         }
-        nodejs()
+        nodejs {
+            testTask {
+                filter.excludeTestsMatching("*BrowserStudyStoreTest*")
+                val skikoLoader = layout.projectDirectory.file("test-support/skiko-node-loader.mjs")
+                inputs.file(skikoLoader)
+                nodeJsArgs.addAll(listOf("--import", skikoLoader.asFile.toURI().toString()))
+            }
+        }
     }
 
     sourceSets {
+        commonTest.dependencies {
+            implementation(libs.kotlin.test)
+            implementation(libs.kotlinx.coroutines.test)
+        }
         wasmJsMain {
             kotlin.srcDir(generateKentoAssetConfig)
             kotlin.srcDir(generateMyPageConfig)
             dependencies {
                 implementation(project(":data:supabase"))
-                implementation(project(":application"))
                 implementation(libs.supabase.auth)
                 implementation(libs.supabase.postgrest)
                 implementation(libs.kmp.lifecycle.viewmodel)
             }
         }
         commonMain.dependencies {
+            implementation(project(":application"))
             implementation(project(":ui"))
             implementation(project(":analysis"))
             implementation(project(":kifu"))
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.material3)
-            implementation(compose.materialIconsExtended)
             implementation(compose.ui)
             implementation(compose.components.resources)
             implementation(libs.kotlinx.coroutines.core)
