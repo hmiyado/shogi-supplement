@@ -18,6 +18,7 @@ data class StrengthDetailData(
     val trend: List<StrengthTrendPoint>,
     /** 対局サービス一覧（何も入力していないサービスは含めない）。 */
     val services: List<StrengthDetailService>,
+    val mateStatistics: dev.miyado.shogisupplement.strength.MateStatistics = dev.miyado.shogisupplement.strength.MateStatistics(),
 )
 
 /** 対局サービスでの最高段級位の表示データ。 */

@@ -47,11 +47,14 @@ fun MoveListSheet(
     /** ユーザーが後手なら true（PositionEvalDisplay の符号反転用）。 */
     userIsGote: Boolean = false,
     onSelectPly: (Int) -> Unit,
+    initialSfen: String? = null,
+    includeInitial: Boolean = false,
 ) {
+    val labels = remember(initialSfen, moves) { moveListNotations(initialSfen, moves) }
     val listState = rememberLazyListState()
     LaunchedEffect(currentPly) {
         if (currentPly > 0 && moves.isNotEmpty()) {
-            listState.scrollToItem((currentPly - 1).coerceIn(0, moves.lastIndex))
+            listState.scrollToItem((currentPly - 1 + if (includeInitial) 1 else 0).coerceAtLeast(0))
         }
     }
     val shogiColors = MaterialTheme.shogiColors
@@ -66,13 +69,20 @@ fun MoveListSheet(
             modifier = Modifier.fillMaxWidth(),
             contentPadding = PaddingValues(bottom = 32.dp),
         ) {
-            itemsIndexed(moves) { idx, usiStr ->
+            if (includeInitial) {
+                item {
+                    Text(
+                        stringResource(Res.string.study_start_position),
+                        modifier = Modifier.fillMaxWidth()
+                            .background(if (currentPly == 0) shogiColors.highlightSoft else Color.Transparent)
+                            .clickable { onSelectPly(0) }.padding(16.dp),
+                    )
+                }
+            }
+            itemsIndexed(moves) { idx, _ ->
                 val ply = idx + 1
                 val isCurrentPly = ply == currentPly
-                val prevSfen = computeSfenAtStep(null, moves, idx)
-                val notation = runCatching {
-                    JapaneseNotation.format(usiStr, ShogiBoard.fromSfen(prevSfen))
-                }.getOrElse { usiStr }
+                val notation = labels[idx]
                 val bgColor = if (isCurrentPly) shogiColors.highlightSoft else Color.Transparent
                 // 各手の評価値ラベル（その手を指した後の局面 = ply と同じ）
                 val evalLabel = remember(ply, positionEvals, evalDisplay, userIsGote) {
@@ -127,3 +137,15 @@ fun MoveListSheet(
         }
     }
 }
+
+internal fun moveListNotations(initialSfen: String?, moves: List<String>): List<String> = runCatching {
+    val board = if (initialSfen == null) ShogiBoard() else ShogiBoard.fromSfen(initialSfen)
+    var previousTo: dev.miyado.shogisupplement.board.ShogiSquare? = null
+    moves.map { usi ->
+        val label = JapaneseNotation.format(usi, board, previousTo)
+        val move = dev.miyado.shogisupplement.board.ShogiMove.fromUsi(usi)
+        previousTo = move.to
+        board.push(move)
+        label
+    }
+}.getOrElse { moves }

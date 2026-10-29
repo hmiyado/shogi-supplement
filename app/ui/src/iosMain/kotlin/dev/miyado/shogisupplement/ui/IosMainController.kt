@@ -15,6 +15,8 @@ import dev.miyado.shogisupplement.board.ShogiSquare
 import dev.miyado.shogisupplement.db.DrillRepository
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.GameRepository
+import dev.miyado.shogisupplement.gameshare.GameShareService
+import dev.miyado.shogisupplement.gameshare.RemoteGameShareService
 import dev.miyado.shogisupplement.db.RatingSettings
 import dev.miyado.shogisupplement.crash.NoopCrashReporter
 import dev.miyado.shogisupplement.db.SettingsRepository
@@ -153,6 +155,22 @@ class IosMainController(
         }
     }
 
+    private val gameShareBaseUrl = IosSupabaseConfig.loadGameShareBaseUrl() ?: analysisBaseUrl
+    val gameShareService: GameShareService? = if (gameShareBaseUrl != null && authRepository != null) {
+        RemoteGameShareService(
+            baseUrl = gameShareBaseUrl,
+            authRepository = authRepository,
+            platform = "ios",
+            httpClient = HttpClient(Darwin) {
+                install(HttpTimeout) { requestTimeoutMillis = 30_000 }
+            },
+            appCheckTokenProvider = { if (DebugBackendStore.active == null) AppCheckTokenBridge.getToken() else null },
+            sharePageUrl = IosSupabaseConfig.loadGameShareWebUrl(),
+        )
+    } else {
+        null
+    }
+
     /** ホーム画面（games一覧・推定棋力カード・今日の1問）のロードを担う協力オブジェクト。 */
     private val homeViewModel = HomeViewModel(
         gameRepository = gameRepository,
@@ -197,7 +215,7 @@ class IosMainController(
             accessTokenProvider = { checkNotNull(auth.accessToken()) { "アクセストークンが取得できない" } },
             platform = "ios",
             httpClient = runnerHttpClient,
-            appCheckTokenProvider = AppCheckTokenBridge::getToken,
+            appCheckTokenProvider = { if (DebugBackendStore.active == null) AppCheckTokenBridge.getToken() else null },
         )
         val remoteEngine = RemoteStudyEngine { sfen, moves, multiPv ->
             // サーバー解析はJWT必須のため、未ログインならここで匿名サインインする
@@ -710,7 +728,7 @@ class IosMainController(
                             },
                             platform = "ios",
                             httpClient = checkNotNull(analysisHttpClient),
-                            appCheckTokenProvider = AppCheckTokenBridge::getToken,
+                            appCheckTokenProvider = { if (DebugBackendStore.active == null) AppCheckTokenBridge.getToken() else null },
                         ),
                         authRepository = remoteAuth,
                     ),

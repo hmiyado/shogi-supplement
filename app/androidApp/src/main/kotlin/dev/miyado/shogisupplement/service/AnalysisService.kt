@@ -1,5 +1,7 @@
 package dev.miyado.shogisupplement.service
 
+import dev.miyado.shogisupplement.importing.KifFileReader
+
 import dev.miyado.shogisupplement.engine.displayMessage
 
 import dev.miyado.shogisupplement.ui.generated.resources.*
@@ -209,13 +211,7 @@ class AnalysisService : Service() {
         }
     }
 
-    private fun readKifContent(uri: Uri): String {
-        return if (uri.scheme == "file") {
-            java.io.File(uri.path!!).readText()
-        } else {
-            contentResolver.openInputStream(uri)!!.use { it.readBytes().decodeToString() }
-        }
-    }
+    private fun readKifContent(uri: Uri): String = KifFileReader.read(contentResolver, uri)
 
     private fun getFileName(uri: Uri): String? {
         return if (uri.scheme == "file") {

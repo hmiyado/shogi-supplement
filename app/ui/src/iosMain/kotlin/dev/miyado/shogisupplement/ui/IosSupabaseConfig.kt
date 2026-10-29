@@ -33,7 +33,14 @@ internal object IosSupabaseConfig {
     fun loadAnalysisBaseUrl(): String? =
         loadEntries()?.get("ANALYSIS_BASE_URL")?.takeIf { it.isNotBlank() }
 
+    fun loadGameShareBaseUrl(): String? =
+        loadEntries()?.get("GAME_SHARE_API_BASE_URL")?.takeIf { it.isNotBlank() }
+
+    fun loadGameShareWebUrl(): String? =
+        loadEntries()?.get("GAME_SHARE_WEB_URL")?.takeIf { it.isNotBlank() }
+
     private fun loadEntries(): Map<String, String>? {
+        DebugBackendStore.active?.let { return it }
         val path = NSBundle.mainBundle.pathForResource("SupabaseConfig", ofType = "properties")
             ?: return null
         val text = readFile(path) ?: return null

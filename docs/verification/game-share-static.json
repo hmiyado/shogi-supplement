@@ -1,0 +1,164 @@
+{
+  "date": "2026-10-25",
+  "scope": "local static game sharing; no production deployment",
+  "functional_tests": {
+    "server": {
+      "tests": 131,
+      "failures": 0,
+      "errors": 0
+    },
+    "remote": {
+      "tests": 98,
+      "failures": 0,
+      "errors": 0
+    },
+    "ui": {
+      "tests": 145,
+      "failures": 0,
+      "errors": 0
+    },
+    "android": {
+      "tests": 3,
+      "failures": 0,
+      "errors": 0
+    }
+  },
+  "sql": {
+    "files": 5,
+    "tests": 104,
+    "failures": 0,
+    "fresh_schema": true
+  },
+  "storage_integration": {
+    "checks": 13,
+    "passed": true,
+    "covers": [
+      "authenticated publication",
+      "anonymous static read",
+      "enumeration denial",
+      "immutable views",
+      "wrong-owner rejection",
+      "source deletion",
+      "account deletion",
+      "idempotent cleanup"
+    ]
+  },
+  "concurrent_finish_cleanup": {
+    "before_fix": "published share incorrectly deleted",
+    "after_fix": "published share retained",
+    "database": "real PostgreSQL with controlled row lock"
+  },
+  "compiles": [
+    "Android Debug",
+    "iOS Simulator arm64",
+    "Web Wasm production",
+    "Web Wasm tests"
+  ],
+  "browser": {
+    "source": "real local Supabase Storage",
+    "selected_ply": 1,
+    "navigation_ply": 2,
+    "wasm_candidates": true
+  },
+  "vrt": {
+    "tests": 26,
+    "passed": 25,
+    "existing_baseline_difference": "report_viewer_study_branch",
+    "actual_matches_preexisting_baseline_bytes": true
+  },
+  "terraform": {
+    "provider": "hashicorp/google 8.2.0",
+    "isolated_validation": "passed",
+    "core_used": "1.16.6",
+    "repository_core_pin": "1.16.1",
+    "applied": false
+  },
+  "reviews": {
+    "model": "gpt-5.6-sol",
+    "resolved": [
+      "expire completed deletion tombstones",
+      "recheck publication before cleanup deletion"
+    ],
+    "final_actionable_findings": 0
+  },
+  "not_verified": [
+    "physical App Check publication",
+    "production DB/storage/job/worker/web"
+  ],
+  "lan_development": {
+    "separate_ios_app_installed": true,
+    "ios_launch": true,
+    "production_app_preserved": true,
+    "real_local_auth": "ES256/JWKS",
+    "app_sync_and_delete_rpc": true,
+    "web_lan_render_and_wasm": true,
+    "device_publication_interaction": "pending user check",
+    "production_endpoints_used": false
+  },
+  "debug_backend_and_move_picker": {
+    "date": "2026-10-26",
+    "normal_debug_installed": true,
+    "normal_debug_launch": true,
+    "physical_environment_switch": "pending user check",
+    "data_isolation": [
+      "SQL database",
+      "Auth storage without legacy import",
+      "Keychain transfer secret"
+    ],
+    "production_defaults_preserved": true,
+    "release_script_guard": [
+      "Release",
+      "Release-Engineless"
+    ],
+    "tests": {
+      "supabase": 100,
+      "ui": 148,
+      "failures": 0
+    },
+    "web_selection": [
+      "390x844 viewport",
+      "open list",
+      "select ply 2",
+      "select initial position",
+      "same-square notation and shared starting turn unit tests"
+    ],
+    "ios_and_web_builds": "passed",
+    "vrt": {
+      "tests": 21,
+      "passed": 20,
+      "existing_difference": "report_viewer_study_branch",
+      "identical_to_preexisting_actual": true
+    },
+    "external_review": "completed; same-square Japanese notation finding resolved and tested; migration finding inapplicable because feature migration has never been committed/deployed",
+    "final_bundle_signature_and_configuration": "passed",
+    "lan_public_config": "same-host HTTP and anon role checked"
+  },
+  "commit_cleanup_validation": {
+    "date": "2026-10-26",
+    "isolated_staged_source": true,
+    "tests": {
+      "worker": 131,
+      "supabase": 100,
+      "ui": 143,
+      "android_share_menu": 3,
+      "failures": 0
+    },
+    "compilation": [
+      "Web/Wasm",
+      "iOS Simulator"
+    ],
+    "removed": [
+      "unused position URL generation and display conversion",
+      "unused share menu resource",
+      "unused creation result metadata",
+      "publishing client anonymous-read wrapper",
+      "obsolete CORS GET/DELETE additions",
+      "unused route imports"
+    ],
+    "unrelated_changes_excluded": [
+      "mate statistics",
+      "game list session",
+      "release assets"
+    ]
+  }
+}

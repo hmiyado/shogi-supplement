@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900">
+  <rect width="1200" height="900" fill="#F7F3EA"/>
+  <rect width="12" height="900" fill="#3A4B7C"/>
+  <text x="64" y="80" font-family="Shippori Mincho" font-size="36" fill="#211E1A">将棋サプリ</text>
+  <text x="908" y="76" font-family="IBM Plex Mono" font-size="24" fill="#3A4B7C">UPDATE 1.15</text>
+  <text x="64" y="166" font-family="Shippori Mincho" font-size="44" fill="#211E1A">定跡を登録して、</text>
+  <text x="64" y="226" font-family="Shippori Mincho" font-size="44" fill="#211E1A">手順を検討。</text>
+  <text x="64" y="314" font-family="Shippori Mincho" font-size="30" fill="#211E1A">定跡の管理</text>
+  <text x="64" y="356" font-family="IBM Plex Sans JP" font-size="24" fill="#5C564C">定跡を登録し、手順を並べて検討できます。</text>
+  <text x="64" y="422" font-family="Shippori Mincho" font-size="30" fill="#211E1A">局面ラベル</text>
+  <text x="64" y="464" font-family="IBM Plex Sans JP" font-size="24" fill="#5C564C">局面にラベルを付け、棋譜一覧を絞り込み。</text>
+  <text x="64" y="510" font-family="IBM Plex Sans JP" font-size="18" fill="#5C564C">局面ラベル（画面抜粋）</text>
+  <image x="64" y="530" width="576" height="326.4" href="release-1.15-labels.png"/>
+  <text x="704" y="138" font-family="IBM Plex Sans JP" font-size="18" fill="#5C564C">定跡画面（抜粋）</text>
+  <image x="704" y="158" width="432" height="691.2" href="release-1.15-repertoire.png"/>
+</svg>

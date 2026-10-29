@@ -10,6 +10,7 @@ import dev.miyado.shogisupplement.ui.text.UiStrings
 import org.jetbrains.compose.resources.stringResource
 import dev.miyado.shogisupplement.ui.generated.resources.*
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -26,6 +27,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -37,6 +40,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import dev.miyado.shogisupplement.ui.common.scaffoldTopAndSides
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -75,6 +79,7 @@ fun HomeScreen(
     onGameClick: (GameRecord) -> Unit,
     onAnalyzingClick: (InProgressAnalysis) -> Unit = {},
     onStartDrill: () -> Unit = {},
+    onStartMateDrill: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
     onOpenRepertoire: (() -> Unit)? = null,
     onViewAllGames: (() -> Unit)? = null,
@@ -139,7 +144,7 @@ fun HomeScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = padding.calculateTopPadding())
+                .scaffoldTopAndSides(padding)
                 .adaptiveContentWidth(),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = padding.calculateBottomPadding() + 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -172,12 +177,11 @@ fun HomeScreen(
                 item {
                     Card(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(onClick = onStartDrill),
+                            .fillMaxWidth(),
                         colors = CardDefaults.cardColors(
-                            containerColor = shogiColors.highlightSoft,
+                            containerColor = MaterialTheme.colorScheme.surface,
                         ),
-                        border = BorderStroke(1.dp, shogiColors.highlight),
+                        border = BorderStroke(1.dp, shogiColors.line),
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text(
@@ -186,15 +190,29 @@ fun HomeScreen(
                                 color = shogiColors.ink2,
                             )
                             Spacer(Modifier.height(4.dp))
-                            // ファイル名は出さない（対局が特定できるとネタバレになるため）
                             Text(
-                                text = UiStrings.homeTodaysDrillPly(todaysDrillHint.ply),
-                                style = TextStyleData,
+                                text = stringResource(Res.string.home_drill_intro),
+                                style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurface,
                             )
                             Spacer(Modifier.height(4.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Button(onClick = onStartDrill, modifier = Modifier.weight(1f), shape = RoundedCornerShape(8.dp)) {
+                                    Text(stringResource(Res.string.drill_title))
+                                }
+                                OutlinedButton(
+                                    onClick = onStartMateDrill,
+                                    enabled = todaysDrillHint.hasMateDrill,
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
+                                    border = BorderStroke(1.dp, if (todaysDrillHint.hasMateDrill) MaterialTheme.colorScheme.primary else shogiColors.line),
+                                    modifier = Modifier.weight(1f),
+                                ) {
+                                    Text(stringResource(Res.string.drill_mate_title))
+                                }
+                            }
                             Text(
-                                stringResource(Res.string.home_todays_drill_tap),
+                                stringResource(if (todaysDrillHint.hasMateDrill) Res.string.drill_mate_description else Res.string.drill_mate_empty_body),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = shogiColors.ink3,
                             )

@@ -1,5 +1,7 @@
 package dev.miyado.shogisupplement.ui
 
+import dev.miyado.shogisupplement.drill.DrillMode
+
 import dev.miyado.shogisupplement.navigation.AppDestination
 import dev.miyado.shogisupplement.navigation.NavigationEvent
 import dev.miyado.shogisupplement.navigation.NavigationMachine
@@ -19,7 +21,7 @@ class MainNavigationTest {
 
     @Test
     fun homeOpensDrillAndSettings() {
-        listOf(MainUiState.Drill, MainUiState.Settings).forEach { target ->
+        listOf(MainUiState.Drill(), MainUiState.Drill(DrillMode.MATE), MainUiState.Settings).forEach { target ->
             assertEquals(target.destination, NavigationMachine.next(
                 MainUiState.Home(emptyList()).destination, NavigationEvent.Open(target.destination)))
         }

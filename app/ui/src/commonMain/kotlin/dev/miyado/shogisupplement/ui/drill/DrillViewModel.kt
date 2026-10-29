@@ -14,7 +14,7 @@ import dev.miyado.shogisupplement.db.DrillRepository
 import dev.miyado.shogisupplement.db.GameRepository
 import dev.miyado.shogisupplement.db.SettingsRepository
 import dev.miyado.shogisupplement.drill.DrillJudge
-import dev.miyado.shogisupplement.drill.DrillRotation
+import dev.miyado.shogisupplement.drill.DrillMode
 import dev.miyado.shogisupplement.engine.BlockingStudyEngine
 import dev.miyado.shogisupplement.engine.Engine
 import dev.miyado.shogisupplement.ui.common.PvExtState
@@ -44,6 +44,7 @@ class DrillViewModel(
     private val ioDispatcher: CoroutineDispatcher = defaultIoDispatcher,
     private val drillAttemptSync: DrillAttemptSync? = null,
     private val localEngineLikelyAvailable: () -> Boolean = { true },
+    val mode: DrillMode = DrillMode.NORMAL,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<DrillUiState>(DrillUiState.Loading)
@@ -101,14 +102,13 @@ class DrillViewModel(
         studyController?.endStudy()
         _state.value = DrillUiState.Loading
         viewModelScope.launch {
-            val (candidates, attemptCounts) = withContext(ioDispatcher) {
-                drillRepository.getDrillCandidates() to drillRepository.getDrillAttemptCounts()
+            val selection = withContext(ioDispatcher) {
+                drillRepository.getNextDrillQuestion(mode)
             }
-            if (candidates.isEmpty()) {
+            val blunder = selection.candidate
+            if (blunder == null) {
                 _state.value = DrillUiState.NoCandidates
             } else {
-                val blunder = DrillRotation.selectNext(candidates, attemptCounts)!!
-                val attemptCount = attemptCounts[blunder.id] ?: 0
                 val flip = withContext(ioDispatcher) {
                     gameRepository.getGameById(blunder.gameId)?.userSide == "gote"
                 }
@@ -118,8 +118,8 @@ class DrillViewModel(
                 _state.value = DrillUiState.Question(
                     blunder = blunder,
                     sfenCurrent = blunder.sfenBefore,
-                    attemptCount = attemptCount,
-                    totalCandidates = candidates.size,
+                    attemptCount = selection.attemptCount,
+                    totalCandidates = selection.totalCandidates,
                     flip = flip,
                 )
             }
@@ -437,6 +437,7 @@ class DrillViewModel(
             ioDispatcher: CoroutineDispatcher = defaultIoDispatcher,
             drillAttemptSync: DrillAttemptSync? = null,
             localEngineLikelyAvailable: () -> Boolean = { true },
+            mode: DrillMode = DrillMode.NORMAL,
         ): ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 DrillViewModel(
@@ -448,6 +449,7 @@ class DrillViewModel(
                     ioDispatcher = ioDispatcher,
                     drillAttemptSync = drillAttemptSync,
                     localEngineLikelyAvailable = localEngineLikelyAvailable,
+                    mode = mode,
                 )
             }
         }

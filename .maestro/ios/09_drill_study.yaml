@@ -8,5 +8,7 @@ env:
 ---
 - launchApp:
     clearState: false
+    arguments:
+      UITEST_PASTEBOARD_KIF_BASE64: "${typeof UITEST_PASTEBOARD_KIF_BASE64 === 'undefined' ? '' : UITEST_PASTEBOARD_KIF_BASE64}"
 - runFlow: subflows/handle_consent_onboarding.yaml
 - runFlow: ../common/drill_study_position.yaml

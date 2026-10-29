@@ -111,6 +111,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainApp(vm: MainViewModel, state: MainUiState) {
     val tabStateHolder = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
+    val gameListSession = dev.miyado.shogisupplement.ui.gamelist.rememberGameListSession()
     var showKifSourceSheet by remember { mutableStateOf(false) }
     var showRatingSettingsDialog by remember { mutableStateOf(false) }
     var showManualKifu by remember { mutableStateOf(false) }
@@ -161,7 +162,7 @@ fun MainApp(vm: MainViewModel, state: MainUiState) {
             }
             is MainUiState.Drill -> {
                 BackHandler { vm.loadHome() }
-                DrillScreen(onBack = { vm.loadHome() })
+                DrillScreen(onBack = { vm.loadHome() }, mode = state.mode)
             }
             is MainUiState.Account -> {
                 AccountHost(vm)
@@ -211,6 +212,7 @@ fun MainApp(vm: MainViewModel, state: MainUiState) {
                     onAddGame = { showKifSourceSheet = true },
                     games = emptyList(),
                     queries = vm.gameListQueries,
+                    session = gameListSession,
                     labelOwner = labelOwner?.id,
                     dataRevision = state.dataRevision,
                     pendingUploadCount = state.pendingUploadCount,

@@ -55,7 +55,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
-import androidx.compose.ui.window.ComposeUIViewController
 import com.mikepenz.aboutlibraries.Libs
 import dev.miyado.shogisupplement.auth.AuthRepository
 import dev.miyado.shogisupplement.crypto.IosTransferSecretStore
@@ -80,6 +79,7 @@ import dev.miyado.shogisupplement.ui.consent.ConsentScreen
 import dev.miyado.shogisupplement.ui.debug.DebugScreen
 import dev.miyado.shogisupplement.ui.drill.DrillQuestionContent
 import dev.miyado.shogisupplement.ui.drill.DrillResultContent
+import dev.miyado.shogisupplement.drill.DrillMode
 import dev.miyado.shogisupplement.ui.drill.DrillUiState
 import dev.miyado.shogisupplement.ui.forceupdate.ForceUpdateScreen
 import dev.miyado.shogisupplement.ui.gamelist.GameListScreen
@@ -141,7 +141,8 @@ import platform.UIKit.UIGraphicsGetImageFromCurrentImageContext
 
 /** Supabase設定時、未同意なら他ルートを遮断し、同意処理の完了後だけホームへ進める。 */
 @OptIn(ExperimentalNativeApi::class)
-fun MainViewController(): UIViewController = ComposeUIViewController {
+fun MainViewController(): UIViewController = dev.miyado.shogisupplement.ui.navigation.rootTabHostController {
+    remember { DatabaseFactory.configureNamespace(DebugBackendStore.namespace) }
     val gameRepository = remember { DatabaseFactory.gameRepository() }
     val drillRepository = remember { DatabaseFactory.drillRepository() }
     val settingsRepository = remember { DatabaseFactory.settingsRepository() }
@@ -155,9 +156,10 @@ fun MainViewController(): UIViewController = ComposeUIViewController {
                 gameRepository,
                 drillRepository,
                 settingsRepository,
-                IosTransferSecretStore(),
+                IosTransferSecretStore(DebugBackendStore.namespace),
                 // framework実体との不一致を避けるため、Swift側ではなくKotlinバイナリのDebug判定を使う。
                 platform = resolvePolicyPlatform("ios", Platform.isDebugBinary),
+                authStorage = DebugBackendStore.authStorage(),
             )
         }
     }
@@ -283,7 +285,7 @@ private fun IosConsentScreenHost(
 private sealed class DemoRoute {
     object Home : DemoRoute()
     data class Report(val gameId: Long, val justCompleted: Boolean = false) : DemoRoute()
-    object Drill : DemoRoute()
+    data class Drill(val mode: DrillMode = DrillMode.NORMAL) : DemoRoute()
     object Settings : DemoRoute()
     object Licenses : DemoRoute()
     object Account : DemoRoute()
@@ -305,7 +307,7 @@ private val DemoRoute.destination: AppDestination
     get() = when (this) {
         DemoRoute.Home -> AppDestination.HOME
         is DemoRoute.Report -> AppDestination.REPORT
-        DemoRoute.Drill -> AppDestination.DRILL
+        is DemoRoute.Drill -> AppDestination.DRILL
         DemoRoute.Settings -> AppDestination.SETTINGS
         DemoRoute.Licenses -> AppDestination.LICENSES
         DemoRoute.Account -> AppDestination.ACCOUNT
@@ -331,6 +333,7 @@ private fun DemoApp(
 ) {
     val shareTitle = stringResource(Res.string.app_title)
     val tabStateHolder = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
+    val gameListSession = dev.miyado.shogisupplement.ui.gamelist.rememberGameListSession()
     var route by remember { mutableStateOf<DemoRoute>(DemoRoute.Home) }
     var rootNavigation by remember { mutableStateOf(dev.miyado.shogisupplement.navigation.RootNavigation()) }
     fun rootRoute(destination: AppDestination): DemoRoute = when(destination) {
@@ -545,7 +548,8 @@ private fun DemoApp(
                     onOpenKif = { showKifSourceDialog = true },
                     onGameClick = { game -> navigate(DemoRoute.Report(game.id)) },
                     onAnalyzingClick = { session -> controller.resumeAnalyzing(session.id) },
-                    onStartDrill = { navigate(DemoRoute.Drill) },
+                    onStartDrill = { navigate(DemoRoute.Drill()) },
+                    onStartMateDrill = { navigate(DemoRoute.Drill(DrillMode.MATE)) },
                     onOpenSettings = { navigate(DemoRoute.Settings) },
                     onOpenRepertoire = { navigate(DemoRoute.Repertoire) },
                     onViewAllGames = { navigate(DemoRoute.GameList) },
@@ -625,10 +629,12 @@ private fun DemoApp(
                 controller = controller,
                 onBack = { navigate(DemoRoute.Home, NavigationEvent.Back) },
                 onShare = { shareCurrentScreen(shareTitle) },
+                onShareGameUrl = { shareText(it) },
             )
         }
-        DemoRoute.Drill -> {
+        is DemoRoute.Drill -> {
             IosDrillScreen(
+                mode = r.mode,
                 authRepository = supabaseServices?.authRepository,
                 analysisBaseUrl = analysisBaseUrl,
                 services = supabaseServices,
@@ -711,6 +717,7 @@ private fun DemoApp(
                 services = supabaseServices,
                 settingsRepository = settingsRepository,
                 controller = controller,
+                session = gameListSession,
                 onBack = { navigate(DemoRoute.Home, NavigationEvent.Back) },
                 onGameClick = { game -> navigate(DemoRoute.Report(game.id)) },
                 onAddGame = { showKifSourceDialog = true },
@@ -747,6 +754,7 @@ private fun IosGameListScreenHost(
     services: SupabaseServices?,
     settingsRepository: SettingsRepository,
     controller: IosMainController,
+    session: dev.miyado.shogisupplement.ui.gamelist.GameListSession,
     onBack: () -> Unit,
     onGameClick: (GameRecord) -> Unit,
     onAddGame: () -> Unit,
@@ -776,6 +784,7 @@ private fun IosGameListScreenHost(
     GameListScreen(
         games = emptyList(),
         queries = repository.gameListQueries,
+        session = session,
         labelOwner = labelOwner,
         dataRevision = dataRevision,
         onAddGame = onAddGame,
@@ -951,6 +960,7 @@ private fun IosReportScreenHost(
     onBack: () -> Unit,
     justCompleted: Boolean = false,
     onShare: () -> Unit = {},
+    onShareGameUrl: (String) -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     var report by remember(gameId) { mutableStateOf<ReportScreenState?>(null) }
@@ -1048,6 +1058,8 @@ private fun IosReportScreenHost(
         // （Android版 ReportHost.kt の ClipboardManager 相当・snackbar表示は ReportScreen 側）。
         onCopyKif = { kifText -> UIPasteboard.generalPasteboard.string = controller.savedKifForExport(g.id) ?: kifText },
         onShare = onShare,
+        gameShareService = controller.gameShareService,
+        onShareGameUrl = onShareGameUrl,
     )
 }
 
@@ -1058,13 +1070,15 @@ private fun IosReportScreenHost(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun IosDrillScreen(
+    mode: DrillMode = DrillMode.NORMAL,
     onBack: () -> Unit,
     authRepository: AuthRepository? = null,
     analysisBaseUrl: String? = null,
     services: SupabaseServices? = null,
 ) {
-    val vm = remember(authRepository, analysisBaseUrl, services) {
+    val vm = remember(authRepository, analysisBaseUrl, services, mode) {
         DrillDemoFactory.create(
+            mode = mode,
             authRepository = authRepository,
             analysisBaseUrl = analysisBaseUrl,
             drillAttemptSync = services?.uploadOrchestrator,
@@ -1079,7 +1093,7 @@ private fun IosDrillScreen(
 
     Scaffold(contentWindowInsets = scaffoldContentInsets()) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            ShogiThinTopBar(title = stringResource(Res.string.drill_title), onBack = leave)
+            ShogiThinTopBar(title = stringResource(if (mode == DrillMode.MATE) Res.string.drill_mate_title else Res.string.drill_title), onBack = leave)
             when (val s = state) {
                 is DrillUiState.Loading -> {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -1088,7 +1102,7 @@ private fun IosDrillScreen(
                 }
                 is DrillUiState.NoCandidates -> {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(stringResource(Res.string.drill_empty_title), style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(if (mode == DrillMode.MATE) Res.string.drill_mate_empty_title else Res.string.drill_empty_title), style = MaterialTheme.typography.titleMedium)
                     }
                 }
                 is DrillUiState.Question -> {
@@ -1203,6 +1217,11 @@ private fun IosDebugScreenHost(
 
     DebugScreen(
         onBack = onBack,
+        backendHostInitial = DebugBackendStore.savedHost(),
+        backendIsLan = DebugBackendStore.active != null,
+        onSaveBackend = { host ->
+            if (host == null) { DebugBackendStore.clear(); true } else DebugBackendStore.save(host)
+        },
         siteBaseUrlInputInitial = savedInitial,
         effectiveSiteBaseUrl = effectiveInfo.url,
         effectiveSiteBaseUrlSource = when (effectiveInfo.source) {
@@ -1307,10 +1326,10 @@ private fun IosTransferCodeInputHost(
             transferRestoreService = RemoteTransferRestoreService(
                 baseUrl = analysisBaseUrl,
                 authRepository = services.authRepository,
-                transferSecretStore = IosTransferSecretStore(),
+                transferSecretStore = services.transferSecretStore,
                 settingsRepository = settingsRepository,
                 platform = resolvePolicyPlatform("ios", Platform.isDebugBinary),
-                appCheckTokenProvider = AppCheckTokenBridge::getToken,
+                appCheckTokenProvider = { if (DebugBackendStore.active == null) AppCheckTokenBridge.getToken() else null },
             ),
         )
     }
@@ -1398,6 +1417,23 @@ private fun shareCurrentScreen(title: String) {
             activityItems = listOf(ScreenshotActivityItemSource(image, title)),
             applicationActivities = null,
         ),
+        animated = true,
+        completion = null,
+    )
+}
+
+@OptIn(ExperimentalForeignApi::class)
+private fun shareText(text: String) {
+    val scene = UIApplication.sharedApplication.connectedScenes
+        .asSequence()
+        .filterIsInstance<UIWindowScene>()
+        .firstOrNull() ?: return
+    val window = scene.windows.asSequence()
+        .filterIsInstance<UIWindow>()
+        .firstOrNull { it.isKeyWindow() } ?: return
+    val presenter = window.rootViewController ?: return
+    presenter.presentViewController(
+        UIActivityViewController(activityItems = listOf(text), applicationActivities = null),
         animated = true,
         completion = null,
     )

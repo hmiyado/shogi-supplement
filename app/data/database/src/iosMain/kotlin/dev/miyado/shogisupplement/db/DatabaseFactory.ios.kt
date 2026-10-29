@@ -11,6 +11,14 @@ import app.cash.sqldelight.driver.native.NativeSqliteDriver
  */
 object DatabaseFactory {
 
+    private var databaseName = "shogi_supplement.db"
+
+    fun configureNamespace(namespace: String?) {
+        val name = namespace?.let { "shogi_supplement_$it.db" } ?: "shogi_supplement.db"
+        check(database == null || databaseName == name)
+        databaseName = name
+    }
+
     private var database: ShogiSupplementDatabase? = null
     private var gameRepositoryInstance: GameRepository? = null
     private var drillRepositoryInstance: DrillRepository? = null
@@ -35,7 +43,7 @@ object DatabaseFactory {
     private fun createDatabase(): ShogiSupplementDatabase {
         val driver = NativeSqliteDriver(
             schema = ShogiSupplementDatabase.Schema,
-            name = "shogi_supplement.db",
+            name = databaseName,
         )
         return ShogiSupplementDatabase(driver)
     }

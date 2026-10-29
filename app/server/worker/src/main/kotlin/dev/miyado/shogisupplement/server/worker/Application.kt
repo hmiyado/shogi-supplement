@@ -15,6 +15,7 @@ import dev.miyado.shogisupplement.server.worker.repo.SupabaseAnalysisJobReposito
 import dev.miyado.shogisupplement.server.worker.repo.SupabaseAppUsageRepository
 import dev.miyado.shogisupplement.server.worker.repo.SupabaseAppPolicyGate
 import dev.miyado.shogisupplement.server.worker.repo.SupabaseBanRepository
+import dev.miyado.shogisupplement.server.worker.repo.SupabaseStaticGameShareRepository
 import dev.miyado.shogisupplement.server.worker.repo.SupabaseQuotaLimitRepository
 import dev.miyado.shogisupplement.server.worker.repo.SupabaseTransferSecretRepository
 import dev.miyado.shogisupplement.server.worker.repo.supabaseJson
@@ -42,7 +43,11 @@ import org.slf4j.LoggerFactory
 private val engineLog = LoggerFactory.getLogger(UsiEngineSubprocess::class.java)
 private val applicationLog = LoggerFactory.getLogger("dev.miyado.shogisupplement.server.worker.Application")
 
-fun main() {
+fun main(args: Array<String>) {
+    if (args.contentEquals(arrayOf("--cleanup-game-shares"))) {
+        runGameShareCleanup()
+        return
+    }
     val config = WorkerConfig.fromEnv()
     embeddedServer(Netty, port = config.port, host = "0.0.0.0") {
         module(config)
@@ -59,6 +64,7 @@ fun CORSConfig.configureWebOrigins(allowLocalhost: Boolean) {
     }
     allowMethod(HttpMethod.Post)
     allowHeader(HttpHeaders.ContentType)
+    allowHeader(HttpHeaders.Authorization)
     allowHeader(ApiHeaders.APP_CHECK)
     allowHeader(ApiHeaders.APP_PLATFORM)
     allowHeader(ApiHeaders.APP_BUILD)
@@ -196,8 +202,24 @@ fun Application.module(config: WorkerConfig) {
         appPolicyGate = appPolicyGate,
     )
 
+    val gameShareRepository =
+        SupabaseStaticGameShareRepository(
+            HttpClient(CIO) {
+                install(ClientContentNegotiation) { json(supabaseJson) }
+                install(io.ktor.client.plugins.HttpTimeout) { requestTimeoutMillis = 30_000 }
+            },
+            config.supabaseUrl, config.supabaseServiceRoleKey,
+        )
+    val gameShareService = GameShareService(
+        repository = gameShareRepository,
+        authVerifier = authVerifier,
+        appCheckVerifier = appCheckVerifier,
+        appPolicyGate = appPolicyGate,
+    )
+
     routing {
         registerAnalysisRoutes(service)
         registerTransferRoutes(transferService)
+        registerGameShareRoutes(gameShareService)
     }
 }

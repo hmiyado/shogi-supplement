@@ -2,4 +2,8 @@ source "https://rubygems.org"
 
 # バージョン固定。fastlaneはリリース間隔が短く、Fastfileの記法が
 # マイナーバージョンで変わることがあるため、ここで挙動を固定する。
-gem "fastlane", "2.239.0"
+gem "fastlane", "2.241.2"
+
+group :test do
+  gem "minitest", "~> 5.25"
+end

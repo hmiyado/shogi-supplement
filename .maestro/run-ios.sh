@@ -1,15 +1,7 @@
 #!/usr/bin/env bash
-# iOSフローの実行入口。クリップボードの事前状態（02は有効なKIFが無いこと、
-# 03は有効なKIFがあること）が前提のフローがあるため、投入もここで一緒に行う。
-#
-# KIF投入をMaestroフロー内に書かないのは、MaestroのsetClipboard/pasteTextが
-# Maestro内部のクリップボードにしか作用せず、UIPasteboardを直接読む
-# アプリの「クリップボードから貼り付け」には効かないため。
-# 02と03で前提が相反するため、ディレクトリ一括ではなくフロー単位で
-# クリップボードを設定し直して実行する。
-#
+# 外部からのクリップボード更新を拒否するSimulatorでも同じ入力を使うため、
+# Debug起動引数でアプリ自身に書き込ませる。
 # 使い方: .maestro/run-ios.sh [UDID] [KIFファイル]
-#   UDID省略時はbooted（起動中シミュレータが1台のときのみ）。
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -22,24 +14,26 @@ else
   MAESTRO_ARGS=(--udid "${UDID}")
 fi
 
-# LANG/LC_ALLの指定が無いと、CJKテキストで xcrun simctl pbcopy が
-# 文字コード判定に失敗する（simctl側の既知の癖）。
+PASTEBOARD_FIXTURE_B64=""
 put_clipboard() {
-  LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 \
-    bash -c "xcrun simctl pbcopy '${UDID}'" <<<"$1"
+  PASTEBOARD_FIXTURE_B64="$(printf '%s' "$1" | base64 | tr -d '\n')"
+}
+run_maestro() {
+  maestro test "${MAESTRO_ARGS[@]}" -e "UITEST_PASTEBOARD_KIF_BASE64=${PASTEBOARD_FIXTURE_B64}" "$1"
 }
 
 put_clipboard "not a kif"
-maestro test "${MAESTRO_ARGS[@]}" .maestro/ios/01_home_smoke.yaml
-maestro test "${MAESTRO_ARGS[@]}" .maestro/ios/02_clipboard_paste_alert.yaml
+run_maestro .maestro/ios/01_home_smoke.yaml
+run_maestro .maestro/ios/10_root_tab_navigation.yaml
+run_maestro .maestro/ios/02_clipboard_paste_alert.yaml
 
 put_clipboard "$(cat "${KIF_FILE}")"
-maestro test "${MAESTRO_ARGS[@]}" .maestro/ios/03_kif_import_via_clipboard.yaml
-maestro test "${MAESTRO_ARGS[@]}" .maestro/ios/04_manual_kif_input.yaml
-maestro test "${MAESTRO_ARGS[@]}" .maestro/ios/06_manual_kif_side_cancel.yaml
-maestro test "${MAESTRO_ARGS[@]}" .maestro/ios/07_settings_theme.yaml
-maestro test "${MAESTRO_ARGS[@]}" .maestro/ios/09_drill_study.yaml
+run_maestro .maestro/ios/03_kif_import_via_clipboard.yaml
+run_maestro .maestro/ios/04_manual_kif_input.yaml
+run_maestro .maestro/ios/06_manual_kif_side_cancel.yaml
+run_maestro .maestro/ios/07_settings_theme.yaml
+run_maestro .maestro/ios/09_drill_study.yaml
 # 05・08はclearStateでリセットするため、削除対象を用意するクリップボードの中身が
 # 引き続き必要（03と同じ前提）。
-maestro test "${MAESTRO_ARGS[@]}" .maestro/ios/05_game_delete.yaml
-maestro test "${MAESTRO_ARGS[@]}" .maestro/ios/08_game_list.yaml
+run_maestro .maestro/ios/05_game_delete.yaml
+run_maestro .maestro/ios/08_game_list.yaml

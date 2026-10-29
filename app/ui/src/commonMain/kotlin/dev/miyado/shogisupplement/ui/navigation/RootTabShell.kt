@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.navigation.RootTab
 import dev.miyado.shogisupplement.ui.common.LocalScaffoldContentInsets
 import dev.miyado.shogisupplement.ui.common.scaffoldContentInsets
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalDensity
 
 val LocalRootTabBottomPadding = staticCompositionLocalOf { 0.dp }
@@ -36,6 +37,7 @@ fun RootTabShell(selected: RootTab, visible: Boolean, screenKey: String, onSelec
     val show = visible && !editing
     val insets = scaffoldContentInsets()
     val density = LocalDensity.current
+    val direction = LocalLayoutDirection.current
     Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()) {
         if (show && completed) Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
@@ -48,7 +50,7 @@ fun RootTabShell(selected: RootTab, visible: Boolean, screenKey: String, onSelec
         }
         Box(Modifier.weight(1f)) {
             CompositionLocalProvider(LocalRootTabBottomPadding provides if (show && rootTabsOverlayContent) 96.dp else 0.dp, LocalRootTabHost provides true, LocalRootDetailChanged provides { editing = it },
-                LocalScaffoldContentInsets provides if (show) WindowInsets(0, insets.getTop(density), 0, if (rootTabsOverlayContent) with(density) { 96.dp.roundToPx() } else 0) else insets) {
+                LocalScaffoldContentInsets provides if (show) WindowInsets(insets.getLeft(density, direction), insets.getTop(density), insets.getRight(density, direction), if (rootTabsOverlayContent) with(density) { 96.dp.roundToPx() } else 0) else insets) {
                 holder.SaveableStateProvider(screenKey) { content() }
             }
         }

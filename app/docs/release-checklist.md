@@ -60,9 +60,24 @@
 - 過去バージョンの文言は遡及変更しない。
 - Play Consoleの「新機能」欄はメンテナが手入力する。文面は`release_notes.txt`と揃える。
 
+### サーバー・Webの公開条件
+
+棋譜のURL共有を含むリリースでは、[配布手順](../../docs/game-share.md#配布)に従い、
+DBマイグレーション・Worker・削除Job・Schedulerを先に用意する。
+定期削除・再試行・元棋譜やアカウント削除後のファイル削除を確認してから、
+対応するクライアントとWebを配布する。アプリのビルド成功だけでは公開条件を満たさない。
+
+エンジンの詰み確認を変更した場合は、Android同梱バイナリ、iOS向けライブラリ、
+Workerイメージ、ブラウザ用Wasmを現行ソースから生成する。
+Workerの来歴とWasmのVERSIONも更新し、旧結果とキャッシュを分離する。
+
 ### ストア画像
 
 UIが変わったリリースでは掲載画像も更新する。
+
+iPhone Duo対応版はXcode 27.1以降でビルドし、内側・外側の実画面と開閉時の状態保持を確認する。
+専用画像は`*_duo_inner.*`・`*_duo_outer.*`。指定寸法とテスト生成手順は
+[iPhone Duo 対応](../../docs/iphone-duo.md)を参照し、既存のiPhone画像の拡大で代用しない。
 
 ```bash
 cd app && ./gradlew :androidApp:recordRoborazziDebug --tests "*StoreImageTest*" -Pshogi.storeImages=true --rerun-tasks
@@ -70,7 +85,11 @@ cd app && ./gradlew :androidApp:recordRoborazziDebug --tests "*StoreImageTest*" 
 
 - 書き出し先は `app/iosApp/fastlane/screenshots/ja/`。6.9インチ枠（1290x2796）と
   6.5インチ枠（1284x2778・ファイル名末尾 `_6.5`）を各6枚、同じ見出し・画面から生成する。
-  差分を目で確認してから準備コミットに含める。
+  Duo内外各6枚は `app/iosApp/fastlane/duo_screenshots/ja/` へ生成する。
+  fastlane 2.241.2で提出用に通常12枚とDuo10枚を`app/iosApp/build/store_screenshots/ja/`へまとめる。
+  Duoは内外で同一区分のため、ホーム・形勢グラフ・悪手一覧・出題・結果を各5枚に絞る。
+  `beta`と`submit`が準備処理を実行し、`deliver`はこの提出用フォルダを使う。
+  差分を目で確認してから準備コミットに含め、アップロード後もDuo区分への反映を確認する。
 - 1枚は「見出し＋端末モック」の組み。見出しの文言・画面の中身の数値はどちらも
   `StoreImageTest.kt` にある。見出しは2行までに収める（はみ出すと端末に被る）。
 - 見出しの文言は `docs/wording.md` の対象。変えるときは表と突き合わせる。

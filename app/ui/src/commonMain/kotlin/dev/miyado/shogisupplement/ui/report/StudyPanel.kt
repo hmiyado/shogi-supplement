@@ -87,6 +87,7 @@ internal fun StudyNavRow(
     onStudyStepBack: () -> Unit,
     onStudyStepForward: () -> Unit,
     onStudyExit: (() -> Unit)?,
+    onSelectMove: (() -> Unit)? = null,
 ) {
     val labelMovePrevious = stringResource(Res.string.move_previous)
     val labelMoveNext = stringResource(Res.string.move_next)
@@ -105,19 +106,32 @@ internal fun StudyNavRow(
             modifier = Modifier.height(36.dp).widthIn(min = 36.dp),
             contentPadding = PaddingValues(horizontal = 2.dp),
         ) { Icon(vectorResource(Res.drawable.ic_auto_mirrored_filled_keyboard_arrow_left), contentDescription = labelMovePrevious) }
-        Text(
-            text = when {
-                studyState.showTurnHint -> UiStrings.studyTurnHint(studySenteToMove)
-                studyState.moves.isEmpty() -> stringResource(Res.string.study_start_position)
-                else -> UiStrings.studyPlyLabel(studyState.originAbsolutePly + studyState.moves.size)
-            },
-            modifier = Modifier.weight(1f),
-            textAlign = TextAlign.Center,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.primary,
-            maxLines = 1,
-            overflow = TextOverflow.MiddleEllipsis,
-        )
+        Row(
+            modifier = Modifier.weight(1f).then(
+                if (onSelectMove != null) Modifier.clickable(onClick = onSelectMove) else Modifier,
+            ),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+        ) {
+            Text(
+                text = when {
+                    studyState.showTurnHint -> UiStrings.studyTurnHint(studySenteToMove)
+                    studyState.moves.isEmpty() -> stringResource(Res.string.study_start_position)
+                    else -> UiStrings.studyPlyLabel(studyState.originAbsolutePly + studyState.moves.size)
+                },
+                modifier = Modifier.weight(1f, fill = false),
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 1,
+                overflow = TextOverflow.MiddleEllipsis,
+            )
+            if (onSelectMove != null) Icon(
+                vectorResource(Res.drawable.ic_filled_keyboard_arrow_down),
+                contentDescription = stringResource(Res.string.move_list_title),
+                tint = MaterialTheme.colorScheme.primary,
+            )
+        }
         TextButton(
             onClick = onStudyStepForward,
             enabled = studyState.moves.size < studyState.displayLine.size,

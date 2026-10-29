@@ -90,6 +90,23 @@ android {
         // 使わず、debugビルドの疎通確認（DebugServerAnalysisReceiver）だけが参照する。
         // 未設定なら空文字になり、受信側が「未設定」として弾く。
         buildConfigField("String", "ANALYSIS_BASE_URL", "\"${localProps["ANALYSIS_BASE_URL"] ?: ""}\"")
+        // App Check用の公開識別子。秘密ではないが、プロジェクト識別子を公開リポジトリへ
+        // 置かない方針のためlocal.propertiesから注入する。3つ揃わないとApp Checkは無効。
+        buildConfigField(
+            "String",
+            "FIREBASE_ANDROID_APPLICATION_ID",
+            "\"${localProps["FIREBASE_ANDROID_APPLICATION_ID"] ?: ""}\"",
+        )
+        buildConfigField(
+            "String",
+            "FIREBASE_ANDROID_API_KEY",
+            "\"${localProps["FIREBASE_ANDROID_API_KEY"] ?: ""}\"",
+        )
+        buildConfigField(
+            "String",
+            "FIREBASE_ANDROID_PROJECT_ID",
+            "\"${localProps["FIREBASE_ANDROID_PROJECT_ID"] ?: ""}\"",
+        )
     }
 
     // リリース署名: app/keystore.properties から読み込み（git管理外）。
@@ -214,6 +231,9 @@ dependencies {
 
     // クラッシュレポート（Sentry Android SDK）
     implementation(libs.sentry.android)
+
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.appcheck.playintegrity)
 
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.ext.junit)

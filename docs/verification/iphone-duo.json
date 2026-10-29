@@ -1,0 +1,133 @@
+{
+  "issue": 114,
+  "verified_on": "2026-10-27",
+  "environment": {
+    "xcode": "27.1 (27A9275)",
+    "runtime": "iOS 27.1 (24A94232)",
+    "simulator": "Shogi Duo validation",
+    "physical_device_verified": false
+  },
+  "checks": {
+    "functional_tests": {
+      "passed": 9
+    },
+    "vrt": {
+      "passed": 50,
+      "total": 51,
+      "existing_failure": "report_viewer_study_branch",
+      "existing_failure_image_sha256": "0d9ce9ea35fc427e9bf0586da698e991903f6d202ba25e696679a244523ee4f3"
+    },
+    "builds": [
+      "iOS Simulator framework",
+      "Xcode build-for-testing",
+      "UI Wasm compile"
+    ],
+    "store_ui_test": {
+      "outer": "passed",
+      "inner": "passed",
+      "purpose": "Separate Simulator integration validation; attachments are not the published store images."
+    },
+    "manual_fold": "Advancing report one ply, then open-close-open retained the selected ply. Additional rotation and all keyboard/accessibility states are not exhaustively verified.",
+    "store_image_generation": {
+      "tests": 6,
+      "status": "passed",
+      "home_updated_for_issue": 113
+    }
+  },
+  "capture": {
+    "generator": "app/androidApp/src/test/kotlin/dev/miyado/shogisupplement/ui/StoreImageTest.kt",
+    "method": "Robolectric native graphics / Roborazzi renders the actual common UI with captions; final image is downsampled and converted to opaque RGB PNG",
+    "fixture": "miyado_game1.kif with evals_game1.ndjson",
+    "screens_per_display": 6,
+    "inner_app_area_percent": 76.76071144081088,
+    "visual_review": "All 12 generated images reviewed",
+    "upload_performed": false,
+    "upload_support": "Pinned fastlane 2.239.0 does not recognize Duo. Outputs are separated from automatic deliver inputs pending Apple and fastlane support."
+  },
+  "screenshots": [
+    {
+      "path": "app/iosApp/fastlane/duo_screenshots/ja/01_home_duo_inner.png",
+      "width": 2853,
+      "height": 2007,
+      "alpha": false,
+      "sha256": "853fdb5294f9f951f4557194bc2dd55012059a03d148b85a914e56f2d729f5b1"
+    },
+    {
+      "path": "app/iosApp/fastlane/duo_screenshots/ja/01_home_duo_outer.png",
+      "width": 1398,
+      "height": 2034,
+      "alpha": false,
+      "sha256": "7ccf87d6ce5153366f3f7e216d6eec1084a4efe4ab6f2b244a08ef2e08fdfef9"
+    },
+    {
+      "path": "app/iosApp/fastlane/duo_screenshots/ja/02_home_dark_duo_inner.png",
+      "width": 2853,
+      "height": 2007,
+      "alpha": false,
+      "sha256": "0b304be683a901ada9122dc3a113f5affc2f83c231e6047f36a5bd59d816bbbf"
+    },
+    {
+      "path": "app/iosApp/fastlane/duo_screenshots/ja/02_home_dark_duo_outer.png",
+      "width": 1398,
+      "height": 2034,
+      "alpha": false,
+      "sha256": "b1aba226535fd13fad1a63ae3b3a9ea6b8a414a4de8fc176caf0c17a405e9a80"
+    },
+    {
+      "path": "app/iosApp/fastlane/duo_screenshots/ja/03_report_graph_duo_inner.png",
+      "width": 2853,
+      "height": 2007,
+      "alpha": false,
+      "sha256": "4f48d0205b06c20c796ce847ae7f03f851b8f9ad5395ad0e6ac22ca681cfed7b"
+    },
+    {
+      "path": "app/iosApp/fastlane/duo_screenshots/ja/03_report_graph_duo_outer.png",
+      "width": 1398,
+      "height": 2034,
+      "alpha": false,
+      "sha256": "2f02a606efc692cbf73cf53058eafbc6dc7f61e9988b7edcb06fbcbcadcd2ee6"
+    },
+    {
+      "path": "app/iosApp/fastlane/duo_screenshots/ja/04_blunder_list_duo_inner.png",
+      "width": 2853,
+      "height": 2007,
+      "alpha": false,
+      "sha256": "20df4fa9702f456b5644b4d6169fa813e65dfc6ee9399927f56900fee4a4bcc9"
+    },
+    {
+      "path": "app/iosApp/fastlane/duo_screenshots/ja/04_blunder_list_duo_outer.png",
+      "width": 1398,
+      "height": 2034,
+      "alpha": false,
+      "sha256": "b984b65e255f4c6116ac1fee4ccc5a60d42da752b936f7344d0e6b252ada3a40"
+    },
+    {
+      "path": "app/iosApp/fastlane/duo_screenshots/ja/05_drill_question_duo_inner.png",
+      "width": 2853,
+      "height": 2007,
+      "alpha": false,
+      "sha256": "03ddfe1d57ec3e4359e975361ed87663ccff0e606d67feab2b6083d83832e75b"
+    },
+    {
+      "path": "app/iosApp/fastlane/duo_screenshots/ja/05_drill_question_duo_outer.png",
+      "width": 1398,
+      "height": 2034,
+      "alpha": false,
+      "sha256": "958803d7091b4a5e1d820bef5381e48a789ca9fd91c3f9fadd2c940d9e4d7a82"
+    },
+    {
+      "path": "app/iosApp/fastlane/duo_screenshots/ja/06_drill_result_duo_inner.png",
+      "width": 2853,
+      "height": 2007,
+      "alpha": false,
+      "sha256": "d9438fafd72b44caaaaa22157c7c603eaacbd70dc3f9e38da625f18cba7f6cb5"
+    },
+    {
+      "path": "app/iosApp/fastlane/duo_screenshots/ja/06_drill_result_duo_outer.png",
+      "width": 1398,
+      "height": 2034,
+      "alpha": false,
+      "sha256": "ad5d53040000a3638541afb8d1b3efe297baebc1755a6606aa289832aeb8f67c"
+    }
+  ]
+}

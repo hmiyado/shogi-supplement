@@ -1,0 +1,185 @@
+{
+  "issue": 113,
+  "verified_on": "2026-10-27",
+  "tests": [
+    {
+      "name": "StoreImageTest",
+      "tests": 6,
+      "failures": 0,
+      "skipped": 0
+    },
+    {
+      "name": "MateDrillModeTest",
+      "tests": 4,
+      "failures": 0,
+      "skipped": 0
+    },
+    {
+      "name": "MainNavigationTest",
+      "tests": 2,
+      "failures": 0,
+      "skipped": 0
+    },
+    {
+      "name": "DrillViewModelTest",
+      "tests": 15,
+      "failures": 0,
+      "skipped": 0
+    },
+    {
+      "name": "ScaffoldHorizontalInsetsTest",
+      "tests": 2,
+      "failures": 0,
+      "skipped": 0
+    },
+    {
+      "name": "HomeDrillModeScreenshotTest",
+      "tests": 3,
+      "failures": 0,
+      "skipped": 0
+    },
+    {
+      "name": "HomeScreenScreenshotTest",
+      "tests": 8,
+      "failures": 0,
+      "skipped": 0
+    }
+  ],
+  "total_passed": 40,
+  "builds": [
+    "Android application and unit tests",
+    "iOS Simulator common UI compile",
+    "Wasm common UI compile",
+    "UI catalog generation"
+  ],
+  "physical_device_verified": false,
+  "native_ui_interaction_verified": false,
+  "scope": "Home has two direct start buttons; mode persists for next question; confirmed-mate candidates only; shared first-move grading and attempt history; no full-line tsume rules",
+  "screenshots": [
+    "home_drill_modes.png",
+    "home_drill_modes_empty.png",
+    "home_drill_modes_dark.png",
+    "adaptive_home_expanded.png"
+  ],
+  "final_verification": {
+    "status": "passed",
+    "tests": 19,
+    "coverage": "Home screenshot comparisons and interactions, mate candidate selection/rotation, navigation and horizontal insets"
+  },
+  "bounded_selection": {
+    "verified_on": "2026-10-27",
+    "max_question_records_returned": 1,
+    "selection": "SQL filters mode and ranks by attempt count, verdict, priority, random tie-break; LIMIT 1",
+    "counts": "DB scalar aggregates in same read transaction",
+    "home": "EXISTS",
+    "unbounded_apis_removed": [
+      "getDrillCandidates",
+      "getDrillAttemptCounts"
+    ],
+    "tests": [
+      {
+        "suite": "dev.miyado.shogisupplement.ui.MateDrillModeTest",
+        "tests": 6,
+        "failures": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "dev.miyado.shogisupplement.ui.ReportResizeStateTest",
+        "tests": 2,
+        "failures": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "dev.miyado.shogisupplement.ui.MainNavigationTest",
+        "tests": 2,
+        "failures": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "dev.miyado.shogisupplement.ui.DrillViewModelTest",
+        "tests": 15,
+        "failures": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "dev.miyado.shogisupplement.ui.ScaffoldHorizontalInsetsTest",
+        "tests": 2,
+        "failures": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "RepertoireRepositoryTest[jvm]",
+        "tests": 3,
+        "failures": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "SchemaMigrationTest[jvm]",
+        "tests": 4,
+        "failures": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "ConsentOrchestratorTest[jvm]",
+        "tests": 4,
+        "failures": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "GameRepositoryTest[jvm]",
+        "tests": 46,
+        "failures": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "DrillRepositoryTest[jvm]",
+        "tests": 18,
+        "failures": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "SettingsRepositoryTest[jvm]",
+        "tests": 28,
+        "failures": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "GameImporterTest[jvm]",
+        "tests": 5,
+        "failures": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "AnalysisOrchestratorTest[jvm]",
+        "tests": 12,
+        "failures": 0,
+        "skipped": 0
+      },
+      {
+        "suite": "GameListReaderTest[jvm]",
+        "tests": 9,
+        "failures": 0,
+        "skipped": 0
+      }
+    ],
+    "builds": [
+      "Android main",
+      "iOS Simulator common UI",
+      "Wasm common UI"
+    ],
+    "schema_migration_required": false,
+    "scope": "Commit candidate with unrelated pending work excluded"
+  },
+  "device_validation": {
+    "device": "iPhone 16e",
+    "version": "1.16 (17)",
+    "build": "Xcode 27.1 Debug",
+    "installation": "overwrite, launched successfully",
+    "user_confirmed_working": true
+  },
+  "commit_review": {
+    "model": "gpt-5.6-sol",
+    "result": "No actionable correctness defects found",
+    "tests": "Executed separately on the isolated commit candidate; review process could not run Gradle in its read-only environment"
+  }
+}

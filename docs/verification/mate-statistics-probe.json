@@ -1,0 +1,92 @@
+{
+  "scope": "Synthetic local dedicated-engine probe; not product integration",
+  "nodes": 100000,
+  "millis": 500,
+  "cases": [
+    {
+      "name": "threat_before_response",
+      "sfen": "3lkl3/3p1p3/4G4/9/9/9/9/9/K8 w GPs 1",
+      "response": null,
+      "search_sfen": "3lkl3/3p1p3/4G4/9/9/9/9/9/K8 b GPs 2",
+      "answer": {
+        "status": "mate",
+        "pv": [
+          "G*5b"
+        ]
+      },
+      "seconds": 0.12303908308967948
+    },
+    {
+      "name": "threat_removed",
+      "sfen": "3lkl3/3p1p3/4G4/9/9/9/9/9/K8 w GPs 1",
+      "response": "S*5b",
+      "search_sfen": "3lkl3/3psp3/4G4/9/9/9/9/9/K8 b GP 2",
+      "answer": {
+        "status": "no_mate",
+        "pv": []
+      },
+      "seconds": 0.12225120794028044
+    },
+    {
+      "name": "threat_ignored",
+      "sfen": "3lkl3/3p1p3/4G4/9/9/9/9/9/K8 w GPs 1",
+      "response": "4b4c",
+      "search_sfen": "3lkl3/3p5/4Gp3/9/9/9/9/9/K8 b GPs 2",
+      "answer": {
+        "status": "mate",
+        "pv": [
+          "G*5b"
+        ]
+      },
+      "seconds": 0.12259195803198963
+    },
+    {
+      "name": "no_threat",
+      "sfen": "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1",
+      "response": null,
+      "search_sfen": "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL w - 2",
+      "answer": {
+        "status": "no_mate",
+        "pv": []
+      },
+      "seconds": 0.11983595800120384
+    },
+    {
+      "name": "mirrored_threat",
+      "sfen": "8k/9/9/9/9/9/4g4/3P1P3/3LKL3 b Sgp 1",
+      "response": null,
+      "search_sfen": "8k/9/9/9/9/9/4g4/3P1P3/3LKL3 w Sgp 2",
+      "answer": {
+        "status": "mate",
+        "pv": [
+          "G*5h"
+        ]
+      },
+      "seconds": 0.1279502079123631
+    },
+    {
+      "name": "mirrored_removed",
+      "sfen": "8k/9/9/9/9/9/4g4/3P1P3/3LKL3 b Sgp 1",
+      "response": "S*5h",
+      "search_sfen": "8k/9/9/9/9/9/4g4/3PSP3/3LKL3 w gp 2",
+      "answer": {
+        "status": "no_mate",
+        "pv": []
+      },
+      "seconds": 0.12029662495478988
+    },
+    {
+      "name": "mirrored_ignored",
+      "sfen": "8k/9/9/9/9/9/4g4/3P1P3/3LKL3 b Sgp 1",
+      "response": "6h6g",
+      "search_sfen": "8k/9/9/9/9/9/3Pg4/5P3/3LKL3 w Sgp 2",
+      "answer": {
+        "status": "mate",
+        "pv": [
+          "G*5h"
+        ]
+      },
+      "seconds": 0.1283108750358224
+    }
+  ]
+}

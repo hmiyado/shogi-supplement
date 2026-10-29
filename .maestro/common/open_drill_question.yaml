@@ -11,7 +11,7 @@ appId: ${APP_ID}
 - extendedWaitUntil:
     visible: "今日の1問"
     timeout: 120000
-- tapOn: "今日の1問"
+- tapOn: "次の一手"
 - runFlow:
     when:
       visible: "次の問題"

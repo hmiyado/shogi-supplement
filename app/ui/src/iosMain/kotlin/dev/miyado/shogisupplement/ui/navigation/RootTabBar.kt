@@ -11,12 +11,10 @@ import androidx.compose.runtime.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.UIKitViewController
 import androidx.compose.ui.viewinterop.UIKitInteropProperties
 import androidx.compose.ui.viewinterop.UIKitInteropInteractionMode
 import dev.miyado.shogisupplement.navigation.RootTab
 import platform.UIKit.*
-import platform.darwin.NSObject
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.useContents
 
@@ -27,33 +25,15 @@ actual fun PlatformRootTabBar(selected: RootTab, onSelect: (RootTab) -> Unit, on
 
     val tabTitles = RootTab.entries.map { it.title }
     val tint = androidx.compose.material3.MaterialTheme.colorScheme.primary
-    val callback by rememberUpdatedState(onSelect)
-    val delegate = remember { object : NSObject(), UITabBarControllerDelegateProtocol {
-        override fun tabBarController(tabBarController: UITabBarController, didSelectViewController: UIViewController) {
-            RootTab.entries.getOrNull(tabBarController.selectedIndex.toInt())?.let(callback)
-        }
-    } }
-    Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-    Box(Modifier.weight(1f)) {
-    UIKitViewController(factory = {
-        UITabBarController().apply {
-            view.backgroundColor = UIColor.clearColor
-            viewControllers = RootTab.entries.map { tab ->
-                val symbol = when(tab) { RootTab.HOME -> "house"; RootTab.GAMES -> "list.bullet.rectangle"; RootTab.REPERTOIRE -> "book" }
-                UIViewController().apply {
-                    view.backgroundColor = UIColor.clearColor
-                    tabBarItem = UITabBarItem(title = tabTitles[tab.ordinal], image = UIImage.systemImageNamed(symbol), tag = tab.ordinal.toLong())
-                }
-            }
-            this.delegate = delegate
-        }
-    }, update = { controller ->
-        controller.viewControllers?.filterIsInstance<UIViewController>()?.forEachIndexed { index, viewController -> viewController.tabBarItem.title = tabTitles[index] }
-        controller.selectedIndex = selected.ordinal.toULong(); controller.tabBar.tintColor = UIColor(red = tint.red.toDouble(), green = tint.green.toDouble(), blue = tint.blue.toDouble(), alpha = 1.0) },
-        modifier = Modifier.fillMaxWidth().height(96.dp),
-        properties = UIKitInteropProperties(placedAsOverlay = true, interactionMode = UIKitInteropInteractionMode.NonCooperative, isNativeAccessibilityEnabled = true))
+    val host = LocalNativeRootTabs.current
+    SideEffect { host.update(selected, tabTitles, tint, onSelect) }
+    DisposableEffect(host) {
+        host.setVisible(true)
+        onDispose { host.setVisible(false); host.onSelect = null }
     }
-    Box(Modifier.height(96.dp).padding(end = 16.dp, bottom = 8.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+    Spacer(Modifier.weight(1f))
+    Box(Modifier.width(RootTabActionWidthPoints.dp).height(96.dp).padding(end = 16.dp, bottom = 8.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
         PlatformGlassAction("plus", labelHomeOpenKif, vectorResource(Res.drawable.ic_filled_add), onAddGame)
     }
     }

@@ -126,13 +126,15 @@ final class StoreScreenshotTests: XCTestCase {
             "先後選択ダイアログが閉じません（ラジオ選択が反映されていない可能性）",
         )
 
-        // ── 2. 解析完了 → レポート画面へ自動遷移（最大10分待機） ─────────────────
-        // 1.1のデフォルト表示は評価値グラフ＋サマリー（悪手一覧はまだ出ていない）。
-        let reportIndicator = element(
-            labeledContainsAny: ["この一局からの推定棋力", "悪手は見つかりませんでした"],
-            timeout: 600,
+        let summaryReady = app.buttons["サマリー"].firstMatch
+        let analysisFinished = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == true AND enabled == true"),
+            object: summaryReady,
         )
-        XCTAssertTrue(reportIndicator.exists, "レポート画面へ自動遷移しませんでした（10分待機）")
+        XCTAssertEqual(
+            XCTWaiter().wait(for: [analysisFinished], timeout: 600), .completed,
+            "解析が完了しませんでした",
+        )
 
         // 描画安定化のための小休止（初回フレームのちらつき対策）。
         Thread.sleep(forTimeInterval: 1.5)
@@ -154,7 +156,7 @@ final class StoreScreenshotTests: XCTestCase {
         XCTAssertTrue(sq76.exists, "盤面のマス(7,6)が見つかりません")
         sq76.tap()
 
-        let studyTitle = element(labeled: "検討中", timeout: 5)
+        let studyTitle = element(labeled: "検討の操作", timeout: 5)
         XCTAssertTrue(studyTitle.exists, "検討モードへ切り替わりませんでした")
 
         // 2手目（後手番になった検討局面での合法手）も指し、分岐ツリーに手順チップが
@@ -207,12 +209,15 @@ final class StoreScreenshotTests: XCTestCase {
         attachScreenshot(named: "01_home")
 
         // ── 6. 「今日の1問」→ 次の一手問題の出題画面（05_drill_question） ──────
-        let todaysDrill = element(labeledContainsAny: ["今日の1問", "次の一手"], timeout: 10)
+        let todaysDrill = app.buttons.matching(NSPredicate(format: "label == %@", "次の一手")).firstMatch
+        _ = todaysDrill.waitForExistence(timeout: 10)
         XCTAssertTrue(todaysDrill.exists, "「今日の1問」（または次の一手導線）が見つかりません")
         todaysDrill.tap()
 
-        let drillGiveUp = element(labeled: "答えを見る", timeout: 15)
-        XCTAssertTrue(drillGiveUp.exists, "次の一手問題の出題画面に到達しませんでした")
+        let question = element(labeled: "次の1手は？", timeout: 15)
+        XCTAssertTrue(question.exists, "次の一手問題の出題画面に到達しませんでした")
+        let drillGiveUp = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "正解を見る")).firstMatch
+        XCTAssertTrue(reveal(drillGiveUp), "正解を見るボタンへスクロールできません")
         Thread.sleep(forTimeInterval: 0.8)
         attachScreenshot(named: "05_drill_question")
 
@@ -229,8 +234,8 @@ final class StoreScreenshotTests: XCTestCase {
         // 反映されなかった（ヘッダコメント参照）ため、アプリ内の設定「テーマ」→「ダーク」を
         // 明示選択する（themeModeを直接 "dark" にする・OS外観非依存で確実）。
 
-        let goHomeButton = element(labeled: "ホームへ", timeout: 5)
-        XCTAssertTrue(goHomeButton.exists, "次の一手問題の結果画面の「ホームへ」ボタンが見つかりません")
+        let goHomeButton = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "ホームへ")).firstMatch
+        XCTAssertTrue(reveal(goHomeButton), "次の一手問題の結果画面の「ホームへ」ボタンが見つかりません")
         goHomeButton.tap()
 
         let homeAfterDrill = element(labeled: "棋譜を追加する", timeout: 10)
@@ -262,8 +267,8 @@ final class StoreScreenshotTests: XCTestCase {
         // から決まる表示ラベル（AppStrings.sourcePlaceLabel）。クリップボード取込では
         // ファイル名が "クリップボード <日時>" になり毎回変わるため、固定文字列の
         // 「将棋ウォーズ」で探す。
-        let gameCard = element(labeled: "将棋ウォーズ", timeout: 15)
-        XCTAssertTrue(gameCard.exists, "ホームの棋譜カード（将棋ウォーズ）が見つかりません")
+        let gameCard = element(labeledStartsWith: "将棋ウォーズ", timeout: 15)
+        XCTAssertTrue(reveal(gameCard), "ホームの棋譜カード（将棋ウォーズ）が見つかりません")
         gameCard.tap()
 
         let reportIndicatorDark = element(
@@ -277,28 +282,30 @@ final class StoreScreenshotTests: XCTestCase {
 
     // MARK: - Helpers（PasteboardImportSmokeTests.swiftと同一実装。詳細コメントは同ファイル参照）
 
-    /// 同意オンボーディング画面（[ConsentScreen]）が出ていれば、研究利用チェックをON→
-    /// 「同意して始める」で確定する。同意確定処理（匿名サインイン等）は非同期のため、
-    /// 画面が閉じる（ホームへ遷移する）までタイムアウト長めに待つ。
     private func handleConsentOnboardingIfNeeded() {
         let consentTitle = element(labeled: "はじめに", timeout: 5)
         guard consentTitle.exists else { return }
 
-        let consentCheckbox = element(
-            labeledContainsAny: ["解析した棋譜と結果を匿名で研究利用"],
-            timeout: 5,
-        )
-        XCTAssertTrue(consentCheckbox.exists, "同意オンボーディングの研究利用チェック項目が見つかりません")
-        consentCheckbox.tap()
+        let withoutAccount = element(labeledContainsAny: ["アカウントを作成せずに始める"], timeout: 5)
+        XCTAssertTrue(withoutAccount.exists, "アカウントなしの選択肢が見つかりません")
+        withoutAccount.tap()
 
-        let acceptButton = element(labeled: "同意して始める", timeout: 5)
-        XCTAssertTrue(acceptButton.exists, "「同意して始める」ボタンが見つかりません")
+        let acceptButton = element(labeled: "規約に同意して始める", timeout: 5)
+        XCTAssertTrue(acceptButton.exists, "同意ボタンが見つかりません")
         acceptButton.tap()
 
         XCTAssertTrue(
             waitForDisappearance(of: consentTitle, timeout: 30),
-            "同意オンボーディング画面が閉じません（匿名サインイン待ち含む）",
+            "同意画面が閉じません",
         )
+    }
+
+    private func reveal(_ element: XCUIElement) -> Bool {
+        for _ in 0..<3 {
+            if element.exists && element.isHittable { return true }
+            app.swipeUp()
+        }
+        return element.exists && element.isHittable
     }
 
     private func loadFixtureKifText() throws -> String {

@@ -37,6 +37,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
+import dev.miyado.shogisupplement.ui.common.rememberMovablePane
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -119,7 +120,7 @@ fun DrillQuestionContent(
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val twoPane = rememberWindowWidthClass(maxWidth) == WindowWidthClass.EXPANDED
 
-        val boardPane: @Composable () -> Unit = {
+        val boardPane = rememberMovablePane {
             // インタラクティブ盤面。レポートビューアと同等の高さ制約を適用して盤サイズを統一する。
             ShogiBoardView(
                 sfen = state.sfenCurrent,
@@ -133,7 +134,7 @@ fun DrillQuestionContent(
             )
         }
 
-        val bodyPane: @Composable () -> Unit = {
+        val bodyPane = rememberMovablePane {
             Box(modifier = Modifier.adaptiveContentWidth()) {
                 Column(
                     modifier = Modifier
@@ -492,7 +493,7 @@ fun DrillResultContent(
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val twoPane = rememberWindowWidthClass(maxWidth) == WindowWidthClass.EXPANDED
 
-        val boardPane: @Composable () -> Unit = {
+        val boardPane = rememberMovablePane {
             // ── 固定エリア（KifuLineViewer: 盤 + タブ + ナビ）────────────────────
             KifuLineViewer(
                 startSfen = sfenBefore,
@@ -541,7 +542,7 @@ fun DrillResultContent(
             }
         }
 
-        val bodyPane: @Composable () -> Unit = {
+        val bodyPane = rememberMovablePane {
             Box(modifier = Modifier.adaptiveContentWidth()) {
                 // ── スクロールエリア（結果バナー・解説・ナビゲーション）────────────────
                 Column(
@@ -772,7 +773,7 @@ private fun DrillStudyArea(
             runCatching { ShogiMove.fromUsi(usi).to.let { it.file to it.rank } }.getOrNull()
         }
     }
-    val boardPane: @Composable () -> Unit = {
+    val boardPane = rememberMovablePane {
         ShogiBoardView(
             sfen = studyCurrentSfen,
             flip = studyState.flip,
@@ -804,7 +805,7 @@ private fun DrillStudyArea(
             )
         }
     }
-    val panelPane: @Composable () -> Unit = {
+    val panelPane = rememberMovablePane {
         Box(modifier = Modifier.adaptiveContentWidth()) {
             StudyPanel(
                 studyState = studyState,

@@ -7,6 +7,11 @@ import dev.miyado.shogisupplement.ui.text.UiStrings
 import org.jetbrains.compose.resources.stringResource
 import dev.miyado.shogisupplement.ui.generated.resources.*
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.RadioButton
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -57,6 +62,9 @@ fun DebugScreen(
     onClear: () -> Unit,
     /** null = 削除の導線を出さない（この画面を消さずに機能だけ隠すため）。 */
     onWipeLocalData: (() -> Unit)? = null,
+    backendHostInitial: String = "",
+    backendIsLan: Boolean = false,
+    onSaveBackend: (suspend (String?) -> Boolean)? = null,
 ) {
     var showWipeConfirm by remember { mutableStateOf(false) }
     var wiped by remember { mutableStateOf(false) }
@@ -86,8 +94,12 @@ fun DebugScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .padding(horizontal = 16.dp, vertical = 8.dp)
-                .adaptiveContentWidth(),
+                .adaptiveContentWidth()
+                .verticalScroll(rememberScrollState()),
         ) {
+            if (onSaveBackend != null) {
+                DebugBackendSection(backendHostInitial, backendIsLan, onSaveBackend)
+            }
             Text(
                 UiStrings.debugWasmSiteEffective(effectiveSiteBaseUrl, effectiveSiteBaseUrlSource),
                 style = MaterialTheme.typography.bodyMedium,
@@ -211,4 +223,36 @@ private fun PreviewDebugScreenOverridden() {
             )
         }
     }
+}
+
+@Composable
+private fun DebugBackendSection(hostInitial: String, activeLan: Boolean, onSave: suspend (String?) -> Boolean) {
+    var lan by remember { mutableStateOf(hostInitial.isNotBlank()) }
+    var host by remember { mutableStateOf(hostInitial) }
+    var saving by remember { mutableStateOf(false) }
+    var result by remember { mutableStateOf<Boolean?>(null) }
+    val scope = rememberCoroutineScope()
+    Text(stringResource(Res.string.debug_backend_title), style = MaterialTheme.typography.titleMedium)
+    Text(stringResource(if (activeLan) Res.string.debug_backend_current_lan else Res.string.debug_backend_current_production))
+    Row {
+        RadioButton(selected = !lan, onClick = { lan = false; result = null }, enabled = !saving)
+        TextButton(onClick = { lan = false; result = null }, enabled = !saving) { Text(stringResource(Res.string.debug_backend_production)) }
+        RadioButton(selected = lan, onClick = { lan = true; result = null }, enabled = !saving)
+        TextButton(onClick = { lan = true; result = null }, enabled = !saving) { Text(stringResource(Res.string.debug_backend_lan)) }
+    }
+    OutlinedTextField(
+        value = host, onValueChange = { host = it; result = null },
+        label = { Text(stringResource(Res.string.debug_backend_host)) },
+        enabled = lan && !saving, singleLine = true, modifier = Modifier.fillMaxWidth(),
+    )
+    Text(stringResource(Res.string.debug_backend_restart), style = MaterialTheme.typography.bodySmall)
+    Column(Modifier.height(48.dp)) {
+        result?.let { Text(stringResource(if (it) Res.string.debug_backend_saved else Res.string.debug_backend_failed),
+            style = MaterialTheme.typography.bodySmall, color = if (it) MaterialTheme.colorScheme.primary else MaterialTheme.shogiColors.loss) }
+    }
+    Button(enabled = !saving, onClick = {
+        saving = true
+        scope.launch { try { result = onSave(if (lan) host else null) } finally { saving = false } }
+    }) { Text(stringResource(Res.string.debug_wasm_site_save)) }
+    Spacer(Modifier.height(24.dp))
 }

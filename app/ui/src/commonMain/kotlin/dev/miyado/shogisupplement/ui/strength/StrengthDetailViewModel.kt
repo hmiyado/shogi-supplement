@@ -6,10 +6,13 @@ import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.db.EngineMatchRate
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.GameRepository
+import dev.miyado.shogisupplement.db.PositionEvalRow
 import dev.miyado.shogisupplement.db.RatingSettings
 import dev.miyado.shogisupplement.db.SettingsRepository
 import dev.miyado.shogisupplement.rating.ShogiRank
 import dev.miyado.shogisupplement.rating.bestServiceRank
+import dev.miyado.shogisupplement.strength.MateOpportunities
+import dev.miyado.shogisupplement.strength.MateStatistics
 import dev.miyado.shogisupplement.strength.StrengthEstimator
 import dev.miyado.shogisupplement.strength.StrengthNorm
 import dev.miyado.shogisupplement.ui.common.defaultIoDispatcher
@@ -55,7 +58,23 @@ class StrengthDetailViewModel(
         val recentGames = games
             .filter { it.analyzedAt >= trendStart }
             .sortedBy { it.analyzedAt }
-        val trend = recentGames.map { buildTrendPoint(it) }
+        val evaluations = games.associate { it.id to gameRepository.getPositionEvals(it.id) }
+        val trend = recentGames.map { buildTrendPoint(it, evaluations[it.id].orEmpty()) }
+        val mateStatistics = MateStatistics.aggregate(
+            opportunities = games.flatMap { game ->
+                MateOpportunities.compute(
+                    moves = game.movesUsi,
+                    evaluations = evaluations[game.id].orEmpty(),
+                    userSide = game.userSide,
+                    gameWinner = game.gameWinner,
+                    endReason = game.endReason,
+                )
+            },
+            analyzedGames = games.size,
+            verifiedGames = evaluations.values.count { rows ->
+                rows.any { it.mateVerified && it.mateIn != null }
+            },
+        )
 
         val serviceRanks = settingsRepository.getAllServiceRanks()
         val serviceAccounts = settingsRepository.getAllServiceAccounts()
@@ -69,10 +88,11 @@ class StrengthDetailViewModel(
             bestRank = buildBestRank(serviceRanks),
             trend = trend,
             services = buildServices(serviceRanks, serviceAccounts, ratingSettings, hasSavedRating),
+            mateStatistics = mateStatistics,
         )
     }
 
-    private suspend fun buildTrendPoint(game: GameRecord): StrengthTrendPoint {
+    private suspend fun buildTrendPoint(game: GameRecord, positionEvals: List<PositionEvalRow>): StrengthTrendPoint {
         val side = requireNotNull(game.userSide)
         val userMoves = userMoveCount(game.moveCount, side)
         val estimate = StrengthEstimator.aggregate(listOf(game.rating.toInt()), userMoves)
@@ -80,7 +100,6 @@ class StrengthDetailViewModel(
         val width = StrengthNorm.deviationWidth(estimate.errorMargin)
 
         val reports = gameRepository.getReports(game.id)
-        val positionEvals = gameRepository.getPositionEvals(game.id)
         val matchResult = EngineMatchRate.compute(game.movesUsi, positionEvals, side)
 
         return StrengthTrendPoint(
