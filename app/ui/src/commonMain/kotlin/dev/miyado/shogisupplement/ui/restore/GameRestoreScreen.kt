@@ -1,5 +1,10 @@
 package dev.miyado.shogisupplement.ui.restore
 
+import dev.miyado.shogisupplement.ui.text.UiStrings
+
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,7 +27,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.adaptiveContentWidth
 import dev.miyado.shogisupplement.ui.theme.IbmPlexMonoFamily
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
@@ -52,7 +56,7 @@ fun GameRestoreScreen(
             verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
             Text(
-                text = AppStrings.TRANSFER_CODE_INPUT_SUCCESS,
+                text = stringResource(Res.string.transfer_code_input_success),
                 style = MaterialTheme.typography.headlineSmall,
             )
             Box(
@@ -75,7 +79,7 @@ fun GameRestoreScreen(
                     enabled = state !is GameRestoreUiState.Downloading,
                     modifier = Modifier.testTag("game_restore_home_button"),
                 ) {
-                    Text(AppStrings.DRILL_GO_HOME)
+                    Text(stringResource(Res.string.drill_go_home))
                 }
                 Button(
                     onClick = {
@@ -92,9 +96,9 @@ fun GameRestoreScreen(
                 ) {
                     Text(
                         when (state) {
-                            is GameRestoreUiState.Error -> AppStrings.GAME_RESTORE_RETRY_BUTTON
-                            is GameRestoreUiState.Completed -> AppStrings.GAME_RESTORE_ANALYZE_BUTTON
-                            else -> AppStrings.GAME_RESTORE_BUTTON
+                            is GameRestoreUiState.Error -> stringResource(Res.string.game_restore_retry_button)
+                            is GameRestoreUiState.Completed -> stringResource(Res.string.game_restore_analyze_button)
+                            else -> stringResource(Res.string.game_restore_button)
                         },
                     )
                 }
@@ -113,21 +117,21 @@ private fun primaryButtonEnabled(state: GameRestoreUiState): Boolean = when (sta
 @Composable
 private fun StatusSlotContent(state: GameRestoreUiState) {
     when (state) {
-        GameRestoreUiState.Loading -> LabeledSpinner(AppStrings.GAME_RESTORE_LOADING_NOTE)
+        GameRestoreUiState.Loading -> LabeledSpinner(stringResource(Res.string.game_restore_loading_note))
         is GameRestoreUiState.Ready -> {
             if (state.count > 0) {
-                MonoStatusText(AppStrings.gameRestoreCount(state.count))
+                MonoStatusText(UiStrings.gameRestoreCount(state.count))
             } else {
-                Text(AppStrings.GAME_RESTORE_EMPTY_NOTE, style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(Res.string.game_restore_empty_note), style = MaterialTheme.typography.bodyMedium)
             }
         }
         is GameRestoreUiState.Downloading ->
-            LabeledSpinner(AppStrings.gameRestoreProgress(state.done, state.total), mono = true)
+            LabeledSpinner(UiStrings.gameRestoreProgress(state.done, state.total), mono = true)
         is GameRestoreUiState.Completed -> {
             val text = if (state.failed > 0) {
-                AppStrings.gameRestoreCompletedPartial(state.succeeded, state.failed)
+                UiStrings.gameRestoreCompletedPartial(state.succeeded, state.failed)
             } else {
-                AppStrings.gameRestoreCompletedAll(state.succeeded)
+                UiStrings.gameRestoreCompletedAll(state.succeeded)
             }
             MonoStatusText(text, color = if (state.failed > 0) MaterialTheme.shogiColors.loss else null)
         }
@@ -208,6 +212,6 @@ private fun PreviewGameRestoreScreenEmpty() {
 @Composable
 private fun PreviewGameRestoreScreenError() {
     ShogiTheme {
-        GameRestoreScreen(state = GameRestoreUiState.Error(AppStrings.GAME_RESTORE_ERROR_NETWORK))
+        GameRestoreScreen(state = GameRestoreUiState.Error(stringResource(Res.string.game_restore_error_network)))
     }
 }

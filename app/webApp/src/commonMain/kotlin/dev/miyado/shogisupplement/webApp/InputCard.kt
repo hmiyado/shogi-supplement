@@ -1,5 +1,10 @@
 package dev.miyado.shogisupplement.webApp
 
+import dev.miyado.shogisupplement.ui.text.UiStrings
+
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -25,7 +30,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.theme.IbmPlexMonoFamily
 import dev.miyado.shogisupplement.ui.theme.shogiColors
 
@@ -49,7 +53,7 @@ internal fun InputCard(
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Text(
-                text = AppStrings.KENTO_KIF_NOTE,
+                text = stringResource(Res.string.kento_kif_note),
                 style = MaterialTheme.typography.labelSmall,
                 color = shogiColors.ink3,
             )
@@ -57,7 +61,7 @@ internal fun InputCard(
             Spacer(Modifier.height(8.dp))
             val text = kifText
             val onTextChange = onKifTextChange
-            val placeholder = AppStrings.KENTO_KIF_PLACEHOLDER
+            val placeholder = stringResource(Res.string.kento_kif_placeholder)
             Box {
                 BasicTextField(
                     value = text,
@@ -100,31 +104,31 @@ internal fun InputCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                     Text(
-                        if (preparing) AppStrings.STUDY_EVAL_PREPARING else AppStrings.kentoAnalyzing(progressDone, progressTotal),
+                        if (preparing) stringResource(Res.string.study_eval_preparing) else UiStrings.kentoAnalyzing(progressDone, progressTotal),
                         style = MaterialTheme.typography.labelSmall,
                         color = shogiColors.ink2,
                         modifier = Modifier.padding(start = 8.dp),
                     )
                 }
                 Text(
-                    if (preparing) AppStrings.KENTO_ENGINE_DOWNLOAD_NOTE else "",
+                    if (preparing) stringResource(Res.string.kento_engine_download_note) else "",
                     style = MaterialTheme.typography.labelSmall,
                     color = shogiColors.ink3,
                     modifier = Modifier.padding(start = 24.dp, top = 2.dp),
                 )
                 Spacer(Modifier.height(8.dp))
                 Button(onClick = onCancel, modifier = Modifier.fillMaxWidth()) {
-                    Text(AppStrings.KENTO_CANCEL_BUTTON)
+                    Text(stringResource(Res.string.kento_cancel_button))
                 }
             } else {
                 Button(onClick = onStart, modifier = Modifier.fillMaxWidth()) {
-                    Text(AppStrings.KENTO_ANALYZE_BUTTON)
+                    Text(stringResource(Res.string.kento_analyze_button))
                 }
             }
 
             Spacer(Modifier.height(8.dp))
             Text(
-                AppStrings.KENTO_PRIVACY_NOTE,
+                stringResource(Res.string.kento_privacy_note),
                 style = MaterialTheme.typography.labelSmall,
                 color = shogiColors.ink3,
             )

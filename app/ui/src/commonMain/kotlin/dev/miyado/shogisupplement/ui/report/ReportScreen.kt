@@ -1,5 +1,14 @@
 package dev.miyado.shogisupplement.ui.report
 
+
+import dev.miyado.shogisupplement.ui.text.UiStrings
+
+import org.jetbrains.compose.resources.getString
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
+import androidx.compose.material3.Text
+
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -19,9 +28,12 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.VerticalDivider
+import dev.miyado.shogisupplement.ui.common.rememberMovablePane
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,8 +49,9 @@ import dev.miyado.shogisupplement.board.ShogiMove
 import dev.miyado.shogisupplement.board.ShogiSquare
 import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.db.GameRecord
+import dev.miyado.shogisupplement.kifu.KifParser
 import dev.miyado.shogisupplement.db.PositionEvalRow
-import dev.miyado.shogisupplement.text.AppStrings
+import dev.miyado.shogisupplement.gameshare.GameShareService
 import dev.miyado.shogisupplement.ui.common.TwoPaneBoardHeightFraction
 import dev.miyado.shogisupplement.ui.common.WindowWidthClass
 import dev.miyado.shogisupplement.ui.common.adaptiveContentWidth
@@ -69,6 +82,8 @@ fun ReportScreen(
     blunderRateDisplayText: String? = null,
     analysisPending: Boolean = false,
     onAnalyze: () -> Unit = {},
+    onReanalyze: (() -> Unit)? = null,
+    hasUnsavedStudy: (() -> Boolean)? = null,
     canDelete: Boolean = true,
     /** 対局者名編集の可否。Web版はローカル保存を持たないためfalseで渡す。 */
     canEdit: Boolean = true,
@@ -96,14 +111,19 @@ fun ReportScreen(
     onStudyStepBack: () -> Unit = {},
     onStudyResetToStart: () -> Unit = {},
     onStudyEnd: () -> Unit = {},
+    onSaveStudy: (((Boolean) -> Unit) -> Unit)? = null,
+    onDeleteStudyBranch: ((String, List<String>, Long?) -> Boolean)? = null,
     onStudyChipTapped: (Int) -> Unit = {},
     onStudyBranchChipTapped: (Int) -> Unit = {},
     onStudyBranchPopupDismiss: () -> Unit = {},
-    onStudyBranchOptionSelected: (depth: Int, moveUsi: String) -> Unit = { _, _ -> },
+    onStudyBranchOptionSelected: (depth: Int, nodeId: Long) -> Unit = { _, _ -> },
+    onStudyAutoAnalyze: () -> Unit = {},
     onStudyAnalyze: () -> Unit = {},
     onStudyCandidateSelected: (String) -> Unit = {},
     onCopyKif: (String) -> Unit = {},
-    onShare: () -> Unit = {},
+    onShare: (() -> Unit)? = {},
+    gameShareService: GameShareService? = null,
+    onShareGameUrl: ((String) -> Unit)? = null,
     onDeleteGame: (
         deleteServer: Boolean,
         onResult: (DeleteGameOutcome) -> Unit,
@@ -115,6 +135,31 @@ fun ReportScreen(
     initialBodyModeList: Boolean = false,
     justCompleted: Boolean = false,
 ) {
+    val labelGameResultLoss = stringResource(Res.string.game_result_loss)
+
+    var pendingDiscard by remember(game.id) { mutableStateOf<(() -> Unit)?>(null) }
+    fun guarded(action: () -> Unit) {
+        if (hasUnsavedStudy?.invoke() == true) pendingDiscard = action else action()
+    }
+    val guardedBack: () -> Unit = { guarded(onBack) }
+    ReportBackHandler(enabled = hasUnsavedStudy != null && studyState == null) { guardedBack() }
+    if (pendingDiscard != null) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { pendingDiscard = null },
+            title = { Text(stringResource(Res.string.study_discard_title)) },
+            text = { Text(stringResource(Res.string.study_discard_body)) },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    val action = pendingDiscard
+                    pendingDiscard = null
+                    action?.invoke()
+                }) { Text(stringResource(Res.string.manual_kifu_discard), color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { pendingDiscard = null }) { Text(stringResource(Res.string.cancel)) }
+            },
+        )
+    }
     var viewerMode by remember {
         mutableStateOf(if (initialViewerModeBestPv) ViewerMode.BEST_PV else ViewerMode.MAINLINE)
     }
@@ -129,6 +174,22 @@ fun ReportScreen(
     var pendingExtendAdvance by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val gameShareOwnerId = gameShareService?.currentOwner?.collectAsState()?.value?.id
+    val gameShareViewModel = key(gameShareService, game.id, game.contentHash, gameShareOwnerId) {
+        if (gameShareService != null && gameShareOwnerId != null) {
+            val sharingScope = rememberCoroutineScope()
+            remember {
+                GameShareViewModel(
+                    scope = sharingScope,
+                    service = gameShareService,
+                )
+            }
+        } else {
+            null
+        }
+    }
+    val gameShareState = gameShareViewModel?.state?.collectAsState()?.value
+    var showGameShareDialog by remember(gameShareViewModel) { mutableStateOf(false) }
 
     // 完了バナーはこの画面内で一度だけ消費する。
     var showCompletionBanner by remember { mutableStateOf(justCompleted) }
@@ -146,6 +207,20 @@ fun ReportScreen(
         buildEvalGraphPoints(positionEvals, userIsGote = game.userSide == "gote")
     }
     val blunderPlies = remember(reports) { reports.map { it.ply.toInt() }.toSet() }
+    val timeGraphData = remember(game.kifText, game.sourcePlace, game.timeControlRaw, game.timeControlByoyomiRaw, game.userSide) {
+        game.kifText?.let { text ->
+            runCatching {
+                val moveTimes = KifParser().parse(text).timesSeconds
+                buildTimeGraphData(
+                    sourcePlace = game.sourcePlace,
+                    timeControlRaw = game.timeControlRaw,
+                    timeControlByoyomiRaw = game.timeControlByoyomiRaw,
+                    moveTimesSeconds = moveTimes,
+                    userSide = game.userSide,
+                )
+            }.getOrNull()
+        }
+    }
 
     val exitStudy: () -> Unit = exit@{
         val s = studyState ?: return@exit
@@ -191,15 +266,15 @@ fun ReportScreen(
         }
     }
 
-    val senteSuffix = if (game.userSide == "sente") AppStrings.PLAYER_YOU else ""
-    val goteSuffix = if (game.userSide == "gote") AppStrings.PLAYER_YOU else ""
+    val senteSuffix = if (game.userSide == "sente") stringResource(Res.string.player_you) else ""
+    val goteSuffix = if (game.userSide == "gote") stringResource(Res.string.player_you) else ""
     val playersLine = buildAnnotatedString {
         append("▲")
-        append(game.senteName ?: AppStrings.PLAYER_UNKNOWN)
+        append(game.senteName ?: stringResource(Res.string.player_unknown))
         appendPlayerRating(game.senteRating)
         append(senteSuffix)
         append("　△")
-        append(game.goteName ?: AppStrings.PLAYER_UNKNOWN)
+        append(game.goteName ?: stringResource(Res.string.player_unknown))
         appendPlayerRating(game.goteRating)
         append(goteSuffix)
     }
@@ -221,6 +296,18 @@ fun ReportScreen(
         pvExtState = pvExtState,
         pvExtensionEnabled = pvExtensionEnabled,
     )
+
+    val gameShareDraft = GameShareDraftFactory.from(game, clampedPly, studyState, flip)
+    val canShareGame = gameShareViewModel != null && gameShareDraft != null
+
+    if (showGameShareDialog && gameShareState != null && gameShareViewModel != null) {
+        GameShareDialog(
+            state = gameShareState,
+            onCreate = { gameShareDraft?.let(gameShareViewModel::create) },
+            onShare = { url -> onShareGameUrl?.invoke(url) },
+            onDismiss = { showGameShareDialog = false },
+        )
+    }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val screenHeight = maxHeight
@@ -255,8 +342,8 @@ fun ReportScreen(
             ) {
 
                 ReportTopBar(
-                    title = AppStrings.sourcePlaceLabel(game.sourcePlace) ?: game.fileName,
-                    onBack = onBack,
+                    title = UiStrings.sourcePlaceLabel(game.sourcePlace) ?: game.fileName,
+                    onBack = guardedBack,
                     onInfoClick = { showGameInfoDialog = true },
                     kifText = game.kifText,
                     onCopyKifClick = {
@@ -264,12 +351,17 @@ fun ReportScreen(
                         if (kifText != null) {
                             onCopyKif(kifText)
                             scope.launch {
-                                snackbarHostState.showSnackbar(AppStrings.KIF_COPIED_MESSAGE)
+                                snackbarHostState.showSnackbar(getString(Res.string.kif_copied_message))
                             }
                         }
                     },
                     onDeleteClick = if (canDelete) { { showDeleteDialog = true } } else null,
                     onShareClick = onShare,
+                    onShareGameClick = if (canShareGame) {
+                        { gameShareViewModel?.reset(); showGameShareDialog = true }
+                    } else {
+                        null
+                    },
                 )
 
                 val studyCurrentSfen = remember(studyState) {
@@ -291,11 +383,11 @@ fun ReportScreen(
                 val noBlundersMessage = when {
                     game.userSide != null && game.gameWinner != null ->
                         if (game.gameWinner == game.userSide) {
-                            AppStrings.NO_BLUNDERS_WIN
+                            stringResource(Res.string.no_blunders_win)
                         } else {
-                            AppStrings.noBlundersLoss(game.endReason ?: "負け")
+                            UiStrings.noBlundersLoss(game.endReason ?: labelGameResultLoss)
                         }
-                    else -> AppStrings.NO_BLUNDERS_UNKNOWN
+                    else -> stringResource(Res.string.no_blunders_unknown)
                 }
 
                 val selectBlunderAndShowList: (Int) -> Unit = { idx ->
@@ -307,7 +399,7 @@ fun ReportScreen(
                     }
                 }
 
-                val boardPane: @Composable () -> Unit = {
+                val boardPane = rememberMovablePane {
                     ReportBoardArea(
                         studyState = studyState,
                         currentSfen = currentSfen,
@@ -341,7 +433,7 @@ fun ReportScreen(
                         // 排他的な固定高スロットで検討モード切替時のY座標を保つ。
                         if (showCompletionBanner) {
                             ReportNavBannerRow(
-                                text = AppStrings.ANALYSIS_COMPLETED_BANNER,
+                                text = stringResource(Res.string.analysis_completed_banner),
                                 textColor = MaterialTheme.colorScheme.primary,
                                 backgroundColor = MaterialTheme.shogiColors.primarySoft,
                             )
@@ -350,6 +442,9 @@ fun ReportScreen(
                                 studyState = studyState,
                                 studySenteToMove = studySenteToMove,
                                 onStudyStepBack = onStudyStepBack,
+                                onStudyStepForward = {
+                                    studyState?.let { onStudyChipTapped(it.moves.size + 1) }
+                                },
                                 // 終了はタブで行う（サマリー/悪手一覧を選べば検討から出る）。
                                 onStudyExit = null,
                                 navLabelAnnotated = navInfo.navLabelAnnotated,
@@ -416,6 +511,7 @@ fun ReportScreen(
                                 clampedPly, selectedIdx,
                                 navInfo.studyOriginAbsolutePly, navInfo.studyOrigin, null, null,
                             )
+                            onStudyAutoAnalyze()
                         }
                     }
                 }
@@ -438,7 +534,7 @@ fun ReportScreen(
                     Spacer(Modifier.height(4.dp))
                 }
 
-                val bodyPane: @Composable () -> Unit = {
+                val bodyPane = rememberMovablePane {
                     Box(modifier = Modifier.adaptiveContentWidth()) {
                         if (studyState != null) {
                             StudyPanel(
@@ -449,6 +545,8 @@ fun ReportScreen(
                                 onBranchOptionSelected = onStudyBranchOptionSelected,
                                 onAnalyze = onStudyAnalyze,
                                 onCandidateTapped = onStudyCandidateSelected,
+                                onSave = onSaveStudy,
+                                onDeleteBranch = onDeleteStudyBranch,
                                 modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 4.dp),
                             )
                         } else {
@@ -458,6 +556,7 @@ fun ReportScreen(
                                         evalGraphPoints = evalGraphPoints,
                                         maxPly = game.movesUsi.size,
                                         blunderPlies = blunderPlies,
+                                        timeGraphData = timeGraphData,
                                         currentPly = clampedPly,
                                         onPlyTapped = { ply ->
                                             viewerMode = ViewerMode.MAINLINE
@@ -479,6 +578,7 @@ fun ReportScreen(
                                         blunderRateDisplayText = blunderRateDisplayText,
                                         analysisPending = analysisPending,
                                         onAnalyze = onAnalyze,
+                                        onReanalyze = onReanalyze?.let { action -> { guarded(action) } },
                                         modifier = Modifier.fillMaxSize(),
                                     )
                                 }
@@ -569,7 +669,7 @@ fun ReportScreen(
     } // BoxWithConstraints
 } // ReportScreen
 
-internal fun computeSfenAtStep(startSfen: String?, moves: List<String>, steps: Int): String {
+fun computeSfenAtStep(startSfen: String?, moves: List<String>, steps: Int): String {
     val board = if (startSfen != null) {
         runCatching { ShogiBoard.fromSfen(startSfen) }.getOrElse { ShogiBoard() }
     } else {

@@ -1,8 +1,15 @@
 package dev.miyado.shogisupplement.webApp
 
+
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
@@ -13,8 +20,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.board.PieceType
+import dev.miyado.shogisupplement.gameshare.GameShareService
 import dev.miyado.shogisupplement.board.ShogiSquare
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.UserSideDialog
 import dev.miyado.shogisupplement.ui.common.adaptiveContentWidth
 import dev.miyado.shogisupplement.ui.report.ReportScreen
@@ -47,10 +54,15 @@ interface WebStudyActions {
     fun onStudyChipTapped(depth: Int)
     fun onStudyBranchChipTapped(depth: Int)
     fun onStudyBranchPopupDismiss()
-    fun onStudyBranchOptionSelected(depth: Int, moveUsi: String)
+    fun onStudyBranchOptionSelected(depth: Int, nodeId: Long)
+    fun onStudyAutoAnalyze()
     fun onStudyAnalyze()
 
     fun onStudyCandidateSelected(moveUsi: String)
+    fun saveStudy(onResult: (Boolean) -> Unit)
+    fun savedKifForExport(original: String): String? = null
+
+    fun deleteStudyBranch(baseSfen: String, moves: List<String>, nodeId: Long? = null): Boolean
 }
 
 @Composable
@@ -62,10 +74,36 @@ fun App(
     onCancel: () -> Unit,
     onConfirmSide: (userSide: String?) -> Unit,
     onCancelSideSelection: () -> Unit,
+    onReanalyze: () -> Unit = {},
+    onResumeSavedReport: () -> Unit = {},
+    onShowSavedReports: () -> Unit = {},
+    onCloseSavedReports: () -> Unit = {},
+    onOpenSavedReport: (dev.miyado.shogisupplement.db.GameRecord) -> Unit = {},
+    onDeleteSavedReport: ((dev.miyado.shogisupplement.db.GameRecord, Boolean, (dev.miyado.shogisupplement.upload.DeleteGameOutcome) -> Unit) -> Unit)? = null,
+    onCopyKif: (String) -> Unit = {},
+    onShareGameUrl: (String) -> Unit = {},
+    gameShareService: GameShareService? = null,
+    onDiscardStudy: () -> Unit = {},
+    onCancelDiscardStudy: () -> Unit = {},
     studyActions: WebStudyActions? = null,
 ) {
     ShogiTheme {
         WebAppSurface {
+            if (state.confirmDiscardStudy) {
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = onCancelDiscardStudy,
+                    title = { Text(stringResource(Res.string.study_discard_title)) },
+                    text = { Text(stringResource(Res.string.study_discard_body)) },
+                    confirmButton = {
+                        androidx.compose.material3.TextButton(onClick = onDiscardStudy) {
+                            Text(stringResource(Res.string.manual_kifu_discard), color = MaterialTheme.colorScheme.error)
+                        }
+                    },
+                    dismissButton = {
+                        androidx.compose.material3.TextButton(onClick = onCancelDiscardStudy) { Text(stringResource(Res.string.cancel)) }
+                    },
+                )
+            }
             AppContent(
                 state = state,
                 onBack = onBack,
@@ -74,6 +112,15 @@ fun App(
                 onCancel = onCancel,
                 onConfirmSide = onConfirmSide,
                 onCancelSideSelection = onCancelSideSelection,
+                onReanalyze = onReanalyze,
+                onResumeSavedReport = onResumeSavedReport,
+                onShowSavedReports = onShowSavedReports,
+                onCloseSavedReports = onCloseSavedReports,
+                onOpenSavedReport = onOpenSavedReport,
+                onDeleteSavedReport = onDeleteSavedReport,
+                onCopyKif = onCopyKif,
+                onShareGameUrl = onShareGameUrl,
+                gameShareService = gameShareService,
                 studyActions = studyActions,
             )
         }
@@ -89,12 +136,42 @@ private fun AppContent(
     onCancel: () -> Unit,
     onConfirmSide: (userSide: String?) -> Unit,
     onCancelSideSelection: () -> Unit,
+    onReanalyze: () -> Unit,
+    onResumeSavedReport: () -> Unit,
+    onShowSavedReports: () -> Unit,
+    onCloseSavedReports: () -> Unit,
+    onOpenSavedReport: (dev.miyado.shogisupplement.db.GameRecord) -> Unit,
+    onDeleteSavedReport: ((dev.miyado.shogisupplement.db.GameRecord, Boolean, (dev.miyado.shogisupplement.upload.DeleteGameOutcome) -> Unit) -> Unit)?,
+    onCopyKif: (String) -> Unit,
+    onShareGameUrl: (String) -> Unit,
+    gameShareService: GameShareService?,
     studyActions: WebStudyActions?,
 ) {
+    val labelTextSideSente2 = stringResource(Res.string.text_side_sente_2)
+    val labelTextSideGote2 = stringResource(Res.string.text_side_gote_2)
+
     val report = state.report
-    if (report != null) {
+    val savedGames = state.savedGames
+    if (savedGames != null && report == null && !state.analyzing) {
+        dev.miyado.shogisupplement.ui.gamelist.GameListScreen(
+            games = savedGames,
+            canDelete = onDeleteSavedReport != null,
+            onBack = onCloseSavedReports,
+            onGameClick = onOpenSavedReport,
+            onDeleteGame = { game, server, result -> onDeleteSavedReport?.invoke(game, server, result) },
+        )
+        return
+    }
+    if (report != null && !state.analyzing) {
         val studyState = studyActions?.studyState?.collectAsState()?.value
-        ReportScreen(
+        Column(modifier = Modifier.fillMaxSize()) {
+            if (state.restoredReport) {
+                Text(stringResource(Res.string.study_browser_save_notice), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(8.dp))
+            }
+            state.reanalysisError?.let { error ->
+                Text(error, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(12.dp))
+            }
+            ReportScreen(
             game = report.game,
             reports = report.reports,
             flip = report.game.userSide == "gote",
@@ -104,6 +181,12 @@ private fun AppContent(
             matchRateDisplayText = report.matchRateText,
             blunderRateDisplayText = report.blunderRateText,
             canEdit = false,
+            canDelete = false,
+            onReanalyze = onReanalyze,
+            onCopyKif = { original -> onCopyKif(studyActions?.savedKifForExport(original) ?: original) },
+            onShare = null,
+            onShareGameUrl = onShareGameUrl,
+            gameShareService = gameShareService,
             onBack = onBack,
             studyState = studyState,
             onStartStudy = { baseSfen, flip, originIsBestPv, originPlyIndex, originSelectedIdx, originAbsolutePly, origin, tappedSquare, tappedHandPieceType ->
@@ -122,12 +205,16 @@ private fun AppContent(
             onStudyBranchChipTapped = { depth -> studyActions?.onStudyBranchChipTapped(depth) },
             onStudyBranchPopupDismiss = { studyActions?.onStudyBranchPopupDismiss() },
             onStudyBranchOptionSelected = { depth, moveUsi -> studyActions?.onStudyBranchOptionSelected(depth, moveUsi) },
+            onStudyAutoAnalyze = { studyActions?.onStudyAutoAnalyze() },
             onStudyAnalyze = { studyActions?.onStudyAnalyze() },
             onStudyCandidateSelected = { moveUsi -> studyActions?.onStudyCandidateSelected(moveUsi) },
+            onSaveStudy = studyActions?.let { actions -> { callback -> actions.saveStudy(callback) } },
+            onDeleteStudyBranch = studyActions?.let { actions -> { sfen, moves, nodeId -> actions.deleteStudyBranch(sfen, moves, nodeId) } },
             // Why not 読み筋延長を有効にしない理由: Web版のWorkerは任意局面からのPV延長を
             // 実行する経路を持たないため。
-            pvExtensionEnabled = false,
-        )
+                pvExtensionEnabled = false,
+            )
+        }
     } else {
         KentoInputScreen(
             state = state,
@@ -135,13 +222,15 @@ private fun AppContent(
             onKifTextChange = onKifTextChange,
             onStart = onStart,
             onCancel = onCancel,
+            onResumeSavedReport = onResumeSavedReport,
+            onShowSavedReports = onShowSavedReports,
         )
         // ダイアログはPopupのスクリムが背後の操作を塞ぐため、入力カードを隠さず表示したままにする。
         val pending = state.pendingSideSelection
         if (pending != null) {
             UserSideDialog(
-                senteName = pending.headers["先手"],
-                goteName = pending.headers["後手"],
+                senteName = pending.headers[labelTextSideSente2],
+                goteName = pending.headers[labelTextSideGote2],
                 savedUserSide = null,
                 // Web版は次回省略の対象となるアカウント設定を持たないため常に非表示。
                 showSkipOption = false,
@@ -159,6 +248,8 @@ private fun KentoInputScreen(
     onKifTextChange: (String) -> Unit,
     onStart: () -> Unit,
     onCancel: () -> Unit,
+    onResumeSavedReport: () -> Unit,
+    onShowSavedReports: () -> Unit,
 ) {
     // 低い viewport でもカード全体（解析開始ボタンまで）へ届くようにする。
     Column(
@@ -169,10 +260,18 @@ private fun KentoInputScreen(
             .padding(horizontal = 12.dp),
     ) {
         KentoTopBar(onBack = onBack)
+        OutlinedButton(onClick = onShowSavedReports, enabled = !state.analyzing) {
+            Text(stringResource(Res.string.game_list_title))
+        }
+        Box(Modifier.height(48.dp)) {
+            OutlinedButton(onClick = onResumeSavedReport, enabled = state.savedReportAvailable && !state.analyzing) {
+                Text(stringResource(Res.string.kento_resume_saved_report))
+            }
+        }
         when (state.assetsAvailable) {
             null -> Unit
             false -> Text(
-                AppStrings.KENTO_ASSETS_UNAVAILABLE,
+                stringResource(Res.string.kento_assets_unavailable),
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(vertical = 12.dp),
             )

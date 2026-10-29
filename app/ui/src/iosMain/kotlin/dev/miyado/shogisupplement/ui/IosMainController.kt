@@ -1,17 +1,31 @@
 package dev.miyado.shogisupplement.ui
 
+import dev.miyado.shogisupplement.engine.displayMessage
+
+import dev.miyado.shogisupplement.ui.text.LocalizedStrings
+
+import dev.miyado.shogisupplement.navigation.AppDestination
+import dev.miyado.shogisupplement.navigation.NavigationMachine
+import dev.miyado.shogisupplement.navigation.NavigationCompletionGuard
+import dev.miyado.shogisupplement.db.GameAnalysisStatus
+
 import dev.miyado.shogisupplement.auth.AuthRepository
 import dev.miyado.shogisupplement.board.PieceType
 import dev.miyado.shogisupplement.board.ShogiSquare
 import dev.miyado.shogisupplement.db.DrillRepository
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.GameRepository
+import dev.miyado.shogisupplement.gameshare.GameShareService
+import dev.miyado.shogisupplement.gameshare.RemoteGameShareService
 import dev.miyado.shogisupplement.db.RatingSettings
 import dev.miyado.shogisupplement.crash.NoopCrashReporter
 import dev.miyado.shogisupplement.db.SettingsRepository
 import dev.miyado.shogisupplement.download.GameImportOutcome
 import dev.miyado.shogisupplement.download.ReconstructedGame
 import dev.miyado.shogisupplement.engine.AnalysisOrchestrator
+import dev.miyado.shogisupplement.engine.AnalysisSession
+import dev.miyado.shogisupplement.engine.AnalysisSessionCoordinator
+import dev.miyado.shogisupplement.engine.AnalysisEngineRoute
 import dev.miyado.shogisupplement.engine.AnalysisRunner
 import dev.miyado.shogisupplement.engine.AuthRetryingAnalyzer
 import dev.miyado.shogisupplement.engine.Engine
@@ -25,6 +39,9 @@ import dev.miyado.shogisupplement.engine.RemoteAnalysisRunner
 import dev.miyado.shogisupplement.engine.WasmAnalysisRunner
 import dev.miyado.shogisupplement.engine.WasmStudyBridge
 import dev.miyado.shogisupplement.engine.WasmStudyEngine
+import dev.miyado.shogisupplement.engine.PvInfo
+import dev.miyado.shogisupplement.engine.selectAnalysisEngineRoute
+import dev.miyado.shogisupplement.engine.shouldResumeAnalysisAfterForeground
 import dev.miyado.shogisupplement.kifu.KifParser
 import dev.miyado.shogisupplement.db.saveRatingSettingsBundle
 import dev.miyado.shogisupplement.kifu.GameImportFlow
@@ -35,7 +52,6 @@ import dev.miyado.shogisupplement.pipeline.InProgressAnalysisRegistry
 import dev.miyado.shogisupplement.pipeline.ProgressiveReportState
 import dev.miyado.shogisupplement.policy.ForceUpdateJudge
 import dev.miyado.shogisupplement.policy.ForceUpdatePolicyChecker
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.AppSettingsController
 import dev.miyado.shogisupplement.ui.common.PvExtState
 import dev.miyado.shogisupplement.ui.common.defaultIoDispatcher
@@ -64,6 +80,7 @@ import platform.Foundation.NSDate
 import platform.Foundation.NSDateFormatter
 import platform.Foundation.NSNotificationCenter
 import platform.Foundation.NSOperationQueue
+import platform.Foundation.NSUUID
 import platform.UIKit.UIApplicationWillEnterForegroundNotification
 import platform.UIKit.UIPasteboard
 
@@ -103,6 +120,7 @@ class IosMainController(
             val moves: List<String>,
             val userSide: String?,
             val progressive: ProgressiveReportState,
+            val requestId: String? = null,
         ) : ImportState()
 
         /** 保存または解析の失敗。 */
@@ -111,6 +129,7 @@ class IosMainController(
 
     private val scope = CoroutineScope(SupervisorJob() + defaultIoDispatcher)
     private val coefTable = IosCoefficients.getInstance()
+    private val analysisSessionCoordinator = AnalysisSessionCoordinator(InProgressAnalysisRegistry.shared)
 
     /**
      * 全局面のストリーム完了前に切れないよう、Cloud Runより長いタイムアウトで使い回す。
@@ -134,6 +153,22 @@ class IosMainController(
                 socketTimeoutMillis = STUDY_ANALYSIS_SOCKET_TIMEOUT_MS
             }
         }
+    }
+
+    private val gameShareBaseUrl = IosSupabaseConfig.loadGameShareBaseUrl() ?: analysisBaseUrl
+    val gameShareService: GameShareService? = if (gameShareBaseUrl != null && authRepository != null) {
+        RemoteGameShareService(
+            baseUrl = gameShareBaseUrl,
+            authRepository = authRepository,
+            platform = "ios",
+            httpClient = HttpClient(Darwin) {
+                install(HttpTimeout) { requestTimeoutMillis = 30_000 }
+            },
+            appCheckTokenProvider = { if (DebugBackendStore.active == null) AppCheckTokenBridge.getToken() else null },
+            sharePageUrl = IosSupabaseConfig.loadGameShareWebUrl(),
+        )
+    } else {
+        null
     }
 
     /** ホーム画面（games一覧・推定棋力カード・今日の1問）のロードを担う協力オブジェクト。 */
@@ -163,6 +198,11 @@ class IosMainController(
      * エンジン入り版は常駐エンジンを共有する。engineless版は認証とURLがある場合だけ
      * [RemoteStudyEngine]を返し、設定漏れでは取込解析と同じく例外を投げる。
      */
+    suspend fun createRepertoireEngine(): dev.miyado.shogisupplement.engine.StudyEngine =
+        withContext(defaultIoDispatcher) {
+            dev.miyado.shogisupplement.engine.BlockingStudyEngine(studyEngineFactory()(), defaultIoDispatcher)
+        }
+
     private fun studyEngineFactory(): () -> Engine {
         val auth = authRepository
         val baseUrl = analysisBaseUrl
@@ -175,7 +215,7 @@ class IosMainController(
             accessTokenProvider = { checkNotNull(auth.accessToken()) { "アクセストークンが取得できない" } },
             platform = "ios",
             httpClient = runnerHttpClient,
-            appCheckTokenProvider = AppCheckTokenBridge::getToken,
+            appCheckTokenProvider = { if (DebugBackendStore.active == null) AppCheckTokenBridge.getToken() else null },
         )
         val remoteEngine = RemoteStudyEngine { sfen, moves, multiPv ->
             // サーバー解析はJWT必須のため、未ログインならここで匿名サインインする
@@ -244,16 +284,25 @@ class IosMainController(
      */
     data class CompletedAnalysis(
         val gameId: Long,
+        val navigationTicket: Any,
+        val requestId: String? = null,
         /** falseは重複KIFの再取込（何も解析していない）。 */
         val justCompleted: Boolean,
     )
 
+    val backgroundCompletedGame = MutableStateFlow<Long?>(null)
+
     private val _completedAnalysis = MutableStateFlow<CompletedAnalysis?>(null)
     val completedAnalysis: StateFlow<CompletedAnalysis?> = _completedAnalysis.asStateFlow()
+    private val completionGuard = NavigationCompletionGuard()
 
-    fun consumeCompletedAnalysis() {
+    fun invalidateCompletedNavigation() {
+        completionGuard.invalidate()
         _completedAnalysis.value = null
     }
+
+    fun consumeCompletedAnalysis(expected: CompletedAnalysis): Boolean =
+        _completedAnalysis.compareAndSet(expected, null) && completionGuard.consume(expected.navigationTicket)
 
     /** テーマモード（'system'/'light'/'dark'）。 */
     val themeMode: StateFlow<String> = appSettings.themeMode
@@ -307,7 +356,9 @@ class IosMainController(
     fun resumeIfPending() {
         scope.launch {
             val pending = PendingAnalysisStore.load() ?: return@launch
-            if (gameRepository.getByHash(sha256Hex(pending.kifText)) != null) {
+            val contentHash = pending.contentHash ?: sha256Hex(pending.kifText)
+            val existing = gameRepository.getByHash(contentHash)?.let(gameRepository::getGameById)
+            if (!pending.forceReanalysis && existing?.analysisStatus == GameAnalysisStatus.COMPLETED) {
                 PendingAnalysisStore.clear()
                 return@launch
             }
@@ -324,7 +375,12 @@ class IosMainController(
         // 強制アップデート判定は解析再開の無進捗しきい値とは無関係の独立した関心事のため、
         // 常に（無条件で）再チェックする。
         checkForceUpdate()
-        if (!shouldResumeAfterForeground(_importState.value, lastProgressAtEpochSeconds, currentEpochSeconds())) {
+        if (!shouldResumeAnalysisAfterForeground(
+                isAnalyzing = _importState.value is ImportState.Analyzing,
+                lastProgressAtEpochSeconds = lastProgressAtEpochSeconds,
+                nowEpochSeconds = currentEpochSeconds(),
+            )
+        ) {
             return
         }
         val pending = PendingAnalysisStore.load() ?: return
@@ -397,11 +453,13 @@ class IosMainController(
      */
     fun resumeAnalyzing(id: String) {
         val session = InProgressAnalysisRegistry.shared.snapshot(id) ?: return
+        invalidateCompletedNavigation()
         _importState.value = ImportState.Analyzing(
             fileName = session.fileName,
             moves = session.progressive.moves,
             userSide = session.userSide,
             progressive = session.progressive,
+            requestId = session.requestId,
         )
     }
 
@@ -413,6 +471,7 @@ class IosMainController(
 
     /** 解析中の画面から離れる。解析自体は続くため再開情報は残す。 */
     fun leaveAnalyzingView() {
+        invalidateCompletedNavigation()
         _importState.value = ImportState.Idle
     }
 
@@ -430,62 +489,84 @@ class IosMainController(
             ratingService = request.ratingService,
             ratingRaw = request.ratingRaw,
             ratingRule = request.ratingRule,
+            ratingDeclaredAt = request.ratingDeclaredAt,
         )
         when (next) {
             is GameImportFlow.Next.Analyze -> analyzeStoredGame(next.game)
             is GameImportFlow.Next.OpenReport -> {
                 _importState.value = ImportState.Idle
                 reloadHome()
-                _completedAnalysis.value = CompletedAnalysis(next.gameId, justCompleted = false)
+                _completedAnalysis.value = CompletedAnalysis(next.gameId, completionGuard.snapshot(), justCompleted = false)
             }
-            is GameImportFlow.Next.Failed -> _importState.value = ImportState.Error(next.message)
+            is GameImportFlow.Next.Failed -> _importState.value = ImportState.Error(next.message.ifEmpty { LocalizedStrings.UNKNOWN_ERROR() })
         }
     }
 
-    fun analyzeStoredGame(game: dev.miyado.shogisupplement.db.GameRecord) {
-        val pending = game.toPendingAnalysis() ?: return
+    fun analyzeStoredGame(game: dev.miyado.shogisupplement.db.GameRecord, forceReanalysis: Boolean = false) {
+        val pending = game.toPendingAnalysis(forceReanalysis) ?: return
         PendingAnalysisStore.save(pending)
         launchAnalysis(pending)
     }
 
     /** 3経路（通常取込・フォアグラウンド復帰・起動時再開）が共通で通る。既存ジョブは先にキャンセルするため二重に走らない。 */
-    private fun launchAnalysis(pending: PendingAnalysis) {
+    private fun launchAnalysis(input: PendingAnalysis) {
+        invalidateCompletedNavigation()
+        val pending = if (input.requestId == null) input.copy(requestId = NSUUID().UUIDString) else input
+        PendingAnalysisStore.save(pending)
         currentAnalysisJob?.cancel()
         lastProgressAtEpochSeconds = currentEpochSeconds()
         val moves = runCatching { KifParser().parse(pending.kifText).moves }.getOrElse { emptyList() }
         // idは保存時のcontent_hashと同一。
-        // レジストリはIosMainController（プロセス生存期間のシングルトン）だけが書く
-        // ——画面を離れてimportStateが畳まれてもレジストリ側は生き続ける。
+        // レジストリは共通コーディネータが書く。画面を離れてimportStateが畳まれても
+        // セッション側は生き続ける。
         val id = pending.contentHash ?: sha256Hex(pending.kifText)
-        InProgressAnalysisRegistry.shared.start(id, pending.fileName, moves, pending.userSide)
         _importState.value = ImportState.Analyzing(
             fileName = pending.fileName,
             moves = moves,
             userSide = pending.userSide,
             progressive = ProgressiveReportState.initial(moves),
+            requestId = pending.requestId,
         )
 
         currentAnalysisJob = scope.launch {
-            val outcome = runAnalysis(pending, id)
+            val outcome = analysisSessionCoordinator.run(
+                session = AnalysisSession(id, pending.fileName, moves, pending.userSide, pending.requestId),
+                analyze = { onPositionResult -> runAnalysis(pending, onPositionResult) },
+                onPositionResult = { ply, pvs ->
+                    val current = _importState.value
+                    if (current is ImportState.Analyzing && NavigationMachine.acceptsAnalysisEvent(
+                            AppDestination.ANALYZING, current.requestId, pending.requestId)) {
+                        _importState.value = current.copy(progressive = current.progressive.withPosition(ply, pvs))
+                    }
+                },
+            )
             // 再開でキャンセルされた旧ジョブが結果を持ち帰っても状態を触らせない
             // （新ジョブの表示をキャンセル起因のエラーで上書きさせないため）
             if (!isActive) return@launch
             // 解析中レポート画面を実際に見ているときだけ完了・失敗を画面へ反映する。
             // ホーム等の他画面にいる間に裏で完了しても、その画面から強制的に連れ去らない
             // （画面はレジストリの購読者に過ぎず、遷移は「見ている」ときの一度きりの体験でよい）。
-            val wasWatching = _importState.value is ImportState.Analyzing
-            InProgressAnalysisRegistry.shared.finish(id)
+            fun isWatching(): Boolean {
+                val current = _importState.value as? ImportState.Analyzing ?: return false
+                return NavigationMachine.acceptsAnalysisEvent(AppDestination.ANALYZING, current.requestId, pending.requestId)
+            }
             when (outcome) {
                 is AnalysisOrchestrator.Outcome.Completed -> {
                     // 自動アップロード設定ON＋ログイン中のときだけ実行される
                     // （androidApp の AnalysisService と同じ配線・失敗はサイレント）。
                     uploadOrchestrator?.maybeAutoUpload(outcome.gameId)
+                    if (!isActive) return@launch
                     reloadHome()
-                    PendingAnalysisStore.clear()
-                    if (wasWatching) {
+                    if (!isActive) return@launch
+                    if (PendingAnalysisStore.load()?.requestId == pending.requestId) PendingAnalysisStore.clear()
+                    if (!isWatching() && !outcome.alreadyExisted) backgroundCompletedGame.value = outcome.gameId
+                    val navigationTicket = completionGuard.snapshot()
+                    if (isWatching()) {
                         _importState.value = ImportState.Idle
                         _completedAnalysis.value = CompletedAnalysis(
                             gameId = outcome.gameId,
+                            navigationTicket = navigationTicket,
+                            requestId = pending.requestId,
                             justCompleted = !outcome.alreadyExisted,
                         )
                     }
@@ -493,12 +574,11 @@ class IosMainController(
                 is AnalysisOrchestrator.Outcome.Failed -> {
                     // Why not pendingをここで消す: 失敗ダイアログを閉じるまで「再開すべき解析」
                     // として残しておくことで、切断が実は継続中でも後で再問い合わせできる。
-                    if (wasWatching) {
-                        _importState.value = ImportState.Error(outcome.message)
+                    if (isWatching()) {
+                        _importState.value = ImportState.Error(outcome.displayMessage())
                     } else {
-                        // 失敗の通知自体は画面が無いため出さない（Androidの通知に相当するものが
-                        // iOS側に無い＝既存挙動のまま）。ホームの解析中カードを消すためだけに
-                        // リロードする（新規UIは作らない）。
+                        // システム通知を使わないため、ホーム表示中もアプリ内ダイアログで知らせる。
+                        _importState.value = ImportState.Error(outcome.displayMessage())
                         reloadHome()
                     }
                 }
@@ -507,7 +587,10 @@ class IosMainController(
     }
 
     /** analyzer構築〜orchestrator実行のみを担う（状態遷移は呼び出し元 [launchAnalysis] の責務）。 */
-    private suspend fun runAnalysis(pending: PendingAnalysis, id: String): AnalysisOrchestrator.Outcome {
+    private suspend fun runAnalysis(
+        pending: PendingAnalysis,
+        onPositionResult: (Int, List<PvInfo>) -> Unit = { _, _ -> },
+    ): AnalysisOrchestrator.Outcome {
         analyzerConfigurationError()?.let { return it }
 
         val auth = authRepository
@@ -518,7 +601,7 @@ class IosMainController(
         if (serverAnalysisAvailable() && auth != null && baseUrl != null && auth.currentUser.value == null) {
             val signInResult = auth.signInAnonymously()
             if (signInResult.isFailure) {
-                return AnalysisOrchestrator.Outcome.Failed(AppStrings.AUTH_ERROR_ANON_SIGN_IN_GENERIC)
+                return AnalysisOrchestrator.Outcome.Failed(LocalizedStrings.AUTH_ERROR_ANON_SIGN_IN_GENERIC())
             }
         }
 
@@ -536,15 +619,11 @@ class IosMainController(
             ratingRule = pending.ratingRule,
             contentHash = pending.contentHash,
             sourcePlaceOverride = pending.sourcePlaceOverride,
+            forceReanalysis = pending.forceReanalysis,
+            requestId = pending.requestId,
             // NDJSONのprogress行は無進捗判定だけを更新し、局面状態とは分離する。
             onProgress = { _, _ -> lastProgressAtEpochSeconds = currentEpochSeconds() },
-            onPositionResult = { ply, pvs ->
-                InProgressAnalysisRegistry.shared.updatePosition(id, ply, pvs)
-                val current = _importState.value
-                if (current is ImportState.Analyzing) {
-                    _importState.value = current.copy(progressive = current.progressive.withPosition(ply, pvs))
-                }
-            },
+            onPositionResult = onPositionResult,
         )
     }
 
@@ -561,8 +640,10 @@ class IosMainController(
             ratingService = game.ratingService,
             ratingRaw = game.ratingRaw,
             ratingRule = game.ratingRule,
+            ratingDeclaredAt = game.ratingDeclaredAt,
             contentHash = game.contentHash,
             sourcePlaceOverride = game.sourcePlaceOverride,
+            studyKif = game.studyKif,
         )
         return when (outcome) {
             is GameImporter.Outcome.Imported -> GameImportOutcome(success = true, gameId = outcome.gameId)
@@ -576,21 +657,25 @@ class IosMainController(
             for (game in gameRepository.getPendingGames()) {
                 val pending = game.toPendingAnalysis() ?: continue
                 val id = game.contentHash
-                InProgressAnalysisRegistry.shared.start(id, game.fileName, game.movesUsi, game.userSide)
-                val outcome = try {
-                    runAnalysis(pending, id)
-                } finally {
-                    InProgressAnalysisRegistry.shared.finish(id)
-                }
-                if (outcome is AnalysisOrchestrator.Outcome.Completed) {
-                    uploadOrchestrator?.maybeAutoUpload(outcome.gameId)
+                lastProgressAtEpochSeconds = currentEpochSeconds()
+                val outcome = analysisSessionCoordinator.run(
+                    session = AnalysisSession(id, game.fileName, game.movesUsi, game.userSide, pending.requestId),
+                    analyze = { onPositionResult -> runAnalysis(pending, onPositionResult) },
+                )
+                when (outcome) {
+                    is AnalysisOrchestrator.Outcome.Completed -> {
+                        uploadOrchestrator?.maybeAutoUpload(outcome.gameId)
+                    }
+                    is AnalysisOrchestrator.Outcome.Failed -> {
+                        _importState.value = ImportState.Error(outcome.displayMessage())
+                    }
                 }
             }
             reloadHome()
         }
     }
 
-    private fun dev.miyado.shogisupplement.db.GameRecord.toPendingAnalysis(): PendingAnalysis? {
+    private fun dev.miyado.shogisupplement.db.GameRecord.toPendingAnalysis(forceReanalysis: Boolean = false): PendingAnalysis? {
         val text = kifText ?: return null
         return PendingAnalysis(
             kifText = text,
@@ -601,6 +686,8 @@ class IosMainController(
             ratingRule = ratingRule,
             contentHash = contentHash,
             sourcePlaceOverride = sourcePlace,
+            forceReanalysis = forceReanalysis,
+            requestId = NSUUID().UUIDString,
             createdAtEpochSeconds = currentEpochSeconds(),
         )
     }
@@ -609,11 +696,11 @@ class IosMainController(
      * Why not アカウントを作らない端末にも返す: その場合は端末内WASMで解析するため、
      * サーバーURLの有無は結果に影響しない。
      */
-    private fun analyzerConfigurationError(): AnalysisOrchestrator.Outcome.Failed? =
+    private suspend fun analyzerConfigurationError(): AnalysisOrchestrator.Outcome.Failed? =
         if (!IosEngineHost.ENGINE_LINKED && analysisBaseUrl == null &&
             !settingsRepository.isAccountDeclined()
         ) {
-            AnalysisOrchestrator.Outcome.Failed(AppStrings.ANALYSIS_SERVER_NOT_CONFIGURED)
+            AnalysisOrchestrator.Outcome.Failed(LocalizedStrings.ANALYSIS_SERVER_NOT_CONFIGURED())
         } else {
             null
         }
@@ -627,37 +714,40 @@ class IosMainController(
         val baseUrl = analysisBaseUrl
         // アカウントを作らない端末はサーバーを使えないため、エンジン非同梱ビルドでも
         // 動く端末内WASMを単独で使う（else側はネイティブエンジンを前提にしている）。
-        if (!serverAnalysisAvailable() && !IosEngineHost.ENGINE_LINKED) {
-            return WasmAnalysisRunner()
-        }
-        return if (serverAnalysisAvailable() && auth != null && baseUrl != null) {
-            // 429・障害・接続断では同条件のWASMで最初から再解析する。426では切り替えない。
-            FailoverAnalyzer(
-                delegate = AuthRetryingAnalyzer(
-                    delegate = RemoteAnalysisRunner(
-                        baseUrl = baseUrl,
-                        accessTokenProvider = {
-                            checkNotNull(auth.accessToken()) { "アクセストークンが取得できない" }
-                        },
-                        platform = "ios",
-                        httpClient = checkNotNull(analysisHttpClient),
-                        appCheckTokenProvider = AppCheckTokenBridge::getToken,
+        return when (selectAnalysisEngineRoute(serverAnalysisAvailable(), IosEngineHost.ENGINE_LINKED)) {
+            AnalysisEngineRoute.REMOTE_WITH_WASM_FALLBACK -> {
+                val remoteAuth = checkNotNull(auth)
+                val remoteBaseUrl = checkNotNull(baseUrl)
+                // 429・障害・接続断では同条件のWASMで最初から再解析する。426では切り替えない。
+                FailoverAnalyzer(
+                    delegate = AuthRetryingAnalyzer(
+                        delegate = RemoteAnalysisRunner(
+                            baseUrl = remoteBaseUrl,
+                            accessTokenProvider = {
+                                checkNotNull(remoteAuth.accessToken()) { "アクセストークンが取得できない" }
+                            },
+                            platform = "ios",
+                            httpClient = checkNotNull(analysisHttpClient),
+                            appCheckTokenProvider = { if (DebugBackendStore.active == null) AppCheckTokenBridge.getToken() else null },
+                        ),
+                        authRepository = remoteAuth,
                     ),
-                    authRepository = auth,
-                ),
-                fallbackAnalyzer = WasmAnalysisRunner(),
-            )
-        } else {
-            // ANALYSIS_BASE_URL未設定ビルドでの graceful degradation（従来の端末エンジン）。
-            AnalysisRunner(
-                // iOS はプロセス内で1エンジンのみ（in-process制約）のため workers=1。
-                workers = 1,
-                crashReporter = NoopCrashReporter,
-                // 1局の中で複数局面を続けて解析しても局面ごとに置換表がクリアされるよう
-                // IsolatedEngine で包む（解析結果が解析順に依存しないようにするため）。
-                engineFactory = { IsolatedEngine(IosEngineHost.newGameEngineFactory()()) },
-                disposeEngine = IosEngineHost.keepAliveDispose,
-            )
+                    fallbackAnalyzer = WasmAnalysisRunner(),
+                )
+            }
+            AnalysisEngineRoute.LOCAL_WASM -> WasmAnalysisRunner()
+            AnalysisEngineRoute.LOCAL_NATIVE -> {
+                // ANALYSIS_BASE_URL未設定ビルドでの graceful degradation（従来の端末エンジン）。
+                AnalysisRunner(
+                    // iOS はプロセス内で1エンジンのみ（in-process制約）のため workers=1。
+                    workers = 1,
+                    crashReporter = NoopCrashReporter,
+                    // 1局の中で複数局面を続けて解析しても局面ごとに置換表がクリアされるよう
+                    // IsolatedEngine で包む（解析結果が解析順に依存しないようにするため）。
+                    engineFactory = { IsolatedEngine(IosEngineHost.newGameEngineFactory()()) },
+                    disposeEngine = IosEngineHost.keepAliveDispose,
+                )
+            }
         }
     }
 
@@ -697,10 +787,16 @@ class IosMainController(
     fun studyStepBack() = reportViewModel.studyStepBack()
     fun studyResetToStart() = reportViewModel.studyResetToStart()
     fun endStudy() = reportViewModel.endStudy()
+    fun saveStudy(onResult: (Boolean) -> Unit) = reportViewModel.saveStudy(onResult)
+    fun savedKifForExport(gameId: Long): String? = reportViewModel.savedKifForExport(gameId)
+    fun hasUnsavedStudy(): Boolean = reportViewModel.hasUnsavedStudy()
+    fun deleteStudyBranch(baseSfen: String, moves: List<String>, nodeId: Long? = null): Boolean = reportViewModel.deleteStudyBranch(baseSfen, moves, nodeId)
+
     fun onStudyChipTapped(depth: Int) = reportViewModel.onStudyChipTapped(depth)
     fun onStudyBranchChipTapped(depth: Int) = reportViewModel.onStudyBranchChipTapped(depth)
     fun onStudyBranchPopupDismiss() = reportViewModel.onStudyBranchPopupDismiss()
-    fun onStudyBranchOptionSelected(depth: Int, moveUsi: String) = reportViewModel.onStudyBranchOptionSelected(depth, moveUsi)
+    fun onStudyBranchOptionSelected(depth: Int, nodeId: Long) = reportViewModel.onStudyBranchOptionSelected(depth, nodeId)
+    fun onStudyAutoAnalyze() = reportViewModel.onStudyAutoAnalyze()
     fun onStudyAnalyze() = reportViewModel.onStudyAnalyze()
 
     fun onStudyCandidateSelected(moveUsi: String) = reportViewModel.onStudyCandidateSelected(moveUsi)
@@ -719,19 +815,5 @@ class IosMainController(
         private const val STUDY_ANALYSIS_REQUEST_TIMEOUT_MS = 30_000L
         private const val STUDY_ANALYSIS_SOCKET_TIMEOUT_MS = 30_000L
 
-        /** 閾値秒。大きくすると二重POSTのリスクは下がるが、プロセス死亡時の復旧が遅れる。 */
-        internal const val FOREGROUND_RESUME_IDLE_THRESHOLD_SECONDS = 5L
     }
-}
-
-/** 純粋関数として切り出し、IosMainController本体のインスタンス化なしに単体テストできるようにする。 */
-internal fun shouldResumeAfterForeground(
-    importState: IosMainController.ImportState,
-    lastProgressAtEpochSeconds: Long?,
-    nowEpochSeconds: Long,
-    idleThresholdSeconds: Long = IosMainController.FOREGROUND_RESUME_IDLE_THRESHOLD_SECONDS,
-): Boolean {
-    if (importState !is IosMainController.ImportState.Analyzing) return false
-    if (lastProgressAtEpochSeconds == null) return false
-    return nowEpochSeconds - lastProgressAtEpochSeconds >= idleThresholdSeconds
 }

@@ -1,0 +1,10 @@
+{
+  "kind": "screen",
+  "kindLabel": "画面（Screen）",
+  "category": "report",
+  "categoryLabel": "レポート",
+  "screen": "本譜",
+  "screenLabel": "本譜",
+  "state": "後手視点",
+  "stateLabel": "後手視点"
+}

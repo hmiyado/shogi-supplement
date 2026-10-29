@@ -1,0 +1,10 @@
+{
+  "kind": "screen",
+  "kindLabel": "画面（Screen）",
+  "category": "report",
+  "categoryLabel": "レポート",
+  "screen": "検討・分岐操作",
+  "screenLabel": "検討・分岐操作",
+  "state": "phone",
+  "stateLabel": "スマートフォン幅"
+}

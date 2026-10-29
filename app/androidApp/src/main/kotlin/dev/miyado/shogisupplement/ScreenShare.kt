@@ -25,3 +25,15 @@ fun shareScreen(context: Context, view: View) {
         ),
     )
 }
+
+fun shareText(context: Context, text: String) {
+    context.startActivity(
+        Intent.createChooser(
+            Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, text)
+            },
+            null,
+        ),
+    )
+}

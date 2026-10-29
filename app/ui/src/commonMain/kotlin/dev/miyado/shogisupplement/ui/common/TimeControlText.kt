@@ -1,5 +1,6 @@
 package dev.miyado.shogisupplement.ui.common
 
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -12,14 +13,17 @@ import dev.miyado.shogisupplement.ui.theme.IbmPlexMonoFamily
  * 「秒読み」ヘッダの原文。[sourcePlace] は対局サービス（[dev.miyado.shogisupplement.kifu.KifuSource.wireValue]）。
  * mainRawが空欄なら非表示。
  */
+@Composable
 fun buildTimeControlLine(sourcePlace: String?, mainRaw: String?, byoyomiRaw: String?): AnnotatedString? {
     val text = timeControlDisplayText(sourcePlace, mainRaw, byoyomiRaw) ?: return null
     return withMonoNumbers(text)
 }
 
 /** 文中の数値と符号だけをmonoにする（DESIGN.md「数値と符号は例外なくmono」）。 */
+@Composable
 fun withMonoNumbers(text: String): AnnotatedString = buildAnnotatedString { appendWithMonoNumbers(text) }
 
+@Composable
 private fun AnnotatedString.Builder.appendWithMonoNumbers(text: String) {
     var lastIndex = 0
     for (match in Regex("""[+-]?\d+""").findAll(text)) {

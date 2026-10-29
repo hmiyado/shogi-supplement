@@ -1,5 +1,10 @@
 package dev.miyado.shogisupplement.ui.consent
 
+import dev.miyado.shogisupplement.ui.text.UiStrings
+
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -29,7 +34,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.adaptiveContentWidth
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
 import dev.miyado.shogisupplement.ui.theme.shogiColors
@@ -61,24 +65,24 @@ fun ConsentScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 Text(
-                    text = AppStrings.CONSENT_TITLE,
+                    text = stringResource(Res.string.consent_title),
                     style = MaterialTheme.typography.headlineSmall,
                 )
                 Text(
-                    text = AppStrings.CONSENT_INTRO,
+                    text = UiStrings.CONSENT_INTRO,
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Spacer(Modifier.height(8.dp))
                 ConsentOption(
-                    label = AppStrings.CONSENT_WITH_ACCOUNT_LABEL,
-                    points = AppStrings.CONSENT_WITH_ACCOUNT_POINTS,
+                    label = stringResource(Res.string.consent_with_account_label),
+                    points = UiStrings.CONSENT_WITH_ACCOUNT_POINTS,
                     selected = withAccount,
                     onSelect = { withAccount = true },
                 )
                 Spacer(Modifier.height(8.dp))
                 ConsentOption(
-                    label = AppStrings.CONSENT_WITHOUT_ACCOUNT_LABEL,
-                    points = AppStrings.CONSENT_WITHOUT_ACCOUNT_POINTS,
+                    label = stringResource(Res.string.consent_without_account_label),
+                    points = UiStrings.CONSENT_WITHOUT_ACCOUNT_POINTS,
                     selected = !withAccount,
                     onSelect = { withAccount = false },
                 )
@@ -89,7 +93,7 @@ fun ConsentScreen(
             Spacer(Modifier.height(8.dp))
             TextButton(onClick = onOpenTerms) {
                 Text(
-                    text = AppStrings.SETTINGS_ROW_TERMS,
+                    text = stringResource(Res.string.settings_row_terms),
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
@@ -105,7 +109,7 @@ fun ConsentScreen(
                         color = MaterialTheme.colorScheme.onPrimary,
                     )
                 } else {
-                    Text(AppStrings.CONSENT_ACCEPT_BUTTON)
+                    Text(stringResource(Res.string.consent_accept_button))
                 }
             }
         }

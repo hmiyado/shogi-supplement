@@ -37,11 +37,31 @@ import kotlin.test.assertTrue
  */
 class RemoteAnalysisRunnerTest {
 
+    @Test
+    fun drillRequestIsIndependentOfStudyMultiPv() = runTest {
+        val requests = mutableListOf<String>()
+        val client = HttpClient(MockEngine { request ->
+            requests.add(request.bodyText())
+            respond(resultLine + "\n", HttpStatusCode.OK, ndjsonHeaders)
+        })
+        try {
+            val runner = runner(client)
+            runner.analyzePosition("sfen", multiPv = 3)
+            runner.analyzeDrillPosition("sfen")
+            val study = Json.parseToJsonElement(requests[0]).jsonObject
+            val drill = Json.parseToJsonElement(requests[1]).jsonObject
+            assertEquals("3", study["multi_pv"]?.jsonPrimitive?.content)
+            assertEquals(null, study["purpose"])
+            assertEquals("2", drill["multi_pv"]?.jsonPrimitive?.content)
+            assertEquals("drill", drill["purpose"]?.jsonPrimitive?.content)
+        } finally { client.close() }
+    }
+
     private val ndjsonHeaders = headersOf(HttpHeaders.ContentType, "application/x-ndjson")
 
     private val resultLine =
         """{"result":[[{"multipv":1,"score":{"type":"cp","value":30},"pv":["7g7f"],"nodes":400000},""" +
-            """{"multipv":2,"score":{"type":"mate","value":-3},"pv":["2g2f"],"nodes":400000}]],""" +
+            """{"multipv":2,"score":{"type":"mate","value":-3,"verified":true},"pv":["2g2f"],"nodes":400000}]],""" +
             """"engine_meta":{"engine_rev":"rev","eval_sha256":"sha","nodes":400000,"threads":1,""" +
             """"multi_pv":2,"usi_hash":128,"fv_scale":20}}"""
 
@@ -88,7 +108,7 @@ class RemoteAnalysisRunnerTest {
                 }
             }
 
-            assertEquals(1, result.size)
+            assertEquals(1, result.positions.size)
         }
     }
 
@@ -110,11 +130,14 @@ class RemoteAnalysisRunnerTest {
         }
 
         assertEquals(listOf(1 to 2, 2 to 2), progressEvents)
-        assertEquals(1, result.size)
-        assertEquals(2, result[0].size)
-        assertEquals(30, (result[0][0].score as Score.Cp).value)
-        assertEquals(listOf("7g7f"), result[0][0].pv)
-        assertEquals(-3, (result[0][1].score as Score.Mate).plies)
+        assertEquals(1, result.positions.size)
+        assertEquals(2, result.positions[0].size)
+        assertEquals(30, (result.positions[0][0].score as Score.Cp).value)
+        assertEquals(listOf("7g7f"), result.positions[0][0].pv)
+        assertEquals(-3, (result.positions[0][1].score as Score.Mate).plies)
+        assertEquals("rev", result.engineMeta?.engineRev)
+        assertEquals(400000, result.engineMeta?.nodes)
+        assertEquals(2, result.engineMeta?.multiPv)
     }
 
     // ─── position行（プログレッシブ解析表示向けの局面単位中間結果） ──────────────
@@ -147,7 +170,7 @@ class RemoteAnalysisRunnerTest {
                 )
             }
 
-            assertEquals(1, result.size)
+            assertEquals(1, result.positions.size)
         }
     }
 
@@ -249,7 +272,7 @@ class RemoteAnalysisRunnerTest {
         val result = runner(HttpClient(engine)).analyzeGame(listOf("7g7f"))
 
         assertEquals(2, attempt)
-        assertEquals(10, (result[0][0].score as Score.Cp).value)
+        assertEquals(10, (result.positions[0][0].score as Score.Cp).value)
     }
 
     @Test

@@ -1,5 +1,7 @@
 package dev.miyado.shogisupplement.webApp.report
 
+import dev.miyado.shogisupplement.ui.text.LocalizedStrings
+
 import dev.miyado.shogisupplement.blunder.BlunderJudge
 import dev.miyado.shogisupplement.blunder.Score
 import dev.miyado.shogisupplement.board.ShogiBoard
@@ -15,10 +17,11 @@ import dev.miyado.shogisupplement.pipeline.PositionEval
 import dev.miyado.shogisupplement.pipeline.ReportPipeline
 import dev.miyado.shogisupplement.strength.StrengthEstimator
 import dev.miyado.shogisupplement.strength.toDisplayString
-import dev.miyado.shogisupplement.text.AppStrings
 import kotlin.math.roundToInt
+import kotlinx.serialization.Serializable
 
-/** ReportScreen へそのまま渡せる表示状態一式。DBを持たないWeb版はセッション内メモリのみで保持する。 */
+/** ReportScreenへ渡す解析時点の表示状態。再読込時も再判定せず保存した結果を表示する。 */
+@Serializable
 data class WebReportData(
     val game: GameRecord,
     val reports: List<BlunderRecord>,
@@ -29,7 +32,7 @@ data class WebReportData(
 )
 
 /** KIF/SFENと解析結果をReportScreenのドメイン型へ変換する。DBへ保存せず、nullのuserSideでは全体を対象にする。 @param userSide ユーザーの先後。 */
-fun buildWebReport(
+suspend fun buildWebReport(
     fileName: String,
     moves: List<String>,
     headers: Map<String, String>,
@@ -59,9 +62,7 @@ fun buildWebReport(
         moveCount = moves.size.toLong(),
         senteName = players.headers["先手"],
         goteName = players.headers["後手"],
-        // Web版はDB永続化を持たず「解析した時刻」という概念がないため0（日時不明の
-        // センチネル）を渡す。
-        analyzedAt = 0L,
+        analyzedAt = dev.miyado.shogisupplement.util.currentEpochSeconds(),
         rating = analysisResult.estimatedRating.toLong(),
         ratingSampleMoves = analysisResult.ratingSampleMoves.toLong(),
         coefVersion = coef.version,
@@ -79,11 +80,11 @@ fun buildWebReport(
 
     val matchRateResult = EngineMatchRate.compute(moves, positionEvalRows, userSide)
     val matchRateText = matchRateResult?.let {
-        AppStrings.matchRateValue((it.rate * 100).roundToInt(), it.matched, it.sampleMoves)
+        LocalizedStrings.matchRateValue((it.rate * 100).roundToInt(), it.matched, it.sampleMoves)
     }
     val blunderRateText = matchRateResult?.takeIf { it.sampleMoves > 0 }?.let {
         val pct = (reports.size.toDouble() / it.sampleMoves * 100).roundToInt()
-        AppStrings.blunderRateValue(pct, reports.size, it.sampleMoves)
+        LocalizedStrings.blunderRateValue(pct, reports.size, it.sampleMoves)
     }
     val strengthText = userSide?.let {
         val userMoves = userMoveCount(moves.size, it)
@@ -125,6 +126,8 @@ private fun toPositionEvalRow(ply: Int, posEval: PositionEval): PositionEvalRow?
             secondScoreCp = secondScoreCp,
             secondMateIn = secondMateIn,
             secondUsi = posEval.pv2MoveUsi,
+            mateVerified = (score as? Score.Mate)?.verified == true,
+            secondMateVerified = (posEval.pv2Score as? Score.Mate)?.verified == true,
         )
         is Score.Mate -> PositionEvalRow(
             ply = ply,
@@ -134,6 +137,8 @@ private fun toPositionEvalRow(ply: Int, posEval: PositionEval): PositionEvalRow?
             secondScoreCp = secondScoreCp,
             secondMateIn = secondMateIn,
             secondUsi = posEval.pv2MoveUsi,
+            mateVerified = (score as? Score.Mate)?.verified == true,
+            secondMateVerified = (posEval.pv2Score as? Score.Mate)?.verified == true,
         )
     }
 }

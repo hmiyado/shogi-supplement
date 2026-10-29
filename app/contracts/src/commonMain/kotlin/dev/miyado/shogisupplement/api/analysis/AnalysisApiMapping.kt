@@ -5,11 +5,11 @@ import dev.miyado.shogisupplement.engine.PvInfo
 
 fun Score.toJson(): ScoreJson = when (this) {
     is Score.Cp -> ScoreJson(type = "cp", value = value)
-    is Score.Mate -> ScoreJson(type = "mate", value = plies)
+    is Score.Mate -> ScoreJson(type = "mate", value = plies, verified = verified)
 }
 
 fun ScoreJson.toScore(): Score = when (type) {
-    "mate" -> Score.Mate(value)
+    "mate" -> Score.Mate(value, verified = verified)
     else -> Score.Cp(value)
 }
 

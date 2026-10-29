@@ -38,6 +38,14 @@ data class PrivateKifuFields(
     /** 将棋クエスト等、対局者名の括弧書きから分離したレート。それ以外のsourceでは常にnull。 */
     @SerialName("sente_rating") val senteRating: Long? = null,
     @SerialName("gote_rating") val goteRating: Long? = null,
+    /** nullは局面情報の無い旧形式。メモは公開データへ含めない。 */
+    @SerialName("position_notes") val positionNotes: Map<Int, KifuPositionNotes>? = null,
+    /** 分岐内のメモも秘匿する。KIFの分岐セクションを順序・空白を変えずに保持する。 */
+    @SerialName("variation_kif") val variationKif: String? = null,
+    /** 編集済み検討KIF。取込原文の再構成情報とは別に保持し、公開列へ出さない。 */
+    @SerialName("study_kif") val studyKif: String? = null,
+    /** 検討付きバックアップの基準原文。再構成で丸められる日時・終局手の時間も保持する。 */
+    @SerialName("study_original_kif") val studyOriginalKif: String? = null,
 ) {
     /** 暗号化前のJSON表現。付録の `private_enc` ペイロード形式に対応する。 */
     fun toJson(): String = json.encodeToString(this)
@@ -83,8 +91,8 @@ object KifuDecomposer {
     private val SECONDS_SUFFIX = Regex("""^(.*\d{1,2}:\d{2}):\d{2}$""")
 
     /**
-     * @param rawText パース前のKIF原文。[KifuGame] はコメント行・しおり行を保持しないため、
-     *   それらとKIOUマーカーはrawTextから別途拾う
+     * @param rawText パース前のKIF原文。旧クライアント用のコメント一覧と
+     *   KIOUマーカーは原文から拾い、局面別メモは[game]から取得する。
      * @param game [rawText] を [KifParser] でパース済みの結果
      */
     fun decompose(rawText: String, game: KifuGame): DecomposedKifu {
@@ -118,8 +126,16 @@ object KifuDecomposer {
                 comments = extractComments(rawText),
                 senteRating = players.senteRating,
                 goteRating = players.goteRating,
+                positionNotes = game.positionNotes,
+                variationKif = extractVariationKif(rawText),
             ),
         )
+    }
+
+    private fun extractVariationKif(rawText: String): String? {
+        val start = Regex("^[\\t 　]*変化[：:][\\t 　]*[0-9]+[\\t 　]*手", RegexOption.MULTILINE)
+            .find(rawText)?.range?.first ?: return null
+        return rawText.substring(start)
     }
 
     private fun normalizeWhitelistedValue(key: String, value: String): String =
@@ -208,7 +224,8 @@ object KifuReconstructor {
         val sb = StringBuilder()
         appendHeaders(sb, public.headers, private, senteName, goteName)
         sb.append(MOVE_HEADER_LINE).append('\n')
-        appendMoves(sb, public)
+        appendMoves(sb, public, private?.positionNotes)
+        private?.variationKif?.let { sb.append('\n').append(it) }
         return sb.toString()
     }
 
@@ -254,11 +271,20 @@ object KifuReconstructor {
         line("後手", goteName)
         line("後手段級", headers["後手段級"])
         extra.filterKeys { it != "棋戦" && it != "場所" }.forEach { (key, value) -> line(key, value) }
-        private?.comments.orEmpty().forEach { sb.append(it).append('\n') }
+        if (private?.positionNotes == null) {
+            private?.comments.orEmpty().forEach { sb.append(it).append('\n') }
+        }
     }
 
-    private fun appendMoves(sb: StringBuilder, public: PublicKifuFields) {
+    private fun appendMoves(sb: StringBuilder, public: PublicKifuFields, notes: Map<Int, KifuPositionNotes>?) {
+        fun appendNotes(ply: Int) {
+            notes?.get(ply)?.let { note ->
+                note.comments.forEach { sb.append('*').append(it).append('\n') }
+                note.bookmarks.forEach { sb.append('&').append(it).append('\n') }
+            }
+        }
         val board = ShogiBoard()
+        appendNotes(0)
         for ((index, usi) in public.movesUsi.withIndex()) {
             val move = ShogiMove.fromUsi(usi)
             val moveText = formatMove(move, board)
@@ -266,6 +292,7 @@ object KifuReconstructor {
             val timeSuffix = if (timeSeconds != null) " (${formatClock(timeSeconds)}/00:00:00)" else ""
             sb.append((index + 1).toString()).append(' ').append(moveText).append(timeSuffix).append('\n')
             board.push(move)
+            appendNotes(index + 1)
         }
         val result = public.result
         if (result != null) {
@@ -298,7 +325,7 @@ object KifuReconstructor {
     // [board] は「この手を指す前」の局面（副作用なし）。
     // Why not 「同」表記: 移動元(77)または「打」さえあれば一意にパースできるため、
     // 直前の着手先を追跡する分岐を増やさず常に着手先の座標を明示する。
-    private fun formatMove(move: ShogiMove, board: ShogiBoard): String {
+    internal fun formatMove(move: ShogiMove, board: ShogiBoard): String {
         val destText = FILE_CHARS[move.to.file] + RANK_CHARS[move.to.rank]
         val dropType = move.dropType
         if (dropType != null) {
@@ -311,7 +338,7 @@ object KifuReconstructor {
     }
 
     /** 秒 → "m:ss"。累計時間欄は KifParser が読まないため常に同じ値のダミーで埋める。 */
-    private fun formatClock(seconds: Int): String {
+    internal fun formatClock(seconds: Int): String {
         val mm = seconds / 60
         val ss = seconds % 60
         return "$mm:${ss.toString().padStart(2, '0')}"

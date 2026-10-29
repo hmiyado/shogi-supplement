@@ -7,7 +7,7 @@
 #
 # シングルスレッド(-pthreadなし)構成: Threads=1が本番の不変条件で、pthread不要=
 # SharedArrayBuffer不要=COOP/COEPヘッダなしの静的ホスティングで配信できる。
-# v7.00は元々3箇所で無条件にstd::threadを生成する作りなので、パッチで最小限の
+# v9.40は元々std::threadを生成する作りなので、パッチで最小限の
 # 同期実行フォールバックに置き換えている。
 set -euo pipefail
 
@@ -27,21 +27,11 @@ if [ ! -f "$EVAL_NN_SRC" ]; then
 	exit 1
 fi
 
-SRCS=(
-	main.cpp types.cpp bitboard.cpp misc.cpp movegen.cpp position.cpp
-	usi.cpp usi_option.cpp thread.cpp tt.cpp movepick.cpp timeman.cpp
-	book/apery_book.cpp book/book.cpp
-	extra/bitop.cpp extra/long_effect.cpp extra/sfen_packer.cpp extra/super_sort.cpp
-	mate/mate.cpp mate/mate1ply_without_effect.cpp mate/mate1ply_with_effect.cpp mate/mate_solver.cpp
-	eval/evaluate_bona_piece.cpp eval/evaluate.cpp eval/evaluate_io.cpp eval/evaluate_mir_inv_tools.cpp
-	eval/material/evaluate_material.cpp
-	testcmd/benchmark.cpp testcmd/mate_test_cmd.cpp testcmd/normal_test_cmd.cpp testcmd/unit_test.cpp
-	eval/nnue/evaluate_nnue.cpp eval/nnue/evaluate_nnue_learner.cpp eval/nnue/nnue_test_command.cpp
-	eval/nnue/features/k.cpp eval/nnue/features/p.cpp eval/nnue/features/half_kp.cpp
-	eval/nnue/features/half_kp_vm.cpp eval/nnue/features/half_relative_kp.cpp
-	eval/nnue/features/half_kpe9.cpp eval/nnue/features/pe9.cpp
-	engine/yaneuraou-engine/yaneuraou-search.cpp
-)
+SOURCE_LIST="$SCRIPT_DIR/../app/engine/yaneuraou-v940-sources.txt"
+SRCS=()
+while IFS= read -r src; do
+	[ -n "$src" ] && SRCS+=("$src")
+done < "$SOURCE_LIST"
 
 mkdir -p "$OUT_DIR"
 printf '%s\n' "${SRCS[@]}" > "$OUT_DIR/.srcs.txt"
@@ -54,6 +44,9 @@ VARIANT="$1"
 SRC_DIR=/work/upstream/YaneuraOu/source
 OUT_DIR=/work/out-browser
 OBJ_DIR="$OUT_DIR/obj-$VARIANT"
+# Why: ソース一覧に含まれないオブジェクトをワイルドカードでリンクしないため、
+# variantごとにオブジェクトを再生成する。
+rm -rf "$OBJ_DIR"
 mkdir -p "$OBJ_DIR"
 
 CXXFLAGS="-std=c++17 -fno-exceptions -fno-rtti -O3 -DNDEBUG \
@@ -88,31 +81,34 @@ echo "=== リンク(variant=$VARIANT・ブラウザ向け) ==="
 # -sALLOW_MEMORY_GROWTH=1 -sMAXIMUM_MEMORY=512MiB -sINITIAL_MEMORY=64MiB:
 #   USI_Hash=128MB+評価関数(NNUE重み)64MB+探索用バッファを賄う。上限を明示するのは
 #   iOS Safari等メモリ制約の厳しい環境でも安全に確保できる範囲に収めるため。
-# -sSTACK_SIZE=32MiB, -sEXIT_RUNTIME=1: 探索の再帰対策・quit後にランタイムを
-#   きちんと終了させるため。
+# -sSTACK_SIZE=32MiB, -sNO_EXIT_RUNTIME=1: main()が戻ったあともWorkerのUSI APIを
+#   呼べるようランタイムを維持する。
 emcc -O3 $([ "$VARIANT" = "simd" ] && echo -msimd128) \
 	-sMODULARIZE=1 -sEXPORT_NAME=createYaneuraOu \
 	-sENVIRONMENT=worker \
 	-sINVOKE_RUN=0 \
-	-sEXPORTED_RUNTIME_METHODS=callMain,FS \
+	-sEXPORTED_RUNTIME_METHODS=callMain,FS -sNO_EXIT_RUNTIME=1 \
 	-sALLOW_MEMORY_GROWTH=1 -sMAXIMUM_MEMORY=536870912 -sINITIAL_MEMORY=67108864 \
 	-sSTACK_SIZE=33554432 \
-	-sEXIT_RUNTIME=1 \
 	"$OBJ_DIR"/*.o -o "$OUT_DIR/yaneuraou-$VARIANT.js"
 
 ls -lh "$OUT_DIR/yaneuraou-$VARIANT.js" "$OUT_DIR/yaneuraou-$VARIANT.wasm"
 
-# Why: ブラウザ向け成果物(-sENVIRONMENT=worker)はfetch/XMLHttpRequest等ブラウザ専有APIに
-# 依存しており、素のNode.jsから直接動かすには一式ポリフィルが要る(壊れやすく本質的でない)。
-# 同じ.oを使い回して-sNODERAWFS=1で再リンクするだけなら追加コンパイル不要かつ数秒で終わり、
-# ネイティブバイナリと同じ「子プロセス+標準入出力」で検証できる。この成果物は配布しない
+# Why: ブラウザ向け成果物(-sENVIRONMENT=worker)はブラウザAPIに依存するため、
+# Node用は同じ.oを使い回して再リンクする。v9.40のWASMはmain()へ渡した
+# コマンドラインをUSIコマンド列として処理するため、スモークテストも同じ経路を使う。
+# この成果物は配布しない
 # (out-browser/node-smoke/、gitignore対象)ため、GPL対応ソースの範囲は変わらない
 # (同一ソース・同一パッチの別リンク設定に過ぎない)。
 NODE_SMOKE_DIR="$OUT_DIR/node-smoke"
 mkdir -p "$NODE_SMOKE_DIR"
 echo "=== リンク(variant=$VARIANT・スモークテスト専用Node向け) ==="
 emcc -O3 $([ "$VARIANT" = "simd" ] && echo -msimd128) \
-	-sEXIT_RUNTIME=1 -sALLOW_MEMORY_GROWTH=1 -sSTACK_SIZE=33554432 -sNODERAWFS=1 \
+	-sMODULARIZE=1 -sEXPORT_NAME=createYaneuraOu \
+	-sENVIRONMENT=node -sINVOKE_RUN=0 \
+	-sEXPORTED_FUNCTIONS=_main \
+	-sEXPORTED_RUNTIME_METHODS=ccall,callMain,FS -sNO_EXIT_RUNTIME=1 \
+	-sALLOW_MEMORY_GROWTH=1 -sSTACK_SIZE=33554432 -sNODERAWFS=1 \
 	"$OBJ_DIR"/*.o -o "$NODE_SMOKE_DIR/yaneuraou-$VARIANT.js"
 INNER_SCRIPT
 chmod +x "$OUT_DIR/.compile_link.sh"

@@ -1,0 +1,21 @@
+CREATE TABLE analysis_delete_target (
+    game_id INTEGER NOT NULL REFERENCES game(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL,
+    generation TEXT NOT NULL,
+    expected_generation TEXT,
+    request_id TEXT NOT NULL,
+    PRIMARY KEY (game_id, user_id, generation)
+);
+
+freezeTarget:
+INSERT OR IGNORE INTO analysis_delete_target(game_id, user_id, generation, expected_generation, request_id)
+VALUES (?, ?, ?, ?, ?);
+
+getTarget:
+SELECT expected_generation, request_id FROM analysis_delete_target WHERE game_id = ? AND user_id = ? AND generation = ?;
+
+deleteTargets:
+DELETE FROM analysis_delete_target WHERE game_id = ?;
+
+deleteAllTargets:
+DELETE FROM analysis_delete_target;

@@ -1,0 +1,10 @@
+{
+  "kind": "component",
+  "kindLabel": "コンポーネント",
+  "category": "shogiboard",
+  "categoryLabel": "将棋盤",
+  "screen": "将棋盤",
+  "screenLabel": "将棋盤",
+  "state": "後手視点",
+  "stateLabel": "後手視点"
+}

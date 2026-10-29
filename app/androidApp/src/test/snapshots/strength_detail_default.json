@@ -1,0 +1,10 @@
+{
+  "kind": "screen",
+  "kindLabel": "画面（Screen）",
+  "category": "strength",
+  "categoryLabel": "推定棋力",
+  "screen": "detail",
+  "screenLabel": "detail",
+  "state": "標準テーマ",
+  "stateLabel": "標準テーマ"
+}

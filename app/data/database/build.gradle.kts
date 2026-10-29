@@ -65,5 +65,6 @@ tasks.named<org.gradle.language.jvm.tasks.ProcessResources>("jvmTestProcessResou
 // 'localtime'はJVMのTimeZone.setDefault()ではなくプロセスのOSタイムゾーンに従うため、
 // テストプロセス自体のTZをAsia/Tokyoへ固定する（CI実行環境のタイムゾーンに依存させない）。
 tasks.named<Test>("jvmTest") {
+    systemProperty("gameListBenchmark", providers.gradleProperty("gameListBenchmark").orElse("false").get())
     environment("TZ", "Asia/Tokyo")
 }

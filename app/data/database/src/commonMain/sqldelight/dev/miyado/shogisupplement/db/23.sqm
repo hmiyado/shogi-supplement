@@ -1,0 +1,8 @@
+CREATE TABLE analysis_delete_target (
+    game_id INTEGER NOT NULL REFERENCES game(id) ON DELETE CASCADE,
+    user_id TEXT NOT NULL,
+    generation TEXT NOT NULL,
+    expected_generation TEXT,
+    request_id TEXT NOT NULL,
+    PRIMARY KEY (game_id, user_id, generation)
+);

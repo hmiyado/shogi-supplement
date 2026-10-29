@@ -1,0 +1,10 @@
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+COPY worker /candidate
+COPY study-engine /opt/engine/study/yaneuraou
+COPY study-nn.bin /opt/engine/study/eval/nn.bin
+COPY study-LICENSE /opt/engine/study/LICENSE
+RUN echo 'afcabb8b34bef36fa54917692765c4a9475909a233619e0dbc5af48dc7b4e18c  /opt/engine/study/yaneuraou' | sha256sum -c - \
+ && echo 'f8ee839ae8c08537036f23345dd5ed0416958b22425476fc60177942903219b5  /opt/engine/study/eval/nn.bin' | sha256sum -c - \
+ && chmod +x /opt/engine/study/yaneuraou /candidate/bin/worker
+ENTRYPOINT ["/candidate/bin/worker"]

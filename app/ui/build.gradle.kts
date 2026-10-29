@@ -67,9 +67,8 @@ kotlin {
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.material3)
-            implementation(compose.materialIconsExtended)
             implementation(compose.ui)
-            implementation(compose.components.resources)
+            api(compose.components.resources)
             implementation(compose.components.uiToolingPreview)
             implementation(libs.kotlinx.coroutines.core)
             // commonMainのViewModel基盤（AccountViewModel/DrillViewModel等）用。
@@ -103,7 +102,7 @@ kotlin {
 }
 
 compose.resources {
-    publicResClass = false
+    publicResClass = true
     packageOfResClass = "dev.miyado.shogisupplement.ui.generated.resources"
     generateResClass = auto
 }

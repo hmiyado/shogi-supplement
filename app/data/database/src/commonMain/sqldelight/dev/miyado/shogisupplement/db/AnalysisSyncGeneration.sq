@@ -1,0 +1,19 @@
+CREATE TABLE analysis_sync_generation (
+    game_id INTEGER NOT NULL PRIMARY KEY REFERENCES game(id) ON DELETE CASCADE,
+    generation TEXT NOT NULL
+);
+
+initializeGeneration:
+INSERT OR IGNORE INTO analysis_sync_generation(game_id, generation) VALUES (?, ?);
+
+replaceGeneration:
+INSERT OR REPLACE INTO analysis_sync_generation(game_id, generation) VALUES (?, ?);
+
+getGeneration:
+SELECT generation FROM analysis_sync_generation WHERE game_id = ?;
+
+deleteGeneration:
+DELETE FROM analysis_sync_generation WHERE game_id = ?;
+
+deleteAllGenerations:
+DELETE FROM analysis_sync_generation;

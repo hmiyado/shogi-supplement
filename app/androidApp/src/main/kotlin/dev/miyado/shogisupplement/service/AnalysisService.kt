@@ -1,8 +1,15 @@
 package dev.miyado.shogisupplement.service
 
+import dev.miyado.shogisupplement.importing.KifFileReader
+
+import dev.miyado.shogisupplement.engine.displayMessage
+
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
+import dev.miyado.shogisupplement.ui.text.LocalizedStrings
+
 import android.app.Notification
 import android.app.NotificationManager
-import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.net.Uri
@@ -10,11 +17,12 @@ import android.os.IBinder
 import android.provider.OpenableColumns
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import dev.miyado.shogisupplement.MainActivity
 import dev.miyado.shogisupplement.ShogiApp
 import dev.miyado.shogisupplement.crash.SentryCrashReporter
 import dev.miyado.shogisupplement.crash.isAlreadyReported
 import dev.miyado.shogisupplement.db.AppDatabase
+import dev.miyado.shogisupplement.engine.AnalysisSession
+import dev.miyado.shogisupplement.engine.AnalysisSessionCoordinator
 import dev.miyado.shogisupplement.engine.AnalysisOrchestrator
 import dev.miyado.shogisupplement.engine.EvalLoader
 import dev.miyado.shogisupplement.engine.createAndroidAnalysisRunner
@@ -22,10 +30,11 @@ import dev.miyado.shogisupplement.judge.CoefficientTable
 import dev.miyado.shogisupplement.kifu.KifParser
 import dev.miyado.shogisupplement.pipeline.InProgressAnalysisRegistry
 import dev.miyado.shogisupplement.service.AnalysisServiceBus.ServiceEvent
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.util.sha256Hex
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
@@ -39,11 +48,19 @@ class AnalysisService : Service() {
 
     private val job = SupervisorJob()
     private val scope = CoroutineScope(Dispatchers.Default + job)
+    private var activeAnalysisJob: Job? = null
 
+    private lateinit var notificationTitle: String
+    private lateinit var notificationPreparing: String
     private lateinit var notificationManager: NotificationManager
 
     override fun onCreate() {
         super.onCreate()
+        // Android requires a foreground notification before asynchronous analysis starts.
+        kotlinx.coroutines.runBlocking {
+            notificationTitle = LocalizedStrings.NOTIF_ANALYZING_TITLE()
+            notificationPreparing = LocalizedStrings.NOTIF_PREPARING()
+        }
         notificationManager = getSystemService(NotificationManager::class.java)
     }
 
@@ -61,11 +78,18 @@ class AnalysisService : Service() {
         val ratingService = intent.getStringExtra(EXTRA_RATING_SERVICE)
         val ratingRaw = intent.getIntExtra(EXTRA_RATING_RAW, -1).takeIf { it >= 0 }
         val ratingRule = intent.getStringExtra(EXTRA_RATING_RULE)
+        val forceReanalysis = intent.getBooleanExtra(EXTRA_FORCE_REANALYSIS, false)
+        val requestId = intent.getStringExtra(EXTRA_REQUEST_ID)
 
         startForeground(NOTIF_ID, buildProgressNotification(0, 0))
 
-        scope.launch(Dispatchers.IO) {
-            runAnalysis(uriString, gameId, userSide, ratingService, ratingRaw?.toLong(), ratingRule)
+        // 同じ棋譜の再解析で古いworkerの完了が後から保存されないよう、旧セッションを先に止める。
+        activeAnalysisJob?.cancel()
+        activeAnalysisJob = scope.launch(Dispatchers.IO) {
+            runAnalysis(
+                uriString, gameId, userSide, ratingService, ratingRaw?.toLong(), ratingRule,
+                forceReanalysis, requestId, startId,
+            )
         }
 
         return START_NOT_STICKY
@@ -78,9 +102,10 @@ class AnalysisService : Service() {
         ratingService: String? = null,
         ratingRaw: Long? = null,
         ratingRule: String? = null,
+        forceReanalysis: Boolean = false,
+        requestId: String? = null,
+        startId: Int,
     ) {
-        // ID確定前の失敗ではレジストリへの登録もないため、nullならfinishしない。
-        var sessionId: String? = null
         try {
             val repository = AppDatabase.gameRepository(this)
             val storedGame = gameId?.let(repository::getGameById)
@@ -99,9 +124,7 @@ class AnalysisService : Service() {
             // orchestrator呼び出しより先にレジストリへ登録できる。
             // AnalysisOrchestrator側でも同じ入力から同じハッシュを計算するため値は一致する。
             val id = storedGame?.contentHash ?: sha256Hex(kifContent)
-            sessionId = id
             val moves = runCatching { KifParser().parse(kifContent).moves }.getOrElse { emptyList() }
-            InProgressAnalysisRegistry.shared.start(id, fileName, moves, effectiveUserSide)
 
             // 係数読み込み
             val coefJson = assets.open(CoefficientTable.COEFFICIENTS_FILE_NAME).readBytes().decodeToString()
@@ -121,23 +144,30 @@ class AnalysisService : Service() {
                 crashReporter = crashReporter,
             )
 
-            val outcome = orchestrator.analyzeAndSave(
-                kifContent = kifContent,
-                fileName = fileName,
-                userSide = effectiveUserSide,
-                ratingService = effectiveRatingService,
-                ratingRaw = effectiveRatingRaw,
-                ratingRule = effectiveRatingRule,
-                contentHash = storedGame?.contentHash,
-                sourcePlaceOverride = storedGame?.sourcePlace,
-                onProgress = { done, total ->
-                    if (done % 5 == 0 || done == total) {
-                        updateProgressNotification(done, total)
-                    }
+            val outcome = AnalysisSessionCoordinator(InProgressAnalysisRegistry.shared).run(
+                session = AnalysisSession(id, fileName, moves, effectiveUserSide, requestId),
+                analyze = { onPositionResult ->
+                    orchestrator.analyzeAndSave(
+                        kifContent = kifContent,
+                        fileName = fileName,
+                        userSide = effectiveUserSide,
+                        ratingService = effectiveRatingService,
+                        ratingRaw = effectiveRatingRaw,
+                        ratingRule = effectiveRatingRule,
+                        contentHash = storedGame?.contentHash,
+                        sourcePlaceOverride = storedGame?.sourcePlace,
+                        forceReanalysis = forceReanalysis,
+                        requestId = requestId,
+                        onProgress = { done, total ->
+                            if (done % 5 == 0 || done == total) {
+                                updateProgressNotification(done, total)
+                            }
+                        },
+                        onPositionResult = onPositionResult,
+                    )
                 },
                 onPositionResult = { ply, pvs ->
-                    InProgressAnalysisRegistry.shared.updatePosition(id, ply, pvs)
-                    AnalysisServiceBus.emit(ServiceEvent.PositionResult(ply, pvs))
+                    AnalysisServiceBus.emit(ServiceEvent.PositionResult(ply, pvs, requestId))
                 },
             )
 
@@ -147,9 +177,7 @@ class AnalysisService : Service() {
                         TAG,
                         "Analysis completed: gameId=${outcome.gameId} alreadyExisted=${outcome.alreadyExisted}",
                     )
-                    AnalysisServiceBus.emit(ServiceEvent.Completed(outcome.gameId, outcome.alreadyExisted))
-                    showCompletionNotification(outcome.gameId)
-
+                    AnalysisServiceBus.emit(ServiceEvent.Completed(outcome.gameId, outcome.alreadyExisted, requestId))
                     if (!outcome.alreadyExisted) {
                         // 子コルーチンはstopSelf後にキャンセルされるため、直接完了を待つ。
                         try {
@@ -164,33 +192,26 @@ class AnalysisService : Service() {
                 }
                 is AnalysisOrchestrator.Outcome.Failed -> {
                     Log.e(TAG, "Analysis failed: ${outcome.message}")
-                    AnalysisServiceBus.emit(ServiceEvent.Failed(outcome.message))
-                    showErrorNotification(outcome.message)
+                    AnalysisServiceBus.emit(ServiceEvent.Failed(outcome.displayMessage(), requestId))
                 }
             }
+        } catch (e: CancellationException) {
+            // 再解析開始時に旧ジョブを止めた場合、旧結果を失敗通知へ変換しない。
+            throw e
         } catch (e: Exception) {
             // AnalysisOrchestrator 内部で捕捉されない例外（URI読み込み失敗等）
             Log.e(TAG, "Analysis failed (outer)", e)
             if (!e.isAlreadyReported()) {
                 crashReporter.captureException(e)
             }
-            AnalysisServiceBus.emit(ServiceEvent.Failed(e.message ?: AppStrings.UNKNOWN_ERROR))
-            showErrorNotification(e.message ?: AppStrings.UNKNOWN_ERROR)
+            AnalysisServiceBus.emit(ServiceEvent.Failed(e.message ?: LocalizedStrings.UNKNOWN_ERROR(), requestId))
         } finally {
-            // 完了・失敗・想定外の例外いずれの経路でも、登録済みなら必ずレジストリから外す
-            // （ここを分岐ごとに書くと呼び忘れの余地が出るため、finally一箇所に集約する）。
-            sessionId?.let { InProgressAnalysisRegistry.shared.finish(it) }
-            stopSelf()
+            // 旧startIdの終了処理で、後から始まった再解析を止めない。
+            stopSelf(startId)
         }
     }
 
-    private fun readKifContent(uri: Uri): String {
-        return if (uri.scheme == "file") {
-            java.io.File(uri.path!!).readText()
-        } else {
-            contentResolver.openInputStream(uri)!!.use { it.readBytes().decodeToString() }
-        }
-    }
+    private fun readKifContent(uri: Uri): String = KifFileReader.read(contentResolver, uri)
 
     private fun getFileName(uri: Uri): String? {
         return if (uri.scheme == "file") {
@@ -211,8 +232,8 @@ class AnalysisService : Service() {
     private fun buildProgressNotification(done: Int, total: Int): Notification {
         val progress = if (total > 0) (done * 100 / total) else 0
         return NotificationCompat.Builder(this, ShogiApp.CHANNEL_ANALYSIS)
-            .setContentTitle(AppStrings.NOTIF_ANALYZING_TITLE)
-            .setContentText(if (total > 0) AppStrings.notifProgress(done, total, progress) else AppStrings.NOTIF_PREPARING)
+            .setContentTitle(notificationTitle)
+            .setContentText(if (total > 0) kotlinx.coroutines.runBlocking { LocalizedStrings.notifProgress(done, total, progress) } else notificationPreparing)
             .setSmallIcon(android.R.drawable.ic_menu_search)
             .setOngoing(true)
             .setProgress(100, progress, total == 0)
@@ -223,36 +244,8 @@ class AnalysisService : Service() {
         notificationManager.notify(NOTIF_ID, buildProgressNotification(done, total))
     }
 
-    private fun showCompletionNotification(gameId: Long) {
-        val intent = Intent(this, MainActivity::class.java).apply {
-            putExtra(MainActivity.EXTRA_GAME_ID, gameId)
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-        }
-        val pendingIntent = PendingIntent.getActivity(
-            this, 0, intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-        val notif = NotificationCompat.Builder(this, ShogiApp.CHANNEL_ANALYSIS)
-            .setContentTitle(AppStrings.NOTIF_DONE_TITLE)
-            .setContentText(AppStrings.NOTIF_DONE_TEXT)
-            .setSmallIcon(android.R.drawable.ic_menu_info_details)
-            .setAutoCancel(true)
-            .setContentIntent(pendingIntent)
-            .build()
-        notificationManager.notify(NOTIF_COMPLETE_ID, notif)
-    }
-
-    private fun showErrorNotification(message: String) {
-        val notif = NotificationCompat.Builder(this, ShogiApp.CHANNEL_ANALYSIS)
-            .setContentTitle(AppStrings.NOTIF_ERROR_TITLE)
-            .setContentText(message)
-            .setSmallIcon(android.R.drawable.ic_dialog_alert)
-            .setAutoCancel(true)
-            .build()
-        notificationManager.notify(NOTIF_ERROR_ID, notif)
-    }
-
     override fun onDestroy() {
+        activeAnalysisJob?.cancel()
         job.cancel()
         super.onDestroy()
     }
@@ -265,7 +258,7 @@ class AnalysisService : Service() {
         const val EXTRA_RATING_SERVICE = "rating_service"
         const val EXTRA_RATING_RAW = "rating_raw"
         const val EXTRA_RATING_RULE = "rating_rule"
-        private const val NOTIF_COMPLETE_ID = 1002
-        private const val NOTIF_ERROR_ID = 1003
+        const val EXTRA_FORCE_REANALYSIS = "force_reanalysis"
+        const val EXTRA_REQUEST_ID = "request_id"
     }
 }

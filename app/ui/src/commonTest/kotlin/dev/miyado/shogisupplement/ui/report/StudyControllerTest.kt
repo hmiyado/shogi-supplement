@@ -4,6 +4,7 @@ import dev.miyado.shogisupplement.blunder.Score
 import dev.miyado.shogisupplement.board.ShogiBoard
 import dev.miyado.shogisupplement.engine.BlockingStudyEngine
 import dev.miyado.shogisupplement.engine.Engine
+import dev.miyado.shogisupplement.engine.EngineInvariants
 import dev.miyado.shogisupplement.engine.PvInfo
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -20,6 +21,134 @@ import kotlin.test.assertTrue
 /** 検討木の永続化・分岐操作を保証する。 */
 @OptIn(ExperimentalCoroutinesApi::class)
 class StudyControllerTest {
+    @Test
+    fun inlineRowsFollowSelectedBranchAndKeepSiblingEvaluationsSeparate() {
+        val (controller, _) = newController()
+        val label = dev.miyado.shogisupplement.blunder.PositionEvalDisplay.EvalLabel("+120", 1)
+        val tree = StudyTree(rootChildren = listOf(
+            StudyNode(1, "7g7f", evalState = StudyEvalState.Value(label), children = listOf(StudyNode(3, "3c3d"))),
+            StudyNode(2, "2g2f", children = listOf(StudyNode(4, "8c8d"))),
+        ))
+        controller.startStudy(startSfen, false, false, 24, null, 24, noOrigin, initialTree = tree)
+        val first = controller.studyState.value!!
+        assertEquals(listOf(1L, 2L), first.moveOptions[0].map { it.nodeId })
+        assertEquals(listOf(true, false), first.moveOptions[0].map { it.isCurrent })
+        assertIs<StudyEvalState.Value>(first.moveOptions[0][0].evalState)
+        assertEquals(StudyEvalState.None, first.moveOptions[0][1].evalState)
+        controller.onBranchNodeSelected(0, 2)
+        val changed = controller.studyState.value!!
+        assertEquals(listOf("2g2f"), changed.moves)
+        assertEquals(listOf("2g2f", "8c8d"), changed.displayLine)
+        assertEquals(listOf(false, true), changed.moveOptions[0].map { it.isCurrent })
+        assertEquals(4L, changed.moveOptions[1].single().nodeId)
+        assertEquals(24, changed.originAbsolutePly)
+        testScope.testScheduler.advanceUntilIdle()
+        assertIs<StudyEvalState.Value>(controller.studyState.value!!.moveOptions[0][1].evalState)
+        controller.dispose()
+    }
+
+    @Test fun labelNavigationSelectsBranchAndSupportsBackAndForward() {
+        val (controller, _) = newController()
+        val tree = StudyTree(rootChildren = listOf(StudyNode(1, "7g7f"), StudyNode(2, "2g2f", children = listOf(StudyNode(3, "3c3d")))))
+        controller.startStudy(startSfen, false, false, 0, null, 0, noOrigin, initialTree = tree)
+        controller.navigateToMoves(listOf("2g2f", "3c3d"))
+        assertEquals(listOf("2g2f", "3c3d"), controller.studyState.value!!.moves)
+        controller.studyStepBack()
+        controller.onChipTapped(2)
+        assertEquals(3L, controller.studyState.value!!.nodeId)
+        controller.dispose()
+    }
+
+    @Test
+    fun `同じ指し手の兄弟へ移動しても遅延解析は元のノードへ反映する`() {
+        val engine = FakeEngine(score = Score.Cp(50))
+        val controller = StudyController(
+            scope = testScope,
+            studyEngineFactory = { BlockingStudyEngine(engine, StandardTestDispatcher(testScope.testScheduler)) },
+            evalDisplayProvider = { "cp" },
+        )
+        val tree = StudyTree(rootChildren = listOf(StudyNode(1, "7g7f"), StudyNode(2, "7g7f")))
+        controller.startStudy(startSfen, false, false, 0, null, 0, noOrigin, initialTree = tree)
+        controller.onChipTapped(1)
+        assertEquals(StudyEvalState.Loading, controller.studyState.value!!.evalState)
+        controller.onBranchNodeSelected(0, 2)
+        assertEquals(2L, controller.studyState.value!!.nodeId)
+        testScope.testScheduler.advanceUntilIdle()
+        assertEquals(2, engine.analyzeCallCount)
+        controller.currentTree()!!.rootChildren.forEach { assertIs<StudyEvalState.Value>(it.evalState) }
+        assertEquals(2L, controller.studyState.value!!.nodeId)
+        controller.dispose()
+    }
+
+    @Test
+    fun `同じ指し手の兄弟は別々に選択でき古い分岐削除を拒否する`() {
+        val parsed = dev.miyado.shogisupplement.kifu.KifTreeParser().parse(
+            "1 ７六歩(77)\n2 ３四歩(33)\n*本譜\n変化：2手\n2 ３四歩(33)\n*別分岐\n&再確認\n3 ６八銀(79)")
+        val initial = StudyTree.fromKifu(parsed)
+        val siblings = initial.rootChildren.single().children
+        val (controller, _) = newController()
+        controller.startStudy(startSfen, false, false, 0, null, 0, noOrigin,
+            initialTree = initial, protectedMoves = listOf("7g7f", "3c3d"))
+        controller.onChipTapped(2)
+        val oldId = controller.studyState.value!!.nodeId
+        assertFalse(controller.studyState.value!!.canDeleteBranch)
+        controller.onBranchNodeSelected(1, siblings[1].id)
+        assertEquals(listOf("別分岐"), controller.currentTree()!!.notesAt(controller.studyState.value!!.moves)?.comments)
+        assertTrue(controller.studyState.value!!.canDeleteBranch)
+        assertEquals(listOf("7g7f", "3c3d", "7i6h"), controller.studyState.value!!.displayLine)
+        assertFalse(controller.deleteBranchForPosition(startSfen, listOf("7g7f", "3c3d"), oldId))
+        controller.studyResetToStart()
+        controller.onBranchNodeSelected(1, siblings[1].id)
+        assertEquals(siblings[1].id, controller.studyState.value!!.nodeId)
+        assertEquals(listOf("別分岐"), controller.currentTree()!!.notesAt(controller.studyState.value!!.moves)?.comments)
+        assertTrue(controller.deleteBranchForPosition(startSfen, listOf("7g7f", "3c3d"), siblings[1].id))
+        assertEquals(listOf("本譜"), controller.currentTree()!!.rootChildren.single().children.single().notes.comments)
+        controller.dispose()
+    }
+
+    @Test
+    fun `本譜は削除できず検討枝の削除後は親局面へ戻る`() {
+        val initial = StudyTree().withMovePlayed(emptyList(), "7g7f", 1)
+            .withMovePlayed(emptyList(), "2g2f", 2)
+            .withMovePlayed(listOf("2g2f"), "8c8d", 3)
+        val (controller, _) = newController()
+        controller.startStudy(startSfen, false, false, 0, null, 0, noOrigin, initialTree = initial, protectedMoves = listOf("7g7f"))
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 7))
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 6))
+        assertFalse(controller.studyState.value!!.canDeleteBranch)
+        assertFalse(controller.deleteBranchForPosition(startSfen, listOf("7g7f")))
+        controller.studyStepBack()
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(2, 7))
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(2, 6))
+        assertTrue(controller.studyState.value!!.canDeleteBranch)
+        assertTrue(controller.deleteBranchForPosition(startSfen, listOf("2g2f")))
+        assertEquals(emptyList(), controller.studyState.value?.moves)
+        assertEquals(emptyList(), controller.studyState.value?.displayLine)
+        assertNull(controller.currentTree()?.notesAt(listOf("2g2f", "8c8d")))
+        assertNotNull(controller.currentTree()?.notesAt(listOf("7g7f")))
+        assertFalse(controller.deleteBranchForPosition(startSfen, listOf("2g2f")))
+        controller.dispose()
+    }
+    @Test
+    fun `保存済みツリーを読み込んで着手編集を保存用に取り出せる`() {
+        val initial = StudyTree().withMovePlayed(emptyList(), "7g7f", 500)
+            .withNotes(listOf("7g7f"), dev.miyado.shogisupplement.kifu.KifuPositionNotes(listOf("保存済み")))
+        val (controller, _) = newController()
+        controller.startStudy(startSfen, false, false, 0, null, 0, noOrigin, initialTree = initial)
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 7))
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 6))
+        assertEquals(listOf("保存済み"), controller.currentTree()?.notesAt(controller.studyState.value!!.moves)?.comments)
+        controller.studyStepBack()
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(2, 7))
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(2, 6))
+        val edited = assertNotNull(controller.currentTree())
+        assertEquals(listOf("7g7f", "2g2f"), edited.rootChildren.map { it.moveUsi })
+        assertTrue(edited.rootChildren.last().id > 500)
+        assertEquals(500L, edited.rootChildren.first().id)
+        assertEquals(initial.rootChildren.single().notes, edited.rootChildren.first().notes)
+        controller.dispose()
+    }
+
 
     private class NoPvEngine : Engine {
         override fun analyze(moves: List<String>, nodes: Int): List<PvInfo> = emptyList()
@@ -55,11 +184,14 @@ class StudyControllerTest {
     private class MultiPvEngine(private val pvs: List<Pair<Score, String>>) : Engine {
         var requestedMultiPv: Int? = null
             private set
+        var requestedNodes: Int? = null
+            private set
 
         override fun analyze(moves: List<String>, nodes: Int): List<PvInfo> = emptyList()
 
         override fun analyzeSfen(sfen: String, additionalMoves: List<String>, nodes: Int, multiPv: Int): List<PvInfo> {
             requestedMultiPv = multiPv
+            requestedNodes = nodes
             return pvs.take(multiPv).mapIndexed { index, (score, usi) ->
                 PvInfo(multipv = index + 1, score = score, pv = listOf(usi), nodes = 0L)
             }
@@ -255,7 +387,7 @@ class StudyControllerTest {
     }
 
     @Test
-    fun `analyzeCurrentPositionはmovesが空のときは何もしない`() {
+    fun `analyzeCurrentPositionはmovesが空でも現在局面を解析する`() {
         val (controller, engine) = newController()
         controller.startStudy(
             baseSfen = startSfen,
@@ -267,8 +399,8 @@ class StudyControllerTest {
             origin = noOrigin,
         )
         controller.analyzeCurrentPosition()
-        assertEquals(0, engine.analyzeCallCount)
-        assertEquals(StudyEvalState.None, controller.studyState.value?.evalState)
+        assertEquals(1, engine.analyzeCallCount)
+        assertIs<StudyEvalState.Value>(controller.studyState.value?.evalState)
     }
 
     @Test
@@ -407,6 +539,25 @@ class StudyControllerTest {
         controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 6))
 
         assertEquals(0, engine.analyzeCallCount, "サーバークォータ保護のため着手だけでは解析しない")
+        assertEquals(StudyEvalState.Preparing, controller.studyState.value?.evalState)
+    }
+
+    @Test
+    fun `検討タブの初回評価もローカルエンジンの準備中はPreparingになる`() {
+        val (controller, engine) = newController(localEngineLikelyAvailable = { false })
+        controller.startStudy(
+            baseSfen = startSfen,
+            flip = false,
+            originIsBestPv = false,
+            originPlyIndex = 0,
+            originSelectedIdx = null,
+            originAbsolutePly = 0,
+            origin = noOrigin,
+        )
+
+        controller.autoAnalyzeCurrentPosition()
+
+        assertEquals(0, engine.analyzeCallCount, "ローカルエンジン準備中はサーバーへフォールバックしない")
         assertEquals(StudyEvalState.Preparing, controller.studyState.value?.evalState)
     }
 
@@ -610,7 +761,7 @@ class StudyControllerTest {
     }
 
     @Test
-    fun `先のチップタップ相当(onChipTapped)で戻らずdisplayLineの先まで進める`() {
+    fun `先のチップタップ相当_onChipTapped_で戻らずdisplayLineの先まで進める`() {
         val (controller, _) = newController()
         controller.startStudy(
             baseSfen = startSfen,
@@ -701,6 +852,7 @@ class StudyControllerTest {
         controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 6))
 
         assertEquals(Engine.STUDY_MULTI_PV, engine.requestedMultiPv)
+        assertEquals(EngineInvariants.NODES, engine.requestedNodes)
         val value = assertIs<StudyEvalState.Value>(controller.studyState.value?.evalState)
         assertEquals(listOf("3c3d", "8c8d", "4a3b"), value.candidates.map { it.moveUsi })
         assertEquals(value.label, value.candidates.first().label, "先頭の候補手は局面の評価と同じ")
@@ -761,4 +913,40 @@ class StudyControllerTest {
         assertEquals(listOf("8c8d", "4a3b", "3c3d"), value.candidates.map { it.moveUsi })
         assertEquals(value.label, value.candidates.first().label, "先頭の候補手は局面の評価と同じ")
     }
+    @Test
+    fun `局面の確認済み詰みは未確認候補の数値より優先する`() {
+        val value = mateCandidates(listOf(Score.Mate(-2) to "3c3d", Score.Cp(-9999) to "8c8d"))
+        assertIs<dev.miyado.shogisupplement.blunder.PositionEvalDisplay.EvalText.Mate>(value.label.value)
+        assertEquals("3c3d", value.candidates.first().moveUsi)
+    }
+
+    @Test
+    fun `初手固定候補の詰み手数を局面全体の最短手数にはしない`() {
+        val value = mateCandidates(listOf(Score.Cp(9999) to "3c3d", Score.Mate(5) to "8c8d"))
+        assertIs<dev.miyado.shogisupplement.blunder.PositionEvalDisplay.EvalText.Cp>(value.label.value)
+        assertIs<dev.miyado.shogisupplement.blunder.PositionEvalDisplay.EvalText.Mate>(value.candidates.first().label.value)
+    }
+
+    @Test
+    fun `詰み確認で最善手が更新されても同じ候補を重複表示しない`() {
+        val value = mateCandidates(listOf(Score.Mate(3) to "3c3d", Score.Cp(9999) to "3c3d"))
+        assertEquals(1, value.candidates.size)
+    }
+
+    private fun mateCandidates(scores: List<Pair<Score, String>>): StudyEvalState.Value {
+        val engine = MultiPvEngine(scores)
+        val controller = StudyController(
+            scope = testScope,
+            studyEngineFactory = { BlockingStudyEngine(engine, testDispatcher) },
+            evalDisplayProvider = { "cp" },
+        )
+        controller.startStudy(
+            baseSfen = startSfen, flip = false, originIsBestPv = false,
+            originPlyIndex = 0, originSelectedIdx = null, originAbsolutePly = 0, origin = noOrigin,
+        )
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 7))
+        controller.onStudySquareTapped(dev.miyado.shogisupplement.board.ShogiSquare(7, 6))
+        return assertIs<StudyEvalState.Value>(controller.studyState.value?.evalState)
+    }
+
 }

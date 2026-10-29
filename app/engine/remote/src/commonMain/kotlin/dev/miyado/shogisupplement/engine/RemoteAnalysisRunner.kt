@@ -2,6 +2,7 @@ package dev.miyado.shogisupplement.engine
 
 import dev.miyado.shogisupplement.api.ApiHeaders
 import dev.miyado.shogisupplement.api.analysis.AnalysisRequest
+import dev.miyado.shogisupplement.api.analysis.PositionAnalysisPurpose
 import dev.miyado.shogisupplement.api.analysis.AnalysisResultJson
 import dev.miyado.shogisupplement.api.analysis.ErrorJson
 import dev.miyado.shogisupplement.api.analysis.PositionResultJson
@@ -26,6 +27,8 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.jsonObject
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 /**
  * @property platform `app_policy.platform`の語彙（"android" / "ios"）。
@@ -47,12 +50,19 @@ class RemoteAnalysisRunner(
      * `moves_hash`の冪等性を前提に、切断時だけ同じリクエストを再送する。
      * 認可・クォータ・不正・更新要求のHTTPエラーと終端error行は再送せず[RemoteAnalysisException]として伝播する。
      */
+    @OptIn(ExperimentalUuidApi::class)
     override suspend fun analyzeGame(
         moves: List<String>,
+        forceReanalysis: Boolean,
+        requestId: String?,
         onPositionResult: ((ply: Int, pvs: List<PvInfo>) -> Unit)?,
         onProgress: ((done: Int, total: Int) -> Unit)?,
-    ): List<List<PvInfo>> = executeWithRetry(
-        AnalysisRequest(movesUsi = moves),
+    ): GameAnalysisResult = executeWithRetry(
+        AnalysisRequest(
+            movesUsi = moves,
+            forceReanalysis = forceReanalysis,
+            requestId = requestId ?: Uuid.random().toString().takeIf { forceReanalysis },
+        ),
         onProgress = onProgress,
         onPositionResult = onPositionResult,
     )
@@ -68,14 +78,25 @@ class RemoteAnalysisRunner(
             onProgress = null,
             onPositionResult = null,
         )
-        return perPosition.firstOrNull() ?: emptyList()
+        return perPosition.positions.firstOrNull() ?: emptyList()
+    }
+
+    /** 検討設定を受け取らず、旧サーバーにも固定MultiPVを明示するドリル専用入口。 */
+    suspend fun analyzeDrillPosition(sfen: String): List<PvInfo> {
+        val result = executeWithRetry(
+            AnalysisRequest(sfen = sfen, moves = emptyList(), multiPv = EngineInvariants.DRILL_SECONDARY_MULTI_PV,
+                purpose = PositionAnalysisPurpose.DRILL),
+            onProgress = null,
+            onPositionResult = null,
+        )
+        return result.positions.firstOrNull() ?: emptyList()
     }
 
     private suspend fun executeWithRetry(
         request: AnalysisRequest,
         onProgress: ((done: Int, total: Int) -> Unit)?,
         onPositionResult: ((ply: Int, pvs: List<PvInfo>) -> Unit)?,
-    ): List<List<PvInfo>> {
+    ): GameAnalysisResult {
         var lastDisconnect: Exception? = null
         val totalAttempts = maxRetries + 1
         repeat(totalAttempts) { attempt ->
@@ -106,7 +127,7 @@ class RemoteAnalysisRunner(
         request: AnalysisRequest,
         onProgress: ((done: Int, total: Int) -> Unit)?,
         onPositionResult: ((ply: Int, pvs: List<PvInfo>) -> Unit)?,
-    ): List<List<PvInfo>> {
+    ): GameAnalysisResult {
         val token = accessTokenProvider()
         val appCheckToken = appCheckTokenProvider?.invoke()
         // preparePost+execute を使う: post() はレスポンス本文を最後まで読み切ってから返すため、
@@ -149,7 +170,7 @@ class RemoteAnalysisRunner(
         response: HttpResponse,
         onProgress: ((done: Int, total: Int) -> Unit)?,
         onPositionResult: ((ply: Int, pvs: List<PvInfo>) -> Unit)?,
-    ): List<List<PvInfo>> {
+    ): GameAnalysisResult {
         val channel = response.bodyAsChannel()
         // position行は並列ワーカーの完了順で届くため、最終result行との重複通知を防ぐ。
         val deliveredPlies = mutableSetOf<Int>()
@@ -164,7 +185,10 @@ class RemoteAnalysisRunner(
                     positions.forEachIndexed { ply, pvs ->
                         if (deliveredPlies.add(ply)) onPositionResult?.invoke(ply, pvs)
                     }
-                    return positions
+                    return GameAnalysisResult(
+                        positions = positions,
+                        engineMeta = resultJson.engineMeta.toAnalysisEngineMeta(),
+                    )
                 }
                 "position" in obj -> {
                     val positionJson = json.decodeFromJsonElement(PositionResultJson.serializer(), obj)
@@ -194,3 +218,15 @@ class RemoteAnalysisRunner(
         runCatching { json.decodeFromString<QuotaExceededJson>(response.bodyAsText()).resetAt }
             .getOrDefault("")
 }
+
+private fun dev.miyado.shogisupplement.api.analysis.EngineMetaJson.toAnalysisEngineMeta() =
+    AnalysisEngineMeta(
+        engineRev = engineRev,
+        evalSha256 = evalSha256,
+        nodes = nodes,
+        threads = threads,
+        multiPv = multiPv,
+        usiHash = usiHash,
+        fvScale = fvScale,
+        conditionName = conditionName,
+    )

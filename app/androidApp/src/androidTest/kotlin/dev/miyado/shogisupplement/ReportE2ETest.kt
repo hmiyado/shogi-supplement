@@ -54,11 +54,11 @@ class ReportE2ETest {
         }
 
         val engineMs = System.currentTimeMillis() - startMs
-        android.util.Log.i("ReportE2ETest", "Engine done in ${engineMs}ms, ${allPv.size} positions")
+        android.util.Log.i("ReportE2ETest", "Engine done in ${engineMs}ms, ${allPv.positions.size} positions")
 
-        assertEquals("全75局面が返る", GAME_MOVES.size + 1, allPv.size)
+        assertEquals("全75局面が返る", GAME_MOVES.size + 1, allPv.positions.size)
 
-        val evals = allPv.map { pvList ->
+        val evals = allPv.positions.map { pvList ->
             val pv1 = pvList.firstOrNull { it.multipv == 1 }
             PositionEval(score = pv1?.score, pv = pv1?.pv ?: emptyList())
         }

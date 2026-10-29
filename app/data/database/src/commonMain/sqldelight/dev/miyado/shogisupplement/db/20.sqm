@@ -1,0 +1,4 @@
+CREATE TABLE analysis_sync_generation (
+    game_id INTEGER NOT NULL PRIMARY KEY REFERENCES game(id) ON DELETE CASCADE,
+    generation TEXT NOT NULL
+);

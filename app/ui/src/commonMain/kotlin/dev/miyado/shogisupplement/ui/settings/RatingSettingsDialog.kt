@@ -1,5 +1,13 @@
 package dev.miyado.shogisupplement.ui.settings
 
+
+import org.jetbrains.compose.resources.vectorResource
+
+import dev.miyado.shogisupplement.ui.text.UiStrings
+
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -11,9 +19,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -33,13 +38,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.rating.RankScale
 import dev.miyado.shogisupplement.rating.ShogiRank
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.theme.TextStyleData
 
-// ─── レートルール定数（文言の実体は AppStrings に集約）───────────────────────
 
-private val WARS_RULES: List<Pair<String, String>> get() = AppStrings.warsRules
-private val KIOU_RULES: List<Pair<String, String>> get() = AppStrings.kiouRules
+private val WARS_RULES: List<Pair<String, String>> @Composable get() = UiStrings.warsRules
+private val KIOU_RULES: List<Pair<String, String>> @Composable get() = UiStrings.kiouRules
 
 // ─── 将棋ウォーズ/棋桜 段級位ヘルパー ──────────────────────────────────────
 
@@ -73,6 +76,8 @@ fun RatingSettingsDialog(
     onConfirm: (service: String?, ratingRaw: Int?, ratingRule: String?, serviceAccountsNew: Map<String, String>, ranks: Map<String, Map<String, Int>>) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val labelStrengthDetailLishogiRatingLabel = stringResource(Res.string.strength_detail_lishogi_rating_label)
+
     var service by remember { mutableStateOf(savedService) }
     // レーティング制サービス（lishogi・将棋クエスト）ごとの入力値。単一のstateにすると
     // サービス切替時に前のサービスの値が残ったまま別サービスとして保存されてしまうため分ける。
@@ -107,12 +112,12 @@ fun RatingSettingsDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(AppStrings.RATING_DIALOG_TITLE) },
+        title = { Text(stringResource(Res.string.rating_dialog_title)) },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 // ── 1. サービス選択（任意）────────────────────────────────────
-                Text(AppStrings.RATING_FIELD_SERVICE, style = MaterialTheme.typography.labelMedium)
-                AppStrings.serviceOptions.forEach { (value, label) ->
+                Text(stringResource(Res.string.rating_field_service), style = MaterialTheme.typography.labelMedium)
+                UiStrings.serviceOptions.forEach { (value, label) ->
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
@@ -132,7 +137,7 @@ fun RatingSettingsDialog(
                 OutlinedTextField(
                     value = currentAccountName,
                     onValueChange = { serviceAccountNames[service] = it },
-                    label = { Text(AppStrings.RATING_FIELD_ACCOUNT_NAME) },
+                    label = { Text(stringResource(Res.string.rating_field_account_name)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -143,18 +148,18 @@ fun RatingSettingsDialog(
                 when (service) {
                     "lishogi", "shogi_quest" -> {
                         // レーティング制サービス: レーティング数値1行
-                        Text(AppStrings.RATING_FIELD_RATING, style = MaterialTheme.typography.labelMedium)
+                        Text(stringResource(Res.string.rating_field_rating), style = MaterialTheme.typography.labelMedium)
                         val currentRatingText = serviceRatingTexts[service] ?: DEFAULT_RATING_TEXT
                         OutlinedTextField(
                             value = currentRatingText,
                             onValueChange = { serviceRatingTexts[service] = it },
-                            label = { Text("レーティング") },
+                            label = { Text(labelStrengthDetailLishogiRatingLabel) },
                             textStyle = TextStyleData,
                             singleLine = true,
                         )
                     }
                     "shogi_wars" -> {
-                        Text(AppStrings.RATING_FIELD_RANK, style = MaterialTheme.typography.labelMedium)
+                        Text(stringResource(Res.string.rating_field_rank), style = MaterialTheme.typography.labelMedium)
                         WARS_RULES.forEach { (ruleId, ruleLabel) ->
                             ServiceRuleRankRow(
                                 ruleLabel = ruleLabel,
@@ -165,7 +170,7 @@ fun RatingSettingsDialog(
                         }
                     }
                     "kiou" -> {
-                        Text(AppStrings.RATING_FIELD_RANK, style = MaterialTheme.typography.labelMedium)
+                        Text(stringResource(Res.string.rating_field_rank), style = MaterialTheme.typography.labelMedium)
                         KIOU_RULES.forEach { (ruleId, ruleLabel) ->
                             ServiceRuleRankRow(
                                 ruleLabel = ruleLabel,
@@ -205,12 +210,12 @@ fun RatingSettingsDialog(
                     builtServiceRanks,
                 )
             }) {
-                Text(AppStrings.SAVE)
+                Text(stringResource(Res.string.save))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(AppStrings.CANCEL)
+                Text(stringResource(Res.string.cancel))
             }
         },
     )
@@ -227,6 +232,9 @@ private fun ServiceRuleRankRow(
     currentIdx: Int,
     onIdxChange: (Int) -> Unit,
 ) {
+    val labelRatingDecrease = stringResource(Res.string.rating_decrease)
+    val labelRatingIncrease = stringResource(Res.string.rating_increase)
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -240,7 +248,7 @@ private fun ServiceRuleRankRow(
         TextButton(
             onClick = { if (currentIdx > 0) onIdxChange(currentIdx - 1) },
             enabled = currentIdx > 0,
-        ) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "下げる") }
+        ) { Icon(vectorResource(Res.drawable.ic_auto_mirrored_filled_keyboard_arrow_left), contentDescription = labelRatingDecrease) }
         Text(
             scale.labels[currentIdx],
             modifier = Modifier.width(56.dp),
@@ -250,6 +258,6 @@ private fun ServiceRuleRankRow(
         TextButton(
             onClick = { if (currentIdx < scale.labels.lastIndex) onIdxChange(currentIdx + 1) },
             enabled = currentIdx < scale.labels.lastIndex,
-        ) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "上げる") }
+        ) { Icon(vectorResource(Res.drawable.ic_auto_mirrored_filled_keyboard_arrow_right), contentDescription = labelRatingIncrease) }
     }
 }

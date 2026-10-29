@@ -1,7 +1,6 @@
 package dev.miyado.shogisupplement.kifu
 
 import dev.miyado.shogisupplement.db.GameRepository
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.util.sha256Hex
 
 class GameImporter(private val repository: GameRepository) {
@@ -18,8 +17,10 @@ class GameImporter(private val repository: GameRepository) {
         ratingService: String? = null,
         ratingRaw: Long? = null,
         ratingRule: String? = null,
+        ratingDeclaredAt: Long? = null,
         contentHash: String? = null,
         sourcePlaceOverride: String? = null,
+        studyKif: String? = null,
     ): Outcome = try {
         val effectiveHash = contentHash ?: sha256Hex(kifContent)
         repository.getByHash(effectiveHash)?.let {
@@ -38,6 +39,7 @@ class GameImporter(private val repository: GameRepository) {
             ratingService = ratingService,
             ratingRaw = ratingRaw,
             ratingRule = ratingRule,
+            ratingDeclaredAt = ratingDeclaredAt,
             sourcePlace = sourcePlaceOverride ?: source.wireValue,
             gameWinner = game.winner,
             endReason = game.endReason,
@@ -45,9 +47,10 @@ class GameImporter(private val repository: GameRepository) {
             goteRating = players.goteRating,
             timeControlRaw = game.headers["持ち時間"],
             timeControlByoyomiRaw = game.headers["秒読み"],
+            studyKif = studyKif,
         )
         Outcome.Imported(gameId, alreadyExisted = false)
     } catch (e: Exception) {
-        Outcome.Failed(e.message ?: AppStrings.UNKNOWN_ERROR)
+        Outcome.Failed(e.message.orEmpty())
     }
 }

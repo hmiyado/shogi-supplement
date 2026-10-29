@@ -11,7 +11,7 @@ external interface AppCheckBridge : JsAny {
 }
 
 @Suppress("UnsafeCastFromDynamic")
-@JsFun("() => window.appCheckBridge")
+@JsFun("() => window.appCheckBridge || { getToken: (ok, fail) => fail('App Check not ready') }")
 external fun appCheckBridge(): AppCheckBridge
 
 /** [dev.miyado.shogisupplement.transfer.RemoteTransferRestoreService]のappCheckTokenProviderに渡す。 */

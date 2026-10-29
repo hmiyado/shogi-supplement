@@ -1,6 +1,5 @@
 package dev.miyado.shogisupplement.rating
 
-import dev.miyado.shogisupplement.text.AppStrings
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -78,8 +77,8 @@ class DeclaredRankForGameTest {
 
     @Test
     fun `返すルールIDは棋力設定の選択肢に含まれる`() {
-        val warsRuleIds = AppStrings.warsRules.map { it.first }
-        val kiouRuleIds = AppStrings.kiouRules.map { it.first }
+        val warsRuleIds = listOf("10min", "3min", "10sec")
+        val kiouRuleIds = listOf("serious", "casual", "fischer", "short")
         listOf("10分切れ負け", "3分切れ負け").forEach {
             assertTrue(rankFor("shogi_wars", "wars", it)!!.ruleId in warsRuleIds)
         }

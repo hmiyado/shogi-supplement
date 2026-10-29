@@ -1,12 +1,13 @@
 package dev.miyado.shogisupplement.ui.transfercode
 
+import dev.miyado.shogisupplement.ui.text.LocalizedStrings
+
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import dev.miyado.shogisupplement.auth.AuthRepository
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.transfer.TransferRestoreResult
 import dev.miyado.shogisupplement.transfer.TransferRestoreService
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -61,17 +62,17 @@ class TransferCodeInputViewModel(
             _uiState.value = when (val result = transferRestoreService.restore(code)) {
                 TransferRestoreResult.Success -> TransferCodeInputUiState.Success
                 TransferRestoreResult.InvalidCode ->
-                    TransferCodeInputUiState.Error(AppStrings.TRANSFER_CODE_INPUT_ERROR_INVALID)
+                    TransferCodeInputUiState.Error(LocalizedStrings.TRANSFER_CODE_INPUT_ERROR_INVALID())
                 TransferRestoreResult.NotFound ->
-                    TransferCodeInputUiState.Error(AppStrings.TRANSFER_CODE_INPUT_ERROR_NOT_FOUND)
+                    TransferCodeInputUiState.Error(LocalizedStrings.TRANSFER_CODE_INPUT_ERROR_NOT_FOUND())
                 TransferRestoreResult.RateLimited ->
-                    TransferCodeInputUiState.Error(AppStrings.TRANSFER_CODE_INPUT_ERROR_RATE_LIMITED)
+                    TransferCodeInputUiState.Error(LocalizedStrings.TRANSFER_CODE_INPUT_ERROR_RATE_LIMITED())
                 TransferRestoreResult.UpgradeRequired ->
-                    TransferCodeInputUiState.Error(AppStrings.TRANSFER_CODE_INPUT_ERROR_UPGRADE_REQUIRED)
+                    TransferCodeInputUiState.Error(LocalizedStrings.TRANSFER_CODE_INPUT_ERROR_UPGRADE_REQUIRED())
                 is TransferRestoreResult.SessionImportFailed ->
-                    TransferCodeInputUiState.Error(AppStrings.TRANSFER_CODE_INPUT_ERROR_GENERIC)
+                    TransferCodeInputUiState.Error(LocalizedStrings.TRANSFER_CODE_INPUT_ERROR_GENERIC())
                 is TransferRestoreResult.NetworkError ->
-                    TransferCodeInputUiState.Error(AppStrings.TRANSFER_CODE_INPUT_ERROR_GENERIC)
+                    TransferCodeInputUiState.Error(LocalizedStrings.TRANSFER_CODE_INPUT_ERROR_GENERIC())
             }
         }
     }

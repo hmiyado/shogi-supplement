@@ -3,6 +3,12 @@ package dev.miyado.shogisupplement.api.analysis
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
+@Serializable
+enum class PositionAnalysisPurpose {
+    @SerialName("drill") DRILL,
+    @SerialName("study") STUDY,
+}
+
 /**
  * `POST /v1/analyses` のリクエストボディ。
  * moves_usi（1局まるごと）と sfen+moves（単発局面）のどちらか一方を受け付ける。
@@ -16,10 +22,24 @@ data class AnalysisRequest(
     val sfen: String? = null,
     val moves: List<String>? = null,
     @SerialName("multi_pv") val multiPv: Int? = null,
+    /** 保存済みの同一棋譜を、ユーザー要求として再解析する。 */
+    @SerialName("force_reanalysis") val forceReanalysis: Boolean = false,
+    /** 再送時に同じジョブを再利用するための、1回の再解析要求に固有なID。 */
+    @SerialName("request_id") val requestId: String? = null,
+    /** 省略は従来条件。studyの専用条件はサーバーが選び、drillは解析の不変条件へ固定する。 */
+    @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val purpose: PositionAnalysisPurpose? = null,
 )
 
 @Serializable
-data class ScoreJson(val type: String, val value: Int)
+data class ScoreJson(
+    val type: String,
+    val value: Int,
+    @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val verified: Boolean = false,
+)
 
 @Serializable
 data class PvInfoJson(
@@ -39,7 +59,27 @@ data class EngineMetaJson(
     @SerialName("multi_pv") val multiPv: Int,
     @SerialName("usi_hash") val usiHash: Int,
     @SerialName("fv_scale") val fvScale: Int,
+    /** 表示用の短い条件名。旧workerの結果では空文字になり得る。 */
+    @SerialName("condition_name") val conditionName: String = "",
 )
+
+/**
+ * 解析結果を画面・ログで識別するための短い条件名。
+ * 詳細な値は [EngineMetaJson] の各フィールドを正本とし、この名前を判定キーには使わない。
+ */
+fun engineConditionName(
+    engineRev: String,
+    evalSha256: String,
+    nodes: Int,
+    threads: Int,
+    multiPv: Int,
+    usiHash: Int,
+    fvScale: Int,
+): String {
+    val engine = engineRev.substringAfterLast('@').takeLast(12).ifBlank { "unknown" }
+    val eval = evalSha256.take(8).ifBlank { "unknown" }
+    return "$engine-$eval-n$nodes-t$threads-p$multiPv-h$usiHash-f$fvScale"
+}
 
 /** NDJSON最終行。 */
 @Serializable

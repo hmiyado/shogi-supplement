@@ -1,7 +1,9 @@
 package dev.miyado.shogisupplement.ui
 
+import dev.miyado.shogisupplement.drill.DrillMode
 import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.db.GameRecord
+import dev.miyado.shogisupplement.db.SavedGameFilter
 import dev.miyado.shogisupplement.db.PositionEvalRow
 import dev.miyado.shogisupplement.pipeline.InProgressAnalysis
 import dev.miyado.shogisupplement.pipeline.ProgressiveReportState
@@ -11,9 +13,11 @@ import dev.miyado.shogisupplement.ui.home.StrengthCardData
 import dev.miyado.shogisupplement.ui.home.TodaysDrillHint
 import dev.miyado.shogisupplement.ui.drillrecord.DrillRecordDetailData
 import dev.miyado.shogisupplement.ui.strength.StrengthDetailData
+import dev.miyado.shogisupplement.navigation.AppDestination
 
 /** メイン画面のUI状態。 */
 sealed class MainUiState {
+    object Repertoire : MainUiState()
     object Loading : MainUiState()
     data class Home(
         val pastGames: List<GameRecord>,
@@ -28,6 +32,8 @@ sealed class MainUiState {
          * AnalyzingReport画面へ再接続する。
          */
         val analyzingSessions: List<InProgressAnalysis> = emptyList(),
+        /** 同じホーム表示中のデータ更新と、別の画面からの再入場を区別する。 */
+        val visitId: Any = Any(),
     ) : MainUiState()
 
     /**
@@ -42,6 +48,7 @@ sealed class MainUiState {
         val moves: List<String>,
         val userSide: String?,
         val progressive: ProgressiveReportState,
+        val requestId: String? = null,
     ) : MainUiState()
     data class ShowReport(
         val report: ReportScreenState,
@@ -49,13 +56,13 @@ sealed class MainUiState {
         val evalDisplay: String = "cp",
         /**
          * この画面遷移が[AnalyzingReport]からの解析完了直後かどうか。trueのときだけ
-         * 完了通知バナーを一度出す（通知タップ・棋譜一覧経由の表示ではfalseのまま）。
+         * 解析完了バナーを一度出す（棋譜一覧経由の表示ではfalseのまま）。
          */
         val justCompleted: Boolean = false,
     ) : MainUiState()
     data class Error(val message: String, val pastGames: List<GameRecord> = emptyList()) : MainUiState()
     /** ドリル画面に遷移する。 */
-    object Drill : MainUiState()
+    data class Drill(val mode: DrillMode = DrillMode.NORMAL) : MainUiState()
     /** アカウント画面に遷移する。 */
     object Account : MainUiState()
     /** OSSライセンス一覧画面に遷移する（戻り先は設定画面）。 */
@@ -71,12 +78,28 @@ sealed class MainUiState {
     object Debug : MainUiState()
     /** 棋譜一覧画面。 */
     data class GameList(
-        val games: List<GameRecord>,
-        /** 棋譜IDごとの悪手件数。絞り込んだ集合の悪手率の分子。 */
-        val blunderCounts: Map<Long, Int> = emptyMap(),
+        val dataRevision: Long = 0,
         /** ログイン中かつ未アップロードがある場合のカウント（0 = ボタン非表示）。 */
         val pendingUploadCount: Int = 0,
         val isUploading: Boolean = false,
         val uploadResult: String? = null,
+        val savedFilters: List<SavedGameFilter> = emptyList(),
     ) : MainUiState()
 }
+
+/** 表示用データを持つAndroid状態を、共通の遷移先へ対応付ける。 */
+internal val MainUiState.destination: AppDestination
+    get() = when (this) {
+        MainUiState.Loading, is MainUiState.Home, is MainUiState.Error -> AppDestination.HOME
+        is MainUiState.AnalyzingReport -> AppDestination.ANALYZING
+        is MainUiState.ShowReport -> AppDestination.REPORT
+        MainUiState.Repertoire -> AppDestination.REPERTOIRE
+        is MainUiState.Drill -> AppDestination.DRILL
+        MainUiState.Account -> AppDestination.ACCOUNT
+        MainUiState.Licenses -> AppDestination.LICENSES
+        MainUiState.Settings -> AppDestination.SETTINGS
+        is MainUiState.StrengthDetail -> AppDestination.STRENGTH_DETAIL
+        is MainUiState.DrillRecordDetail -> AppDestination.DRILL_RECORD_DETAIL
+        MainUiState.Debug -> AppDestination.DEBUG
+        is MainUiState.GameList -> AppDestination.GAME_LIST
+    }

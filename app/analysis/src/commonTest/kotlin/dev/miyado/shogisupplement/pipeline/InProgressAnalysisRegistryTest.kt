@@ -9,6 +9,16 @@ import kotlin.test.assertTrue
 
 class InProgressAnalysisRegistryTest {
 
+    @Test
+    fun `同じ棋譜の再解析でも再接続先は最新の要求IDを保持する`() {
+        val registry = InProgressAnalysisRegistry()
+        val old = registry.start("hash", "game.kif", emptyList(), null, "old")
+        val current = registry.start("hash", "game.kif", emptyList(), null, "new")
+        registry.updatePosition("hash", current, 0, emptyList())
+        registry.finish("hash", old)
+        assertEquals("new", registry.snapshot("hash")?.requestId)
+    }
+
     private fun cp(value: Int): List<PvInfo> = listOf(PvInfo(multipv = 1, score = Score.Cp(value), pv = emptyList(), nodes = 0L))
 
     private val moves = listOf("7g7f", "3c3d", "8h2b")
@@ -65,6 +75,28 @@ class InProgressAnalysisRegistryTest {
 
         registry.start("hash1", "game1.kif", moves, userSide = null)
         assertEquals(0, registry.snapshot("hash1")?.progressive?.confirmedThrough)
+    }
+
+    @Test
+    fun `旧世代のfinishは新世代の同一idを消さない`() {
+        val registry = InProgressAnalysisRegistry()
+        val oldGeneration = registry.start("hash1", "game1.kif", moves, userSide = null)
+        val newGeneration = registry.start("hash1", "game1.kif", moves, userSide = null)
+
+        registry.finish("hash1", oldGeneration)
+
+        assertTrue(registry.snapshot("hash1")?.generation === newGeneration)
+    }
+
+    @Test
+    fun `旧世代の局面更新は拒否し新世代の進捗を保持する`() {
+        val registry = InProgressAnalysisRegistry()
+        val oldGeneration = registry.start("hash1", "game1.kif", moves, userSide = null)
+        val newGeneration = registry.start("hash1", "game1.kif", moves, userSide = null)
+        assertEquals(false, registry.updatePosition("hash1", oldGeneration, 0, cp(10)))
+        assertEquals(0, registry.snapshot("hash1")?.progressive?.confirmedThrough)
+        assertTrue(registry.updatePosition("hash1", newGeneration, 0, cp(20)))
+        assertEquals(1, registry.snapshot("hash1")?.progressive?.confirmedThrough)
     }
 
     @Test

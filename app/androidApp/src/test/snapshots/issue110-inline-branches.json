@@ -1,0 +1,10 @@
+{
+  "kind": "screen",
+  "kindLabel": "画面（Screen）",
+  "category": "report",
+  "categoryLabel": "レポート",
+  "screen": "検討・手順行",
+  "screenLabel": "検討・手順行",
+  "state": "inline-branches",
+  "stateLabel": "分岐と評価値"
+}

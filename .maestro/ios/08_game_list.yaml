@@ -10,6 +10,8 @@ env:
 ---
 - launchApp:
     clearState: true
+    arguments:
+      UITEST_PASTEBOARD_KIF_BASE64: "${typeof UITEST_PASTEBOARD_KIF_BASE64 === 'undefined' ? '' : UITEST_PASTEBOARD_KIF_BASE64}"
 - runFlow: subflows/handle_consent_onboarding.yaml
 - tapOn: "棋譜を追加する"
 - tapOn: "クリップボードから貼り付け"
@@ -18,5 +20,5 @@ env:
 - runFlow: ../common/wait_for_analysis_report.yaml
 - tapOn: "戻る"
 - runFlow: ../common/game_list_filter.yaml
-- tapOn: "戻る"
+- tapOn: "ホーム"
 - runFlow: ../common/game_list_multi_delete.yaml

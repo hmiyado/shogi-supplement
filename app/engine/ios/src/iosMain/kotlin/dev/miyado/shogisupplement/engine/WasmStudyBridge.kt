@@ -18,7 +18,7 @@ object WasmStudyBridge {
      * @param multiPv 候補手の本数。 @return 受理できたか。
      */
     var analyzeHandler: (
-        (requestId: String, baseSfenArg: String, movesJson: String, multiPv: Int) -> Boolean
+        (requestId: String, baseSfenArg: String, movesJson: String, multiPv: Int, purpose: String?) -> Boolean
     )? = null
 
     /** WASMバイナリとWebViewページが準備済みかを返す。未準備ならfalseで、解析開始はfail-fastする。 */

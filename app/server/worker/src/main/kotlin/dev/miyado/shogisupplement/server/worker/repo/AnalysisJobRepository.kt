@@ -70,6 +70,6 @@ interface AnalysisJobRepository {
 
     suspend fun markError(id: String, error: String)
 
-    // エラー後の再試行は新規行を作らずこの行を running に戻して使う（unique制約に阻まれるため）。
+    // エラー後の通常再試行は新規行を作らずこの行を running に戻して使う。
     suspend fun resetToRunning(id: String)
 }

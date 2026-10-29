@@ -7,6 +7,7 @@ import dev.miyado.shogisupplement.judge.VerdictKind
 import dev.miyado.shogisupplement.pipeline.BlunderReport
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 /** version 1の実スキーマから最新までの移行と公開APIの往復を検証する。 */
 class SchemaMigrationTest {
@@ -173,7 +174,9 @@ class SchemaMigrationTest {
         )
 
         val repo = SqlDelightGameRepository(ShogiSupplementDatabase(driver))
-        assertEquals(GameAnalysisStatus.COMPLETED, repo.getGameById(1)!!.analysisStatus)
+        val migratedGame = repo.getGameById(1)!!
+        assertEquals(GameAnalysisStatus.COMPLETED, migratedGame.analysisStatus)
+        assertNull(migratedGame.engineMetaJson)
         val gameId = repo.saveAnalysis(
             fileName = "legacy.kif",
             contentHash = "legacy-hash",
@@ -319,7 +322,7 @@ class SchemaMigrationTest {
         ShogiSupplementDatabase.Schema.migrate(
             driver,
             oldVersion = 10,
-            newVersion = ShogiSupplementDatabase.Schema.version,
+            newVersion = 27,
         )
 
         val repo = SqlDelightGameRepository(ShogiSupplementDatabase(driver))
@@ -348,6 +351,9 @@ class SchemaMigrationTest {
     @Test
     fun `11sqmの移行は段級位だけを申告した端末を日時不明の申告済みにする`() {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        createV10GameTable(driver)
+        driver.execute(null, "ALTER TABLE game ADD COLUMN time_control_raw TEXT", 0)
+        driver.execute(null, "ALTER TABLE game ADD COLUMN time_control_byoyomi_raw TEXT", 0)
         createV10UserSettingsTable(driver)
         createRankTables(driver)
         // 選択中サービスが既定（lishogi/1750）のまま、段級位だけ入れた端末。
@@ -358,7 +364,7 @@ class SchemaMigrationTest {
         ShogiSupplementDatabase.Schema.migrate(
             driver,
             oldVersion = 11,
-            newVersion = ShogiSupplementDatabase.Schema.version,
+            newVersion = 27,
         )
 
         val database = ShogiSupplementDatabase(driver)
@@ -370,6 +376,9 @@ class SchemaMigrationTest {
     @Test
     fun `11sqmの移行は何も申告していない端末を未申告のままにする`() {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        createV10GameTable(driver)
+        driver.execute(null, "ALTER TABLE game ADD COLUMN time_control_raw TEXT", 0)
+        driver.execute(null, "ALTER TABLE game ADD COLUMN time_control_byoyomi_raw TEXT", 0)
         createV10UserSettingsTable(driver)
         createRankTables(driver)
         // テーマ保存などで行だけができた端末。
@@ -379,7 +388,7 @@ class SchemaMigrationTest {
         ShogiSupplementDatabase.Schema.migrate(
             driver,
             oldVersion = 11,
-            newVersion = ShogiSupplementDatabase.Schema.version,
+            newVersion = 27,
         )
 
         val repo = SqlDelightSettingsRepository(ShogiSupplementDatabase(driver))

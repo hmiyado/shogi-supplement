@@ -1,17 +1,32 @@
 package dev.miyado.shogisupplement.db
 
 import dev.miyado.shogisupplement.drill.WeekStreaks
+import dev.miyado.shogisupplement.drill.DrillMode
 import dev.miyado.shogisupplement.util.currentEpochSeconds
 
 /** ドリル出題・解答履歴のDB永続化リポジトリ（[DrillRepository]のSQLDelight実装）。 */
 class SqlDelightDrillRepository(private val database: ShogiSupplementDatabase) : DrillRepository {
 
-    override fun getDrillCandidates(): List<BlunderRecord> {
-        return database.shogiSupplementQueries
-            .getDrillCandidates()
-            .executeAsList()
-            .map { it.toBlunderRecord() }
+    override fun getFirstDrillCandidate(): BlunderRecord? =
+        database.shogiSupplementQueries
+            .getFirstDrillCandidate()
+            .executeAsOneOrNull()
+            ?.toBlunderRecord()
+
+    override fun getNextDrillQuestion(mode: DrillMode): DrillQuestionSelection = database.transactionWithResult {
+        val queries = database.shogiSupplementQueries
+        val mateOnly = if (mode == DrillMode.MATE) 1L else 0L
+        val candidate = queries.nextDrillQuestion(mateOnly).executeAsOneOrNull()?.toBlunderRecord()
+        DrillQuestionSelection(
+            candidate = candidate,
+            attemptCount = candidate?.let { queries.countAttemptsForQuestion(it.id).executeAsOne().toInt() } ?: 0,
+            totalCandidates = queries.countDrillCandidates(mateOnly).executeAsOne().toInt(),
+        )
     }
+
+    override fun hasDrillCandidates(mode: DrillMode): Boolean =
+        database.shogiSupplementQueries.hasDrillCandidates(if (mode == DrillMode.MATE) 1L else 0L)
+            .executeAsOne()
 
     override fun getDrillCandidatesByGame(gameId: Long): List<BlunderRecord> {
         return database.shogiSupplementQueries
@@ -46,13 +61,6 @@ class SqlDelightDrillRepository(private val database: ShogiSupplementDatabase) :
             )
             database.shogiSupplementQueries.getLastInsertRowId().executeAsOne()
         }
-    }
-
-    override fun getDrillAttemptCounts(): Map<Long, Int> {
-        return database.shogiSupplementQueries
-            .getDrillAttemptCountAll()
-            .executeAsList()
-            .associate { it.blunder_report_id to it.attempt_count.toInt() }
     }
 
     override fun getDrillAttempts(blunderReportId: Long): List<DrillAttemptRecord> {

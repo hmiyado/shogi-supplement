@@ -1,5 +1,10 @@
 package dev.miyado.shogisupplement.ui.report
 
+import dev.miyado.shogisupplement.ui.text.UiStrings
+
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -32,7 +37,6 @@ import dev.miyado.shogisupplement.board.ShogiBoard
 import dev.miyado.shogisupplement.classify.BlunderCategoryLabels
 import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.notation.JapaneseNotation
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.formatFixed1
 import dev.miyado.shogisupplement.ui.theme.TextStyleData
 import dev.miyado.shogisupplement.ui.theme.TextStyleDataMove
@@ -86,24 +90,26 @@ fun BlunderCard(
     )
     val cpBefore = report.cpBefore?.toInt()
     val cpAfter = report.cpAfter?.toInt()
-    val evalState = remember(evalDisplay, cpBefore, cpAfter, report.lossWp) {
+    val textBlunderLossMate = stringResource(Res.string.blunder_loss_mate)
+    val textBlunderAfterMated = stringResource(Res.string.blunder_after_mated)
+    val evalState = run {
         when {
             evalDisplay == "cp" && cpBefore != null && cpAfter != null -> {
                 val isMate = abs(cpBefore) >= 29_000 || abs(cpAfter) >= 29_000
                 val userAfterCp = -cpAfter
                 EvalDisplay(
                     beforeLabel = when {
-                        cpBefore >= 29_000 -> AppStrings.BLUNDER_LOSS_MATE
-                        cpBefore <= -29_000 -> AppStrings.BLUNDER_AFTER_MATED
-                        else -> AppStrings.cpSignedLabel(cpBefore)
+                        cpBefore >= 29_000 -> textBlunderLossMate
+                        cpBefore <= -29_000 -> textBlunderAfterMated
+                        else -> UiStrings.cpSignedLabel(cpBefore)
                     },
                     afterLabel = when {
-                        userAfterCp >= 29_000 -> AppStrings.BLUNDER_LOSS_MATE
-                        userAfterCp <= -29_000 -> AppStrings.BLUNDER_AFTER_MATED
-                        else -> AppStrings.cpSignedLabel(userAfterCp)
+                        userAfterCp >= 29_000 -> textBlunderLossMate
+                        userAfterCp <= -29_000 -> textBlunderAfterMated
+                        else -> UiStrings.cpSignedLabel(userAfterCp)
                     },
-                    lossLabel = if (isMate) AppStrings.BLUNDER_LOSS_MATE
-                                else AppStrings.blunderLossCp(cpBefore + cpAfter),
+                    lossLabel = if (isMate) textBlunderLossMate
+                                else UiStrings.blunderLossCp(cpBefore + cpAfter),
                 )
             }
             evalDisplay == "wp" && cpBefore != null && cpAfter != null -> {
@@ -148,7 +154,7 @@ fun BlunderCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(
-                    AppStrings.blunderCardPly(report.ply),
+                    UiStrings.blunderCardPly(report.ply),
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
@@ -205,7 +211,7 @@ fun BlunderCard(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 Text(
-                    AppStrings.BLUNDER_CARD_ACTUAL,
+                    stringResource(Res.string.blunder_card_actual),
                     style = MaterialTheme.typography.labelSmall,
                     color = shogiColors.ink3,
                 )
@@ -221,7 +227,7 @@ fun BlunderCard(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     Text(
-                        AppStrings.BLUNDER_CARD_BEST,
+                        stringResource(Res.string.blunder_card_best),
                         style = MaterialTheme.typography.labelSmall,
                         color = shogiColors.ink3,
                     )

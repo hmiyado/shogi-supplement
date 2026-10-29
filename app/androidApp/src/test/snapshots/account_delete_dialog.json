@@ -1,0 +1,10 @@
+{
+  "kind": "screen",
+  "kindLabel": "画面（Screen）",
+  "category": "account",
+  "categoryLabel": "アカウント",
+  "screen": "削除確認・ダイアログ",
+  "screenLabel": "削除確認・ダイアログ",
+  "state": "標準状態",
+  "stateLabel": "標準状態"
+}

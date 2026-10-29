@@ -1,5 +1,13 @@
 package dev.miyado.shogisupplement.ui.drill
 
+
+import dev.miyado.shogisupplement.ui.text.text
+
+import dev.miyado.shogisupplement.ui.text.UiStrings
+
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -29,6 +37,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
+import dev.miyado.shogisupplement.ui.common.rememberMovablePane
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -54,7 +63,6 @@ import dev.miyado.shogisupplement.drill.DrillContestType
 import dev.miyado.shogisupplement.drill.DrillJudge
 import dev.miyado.shogisupplement.drill.DrillReadPvMatch
 import dev.miyado.shogisupplement.notation.JapaneseNotation
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.PvExtState
 import dev.miyado.shogisupplement.ui.common.TwoPaneBoardHeightFraction
 import dev.miyado.shogisupplement.ui.common.adaptiveContentWidth
@@ -99,12 +107,12 @@ fun DrillQuestionContent(
     if (state.showPromoteDialog) {
         AlertDialog(
             onDismissRequest = { onPromoteDecision(false) },
-            title = { Text(AppStrings.DRILL_PROMOTE_TITLE) },
+            title = { Text(stringResource(Res.string.drill_promote_title)) },
             confirmButton = {
-                TextButton(onClick = { onPromoteDecision(true) }) { Text(AppStrings.DRILL_PROMOTE_YES) }
+                TextButton(onClick = { onPromoteDecision(true) }) { Text(stringResource(Res.string.drill_promote_yes)) }
             },
             dismissButton = {
-                TextButton(onClick = { onPromoteDecision(false) }) { Text(AppStrings.DRILL_PROMOTE_NO) }
+                TextButton(onClick = { onPromoteDecision(false) }) { Text(stringResource(Res.string.drill_promote_no)) }
             },
         )
     }
@@ -112,7 +120,7 @@ fun DrillQuestionContent(
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val twoPane = rememberWindowWidthClass(maxWidth) == WindowWidthClass.EXPANDED
 
-        val boardPane: @Composable () -> Unit = {
+        val boardPane = rememberMovablePane {
             // インタラクティブ盤面。レポートビューアと同等の高さ制約を適用して盤サイズを統一する。
             ShogiBoardView(
                 sfen = state.sfenCurrent,
@@ -126,7 +134,7 @@ fun DrillQuestionContent(
             )
         }
 
-        val bodyPane: @Composable () -> Unit = {
+        val bodyPane = rememberMovablePane {
             Box(modifier = Modifier.adaptiveContentWidth()) {
                 Column(
                     modifier = Modifier
@@ -137,7 +145,7 @@ fun DrillQuestionContent(
                 ) {
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        text = AppStrings.DRILL_QUESTION_PROMPT,
+                        text = stringResource(Res.string.drill_question_prompt),
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontFamily = ShipporiMinchoFamily,
                             fontWeight = FontWeight.Bold,
@@ -145,7 +153,7 @@ fun DrillQuestionContent(
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        text = AppStrings.DRILL_QUESTION_HINT,
+                        text = stringResource(Res.string.drill_question_hint),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.shogiColors.ink2,
                         textAlign = TextAlign.Center,
@@ -166,12 +174,12 @@ fun DrillQuestionContent(
                         horizontalArrangement = Arrangement.Center,
                     ) {
                         Text(
-                            text = AppStrings.drillAttemptCount(state.attemptCount),
+                            text = UiStrings.drillAttemptCount(state.attemptCount),
                             style = MaterialTheme.typography.bodySmall,
                         )
                         Spacer(Modifier.width(16.dp))
                         Text(
-                            text = AppStrings.drillTotalCount(state.totalCandidates),
+                            text = UiStrings.drillTotalCount(state.totalCandidates),
                             style = MaterialTheme.typography.bodySmall,
                         )
                     }
@@ -184,7 +192,7 @@ fun DrillQuestionContent(
                         // ラベルと入れ替えるとボタンの幅が変わる。文字は残したまま重ねる。
                         Box(contentAlignment = Alignment.Center) {
                             Text(
-                                AppStrings.DRILL_SUBMIT_ANSWER,
+                                stringResource(Res.string.drill_submit_answer),
                                 modifier = Modifier.alpha(if (state.isJudging) 0f else 1f),
                             )
                             if (state.isJudging) {
@@ -202,7 +210,7 @@ fun DrillQuestionContent(
                         enabled = !state.isJudging,
                         modifier = Modifier.fillMaxWidth(0.6f),
                     ) {
-                        Text(AppStrings.DRILL_GIVE_UP)
+                        Text(stringResource(Res.string.drill_give_up))
                     }
                     Spacer(Modifier.height(16.dp))
                 }
@@ -252,7 +260,7 @@ private fun DrillYourLineCard(
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Text(
-                text = AppStrings.DRILL_YOUR_LINE_LABEL,
+                text = stringResource(Res.string.drill_your_line_label),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.shogiColors.ink3,
             )
@@ -284,8 +292,8 @@ private fun DrillYourLineCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End,
             ) {
-                TextButton(onClick = onUndoMove, enabled = moves.isNotEmpty()) { Text(AppStrings.DRILL_UNDO_MOVE) }
-                TextButton(onClick = onResetMoves, enabled = moves.isNotEmpty()) { Text(AppStrings.DRILL_RESET_MOVES) }
+                TextButton(onClick = onUndoMove, enabled = moves.isNotEmpty()) { Text(stringResource(Res.string.drill_undo_move)) }
+                TextButton(onClick = onResetMoves, enabled = moves.isNotEmpty()) { Text(stringResource(Res.string.drill_reset_moves)) }
             }
         }
     }
@@ -334,6 +342,7 @@ fun DrillResultContent(
     onNext: () -> Unit,
     onBack: () -> Unit,
 ) {
+
     // ── KifuLineViewer 用ライン構築 ──────────────────────────────
     val yourMoves = remember(result, blunder) {
         when (result.reason) {
@@ -363,8 +372,8 @@ fun DrillResultContent(
             ?: emptyList()
     }
     val kifuLines = listOf(
-        KifuLine(AppStrings.DRILL_VIEWER_TAB_YOUR, yourMoves + userLineExtension),
-        KifuLine(AppStrings.DRILL_VIEWER_TAB_BEST, bestMoves),
+        KifuLine(stringResource(Res.string.drill_viewer_tab_your), yourMoves + userLineExtension),
+        KifuLine(stringResource(Res.string.drill_viewer_tab_best), bestMoves),
     )
     var activeLineIdx by remember { mutableIntStateOf(initialActiveLineIdx) }
     var plyIndex by remember { mutableIntStateOf(initialPlyIndex) }
@@ -373,6 +382,9 @@ fun DrillResultContent(
     var pendingExtendAdvance by remember { mutableStateOf(false) }
 
     // 元局面の評価を既存ナビラベルへ連結する。別行を増やさず、手送りでも高さを保つ。
+    val textBlunderLossMate = stringResource(Res.string.blunder_loss_mate)
+    val textBlunderAfterMated = stringResource(Res.string.blunder_after_mated)
+    val textViewerStartPosition = stringResource(Res.string.viewer_start_position)
     val bestPvEvalLabel = remember(blunder, evalDisplay, flip) {
         val moverIsGote = blunder.side == "gote"
         val userIsGote = flip
@@ -383,11 +395,11 @@ fun DrillResultContent(
             // 詰み絡み（|cp| >= 29_000）は生数字ではなく悪手カードと同じ規約表示。
             when {
                 userCp >= 29_000 -> PositionEvalDisplay.EvalLabel(
-                    text = AppStrings.BLUNDER_LOSS_MATE,
+                    text = textBlunderLossMate,
                     sign = 1,
                 )
                 userCp <= -29_000 -> PositionEvalDisplay.EvalLabel(
-                    text = AppStrings.BLUNDER_AFTER_MATED,
+                    text = textBlunderAfterMated,
                     sign = -1,
                 )
                 else -> PositionEvalDisplay.format(
@@ -411,16 +423,16 @@ fun DrillResultContent(
             }
         }
     }
-    val evalSuffixText = bestPvEvalLabel?.let { AppStrings.evalSuffix(it.text) }
+    val evalSuffixText = bestPvEvalLabel?.let { UiStrings.evalSuffix(it.text) }
     val evalSuffixSign = bestPvEvalLabel?.sign ?: 0
 
     // ナビ行の基底ラベル「N手目 ▲notation」（開始局面は VIEWER_START_POSITION）。
     // MainActivity.kt の buildCurrentMoveLabel / studyNavLabel と同じ組み立て方。
     val activeMoves = kifuLines.getOrNull(activeLineIdx)?.moves ?: emptyList()
     val navClampedPly = plyIndex.coerceIn(0, activeMoves.size)
-    val navLabelBase = remember(sfenBefore, activeLineIdx, navClampedPly, kifuLines) {
+    val navLabelBase = run {
         if (navClampedPly == 0) {
-            AppStrings.VIEWER_START_POSITION
+            textViewerStartPosition
         } else {
             val prevBoard = runCatching { ShogiBoard.fromSfen(sfenBefore) }.getOrNull()
             if (prevBoard != null) {
@@ -434,7 +446,7 @@ fun DrillResultContent(
             } else {
                 activeMoves[navClampedPly - 1]
             }
-            "${AppStrings.viewerPlyLabel(navClampedPly)} $notation"
+            "${UiStrings.viewerPlyLabel(navClampedPly)} $notation"
         }
     }
 
@@ -481,7 +493,7 @@ fun DrillResultContent(
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val twoPane = rememberWindowWidthClass(maxWidth) == WindowWidthClass.EXPANDED
 
-        val boardPane: @Composable () -> Unit = {
+        val boardPane = rememberMovablePane {
             // ── 固定エリア（KifuLineViewer: 盤 + タブ + ナビ）────────────────────
             KifuLineViewer(
                 startSfen = sfenBefore,
@@ -530,7 +542,7 @@ fun DrillResultContent(
             }
         }
 
-        val bodyPane: @Composable () -> Unit = {
+        val bodyPane = rememberMovablePane {
             Box(modifier = Modifier.adaptiveContentWidth()) {
                 // ── スクロールエリア（結果バナー・解説・ナビゲーション）────────────────
                 Column(
@@ -554,7 +566,7 @@ fun DrillResultContent(
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            text = if (isCorrect) AppStrings.DRILL_CORRECT else AppStrings.DRILL_INCORRECT,
+                            text = if (isCorrect) stringResource(Res.string.drill_correct) else stringResource(Res.string.drill_incorrect),
                             style = MaterialTheme.typography.headlineMedium,
                             color = if (isCorrect) MaterialTheme.colorScheme.primary
                                     else MaterialTheme.colorScheme.error,
@@ -576,7 +588,7 @@ fun DrillResultContent(
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         Text(
-                            AppStrings.DRILL_YOUR_MOVE,
+                            stringResource(Res.string.drill_your_move),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.shogiColors.ink3,
                         )
@@ -603,7 +615,7 @@ fun DrillResultContent(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
                             Text(
-                                AppStrings.DRILL_BEST_MOVE,
+                                stringResource(Res.string.drill_best_move),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.shogiColors.ink3,
                             )
@@ -624,7 +636,7 @@ fun DrillResultContent(
                             evalDisplay == "cp" && cpBefore != null && cpAfter != null -> {
                                 val isMate = abs(cpBefore) >= 29_000 || abs(cpAfter) >= 29_000
                                 if (isMate) {
-                                    AppStrings.BLUNDER_LOSS_MATE
+                                    textBlunderLossMate
                                 } else {
                                     // blunderLossCp は無条件で「−」を前置する契約（DESIGN.md の
                                     // 符号規約）なので、渡す値は損失の絶対値でなければならない。
@@ -632,7 +644,7 @@ fun DrillResultContent(
                                     // 振れることがあり、abs() を外すと「−」の後に符号付き負数が続き
                                     // 「−-150」（二重マイナス）になる。
                                     val cpLoss = abs((cpBefore + cpAfter).toInt())
-                                    AppStrings.blunderLossCp(cpLoss)
+                                    UiStrings.blunderLossCp(cpLoss)
                                 }
                             }
                             evalDisplay == "wp" && cpBefore != null && cpAfter != null -> {
@@ -642,7 +654,7 @@ fun DrillResultContent(
                             !result.lossWp.isNaN() && result.lossWp > 0.0 -> {
                                 // 旧レコード（cp未保存）: 保存済み loss_wp にフォールバック
                                 val pct = formatFixed1(result.lossWp * 100)
-                                AppStrings.drillLossPct(pct)
+                                UiStrings.drillLossPct(pct)
                             }
                             else -> null
                         }
@@ -665,7 +677,7 @@ fun DrillResultContent(
                         } else {
                             blunder.moveUsi
                         }
-                        Text(AppStrings.drillActualMove(actualMoveDisplay), style = MaterialTheme.typography.bodyMedium)
+                        Text(UiStrings.drillActualMove(actualMoveDisplay), style = MaterialTheme.typography.bodyMedium)
                     }
 
                     // 読み筋を入力していた場合のみ、あなたの読み筋と実際の進行を並べて示す。
@@ -705,10 +717,10 @@ fun DrillResultContent(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         ShogiSecondaryButton(onClick = onBack, modifier = Modifier.weight(1f)) {
-                            Text(AppStrings.DRILL_GO_HOME)
+                            Text(stringResource(Res.string.drill_go_home))
                         }
                         Button(onClick = onNext, modifier = Modifier.weight(1f)) {
-                            Text(AppStrings.DRILL_NEXT)
+                            Text(stringResource(Res.string.drill_next))
                         }
                     }
                     Spacer(Modifier.height(8.dp))
@@ -761,7 +773,7 @@ private fun DrillStudyArea(
             runCatching { ShogiMove.fromUsi(usi).to.let { it.file to it.rank } }.getOrNull()
         }
     }
-    val boardPane: @Composable () -> Unit = {
+    val boardPane = rememberMovablePane {
         ShogiBoardView(
             sfen = studyCurrentSfen,
             flip = studyState.flip,
@@ -788,18 +800,19 @@ private fun DrillStudyArea(
                     SfenPosition.parse(studyCurrentSfen).isBlackTurn
                 },
                 onStudyStepBack = { study?.studyStepBack() },
+                onStudyStepForward = { study?.onChipTapped(studyState.moves.size + 1) },
                 onStudyExit = onExitStudy,
             )
         }
     }
-    val panelPane: @Composable () -> Unit = {
+    val panelPane = rememberMovablePane {
         Box(modifier = Modifier.adaptiveContentWidth()) {
             StudyPanel(
                 studyState = studyState,
                 onChipTapped = { study?.onChipTapped(it) },
                 onBranchChipTapped = { study?.onBranchChipTapped(it) },
                 onBranchPopupDismiss = { study?.onBranchPopupDismiss() },
-                onBranchOptionSelected = { depth, moveUsi -> study?.onBranchOptionSelected(depth, moveUsi) },
+                onBranchOptionSelected = { depth, moveUsi -> study?.onBranchNodeSelected(depth, moveUsi) },
                 onAnalyze = { study?.analyzeCurrentPosition() },
                 onCandidateTapped = { moveUsi -> study?.onCandidateSelected(moveUsi) },
                 modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 4.dp),
@@ -845,14 +858,14 @@ private fun DrillReadPvCompareBlock(
     Column {
         if (isCloseContest) {
             Text(
-                text = AppStrings.DRILL_CLOSE_CONTEST_NOTE,
+                text = stringResource(Res.string.drill_close_contest_note),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.shogiColors.ink2,
             )
             Spacer(Modifier.height(6.dp))
         }
         Text(
-            text = AppStrings.DRILL_YOUR_LINE_LABEL,
+            text = stringResource(Res.string.drill_your_line_label),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.shogiColors.ink3,
         )
@@ -865,7 +878,7 @@ private fun DrillReadPvCompareBlock(
         )
         Spacer(Modifier.height(10.dp))
         Text(
-            text = AppStrings.DRILL_ANALYSIS_LINE_LABEL,
+            text = stringResource(Res.string.drill_analysis_line_label),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.shogiColors.ink3,
         )

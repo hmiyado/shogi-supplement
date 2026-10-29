@@ -8,6 +8,12 @@ application {
     mainClass.set("dev.miyado.shogisupplement.server.worker.ApplicationKt")
 }
 
+tasks.register<JavaExec>("studyEngineSmoke") {
+    dependsOn(tasks.testClasses)
+    classpath = sourceSets.test.get().runtimeClasspath
+    mainClass.set("dev.miyado.shogisupplement.server.worker.StudyEngineSmokeKt")
+}
+
 kotlin {
     jvmToolchain(libs.versions.jvm.toolchain.get().toInt())
 }

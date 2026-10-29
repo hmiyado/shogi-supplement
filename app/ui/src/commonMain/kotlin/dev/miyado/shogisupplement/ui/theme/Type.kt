@@ -6,39 +6,35 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
-// FontFamilyはexpect/actualでプラットフォーム別に同期構築し、commonMainから同じvalで参照する。
+import androidx.compose.runtime.Composable
+import org.jetbrains.compose.resources.Font
+import dev.miyado.shogisupplement.ui.generated.resources.*
 
-internal expect fun buildShipporiMinchoFamily(): FontFamily
-internal expect fun buildIbmPlexSansJpFamily(): FontFamily
-internal expect fun buildIbmPlexMonoFamily(): FontFamily
-
-/**
- * Shippori Mincho: Display/見出し専用（700のみ）。
- * 画面タイトル・ドリルの問い・レポート見出し。棋書の風格。
- * 小サイズ本文には使わない。
- */
-val ShipporiMinchoFamily: FontFamily = buildShipporiMinchoFamily()
-
-/**
- * IBM Plex Sans JP: Body/UI（400/700）。
- * 本文・ボタン・ラベル・説明文。
- */
-val IbmPlexSansJpFamily: FontFamily = buildIbmPlexSansJpFamily()
-
-/**
- * IBM Plex Mono: Data（400/600）。
- * 勝率・損失・レート・件数・手数・USI表記など数値と符号は例外なくMono。
- * tabular-nums を前提とした等幅フォント。
- */
-val IbmPlexMonoFamily: FontFamily = buildIbmPlexMonoFamily()
-
+val ShipporiMinchoFamily: FontFamily
+    @Composable get() = FontFamily(
+        Font(Res.font.shippori_mincho_bold, FontWeight.Bold),
+        Font(Res.font.shippori_mincho_bold, FontWeight.Normal),
+    )
+val IbmPlexSansJpFamily: FontFamily
+    @Composable get() = FontFamily(
+        Font(Res.font.ibm_plex_sans_jp_regular, FontWeight.Normal),
+        Font(Res.font.ibm_plex_sans_jp_bold, FontWeight.Bold),
+        Font(Res.font.ibm_plex_sans_jp_regular, FontWeight.Medium),
+    )
+val IbmPlexMonoFamily: FontFamily
+    @Composable get() = FontFamily(
+        Font(Res.font.ibm_plex_mono_regular, FontWeight.Normal),
+        Font(Res.font.ibm_plex_mono_semi_bold, FontWeight.SemiBold),
+        Font(Res.font.ibm_plex_mono_regular, FontWeight.Medium),
+    )
 
 /**
  * DESIGN.md のタイポグラフィスケール:
  * display 28–34 / headline 22 / title 17 / body 15 / label·caption 12 /
  * data-large 34 (Mono) / data 13 (Mono)。行間: 本文1.75、数値1.3
  */
-val ShogiTypography = Typography(
+val ShogiTypography: Typography
+    @Composable get() = Typography(
     displayLarge = TextStyle(
         fontFamily = ShipporiMinchoFamily,
         fontWeight = FontWeight.Bold,
@@ -137,7 +133,8 @@ val ShogiTypography = Typography(
 
 
 /** data-large: 強さ指標・勝率の大きな数値（Mono 34sp、行間1.3） */
-val TextStyleDataLarge = TextStyle(
+val TextStyleDataLarge: TextStyle
+    @Composable get() = TextStyle(
     fontFamily = IbmPlexMonoFamily,
     fontWeight = FontWeight.SemiBold,
     fontSize = 34.sp,
@@ -145,7 +142,8 @@ val TextStyleDataLarge = TextStyle(
 )
 
 /** data: 符号・手数・ちいさな数値（Mono 13sp） */
-val TextStyleData = TextStyle(
+val TextStyleData: TextStyle
+    @Composable get() = TextStyle(
     fontFamily = IbmPlexMonoFamily,
     fontWeight = FontWeight.Normal,
     fontSize = 13.sp,
@@ -153,7 +151,8 @@ val TextStyleData = TextStyle(
 )
 
 /** data-move: 指し手表示用（Mono 13-15sp、SemiBold） */
-val TextStyleDataMove = TextStyle(
+val TextStyleDataMove: TextStyle
+    @Composable get() = TextStyle(
     fontFamily = IbmPlexMonoFamily,
     fontWeight = FontWeight.SemiBold,
     fontSize = 14.sp,

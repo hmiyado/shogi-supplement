@@ -18,6 +18,9 @@ env:
 ---
 - launchApp:
     clearState: false
+- extendedWaitUntil:
+    visible: "将棋サプリ"
+    timeout: 60000
 - tapOn: "棋譜を追加する"
 - tapOn: "ファイルから選ぶ"
 # システムのドキュメントピッカー（com.android.documentsui）側は「最近使ったファイル」に

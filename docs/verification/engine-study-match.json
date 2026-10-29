@@ -1,0 +1,761 @@
+{
+  "profiles": [
+    {
+      "name": "940-hao",
+      "fv_scale": 20,
+      "binary_sha256": "6f817a869642aacd0499999e40814ea8c6e2056430a28bb63831e0c4725312ac",
+      "evaluation_sha256": "1141d275bceec911156801f27303dc9ff5beb24f4f59144cc069306c59e80782",
+      "source_commit": "717da871e7a620702b8b9433bd8f9f181710435a"
+    },
+    {
+      "name": "980-aoba",
+      "fv_scale": 40,
+      "binary_sha256": "c7de738b9f333690f970ed4314d3efb12b18adc02ba7f042e957ff7cb9f5c56c",
+      "evaluation_sha256": "f8ee839ae8c08537036f23345dd5ed0416958b22425476fc60177942903219b5",
+      "source_commit": "d47c9bfb94210fb1f9b741d5ee16ce081b35cacd"
+    }
+  ],
+  "pairs": 32,
+  "games": 64,
+  "milliseconds": 200,
+  "multipv": 1,
+  "threads": 1,
+  "hash_mb": 128,
+  "openings_sha256": "ed65fbeea34d925bf10e42b544bc931055ba9917ca775d611751f6919b4f1fc6",
+  "runner_sha256": "261c7450888032845ea0524d407d9990c55e2a61a47e3d58a5270148f8decaa9",
+  "engine_client_sha256": "3e9deef638abca7de31bcdcfa23ec8c368ccba6b87bdb5787d38418ed1828d2e",
+  "verifier_sha256": "ad96883e9bf08e6febf6cdbcc99c5031c2ad6f5e32fc3c3f60cde5787303d182",
+  "endings": {
+    "checkmate": 63,
+    "ply-limit": 1
+  },
+  "candidate_wins": 40,
+  "baseline_wins": 23,
+  "legal_pv_moves": 60922,
+  "inference": {
+    "complete_adjudication": false,
+    "seed": 101,
+    "resamples": 20000,
+    "unit": "opening pair",
+    "candidate_score_rate": null,
+    "bootstrap95": null,
+    "conclusion": "unresolved_games_require_review",
+    "unresolved_games": 1,
+    "observed_score_rate_bounds": [
+      0.625,
+      0.640625
+    ],
+    "supplemental_unresolved_sensitivity": {
+      "all_unresolved_candidate_losses_bootstrap95": [
+        0.515625,
+        0.734375
+      ],
+      "all_unresolved_candidate_wins_bootstrap95": [
+        0.53125,
+        0.75
+      ],
+      "scope": "Supplement added after a ply-limit game was observed; primary complete-adjudication analysis remains unavailable"
+    }
+  },
+  "timings": [
+    {
+      "profile": "940-hao",
+      "searches": 3974,
+      "median_seconds": 0.2001124374801293,
+      "p95_seconds": 0.2008756585419178,
+      "max_seconds": 0.20359733293298632,
+      "over_budget_10pct": 0
+    },
+    {
+      "profile": "980-aoba",
+      "searches": 3983,
+      "median_seconds": 0.200309208012186,
+      "p95_seconds": 0.20134149615187197,
+      "max_seconds": 0.2041810000082478,
+      "over_budget_10pct": 0
+    }
+  ],
+  "results": [
+    {
+      "pair": 0,
+      "swap": false,
+      "winner": 1,
+      "reason": "checkmate",
+      "candidate_score": 1,
+      "searches": 100
+    },
+    {
+      "pair": 0,
+      "swap": true,
+      "winner": 0,
+      "reason": "checkmate",
+      "candidate_score": 0,
+      "searches": 74
+    },
+    {
+      "pair": 1,
+      "swap": false,
+      "winner": 1,
+      "reason": "checkmate",
+      "candidate_score": 1,
+      "searches": 104
+    },
+    {
+      "pair": 1,
+      "swap": true,
+      "winner": 1,
+      "reason": "checkmate",
+      "candidate_score": 1,
+      "searches": 109
+    },
+    {
+      "pair": 2,
+      "swap": false,
+      "winner": 1,
+      "reason": "checkmate",
+      "candidate_score": 1,
+      "searches": 158
+    },
+    {
+      "pair": 2,
+      "swap": true,
+      "winner": 1,
+      "reason": "checkmate",
+      "candidate_score": 1,
+      "searches": 67
+    },
+    {
+      "pair": 3,
+      "swap": false,
+      "winner": 0,
+      "reason": "checkmate",
+      "candidate_score": 0,
+      "searches": 89
+    },
+    {
+      "pair": 3,
+      "swap": true,
+      "winner": 1,
+      "reason": "checkmate",
+      "candidate_score": 1,
+      "searches": 221
+    },
+    {
+      "pair": 4,
+      "swap": false,
+      "winner": null,
+      "reason": "ply-limit",
+      "candidate_score": null,
+      "searches": 320
+    },
+    {
+      "pair": 4,
+      "swap": true,
+      "winner": 1,
+      "reason": "checkmate",
+      "candidate_score": 1,
+      "searches": 147
+    },
+    {
+      "pair": 5,
+      "swap": false,
+      "winner": 1,
+      "reason": "checkmate",
+      "candidate_score": 1,
+      "searches": 106
+    },
+    {
+      "pair": 5,
+      "swap": true,
+      "winner": 0,
+      "reason": "checkmate",
+      "candidate_score": 0,
+      "searches": 144
+    },
+    {
+      "pair": 6,
+      "swap": false,
+      "winner": 1,
+      "reason": "checkmate",
+      "candidate_score": 1,
+      "searches": 112
+    },
+    {
+      "pair": 6,
+      "swap": true,
+      "winner": 1,
+      "reason": "checkmate",
+      "candidate_score": 1,
+      "searches": 157
+    },
+    {
+      "pair": 7,
+      "swap": false,
+      "winner": 0,
+      "reason": "checkmate",
+      "candidate_score": 0,
+      "searches": 59
+    },
+    {
+      "pair": 7,
+      "swap": true,
+      "winner": 1,
+      "reason": "checkmate",
+      "candidate_score": 1,
+      "searches": 105
+    },
+    {
+      "pair": 8,
+      "swap": false,
+      "winner": 0,
+      "reason": "checkmate",
+      "candidate_score": 0,
+      "searches": 113
+    },
+    {
+      "pair": 8,
+      "swap": true,
+      "winner": 0,
+      "reason": "checkmate",
+      "candidate_score": 0,
+      "searches": 124
+    },
+    {
+      "pair": 9,
+      "swap": false,
+      "winner": 1,
+      "reason": "checkmate",
+      "candidate_score": 1,
+      "searches": 134
+    },
+    {
+      "pair": 9,
+      "swap": true,
+      "winner": 0,
+      "reason": "checkmate",
+      "candidate_score": 0,
+      "searches": 156
+    },
+    {
+      "pair": 10,
+      "swap": false,
+      "winner": 1,
+      "reason": "checkmate",
+      "candidate_score": 1,
+      "searches": 138
+    },
+    {
+      "pair": 10,
+      "swap": true,
+      "winner": 1,
+      "reason": "checkmate",
+      "candidate_score": 1,
+      "searches": 181
+    },
+    {
+      "pair": 11,
+      "swap": false,
+      "winner": 0,
+      "reason": "checkmate",
+      "candidate_score": 0,
+      "searches": 87
+    },
+    {
+      "pair": 11,
+      "swap": true,
+      "winner": 1,
+      "reason": "checkmate",
+      "candidate_score": 1,
+      "searches": 181
+    },
+    {
+      "pair": 12,
+      "swap": false,
+      "winner": 1,
+      "reason": "checkmate",
+      "candidate_score": 1,
+      "searches": 106
+    },
+    {
+      "pair": 12,
+      "swap": true,
+      "winner": 1,
+      "reason": "checkmate",
+      "candidate_score": 1,
+      "searches": 113
+    },
+    {
+      "pair": 13,
+      "swap": false,
+      "winner": 1,
+      "reason": "checkmate",
+      "candidate_score": 1,
+      "searches": 94
+    },
+    {
+      "pair": 13,
+      "swap": true,
+      "winner": 1,
+      "reason": "checkmate",
+      "candidate_score": 1,
+      "searches": 139
+    },
+    {
+      "pair": 14,
+      "swap": false,
+      "winner": 0,
+      "reason": "checkmate",
+      "candidate_score": 0,
+      "searches": 85
+    },
+    {
+      "pair": 14,
+      "swap": true,
+      "winner": 0,
+      "reason": "checkmate",
+      "candidate_score": 0,
+      "searches": 126
+    },
+    {
+      "pair": 15,
+      "swap": false,
+      "winner": 0,
+      "reason": "checkmate",
+      "candidate_score": 0,
+      "searches": 93
+    },
+    {
+      "pair": 15,
+      "swap": true,
+      "winner": 1,
+      "reason": "checkmate",
+      "candidate_score": 1,
+      "searches": 101
+    },
+    {
+      "pair": 16,
+      "swap": false,
+      "winner": 1,
+      "reason": "checkmate",
+      "candidate_score": 1,
+      "searches": 136
+    },
+    {
+      "pair": 16,
+      "swap": true,
+      "winner": 0,
+      "reason": "checkmate",
+      "candidate_score": 0,
+      "searches": 104
+    },
+    {
+      "pair": 17,
+      "swap": false,
+      "winner": 1,
+      "reason": "checkmate",
+      "candidate_score": 1,
+      "searches": 136
+    },
+    {
+      "pair": 17,
+      "swap": true,
+      "winner": 0,
+      "reason": "checkmate",
+      "candidate_score": 0,
+      "searches": 120
+    },
+    {
+      "pair": 18,
+      "swap": false,
+      "winner": 1,
+      "reason": "checkmate",
+      "candidate_score": 1,
+      "searches": 130
+    },
+    {
+      "pair": 18,
+      "swap": true,
+      "winner": 1,
+      "reason": "checkmate",
+      "candidate_score": 1,
+      "searches": 137
+    },
+    {
+      "pair": 19,
+      "swap": false,
+      "winner": 1,
+      "reason": "checkmate",
+      "candidate_score": 1,
+      "searches": 160
+    },
+    {
+      "pair": 19,
+      "swap": true,
+      "winner": 1,
+      "reason": "checkmate",
+      "candidate_score": 1,
+      "searches": 131
+    },
+    {
+      "pair": 20,
+      "swap": false,
+      "winner": 0,
+      "reason": "checkmate",
+      "candidate_score": 0,
+      "searches": 109
+    },
+    {
+      "pair": 20,
+      "swap": true,
+      "winner": 1,
+      "reason": "checkmate",
+      "candidate_score": 1,
+      "searches": 115
+    },
+    {
+      "pair": 21,
+      "swap": false,
+      "winner": 1,
+      "reason": "checkmate",
+      "candidate_score": 1,
+      "searches": 134
+    },
+    {
+      "pair": 21,
+      "swap": true,
+      "winner": 0,
+      "reason": "checkmate",
+      "candidate_score": 0,
+      "searches": 78
+    },
+    {
+      "pair": 22,
+      "swap": false,
+      "winner": 0,
+      "reason": "checkmate",
+      "candidate_score": 0,
+      "searches": 147
+    },
+    {
+      "pair": 22,
+      "swap": true,
+      "winner": 1,
+      "reason": "checkmate",
+      "candidate_score": 1,
+      "searches": 83
+    },
+    {
+      "pair": 23,
+      "swap": false,
+      "winner": 1,
+      "reason": "checkmate",
+      "candidate_score": 1,
+      "searches": 102
+    },
+    {
+      "pair": 23,
+      "swap": true,
+      "winner": 1,
+      "reason": "checkmate",
+      "candidate_score": 1,
+      "searches": 105
+    },
+    {
+      "pair": 24,
+      "swap": false,
+      "winner": 1,
+      "reason": "checkmate",
+      "candidate_score": 1,
+      "searches": 148
+    },
+    {
+      "pair": 24,
+      "swap": true,
+      "winner": 1,
+      "reason": "checkmate",
+      "candidate_score": 1,
+      "searches": 173
+    },
+    {
+      "pair": 25,
+      "swap": false,
+      "winner": 0,
+      "reason": "checkmate",
+      "candidate_score": 0,
+      "searches": 117
+    },
+    {
+      "pair": 25,
+      "swap": true,
+      "winner": 0,
+      "reason": "checkmate",
+      "candidate_score": 0,
+      "searches": 134
+    },
+    {
+      "pair": 26,
+      "swap": false,
+      "winner": 1,
+      "reason": "checkmate",
+      "candidate_score": 1,
+      "searches": 100
+    },
+    {
+      "pair": 26,
+      "swap": true,
+      "winner": 1,
+      "reason": "checkmate",
+      "candidate_score": 1,
+      "searches": 107
+    },
+    {
+      "pair": 27,
+      "swap": false,
+      "winner": 0,
+      "reason": "checkmate",
+      "candidate_score": 0,
+      "searches": 97
+    },
+    {
+      "pair": 27,
+      "swap": true,
+      "winner": 1,
+      "reason": "checkmate",
+      "candidate_score": 1,
+      "searches": 107
+    },
+    {
+      "pair": 28,
+      "swap": false,
+      "winner": 1,
+      "reason": "checkmate",
+      "candidate_score": 1,
+      "searches": 110
+    },
+    {
+      "pair": 28,
+      "swap": true,
+      "winner": 0,
+      "reason": "checkmate",
+      "candidate_score": 0,
+      "searches": 266
+    },
+    {
+      "pair": 29,
+      "swap": false,
+      "winner": 0,
+      "reason": "checkmate",
+      "candidate_score": 0,
+      "searches": 103
+    },
+    {
+      "pair": 29,
+      "swap": true,
+      "winner": 1,
+      "reason": "checkmate",
+      "candidate_score": 1,
+      "searches": 87
+    },
+    {
+      "pair": 30,
+      "swap": false,
+      "winner": 1,
+      "reason": "checkmate",
+      "candidate_score": 1,
+      "searches": 132
+    },
+    {
+      "pair": 30,
+      "swap": true,
+      "winner": 0,
+      "reason": "checkmate",
+      "candidate_score": 0,
+      "searches": 98
+    },
+    {
+      "pair": 31,
+      "swap": false,
+      "winner": 1,
+      "reason": "checkmate",
+      "candidate_score": 1,
+      "searches": 102
+    },
+    {
+      "pair": 31,
+      "swap": true,
+      "winner": 0,
+      "reason": "checkmate",
+      "candidate_score": 0,
+      "searches": 106
+    }
+  ],
+  "artifact_sha256": {
+    "000-0.json": "ad8053cd2feede9ce8ed1b43b9ea40593ad37ec17ad2967d98c36cf300a91126",
+    "000-1.json": "2818cfa236558025c2b2566ad939e0df44311ea3de62695be0a1bc751b8f03b5",
+    "001-0.json": "b4523e4a5421abb293a625cd164e91673cd627cb7e5d303fab1bd2c83aeef001",
+    "001-1.json": "79c35b8619ac41de572b7a755c9ac06e9f890cf17fad1985ced5067083083abb",
+    "002-0.json": "08368da633e7c3f07ec31d82b33c5fd0877549e06730b6295055a7e05bb6c764",
+    "002-1.json": "a1732f1cf015f1d14914322cb3afabcca85cd592714e158f1a250f59ca8eced0",
+    "003-0.json": "76cf1b067aba094536b20e4e7bca12c5b5c73826e0b46cd5c4fcdcbb6599078a",
+    "003-1.json": "adf0aade086183b881adf0f2048bfa4367e771bd79b3c73c89723b28ea3f0164",
+    "004-0.json": "d43babc5424655f191989c857d117b6a22b01520302a26a5e7f13e32fc68dacf",
+    "004-1.json": "825f929ed1147f2531f2cea4a308accb97376bdace44fa0dfcb66eecef95feb4",
+    "005-0.json": "85e00ba8b820f6bc68fb8d00509eac880bfd67d27ca2c4bde435066bf901d39e",
+    "005-1.json": "d78eb7c7bbcc3c5ccc657fd6e147dfda3cd2ae9861b2334140a4b0a638dbb313",
+    "006-0.json": "8d50cedc6b7dc3292a30ac6758db20cb63e7caf83e287f91f3558f4c9adfbe98",
+    "006-1.json": "381e937ae5e1eb514d11d37384eec00f00a2f886e4a9f4a66ba09944be9079b7",
+    "007-0.json": "b9e9cb5d82cef0c79a74bd989f6879fb2a392bb5b24e749fc0a688c36d2824e8",
+    "007-1.json": "f45fd37bac63b6556082a6f6715ee494d3fd6d3a6a2622eafa839d2d36fbc1de",
+    "008-0.json": "7e88dddd4b76e6212672fd0892e8820e9113f9aa624338a27eda2da08ec0be3e",
+    "008-1.json": "eda80c9ce7ce1eeaebd26d04d3148112b39ea0cc96eb568179829da9d87356e6",
+    "009-0.json": "4bc8cd0f2e935cbd5cb9a9d5673d996c01b408841476f591090d8c362bb662d5",
+    "009-1.json": "4fd18f9604b6d1de4907e9ee700256fea4dbba0fedc663c61df615acf00039db",
+    "010-0.json": "3246e644dd07b7299cb79d0c87ccf50b6422c4144be8d60afffdc686c9de04a2",
+    "010-1.json": "cfe7974e0d21bfc1b0578ff71fe44d8d2a9194b12d99fdeb4677028b6c3b143b",
+    "011-0.json": "8f5eaf67028845b1874c051cb63fa1f19abd5395373b8e36fcfdb0ad20cf00a0",
+    "011-1.json": "b661bbcc7a43481726dab63600713d0fbcba422235c23fe187f8d84a9e41ff83",
+    "012-0.json": "ef318df150e3a1ec7b802c87e2e9e8f1e93115debcf9e343979914dc20d96bab",
+    "012-1.json": "eff82c4956f8c2b88197dd130bb6150a796d7cc247c32cc87117427e552ad4cd",
+    "013-0.json": "48ee85e7c76ffc8f9ea3b3102fc3544143fa1aab3eb0707e1d6e55294f44010e",
+    "013-1.json": "296be118b500d891d4b6d8c55de1e4600838dc8118ad576c35d0f2f8ec53b6b2",
+    "014-0.json": "2a6766f5b05aa8de8ffd662aebfd06961f1b288840fa33bd76824d4ccb0c792e",
+    "014-1.json": "c7b151a2af4f37e4c04d2010da3f26454f0b0f3a10f35f296353380c44a7639f",
+    "015-0.json": "766d924563f0be7a3308caf60552946f86e03916c5390aef13d79fc3ab840b50",
+    "015-1.json": "8b0ab62d7f8e6a471a4e0632360b8a0f93b92aa3050c12d1fb1fa045b2fbe44d",
+    "016-0.json": "d9a24e37c306d2673224df82cb4d998a5422c7b520c576d357dd926b915f2461",
+    "016-1.json": "8b81ea0f9b8443fcf3e60b8ced1f1f8760b24fb7f257aa8448436aaf2eddd6d8",
+    "017-0.json": "5576ab2561e1a640441161e3c404b2fe87a253429a085bd4075c0bcb7acd5f8e",
+    "017-1.json": "f52508ca554a5cc7d2a2397a941d64e1e96feefd962a9bd4ce373978053dcab1",
+    "018-0.json": "e8ada7aa9200752ef40c8487dc909a6483bc80df662f0271075931cd33683764",
+    "018-1.json": "1e97c2a18fac17456858c6a3f19b2279cca8facdafc5d74828d6015663ed55de",
+    "019-0.json": "8d2a4731bfc6ab7a3174ca69021378ed69c31f5b2ffa5c82f77958f5ca1c449f",
+    "019-1.json": "d9c3157913a3fd8705b98132dfd5c12aa4515ad92c4a6b003af31567f1b007ca",
+    "020-0.json": "4236c3967b70154d43cba302dfe8c2b8b8d25f37a30677e5cba4302cd5fee917",
+    "020-1.json": "1e757ce6c9011d2e56f776fb99001f19ac860aa1bb3dc753661013aaf2157a03",
+    "021-0.json": "eb2743c6a80795c7eeae042524039a62aab2712c8a7006539b5b03c7f882aa7b",
+    "021-1.json": "bcc1b2d746d3456ca6a566694693dc0745b13649f584442a3f27e6995b603d6d",
+    "022-0.json": "3d4f215ddca83b1d4c81dc779e9965819c5c47ac6ce555775973298f662d63aa",
+    "022-1.json": "48097b013024cf1f0aa775c76673cb85cdd99b8f8d71aa4d47277b79780efc1f",
+    "023-0.json": "aca9fa4f5128217ac673708526bf687ca11eb74014a31008c7885abfae6630b1",
+    "023-1.json": "556eee465a662492a91a2770bb53f7f45be18e80ad322a07349c955e15fadeb6",
+    "024-0.json": "a34879afc0f5917d772e61fdfcc0e71a4e4b181d11cafc69884b21abbe310eb5",
+    "024-1.json": "ce601b07f8813bdc81e701e996fb66d02f672b45ee14014975c4459bf6edbd47",
+    "025-0.json": "b5efe00f89e61ab5a9b78634b996454edfc63afc32c4167cb5ee95e61f24fbb0",
+    "025-1.json": "bb89e812e858bb8f1d92951f99d9db9605ff27d5ecd9303f5bb775ee275591af",
+    "026-0.json": "44b7aed8f21c5c9a232a832ed4850cfc3345d11d79af2eaf3f7ac0ce32df6051",
+    "026-1.json": "3ec91f25601f4edeb705c5d5e864eb2ab6d4ca655f3133c9992bc41808bc04fe",
+    "027-0.json": "09443dc19caf9c4143a538ac5771dcccbd4ebdb19d3f52a483a6377441a31eab",
+    "027-1.json": "73728f295629ae48f1f80570546ff1c71963aead83ad2c262e5992e70489d609",
+    "028-0.json": "7dd772a20208a5f0f75bd396244b74088856b749a055e1c24914506b037d999c",
+    "028-1.json": "fdcbc09254c9fa7fcb3efaf7e393854295984dfe5ad474601432cf4531aa701b",
+    "029-0.json": "0a645070031f214f48ba2eb7c0a56ed22fa9bde5b165a47fd57f994712fa61af",
+    "029-1.json": "fe8e2ff5b8ed3a6ad905ab2105638f5bd0be4383b4a18a1dfd3601c489aa73d6",
+    "030-0.json": "2e4840779b0964d2300c9c79f18bde6df63cd57d6ff7c5a36d46213b6e2bcc0f",
+    "030-1.json": "1d6ea7f7076195dee608af71048b8043738c368aba14202820eb938d2a8fa766",
+    "031-0.json": "a1e975a168fe01a7565a1555ba9ac81dd2a784ba7984675b44434affea7ebf39",
+    "031-1.json": "206a42031c82c336d8cb36a3935cf9f3c4e2da59a1cbd54c67ce70d89596c29c"
+  },
+  "measured_date": "2026-09-27",
+  "host": {
+    "os": "macOS 27.0 (26A428)",
+    "architecture": "arm64",
+    "python_shogi": "1.1.1"
+  },
+  "scope": "Native macOS pilot for a server study candidate; not a Linux production benchmark or deployment approval",
+  "selection": {
+    "source_sha256": "f2f21f418e229856b866ae96069de782114ee7c49120d904b704fc93eff16b78",
+    "eligible_games": 279,
+    "distinct_selected_games": 32,
+    "distinct_opening_positions": 32,
+    "opening_plies": 24,
+    "rule": "SHA256(study-match-v1: + game_id) ascending"
+  },
+  "protocol_sha256": "bbb2bc62ae5cef445360f845a2287a6e33b72544c0ec461700d384084530b366",
+  "study_probe": {
+    "milliseconds": 1000,
+    "multipv": 3,
+    "searches": 64,
+    "runner_sha256": "ffacb3eeca33b82978823c00311ca93bf81793335a5552b576b6bfbb0f2ff2ce",
+    "match_manifest_sha256": "9dcc0855411239f2535144f6decb8796e665f16d830e761e0c4e5c7d76d4fc77",
+    "legal_pv_moves": 7579,
+    "profiles": {
+      "940-hao": {
+        "searches": 32,
+        "median_seconds": 1.0001151670585386,
+        "p95_seconds": 1.0005959296249785
+      },
+      "980-aoba": {
+        "searches": 32,
+        "median_seconds": 1.0003370624617673,
+        "p95_seconds": 1.00126210366725
+      }
+    },
+    "final_pv_root_duplicates": 0,
+    "artifact_sha256": {
+      "000-0.json": "3e28b094c84a083fea5bc7415c16cc75c3be53a6a8be52566f8db857b33a6e85",
+      "000-1.json": "6cfee8e3cee25da2becd10877fffa1795c1c6ca25867ad8d982e20331251b4ee",
+      "001-0.json": "65894cc63b3725bffa609adabe33fa14cd0b4935c5bebbe08895f9751536f65f",
+      "001-1.json": "110ef11c9714ce9c2dc144d97142ec6b4269c020b52c0118bf513051d7ea37a8",
+      "002-0.json": "55b6e147a56f89dcbfbb853e352ee0b7fb75fb77f14db12e256b375ea7f76fcf",
+      "002-1.json": "447fa880d5edd2ebf93cdbd2ecf745d3185147cc30bd1b40ce9274328a4779bf",
+      "003-0.json": "a168a333d144746eae8b7aeea2af025ea0c82002232fc18b6600e800eeba60a3",
+      "003-1.json": "6dc8d8d98b366cae97024fa17bbee0f42b3585366d578fb9058c68c44d93a36b",
+      "004-0.json": "04eb5caac1c7541379f0d19e88e4313581d5f6a505f3742efdefaf49c2926f5a",
+      "004-1.json": "e83d0440a17cc1a2a03ec3fcc67dc8f032fb404fdc30efdfe3ad728fc770d7cd",
+      "005-0.json": "d634539e5b60b2ceed6637c97b7120919fc5ba3182c43eab4825be5684cfcdc5",
+      "005-1.json": "2122816ff3008cc8d03e7a425121360de4b0e1748f1809aa1a49365ab370ea37",
+      "006-0.json": "16dbdafcf18f2be69ae0ca6e0826b256cf7e9efd3772cc1db2f7b24ad3254f84",
+      "006-1.json": "f82530c2547620799342ac47efcf21f9b6dba47c8f700f1ed5f177552262a656",
+      "007-0.json": "0f815d0f1a91f093daabd5c160225af71114d3cd887ada6f200274070c5c6bcc",
+      "007-1.json": "3c60b158b1fa35ded814ea715719d7524d1dd4d670eee204d8d05af124bced4e",
+      "008-0.json": "dd2808100c16f97f864fe1ef0686f0408eada1c6c1e84be6cfac3c305419d5a6",
+      "008-1.json": "68989a9d4480a938f0ec16cf8a38dada7f2a5ca77e07eac79c3e89f712fdeab4",
+      "009-0.json": "49b166e9acce09c164cb36cf761c8e301ddf94169231641ec322b3e01754699d",
+      "009-1.json": "41e4ff384e237f691f7db6257cbcf590c31d706da595a2dc2a9fe54b1d35c9cd",
+      "010-0.json": "fed04a2f77102e5a982d66c6681a2d08562b5da94d37988948b20d92fb1bc019",
+      "010-1.json": "abef27f2099b30147d22b341f8d1a774ab6d472204cb9b9cd3a0f1b8e336e5e1",
+      "011-0.json": "19163e826275ecf2a55db7c46d5bd2e7f7f5a013cd54cbd532276748a33019d2",
+      "011-1.json": "54f20c53737f487daac14cfdc12a8fc8543e18a47f2e71b6463754cf3403adaf",
+      "012-0.json": "ead55439e2855199e7c3d6c8b7d8012159eb518347bb618d328358f26e2e690e",
+      "012-1.json": "befc4f9e79e1bb803f6dadbcdc2a83c972c9d078078d868f32424c94c3a2ffd3",
+      "013-0.json": "ca2f1578bc49d5295dcf47009fec260549acc4e238903a31a6ed17541605cc2c",
+      "013-1.json": "97c5749195c97c12145d796c8bf12bca4ea356b2fad3ac59cc7138a1ff1297ce",
+      "014-0.json": "3f0908b04677ff9bf479370fc0aeb2710d50b29bb5ac4c1d706ffdfeec9f2bf8",
+      "014-1.json": "b263eaa94b0737356f57567e46e36dc051e76e2bd2a988b83e5d17fd3c4ab57a",
+      "015-0.json": "af04bf8ddca385eceaee1ff7c235c6b476b7b708a4fe34d608cee60d6b1aef25",
+      "015-1.json": "36ded1b65e95e25b1d1895b76d67ba545ae3fe05a28a56882ec6616456fdfcac",
+      "016-0.json": "18df351d879dcbe0fde2adf61bfd849c689fcc1ec6b1d4ea2ddbc5c6dbc3cd33",
+      "016-1.json": "8349ac49904cd4e51b108e946ee1fe404c3e34d9468753a36ada438374e7ebab",
+      "017-0.json": "3b4d88721af6ab1605c4ba602e0684ac3b901c65f502d0f385e475f6a297b9b0",
+      "017-1.json": "ee970bbdd670787efe5f90a4e85f5bc9253e7ba712e46a584d4d82c46473c859",
+      "018-0.json": "98bb3436dd9c6a8860a6d525f1689cc6e6bb65f2ed2773c84d98437188819cf9",
+      "018-1.json": "a2f62257b2808640c9b9c2977c3a7828c8934fa144e113b597fd266e0620e877",
+      "019-0.json": "a5d1e33b8b4d1d857ac144c99a9edec3423ea578fd87a2bbed107b918709e12b",
+      "019-1.json": "6404ab53e272cc2996345fe1c3375d58c13c5e74c92343a8109b8ceaa6fba03c",
+      "020-0.json": "724fe6a653922e5207d7a85640c53e4e9ffa6506a1efa0f265ce338b90df902f",
+      "020-1.json": "4239a1fbdcabd001b836b50e203652d21e5542b98e23a6dffbd7182a398b86cf",
+      "021-0.json": "64faaca5d3d3423b6d71f7a843ce23a9f91745944bd1889696a824d82f383a60",
+      "021-1.json": "c41edd1a0b914b466eb9964c7a54bb4f387b0e6799aea56c91615126cad5181c",
+      "022-0.json": "3805bc336b603a15fe2d65f2f09f6009544d45edcd43e092d4caa246489686e2",
+      "022-1.json": "cdb94170982197f9eddcdfcd7b13e52cf2cfb126bf2df7f6f35abd5537574c2a",
+      "023-0.json": "2c26543aca250ed76efe9ce056ac75e9183665b21d470744d0fbe5c29075cbf3",
+      "023-1.json": "0e51a64883542a9a13a7bcfa96e937c2bbfcaef32cddb4042a837b95bfdb242e",
+      "024-0.json": "e82fe928c12981be6048e14f0ace0820b67fe420bbd155fe08be908bdd9c33cd",
+      "024-1.json": "fb3fdf6cec3ae0efe8131f8283dad171a2a68a875e47677618f4124bce569cd6",
+      "025-0.json": "d678b5858c4bb805486d67dfc5756278d98636c041b03d3d00b6c749376740d5",
+      "025-1.json": "4e402012e807ac1edb96c88fef4ee1d11474a95b5287aac1d5cc3533db52c358",
+      "026-0.json": "285b9ba017a0a63c700f5a2e33827204923bb04630daf43739c139715a5f0f9b",
+      "026-1.json": "7f217f8bf02208952249206f9a305c2e2f8aec93e3c60a6a666f36a3a550b13a",
+      "027-0.json": "f46b73db7a804f5eed0038bc2ae9ef485ef589cbc9bab823a087ace33c8cf84d",
+      "027-1.json": "707b4201c117a276ae7944f0c98cc8b4a7c6974c233ec9eeb62e13e67011456b",
+      "028-0.json": "6e4f0f61f315af3bf7980992d9969b4bb3e74a02ed2fbdf6e0c5dfb3a186a8c5",
+      "028-1.json": "894585b4d918e5e038242296b46c992ab8d022bd64f93e93f7ec9ca046b2a6a0",
+      "029-0.json": "66d9442eccf628a7d41c80c577ecfbf9cfc53f160061caebe65f0f7057fc433b",
+      "029-1.json": "c08d657742d63bfcda57b3c326839d6e5a255ad83268a531e24f8e310d66aefb",
+      "030-0.json": "59482e99d1c0e46fdb033a26a99bf19b44cae156311bb265693b73da49794009",
+      "030-1.json": "1e43e0e637d02860bb74bed8bdcaecde4a2e75d0080c0beb5ffae16daa33b9f4",
+      "031-0.json": "1f4db7dfe0cca029e3386f09ae04282654cd558301cfab9244761aa46975db82",
+      "031-1.json": "5dc0dfbea32e450100cf99f8200f4739d54647bbcbf8071b49463da8d44a3206"
+    }
+  }
+}

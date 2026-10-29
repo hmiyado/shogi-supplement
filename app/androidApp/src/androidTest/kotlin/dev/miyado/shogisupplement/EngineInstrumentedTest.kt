@@ -77,8 +77,8 @@ class EngineInstrumentedTest {
         val results = runner.analyzeGame(moves) { done, total ->
             println("Progress: $done/$total")
         }
-        assertTrue("全局面分の結果が返る", results.size == moves.size + 1)
-        results.forEachIndexed { i, pvList ->
+        assertTrue("全局面分の結果が返る", results.positions.size == moves.size + 1)
+        results.positions.forEachIndexed { i, pvList ->
             assertTrue("局面$i: MultiPV結果あり", pvList.isNotEmpty())
             val score = pvList.first().score
             assertNotNull("局面$i: scoreあり", score)

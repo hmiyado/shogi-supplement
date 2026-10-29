@@ -12,8 +12,9 @@ import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.kifu.KifuReconstructor
 import dev.miyado.shogisupplement.kifu.KifuSource
 import dev.miyado.shogisupplement.kifu.PublicKifuFields
+import dev.miyado.shogisupplement.kifu.StudyKifuBackup
 import dev.miyado.shogisupplement.kifu.kifuWinner
-import dev.miyado.shogisupplement.text.AppStrings
+import dev.miyado.shogisupplement.text.StoredText
 import io.github.jan.supabase.SupabaseClient
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
@@ -62,7 +63,11 @@ class SupabaseGameSummaryService(
             return GameDetailOutcome.NetworkError(e.message ?: "communication failed")
         }
 
-        val game = row.toGameRecord(id = 1L, kEnc, includeKifText = true)
+        val game = try {
+            row.toGameRecord(id = 1L, kEnc, includeKifText = true)
+        } catch (_: IllegalArgumentException) {
+            return GameDetailOutcome.NetworkError("game_decryption_failed")
+        }
         val reports = row.analysisJson.orEmpty().map { it.toBlunderRecord(row.movesUsi) }
         return GameDetailOutcome.Loaded(GameDetail(game, reports))
     }
@@ -80,7 +85,7 @@ class SupabaseGameSummaryService(
             }.getOrNull()
         }
         val effectiveMoveCount = moveCount ?: movesUsi.size
-        val kifText = if (includeKifText) {
+        val restored = if (includeKifText) {
             val public = PublicKifuFields(
                 movesUsi = movesUsi,
                 moveTimesSeconds = moveTimes.orEmpty(),
@@ -88,13 +93,14 @@ class SupabaseGameSummaryService(
                 result = result,
                 source = KifuSource.entries.firstOrNull { it.wireValue == sourcePlace } ?: KifuSource.OTHER,
             )
-            KifuReconstructor.reconstruct(public, privateFields, userSide = side)
+            if (privateFields?.studyKif != null) StudyKifuBackup.restore(public, privateFields)
+            else KifuReconstructor.reconstruct(public, privateFields, userSide = side) to null
         } else {
             null
         }
         return GameRecord(
             id = id,
-            fileName = AppStrings.restoredGameFileName(headers?.get("開始日時")),
+            fileName = StoredText.restoredGameFileName(headers?.get("開始日時")),
             contentHash = contentHash,
             moveCount = effectiveMoveCount.toLong(),
             senteName = privateFields?.senteName,
@@ -102,7 +108,9 @@ class SupabaseGameSummaryService(
             analyzedAt = parseEpochSeconds(startedAt ?: createdAt),
             rating = (estimatedRating ?: 0).toLong(),
             coefVersion = coefVersion.orEmpty(),
-            kifText = kifText,
+            engineMetaJson = engineMeta?.toString(),
+            kifText = restored?.first,
+            studyKif = restored?.second,
             movesUsi = movesUsi,
             userSide = side,
             ratingService = ratingService,

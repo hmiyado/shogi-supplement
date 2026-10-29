@@ -1,5 +1,8 @@
 package dev.miyado.shogisupplement
 
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -27,12 +30,13 @@ import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.drill.DrillJudge
 import dev.miyado.shogisupplement.drill.EngineDrillSecondaryJudge
 import dev.miyado.shogisupplement.engine.Engine
+import dev.miyado.shogisupplement.engine.InvariantDrillEngine
 import dev.miyado.shogisupplement.engine.UsiEngineProcess
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.ShogiThinTopBar
 import dev.miyado.shogisupplement.ui.drill.DrillQuestionContent
 import dev.miyado.shogisupplement.ui.drill.DrillResultContent
 import dev.miyado.shogisupplement.ui.drill.DrillUiState
+import dev.miyado.shogisupplement.drill.DrillMode
 import dev.miyado.shogisupplement.ui.drill.DrillViewModel
 import java.io.File
 
@@ -48,7 +52,7 @@ private fun androidJudgeWithEngine(context: Context): suspend (BlunderRecord, St
             val evalDir = File(appContext.filesDir, "eval")
             val engine = UsiEngineProcess.create(appInfo, evalDir)
             try {
-                EngineDrillSecondaryJudge { sfen -> engine.analyzeSfen(sfen) }.judge(blunder, userMoveUsi)
+                EngineDrillSecondaryJudge(InvariantDrillEngine(engine)).judge(blunder, userMoveUsi)
             } finally {
                 engine.quit()
             }
@@ -82,11 +86,14 @@ private fun androidDrillEngineFactory(context: Context): () -> Engine = {
 @Composable
 fun DrillScreen(
     onBack: () -> Unit,
+    mode: DrillMode = DrillMode.NORMAL,
     vm: DrillViewModel = run {
         val context = LocalContext.current
         val app = context.applicationContext as ShogiApp
         viewModel(
+            key = "drill-${mode.name}",
             factory = DrillViewModel.factory(
+                mode = mode,
                 gameRepository = AppDatabase.gameRepository(context),
                 drillRepository = AppDatabase.drillRepository(context),
                 settingsRepository = AppDatabase.settingsRepository(context),
@@ -110,7 +117,7 @@ fun DrillScreen(
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            ShogiThinTopBar(title = AppStrings.DRILL_TITLE, onBack = leave)
+            ShogiThinTopBar(title = stringResource(if (mode == DrillMode.MATE) Res.string.drill_mate_title else Res.string.drill_title), onBack = leave)
             Box(Modifier.fillMaxSize()) {
             when (val s = state) {
                 is DrillUiState.Loading -> {
@@ -123,16 +130,16 @@ fun DrillScreen(
                     Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
-                                AppStrings.DRILL_EMPTY_TITLE,
+                                stringResource(if (mode == DrillMode.MATE) Res.string.drill_mate_empty_title else Res.string.drill_empty_title),
                                 style = MaterialTheme.typography.titleMedium,
                             )
                             Spacer(Modifier.height(8.dp))
                             Text(
-                                AppStrings.DRILL_EMPTY_BODY,
+                                stringResource(if (mode == DrillMode.MATE) Res.string.drill_mate_empty_body else Res.string.drill_empty_body),
                                 style = MaterialTheme.typography.bodyMedium,
                             )
                             Spacer(Modifier.height(16.dp))
-                            Button(onClick = leave) { Text(AppStrings.DRILL_BACK_HOME) }
+                            Button(onClick = leave) { Text(stringResource(Res.string.drill_back_home)) }
                         }
                     }
                 }

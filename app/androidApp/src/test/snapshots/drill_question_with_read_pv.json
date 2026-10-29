@@ -1,0 +1,10 @@
+{
+  "kind": "screen",
+  "kindLabel": "画面（Screen）",
+  "category": "drill",
+  "categoryLabel": "次の一手",
+  "screen": "出題",
+  "screenLabel": "出題",
+  "state": "表示あり・読み筋入力・読み筋表示",
+  "stateLabel": "表示あり・読み筋入力・読み筋表示"
+}

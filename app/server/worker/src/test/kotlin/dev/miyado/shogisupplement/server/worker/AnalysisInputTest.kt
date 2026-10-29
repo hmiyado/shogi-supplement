@@ -1,6 +1,7 @@
 package dev.miyado.shogisupplement.server.worker
 
 import dev.miyado.shogisupplement.api.analysis.AnalysisRequest
+import dev.miyado.shogisupplement.api.analysis.PositionAnalysisPurpose
 import dev.miyado.shogisupplement.engine.Engine
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -9,6 +10,17 @@ import kotlin.test.assertNotEquals
 
 /** 解析リクエストの入力検証（上限と形式）が、エンジンへ渡す前に不正な入力を弾くことを保証する。 */
 class AnalysisInputTest {
+
+    @Test
+    fun drillPurposeUsesInvariantMultiPvAndSeparateCache() {
+        val request = AnalysisRequest(sfen = initialSfen, multiPv = 3, purpose = PositionAnalysisPurpose.DRILL)
+        val input = assertIs<EngineInput.Position>(assertIs<EngineInputResult.Valid>(request.toEngineInput()).input)
+        assertEquals(2, input.multiPv)
+        assertNotEquals(EngineInput.Position(initialSfen, emptyList(), 2).hashSeed, input.hashSeed)
+        val default = assertIs<EngineInputResult.Valid>(request.copy(multiPv = null).toEngineInput()).input
+        assertEquals(input, default)
+        assertIs<EngineInputResult.Invalid>(request.copy(movesUsi = listOf("7g7f"), multiPv = null).toEngineInput())
+    }
 
     private val initialSfen = "lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1"
 

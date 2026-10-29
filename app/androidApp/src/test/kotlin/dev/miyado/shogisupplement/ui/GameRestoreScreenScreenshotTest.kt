@@ -4,7 +4,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
 import com.github.takahirom.roborazzi.captureRoboImage
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.restore.GameRestoreScreen
 import dev.miyado.shogisupplement.ui.restore.GameRestoreUiState
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
@@ -68,7 +67,7 @@ class GameRestoreScreenScreenshotTest {
 
     @Test
     fun game_restore_error() =
-        capture("game_restore_error", GameRestoreUiState.Error(AppStrings.GAME_RESTORE_ERROR_NETWORK))
+        capture("game_restore_error", GameRestoreUiState.Error("棋譜を取得できませんでした。しばらくしてから再度お試しください。"))
 
     @Test
     fun game_restore_ready_dark() =

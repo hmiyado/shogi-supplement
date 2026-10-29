@@ -1,176 +1,217 @@
 diff --git a/source/config.h b/source/config.h
-index c205228..d65c2ca 100644
+index 7f31499..876859f 100644
 --- a/source/config.h
 +++ b/source/config.h
-@@ -10,6 +10,18 @@
- // ただし、この値を数値として使用することがあるので数値化できる文字列にしておく必要がある。
- #define ENGINE_VERSION "7.00"
+@@ -17,6 +17,17 @@
+ #define ENGINE_VERSION "9.40git"
  
+ #endif
++
 +// ----------------------------
 +//   WASM(Emscripten) 向け設定
 +// ----------------------------
 +
-+// Emscriptenの-pthreadなしビルド(SharedArrayBuffer不要=静的ホスティング制約を避けるのが目的)では
-+// 実スレッドを生成できない。Threads=1構成に限り「search()を呼び出し元で同期実行する」経路へ
-+// 切り替えるためのマクロ。-pthread指定時はEmscriptenが__EMSCRIPTEN_PTHREADS__を自動定義するので、
-+// pthreadフォールバックビルドではこの分岐は無効になり通常どおり実スレッドを使う。
++// Emscriptenの-pthreadなしビルドでは実スレッドを生成できない。
++// WASMはThreads=1のバッチ解析用途に限定し、Threadのjobを直接実行する。
++// -pthreadビルドでは通常の実スレッドを使う。
 +#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
 +	#define YO_WASM_NO_THREAD
 +#endif
-+
  // --------------------
  //  思考エンジンの種類
  // --------------------
-diff --git a/source/extra/bitop.h b/source/extra/bitop.h
-index 5fc8dba..b1a376a 100644
---- a/source/extra/bitop.h
-+++ b/source/extra/bitop.h
-@@ -170,7 +170,10 @@ FORCE_INLINE int MSB32(uint32_t v) { ASSERT_LV3(v != 0); unsigned long index; _B
- FORCE_INLINE int MSB64(uint64_t v) { ASSERT_LV3(v != 0); return uint32_t(v >> 32) ? 32 + MSB32(uint32_t(v >> 32)) : MSB32(uint32_t(v)); }
- #endif
+diff --git a/source/engine.cpp b/source/engine.cpp
+index 00f5dd0..533a1ee 100644
+--- a/source/engine.cpp
++++ b/source/engine.cpp
+@@ -504,6 +504,11 @@ std::string Engine::thread_allocation_information_as_string() const {
  
--#elif defined(__GNUC__) && ( defined(__i386__) || defined(__x86_64__) || defined(__ANDROID__) || defined(__ARM_ARCH) )
-+// [WASM追加パッチ] Emscripten(wasm32)は__i386__/__x86_64__/__ARM_ARCH等のいずれも定義しないため、
-+// 元の条件のままだとLSB32/LSB64/MSB32/MSB64が未定義になりコンパイルが通らない。
-+// __builtin_ctzll/__builtin_clzll はclangがwasm向けにもソフトウェア実装で提供するのでそのまま使える。
-+#elif defined(__GNUC__) && ( defined(__i386__) || defined(__x86_64__) || defined(__ANDROID__) || defined(__ARM_ARCH) || defined(__EMSCRIPTEN__) )
+ // 💡 USIで"isready"に対して時間のかかる処理を実行したい時に用いる。
+ void Engine::run_heavy_job(std::function<void()> job) {
++#if defined(YO_WASM_NO_THREAD)
++    // The browser build uses a single worker and cannot create a native thread.
++    job();
++    return;
++#else
+     // --- Keep Alive的な処理 ---
  
- FORCE_INLINE int LSB32(const u32 v) { ASSERT_LV3(v != 0); return __builtin_ctzll(v); }
- FORCE_INLINE int LSB64(const u64 v) { ASSERT_LV3(v != 0); return __builtin_ctzll(v); }
-diff --git a/source/misc.cpp b/source/misc.cpp
-index 0eeddf8..049ffed 100644
---- a/source/misc.cpp
-+++ b/source/misc.cpp
-@@ -833,6 +833,20 @@ namespace Tools
- 		if (name_ != nullptr)
- 			sync_cout << "info string " + std::string(name_) + " : Start clearing with " <<  thread_num << " threads , Hash size =  " << size / (1024 * 1024) << "[MB]" << sync_endl;
+     // "isready"を受け取ったあと、"readyok"を返すまで5秒ごとに改行を送るように修正する。(keep alive的な処理)
+@@ -554,6 +559,7 @@ void Engine::run_heavy_job(std::function<void()> job) {
+         Tools::sleep(100);
  
-+		// [WASM追加パッチ] スレッド数が1なら並列化する意味がないので、呼び出し元でそのまま
-+		// ゼロクリアする。Why not 常にstd::threadを使う: Emscripten(pthreadなし)では
-+		// スレッド生成自体ができない上、元々1本立てて1本joinするだけなので、単一スレッド時は
-+		// 直接実行したほうが単純（ネイティブ側もThreads=1なら結果は同じなので挙動を変えない）。
-+		if (thread_num <= 1)
-+		{
-+			std::memset(table, 0, size);
+     // --- Keep Alive的な処理ここまで ---
++#endif
+ 
+     // 評価関数の読み込みなど時間のかかるであろう処理はこのタイミングで行なう。
+     // 起動時に時間のかかる処理をしてしまうと将棋所がタイムアウト判定をして、思考エンジンとしての認識をリタイアしてしまう。
+
+diff --git a/source/misc.h b/source/misc.h
+index e4d740a..6c47215 100644
+--- a/source/misc.h
++++ b/source/misc.h
+@@ -1461,6 +1461,9 @@ public:
+ 	// main()に引数として渡されたパラメーターを解釈してqueueに積む。
+ 	void parse_args(const CommandLine& cli);
+ 
++	// 先行入力されたコマンドが残っているかを返す（WASMの非ブロッキングloop用）。
++	bool has_pending() const { return !cmds.empty(); }
 +
-+			if (name_ != nullptr)
-+				sync_cout << "info string " + std::string(name_) + " : Finish clearing." << sync_endl;
+ private:
+ 	// 先行入力されたものを積んでおくqueue。
+ 	// これが尽きれば標準入力から入力する。
+diff --git a/source/eval/nnue/evaluate_nnue.cpp b/source/eval/nnue/evaluate_nnue.cpp
+index ee97c94..42bc4df 100644
+--- a/source/eval/nnue/evaluate_nnue.cpp
++++ b/source/eval/nnue/evaluate_nnue.cpp
+@@ -77,6 +77,11 @@ void add_options_(OptionsMap& options, ThreadPool& threads) {
+                     return std::nullopt;
+                 }));
+
++#if defined(__EMSCRIPTEN__)
++    // WASM側はEvalDirへ配置したファイル名を明示的に指定する。
++    Options.add("EvalFile", Option(EvalFileDefaultName));
++#endif
 +
-+			return;
-+		}
-+
- 		// マルチスレッドで並列化してクリアする。
- 
- 		std::vector<std::thread> threads;
+     // NNUEのFV_SCALEの値
+     Options.add("FV_SCALE", Option(16, 1, 128, [&](const Option& o) {
+                     YaneuraOu::Eval::NNUE::FV_SCALE = int(o);
 diff --git a/source/thread.cpp b/source/thread.cpp
-index 3c1bf00..fd171ca 100644
+index 549f3a4..48093ea 100644
 --- a/source/thread.cpp
 +++ b/source/thread.cpp
-@@ -5,6 +5,25 @@
- 
- ThreadPool Threads;		// Global object
+@@ -28,10 +28,21 @@ Thread::Thread(Search::SharedState& sharedState,
+                OptionalThreadToNumaNodeBinder binder) :
+     idx(n),
+     idxInNuma(numaN),
+-    totalNuma(totalNumaCount),
++    totalNuma(totalNumaCount)
+     //nthreads(sharedState.options["Threads"]),
++#if !defined(YO_WASM_NO_THREAD)
+     stdThread(&Thread::idle_loop, this) {
++#else
++    /* pthreadなしWASMでは、workerをこの呼び出し元で直接実行する。 */
++{
++#endif
  
 +#if defined(YO_WASM_NO_THREAD)
-+
-+// [WASM追加パッチ] 実スレッドを生成しない版のコンストラクタ。
-+// idle_loop()を回す相手がいないので、search()を呼び出し元で同期実行する運用に切り替える
-+// （start_searching()/wait_for_search_finished()側もあわせて変更。config.hのYO_WASM_NO_THREAD参照）。
-+// 構築直後は「探索していない」状態が正しいので、待機の代わりにここでsearching=falseにしておく。
-+Thread::Thread(size_t n) : idx(n)
-+{
-+	searching = false;
-+}
-+
-+Thread::~Thread()
-+{
-+	// 探索中にスレッドオブジェクトが解体されることはない。
-+	ASSERT_LV3(!searching);
-+}
-+
++    this->numaAccessToken = binder();
++    this->worker = std::move(worker_factory(sharedState,
++                                            {n, idxInNuma, totalNuma, this->numaAccessToken}));
++    searching = false;
 +#else
-+
- Thread::Thread(size_t n) : idx(n) , stdThread(&Thread::idle_loop, this)
- {
- 	// スレッドはsearching == trueで開始するので、このままworkerのほう待機状態にさせておく
-@@ -23,6 +42,8 @@ Thread::~Thread()
- 	stdThread.join();
+ #if !defined(__EMSCRIPTEN__)
+ 
+ #if STOCKFISH
+@@ -73,6 +84,7 @@ Thread::Thread(Search::SharedState& sharedState,
+     //
+     // 参考：https://github.com/lichess-org/stockfish.wasm/blob/a022fa1405458d1bc1ba22fe813bace961859102/src/thread.cpp#L38
+ #endif
++#endif
  }
  
+ // Destructor wakes up the thread in idle_loop() and waits
+@@ -87,10 +99,12 @@ Thread::~Thread() {
+     // 探索中にスレッドオブジェクトが解体されることはない。
+     ASSERT_LV3(!searching);
+ 
++#if !defined(YO_WASM_NO_THREAD)
+     // 探索は終わっているのでexitフラグをセットしてstart_searching()を呼べば終了するはず。
+     exit = true;
+     start_searching();
+     stdThread.join();
 +#endif
-+
- // このクラスが保持している探索で必要なテーブル(historyなど)をクリアする。
- void Thread::clear()
- {
-@@ -46,6 +67,26 @@ void Thread::clear()
+ }
+ 
+ // Wakes up the thread that will start the search
+@@ -98,7 +112,12 @@ Thread::~Thread() {
+ 
+ void Thread::start_searching() {
+     assert(worker != nullptr);
++#if defined(YO_WASM_NO_THREAD)
++    worker->start_searching();
++    searching = false;
++#else
+     run_custom_job([this]() { worker->start_searching(); });
++#endif
+ }
+ 
+ // Clears the histories for the thread worker (usually before a new game)
+@@ -106,7 +125,11 @@ void Thread::start_searching() {
+ 
+ void Thread::clear_worker() {
+     assert(worker != nullptr);
++#if defined(YO_WASM_NO_THREAD)
++    worker->clear();
++#else
+     run_custom_job([this]() { worker->clear(); });
++#endif
+ }
+ 
+ // Blocks on the condition variable until the thread has finished searching
+@@ -114,14 +137,21 @@ void Thread::clear_worker() {
+ 
+ void Thread::wait_for_search_finished() {
+ 
++#if !defined(YO_WASM_NO_THREAD)
+     std::unique_lock<std::mutex> lk(mutex);
+     cv.wait(lk, [&] { return !searching; });
++#endif
+ }
+ 
+ // Launching a function in the thread
+ // スレッド内で関数を実行します
+ 
+ void Thread::run_custom_job(std::function<void()> f) {
++#if defined(YO_WASM_NO_THREAD)
++    searching = true;
++    f();
++    searching = false;
++#else
+     {
+         std::unique_lock<std::mutex> lk(mutex);
+         cv.wait(lk, [&] { return !searching; });
+@@ -129,6 +159,7 @@ void Thread::run_custom_job(std::function<void()> f) {
+         searching = true;
+     }
+     cv.notify_one();
++#endif
+ }
+ 
+ void Thread::ensure_network_replicated() { worker->ensure_network_replicated(); }
+diff --git a/source/thread.h b/source/thread.h
+index 859c8f5..98143e7 100644
+--- a/source/thread.h
++++ b/source/thread.h
+@@ -172,9 +172,11 @@ private:
+ 	bool                      exit = false, searching = true;  // Set before starting std::thread
+ 															   // std::threadが始まる前にセットされる
+ 
+-	// stack領域を増やしたstd::thread
++	// stack領域を増やしたstd::thread。WASMのpthreadなし構成では使わない。
+ 	// Workerは、このthreadに割り当てて実行する。
++#if !defined(YO_WASM_NO_THREAD)
+ 	NativeThread              stdThread;
++#endif
+ 
+ 	// このスレッドおよび評価関数パラメーターが、どのNUMAに属するか。
+ 	NumaReplicatedAccessToken numaAccessToken;
+diff --git a/source/usi.cpp b/source/usi.cpp
+index d46b5a2..dad1d07 100644
+--- a/source/usi.cpp
++++ b/source/usi.cpp
+@@ -158,8 +158,13 @@ void USIEngine::loop()
+ 	engine.wait_for_search_finished();
+ 
+ #else
+-	// yaneuraOu.wasm
+-	// ここでループしてしまうと、ブラウザのメインスレッドがブロックされてしまう。
++	// yaneuraOu.wasm: main()へ渡されたコマンド列だけを処理し、標準入力を待たない。
++	while (std_input.has_pending())
++	{
++		if (usi_cmdexec(std_input.input()))
++			break;
++	}
++	engine.wait_for_search_finished();
  #endif
  }
  
-+#if defined(YO_WASM_NO_THREAD)
-+
-+// [WASM追加パッチ] 実スレッドがないので、呼び出し元のスレッドでsearch()を同期実行する。
-+// Why not 非同期のまま残す: pthreadなしのEmscriptenには別スレッドで並行実行する手段がなく、
-+// ASYNCIFYで作り直すのはこのスパイクの範囲を超える。Threads=1限定の割り切りとして、
-+// "go"が実質的にブロッキング呼び出しになる（探索中の"stop"割り込みは非対応）。
-+void Thread::start_searching()
-+{
-+	searching = true;
-+	search();
-+	searching = false;
-+}
-+
-+// 同期実行なのでsearch()から戻ってきた時点で終わっている。待つ必要がない。
-+void Thread::wait_for_search_finished()
-+{
-+}
-+
-+#else
-+
- // 待機していたスレッドを起こして探索を開始させる
- void Thread::start_searching()
- {
-@@ -61,6 +102,8 @@ void Thread::wait_for_search_finished()
- 	cv.wait(lk, [&] { return !searching; });
- }
- 
-+#endif
-+
- // 探索するときのmaster,slave用のidle_loop。探索開始するまで待っている。
- void Thread::idle_loop() {
- 
-diff --git a/source/usi.cpp b/source/usi.cpp
-index 83e994c..98470c3 100644
---- a/source/usi.cpp
-+++ b/source/usi.cpp
-@@ -332,6 +332,14 @@ void is_ready(bool skipCorruptCheck)
- 	// このあと重い処理を行うのでスレッドの起動が遅延する可能性があるから、先にスレッドを生成して、そのスレッドが起動したことを
- 	// 確認してから処理を行う。
- 
-+#if defined(YO_WASM_NO_THREAD)
-+
-+	// [WASM追加パッチ] 実スレッドを生成できないので、keep-alive送信スレッドは起動しない。
-+	// Why not 起動する: これは将棋所/ShogiGUIがisready応答を待つ間にタイムアウト判定するのを
-+	// 防ぐためのGUI向け仕様。Node.js経由のUSI疎通にはそのタイムアウトが存在しないため不要。
-+
-+#else
-+
- 	// スレッドが起動したことを通知するためのフラグ
- 	auto thread_started = false;
- 
-@@ -350,7 +358,7 @@ void is_ready(bool skipCorruptCheck)
- 			if (++count >= 50 /* 5秒 */)
- 			{
- 				count = 0;
--				sync_cout << sync_endl; // 改行を送信する。	
-+				sync_cout << sync_endl; // 改行を送信する。
- 
- 				// 定跡の読み込み部などで"info string.."で途中経過を出力する場合、
- 				// sync_cout ～ sync_endlを用いて送信しないと、この改行を送るタイミングとかち合うと
-@@ -364,6 +372,8 @@ void is_ready(bool skipCorruptCheck)
- 	while (!thread_started)
- 		Tools::sleep(100);
- 
-+#endif
-+
- 	// --- Keep Alive的な処理ここまで ---
- 
- 	// スレッドを先に生成しないとUSI_Hashで確保したメモリクリアの並列化が行われなくて困る。

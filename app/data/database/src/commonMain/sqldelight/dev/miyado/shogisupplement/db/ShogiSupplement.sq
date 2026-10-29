@@ -32,8 +32,33 @@ CREATE TABLE game (
     -- KIF「持ち時間」「秒読み」ヘッダの原文（表記はサービスにより異なる）。
     -- ヘッダが無ければNULL。表示ラベルへの変換は表示側（対局サービス依存）で行う。
     time_control_raw TEXT,
-    time_control_byoyomi_raw TEXT
+    time_control_byoyomi_raw TEXT,
+    rating_declared_at INTEGER,
+    engine_meta_json TEXT,
+    analysis_revision INTEGER NOT NULL DEFAULT 0,
+    study_kif TEXT
 );
+
+CREATE TABLE applied_analysis_request (
+    content_hash TEXT NOT NULL,
+    request_id TEXT NOT NULL,
+    game_id INTEGER NOT NULL REFERENCES game(id) ON DELETE CASCADE,
+    PRIMARY KEY (content_hash, request_id)
+);
+
+getAppliedAnalysisRequest:
+SELECT game.id FROM applied_analysis_request
+JOIN game ON game.id = applied_analysis_request.game_id
+WHERE applied_analysis_request.content_hash = ? AND request_id = ?;
+
+insertAppliedAnalysisRequest:
+INSERT INTO applied_analysis_request (content_hash, request_id, game_id) VALUES (?, ?, ?);
+
+deleteAppliedAnalysisRequestsByGame:
+DELETE FROM applied_analysis_request WHERE game_id = ?;
+
+deleteAllAppliedAnalysisRequests:
+DELETE FROM applied_analysis_request;
 
 CREATE TABLE blunder_report (
     id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
@@ -62,7 +87,8 @@ CREATE TABLE blunder_report (
     -- データのみでの正誤判定）に使う。旧解析（MultiPV=2導入前）のレコードは両方 NULL のため、
     -- DrillJudge は一次判定をスキップして二次判定（エンジン）へ流す。
     second_usi TEXT,
-    second_cp INTEGER
+    second_cp INTEGER,
+    mate_verified INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE user_settings (
@@ -84,22 +110,52 @@ CREATE TABLE user_settings (
     -- 棋力を申告した日時（Unix epoch 秒）。NULL=未申告、0=申告済みだが日時不明。
     -- Why not 行の存在で申告を判定する: 棋力と無関係な保存でも
     -- insertOrIgnoreDefaultSettingsが同じ行を作るため、常に申告済みになってしまう。
-    rating_declared_at INTEGER
+    rating_declared_at INTEGER,
+    -- 棋譜一覧の保存条件（SavedGameFilterのJSON配列）。端末内だけに保持する。
+    saved_game_filters TEXT
 );
 
+CREATE TABLE rating_declaration_history (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    rating_service TEXT,
+    rating_raw INTEGER,
+    rating_rule TEXT,
+    declared_at INTEGER NOT NULL
+);
+
+insertRatingDeclarationHistory:
+INSERT INTO rating_declaration_history (rating_service, rating_raw, rating_rule, declared_at)
+VALUES (?, ?, ?, ?);
+
+getRatingDeclarationsAtOrBefore:
+SELECT * FROM rating_declaration_history
+WHERE declared_at <= ?
+ORDER BY declared_at DESC, id DESC;
+
 insertGame:
-INSERT INTO game (file_name, content_hash, move_count, sente_name, gote_name, analyzed_at, rating, rating_sample_moves, coef_version, kif_text, moves_usi, user_side, rating_service, rating_raw, rating_rule, source_place, game_winner, end_reason, analysis_status, opening_style, opening_castle, opening_tags, sente_rating, gote_rating, time_control_raw, time_control_byoyomi_raw)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO game (file_name, content_hash, move_count, sente_name, gote_name, analyzed_at, rating, rating_sample_moves, coef_version, kif_text, moves_usi, user_side, rating_service, rating_raw, rating_rule, rating_declared_at, source_place, game_winner, end_reason, analysis_status, opening_style, opening_castle, opening_tags, sente_rating, gote_rating, time_control_raw, time_control_byoyomi_raw, engine_meta_json)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 completePendingGame:
 UPDATE game SET
     file_name = ?, move_count = ?, sente_name = ?, gote_name = ?, analyzed_at = ?,
     rating = ?, rating_sample_moves = ?, coef_version = ?, kif_text = ?, moves_usi = ?,
-    user_side = ?, rating_service = ?, rating_raw = ?, rating_rule = ?, source_place = ?,
+    user_side = ?, rating_service = ?, rating_raw = ?, rating_rule = ?, rating_declared_at = ?, source_place = ?,
     game_winner = ?, end_reason = ?, analysis_status = 'completed',
     opening_style = ?, opening_castle = ?, opening_tags = ?, sente_rating = ?, gote_rating = ?,
-    time_control_raw = ?, time_control_byoyomi_raw = ?
+    time_control_raw = ?, time_control_byoyomi_raw = ?, engine_meta_json = ?
 WHERE id = ? AND analysis_status = 'pending';
+
+replaceAnalysisGame:
+UPDATE game SET
+    file_name = ?, move_count = ?, sente_name = ?, gote_name = ?, analyzed_at = ?,
+    rating = ?, rating_sample_moves = ?, coef_version = ?, kif_text = ?, moves_usi = ?,
+    user_side = ?, rating_service = ?, rating_raw = ?, rating_rule = ?, rating_declared_at = ?, source_place = ?,
+    game_winner = ?, end_reason = ?, analysis_status = 'completed',
+    opening_style = ?, opening_castle = ?, opening_tags = ?, sente_rating = ?, gote_rating = ?,
+    time_control_raw = ?, time_control_byoyomi_raw = ?, engine_meta_json = ?, uploaded_at = NULL,
+    analysis_revision = analysis_revision + 1
+WHERE id = ?;
 
 getLastInsertRowId:
 SELECT last_insert_rowid();
@@ -110,14 +166,37 @@ SELECT * FROM game WHERE content_hash = ?;
 getAllGames:
 SELECT * FROM game ORDER BY analyzed_at DESC;
 
+getRecentGames:
+SELECT * FROM game ORDER BY analyzed_at DESC LIMIT ?;
+
 getGameById:
 SELECT * FROM game WHERE id = ?;
+
+getStudyKif:
+SELECT COALESCE(study_kif, kif_text) AS effective_kif FROM game WHERE id = ?;
+
+updateStudyKif:
+UPDATE game SET study_kif = ? WHERE id = ?;
+
+getGamesWithUserSide:
+SELECT * FROM game
+WHERE user_side IS NOT NULL AND analysis_status = 'completed'
+ORDER BY analyzed_at DESC;
 
 getGamesNotUploaded:
 SELECT * FROM game WHERE uploaded_at IS NULL AND analysis_status = 'completed' ORDER BY analyzed_at DESC;
 
 updateUploadedAt:
 UPDATE game SET uploaded_at = ? WHERE id = ?;
+
+markRestoredPendingGameUploaded:
+UPDATE game SET uploaded_at = ? WHERE id = ? AND analysis_status = 'pending';
+
+getAnalysisRevision:
+SELECT analysis_revision FROM game WHERE id = ?;
+
+markAnalysisUploaded:
+UPDATE game SET uploaded_at = ? WHERE id = ? AND analysis_revision = ?;
 
 updateUserSide:
 UPDATE game SET user_side = ?, rating_service = ?, rating_raw = ? WHERE id = ?;
@@ -129,8 +208,8 @@ resetAllUploadedAt:
 UPDATE game SET uploaded_at = NULL;
 
 insertBlunderReport:
-INSERT INTO blunder_report (game_id, ply, side, move_usi, best_usi, loss_wp, sfen_before, category, diff_material, punish_checks, took_moved_piece, missed_mate_in, verdict, note, problem_type, priority, best_pv, punish_pv, cp_before, cp_after, second_usi, second_cp)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT INTO blunder_report (game_id, ply, side, move_usi, best_usi, loss_wp, sfen_before, category, diff_material, punish_checks, took_moved_piece, missed_mate_in, verdict, note, problem_type, priority, best_pv, punish_pv, cp_before, cp_after, second_usi, second_cp, mate_verified)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1);
 
 getBlundersByGameId:
 SELECT * FROM blunder_report WHERE game_id = ? ORDER BY ply;
@@ -195,6 +274,12 @@ SELECT account_declined FROM user_settings WHERE id = 1;
 getThemeMode:
 SELECT theme_mode FROM user_settings WHERE id = 1;
 
+getSavedGameFilters:
+SELECT saved_game_filters FROM user_settings WHERE id = 1;
+
+updateSavedGameFilters:
+UPDATE user_settings SET saved_game_filters = ? WHERE id = 1;
+
 updateThemeMode:
 UPDATE user_settings SET theme_mode = ? WHERE id = 1;
 
@@ -219,13 +304,6 @@ VALUES (?, ?, ?, ?, ?, ?);
 getDrillAttemptsByBlunder:
 SELECT * FROM drill_attempt WHERE blunder_report_id = ? ORDER BY attempted_at DESC;
 
-getDrillCandidates:
-SELECT * FROM blunder_report
-WHERE verdict LIKE '◎%' OR verdict LIKE '○%'
-ORDER BY
-    CASE WHEN verdict LIKE '◎%' THEN 0 ELSE 1 END,
-    priority DESC;
-
 getDrillCandidatesByGame:
 SELECT * FROM blunder_report
 WHERE game_id = ? AND (verdict LIKE '◎%' OR verdict LIKE '○%')
@@ -233,11 +311,16 @@ ORDER BY
     CASE WHEN verdict LIKE '◎%' THEN 0 ELSE 1 END,
     priority DESC;
 
+getFirstDrillCandidate:
+SELECT * FROM blunder_report
+WHERE verdict LIKE '◎%' OR verdict LIKE '○%'
+ORDER BY
+    CASE WHEN verdict LIKE '◎%' THEN 0 ELSE 1 END,
+    priority DESC
+LIMIT 1;
+
 getBlunderById:
 SELECT * FROM blunder_report WHERE id = ?;
-
-getDrillAttemptCountAll:
-SELECT blunder_report_id, COUNT(*) AS attempt_count FROM drill_attempt GROUP BY blunder_report_id;
 
 -- 棋譜一覧の絞り込み結果に対する悪手率の分子。1局ずつgetReportsを呼ぶとN回のクエリになる。
 getBlunderCountAll:
@@ -365,6 +448,7 @@ CREATE TABLE IF NOT EXISTS position_eval (
     -- second_usi: pv2（次善手）のUSI表記（best_usiと同じく正規化しない）。
     -- エンジン一致率（best/2nd best一致）の算出に使う。
     second_usi TEXT,
+    mate_verified INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY(game_id, ply)
 );
 
@@ -398,8 +482,8 @@ UPDATE user_settings SET app_policy_cache = ? WHERE id = 1;
 -- mate_in: 詰みまでの手数（先手視点: 正 = 先手が詰ます、負 = 後手が詰ます）。非詰み局面は NULL。
 
 insertPositionEval:
-INSERT OR REPLACE INTO position_eval (game_id, ply, score_cp, mate_in, best_usi, second_score_cp, second_mate_in, second_usi)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO position_eval (game_id, ply, score_cp, mate_in, best_usi, second_score_cp, second_mate_in, second_usi, mate_verified)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 getPositionEvalsByGameId:
 SELECT * FROM position_eval WHERE game_id = ? ORDER BY ply;
@@ -437,3 +521,34 @@ DELETE FROM service_account;
 
 deleteAllUserSettings:
 DELETE FROM user_settings;
+
+deleteAllRatingDeclarationHistory:
+DELETE FROM rating_declaration_history;
+
+nextDrillQuestion:
+SELECT b.* FROM blunder_report AS b
+LEFT JOIN (
+    SELECT blunder_report_id, COUNT(*) AS attempt_count
+    FROM drill_attempt GROUP BY blunder_report_id
+) AS attempts ON attempts.blunder_report_id = b.id
+WHERE (b.verdict LIKE '◎%' OR b.verdict LIKE '○%')
+  AND (:mateOnly = 0 OR (b.mate_verified != 0 AND b.missed_mate_in > 0))
+ORDER BY COALESCE(attempts.attempt_count, 0),
+    CASE WHEN b.verdict LIKE '◎%' THEN 0 ELSE 1 END,
+    b.priority DESC, RANDOM()
+LIMIT 1;
+
+countDrillCandidates:
+SELECT COUNT(*) FROM blunder_report
+WHERE (verdict LIKE '◎%' OR verdict LIKE '○%')
+  AND (:mateOnly = 0 OR (mate_verified != 0 AND missed_mate_in > 0));
+
+hasDrillCandidates:
+SELECT EXISTS(
+    SELECT 1 FROM blunder_report
+    WHERE (verdict LIKE '◎%' OR verdict LIKE '○%')
+      AND (:mateOnly = 0 OR (mate_verified != 0 AND missed_mate_in > 0))
+);
+
+countAttemptsForQuestion:
+SELECT COUNT(*) FROM drill_attempt WHERE blunder_report_id = ?;

@@ -49,7 +49,7 @@ object OpeningClassifier {
     val PRIMARY_STYLE_PRIORITY = listOf(
         "横歩取り", "ひねり飛車", "一手損角換わり", "角換わり", "相掛かり",
         "矢倉", "雁木", "筋違い角",
-        "早石田", "石田流", "ツノ銀中飛車", "中飛車", "四間飛車", "三間飛車", "向かい飛車",
+        "嬉野流", "ゴキゲン中飛車", "早石田", "石田流", "ツノ銀中飛車", "中飛車", "四間飛車", "三間飛車", "向かい飛車",
         "右四間飛車", "袖飛車",
         "地下鉄飛車", "雀刺し", "右玉", "相振り飛車", "角交換振り飛車",
     )
@@ -134,18 +134,18 @@ object OpeningClassifier {
         val sideTags = tags.getValue(side)
         return SideOpening(
             style = PRIMARY_STYLE_PRIORITY.firstOrNull { it in sideTags } ?: UNCLASSIFIED,
-            castle = displayCastle(achievedCastles, side, finalBoard),
+            castle = displayCastle(achieved.getValue(side), side, finalBoard),
             achievedCastles = achievedCastles,
             tags = sideTags.toSet(),
         )
     }
 
     /** 発展した形を優先して1つ選ぶ。成立が無ければ最終局面の残余の形を返す。 */
-    private fun displayCastle(achieved: Set<String>, side: Side, finalBoard: ShogiBoard): String {
-        val castles = CASTLE_DEFS.filter { it.name in achieved }
+    private fun displayCastle(achievedPly: Map<String, Int>, side: Side, finalBoard: ShogiBoard): String {
+        val castles = CASTLE_DEFS.filter { it.slug in achievedPly }
         if (castles.isEmpty()) return residualCastle(side, finalBoard)
         val developed = castles.filterNot { def -> castles.any { it.developsFrom == def.name } }
-        return developed.lastOrNull()?.name ?: castles.last().name
+        return (developed.ifEmpty { castles }).maxByOrNull { achievedPly[it.slug] ?: 0 }!!.name
     }
 
     /**

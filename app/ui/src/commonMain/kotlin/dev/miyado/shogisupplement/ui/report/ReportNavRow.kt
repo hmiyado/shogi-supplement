@@ -1,5 +1,15 @@
 package dev.miyado.shogisupplement.ui.report
 
+
+import dev.miyado.shogisupplement.ui.text.text
+
+import org.jetbrains.compose.resources.vectorResource
+
+import dev.miyado.shogisupplement.ui.text.UiStrings
+
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.PaddingValues
@@ -8,9 +18,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -33,7 +40,6 @@ import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.PositionEvalRow
 import dev.miyado.shogisupplement.notation.JapaneseNotation
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.NavIcons
 import dev.miyado.shogisupplement.ui.common.PvExtState
 import dev.miyado.shogisupplement.ui.theme.IbmPlexMonoFamily
@@ -44,6 +50,7 @@ internal fun ReportNavRow(
     studyState: StudyState?,
     studySenteToMove: Boolean,
     onStudyStepBack: () -> Unit,
+    onStudyStepForward: () -> Unit,
     onStudyExit: (() -> Unit)?,
     navLabelAnnotated: AnnotatedString,
     onLabelClick: () -> Unit,
@@ -58,11 +65,17 @@ internal fun ReportNavRow(
     canGoLast: Boolean,
     onLast: () -> Unit,
 ) {
+    val labelMoveFirst = stringResource(Res.string.move_first)
+    val labelMovePrevious = stringResource(Res.string.move_previous)
+    val labelMoveNext = stringResource(Res.string.move_next)
+    val labelMoveLast = stringResource(Res.string.move_last)
+
     if (studyState != null) {
         StudyNavRow(
             studyState = studyState,
             studySenteToMove = studySenteToMove,
             onStudyStepBack = onStudyStepBack,
+            onStudyStepForward = onStudyStepForward,
             onStudyExit = onStudyExit,
         )
         return
@@ -82,13 +95,13 @@ internal fun ReportNavRow(
             enabled = canGoFirst,
             modifier = Modifier.height(36.dp).widthIn(min = 36.dp),
             contentPadding = PaddingValues(horizontal = 2.dp),
-        ) { Icon(NavIcons.FirstPage, contentDescription = "最初へ") }
+        ) { Icon(NavIcons.FirstPage, contentDescription = labelMoveFirst) }
         TextButton(
             onClick = onPrev,
             enabled = canGoPrev,
             modifier = Modifier.height(36.dp).widthIn(min = 36.dp),
             contentPadding = PaddingValues(horizontal = 2.dp),
-        ) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "1手戻る") }
+        ) { Icon(vectorResource(Res.drawable.ic_auto_mirrored_filled_keyboard_arrow_left), contentDescription = labelMovePrevious) }
         Text(
             text = navLabelAnnotated,
             modifier = Modifier
@@ -113,14 +126,14 @@ internal fun ReportNavRow(
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = "1手進む",
+                        vectorResource(Res.drawable.ic_auto_mirrored_filled_keyboard_arrow_right),
+                        contentDescription = labelMoveNext,
                         tint = extendColor,
                     )
                     Text("+", color = extendColor)
                 }
             } else {
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "1手進む")
+                Icon(vectorResource(Res.drawable.ic_auto_mirrored_filled_keyboard_arrow_right), contentDescription = labelMoveNext)
             }
         }
         TextButton(
@@ -128,12 +141,12 @@ internal fun ReportNavRow(
             enabled = canGoLast,
             modifier = Modifier.height(36.dp).widthIn(min = 36.dp),
             contentPadding = PaddingValues(horizontal = 2.dp),
-        ) { Icon(NavIcons.LastPage, contentDescription = "最後へ") }
+        ) { Icon(NavIcons.LastPage, contentDescription = labelMoveLast) }
     }
 }
 
 /**
- * ナビ行と排他入替する単一行バナー（プログレッシブ解析表示の進捗表示・完了通知で使う）。
+ * ナビ行と排他入替する単一行バナー（プログレッシブ解析表示の進捗表示・解析完了で使う）。
  * [ReportNavRow] と同じ高さ・水平パディングにすることで、切替前後で罫線から下の
  * Y座標が動かない（DESIGN.md No-jitter原則）。
  */
@@ -169,6 +182,7 @@ internal fun ReportNavBannerRow(
  * （wasmJs）ではtofu表示になる。同フォントに収録されている▼（U+25BC）にwasmJsのみ
  * 差し替える（Android/iOSは実機のシステムフォールバックで表示できているため変更しない）。
  */
+@Composable
 internal expect fun moveListDropdownHint(): String
 
 internal data class ReportNavInfo(
@@ -200,8 +214,10 @@ internal fun rememberReportNavInfo(
     // 計器行（評価値行・「この変化の形勢」行・▶ヒント行・スピナー/エラー行）は持たず、
     // 形勢をナビラベルの末尾に「（+120）」のようなサフィックスとして統合する
     // （No-jitter・DESIGN.md Layout節）。
-    val currentMoveLabelState = remember(viewerMode, clampedPly, selectedBlunder, prevSfen) {
+    val startPositionLabel = stringResource(Res.string.viewer_start_position)
+    val currentMoveLabelState = run {
         buildCurrentMoveLabel(
+            startPositionLabel = startPositionLabel,
             mode = viewerMode,
             plyIndex = clampedPly,
             movesInMode = movesInMode,
@@ -218,6 +234,7 @@ internal fun rememberReportNavInfo(
             PositionEvalDisplay.format(
                 scoreCp = row.scoreCp,
                 mateIn = row.mateIn,
+                mateVerified = row.mateVerified,
                 userIsGote = game.userSide == "gote",
                 evalDisplay = evalDisplay,
                 ply = clampedPly,
@@ -237,6 +254,8 @@ internal fun rememberReportNavInfo(
     // 最善の変化タブの形勢サフィックス（分岐点の cp_before を全plyで固定表示）。
     // cp_before は「手番側（悪手を指した側）視点」で保存されているため、
     // position_eval と同じ先手視点に正規化してから PositionEvalDisplay.format に渡す。
+    val textBlunderLossMate = stringResource(Res.string.blunder_loss_mate)
+    val textBlunderAfterMated = stringResource(Res.string.blunder_after_mated)
     val bestPvEvalLabel = remember(selectedBlunder, evalDisplay, game.userSide) {
         if (selectedBlunder == null) return@remember null
         val moverIsGote = selectedBlunder.side == "gote"
@@ -250,11 +269,11 @@ internal fun rememberReportNavInfo(
             // ことに合わせた値。
             when {
                 userCp >= 29_000 -> PositionEvalDisplay.EvalLabel(
-                    text = AppStrings.BLUNDER_LOSS_MATE,
+                    text = textBlunderLossMate,
                     sign = 1,
                 )
                 userCp <= -29_000 -> PositionEvalDisplay.EvalLabel(
-                    text = AppStrings.BLUNDER_AFTER_MATED,
+                    text = textBlunderAfterMated,
                     sign = -1,
                 )
                 else -> PositionEvalDisplay.format(
@@ -300,9 +319,9 @@ internal fun rememberReportNavInfo(
     val pvLoading = extState is PvExtState.Loading
     val canTriggerExtend = showExtendIndicator && !pvLoading
     val bestPvSuffixText = if (showExtendIndicator && extState is PvExtState.Error) {
-        AppStrings.evalSuffix(AppStrings.EVAL_UNAVAILABLE)
+        UiStrings.evalSuffix(stringResource(Res.string.eval_unavailable))
     } else {
-        bestPvEvalLabel?.let { AppStrings.evalSuffix(it.text) }
+        bestPvEvalLabel?.let { UiStrings.evalSuffix(it.text) }
     }
     val bestPvSuffixSign = if (showExtendIndicator && extState is PvExtState.Error) {
         0
@@ -311,7 +330,7 @@ internal fun rememberReportNavInfo(
     }
 
     val navSuffixText = when (viewerMode) {
-        ViewerMode.MAINLINE -> mainlineEvalLabel?.let { AppStrings.evalSuffix(it.text) }
+        ViewerMode.MAINLINE -> mainlineEvalLabel?.let { UiStrings.evalSuffix(it.text) }
         ViewerMode.BEST_PV -> bestPvSuffixText
     }
     val navSuffixSign = when (viewerMode) {
@@ -371,7 +390,9 @@ internal fun rememberReportNavInfo(
 /** 現在手の表示ラベルと悪手フラグを返す。ラベル本文と色の選択を分離する。 */
 private data class CurrentMoveLabelState(val text: String, val isBlunder: Boolean)
 
+@Composable
 private fun buildCurrentMoveLabel(
+    startPositionLabel: String,
     mode: ViewerMode,
     plyIndex: Int,
     movesInMode: List<String>,
@@ -382,11 +403,11 @@ private fun buildCurrentMoveLabel(
     if (plyIndex == 0) {
         // 固定文字列のみ表示する（動的サフィックスは付けない。タブ選択状態と現在手ラベルで
         // 起点は伝わる）
-        return CurrentMoveLabelState(AppStrings.VIEWER_START_POSITION, isBlunder = false)
+        return CurrentMoveLabelState(startPositionLabel, isBlunder = false)
     }
 
     val moveUsi = movesInMode.getOrNull(plyIndex - 1)
-        ?: return CurrentMoveLabelState(AppStrings.viewerPlyLabel(plyIndex), isBlunder = false)
+        ?: return CurrentMoveLabelState(UiStrings.viewerPlyLabel(plyIndex), isBlunder = false)
 
     // 日本語表記（直前局面から）
     val notation = if (prevSfen != null) {
@@ -408,7 +429,7 @@ private fun buildCurrentMoveLabel(
         reports.any { it.ply.toInt() == plyIndex }
 
     return CurrentMoveLabelState(
-        text = "${AppStrings.viewerPlyLabel(gamePly)} $notation",
+        text = "${UiStrings.viewerPlyLabel(gamePly)} $notation",
         isBlunder = isBlunder,
     )
 }

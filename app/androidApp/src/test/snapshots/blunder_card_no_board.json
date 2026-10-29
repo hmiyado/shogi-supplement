@@ -1,0 +1,10 @@
+{
+  "kind": "component",
+  "kindLabel": "コンポーネント",
+  "category": "blunder",
+  "categoryLabel": "悪手カード",
+  "screen": "悪手カード",
+  "screenLabel": "悪手カード",
+  "state": "なし／未設定・board",
+  "stateLabel": "なし／未設定・board"
+}

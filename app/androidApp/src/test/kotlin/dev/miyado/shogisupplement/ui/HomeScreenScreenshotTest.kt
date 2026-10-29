@@ -99,6 +99,26 @@ class HomeScreenScreenshotTest {
     }
 
     @Test
+    fun home_empty() {
+        captureRoboImage(
+            filePath = "src/test/snapshots/home_empty.png",
+            roborazziOptions = screenshotRoborazziOptions,
+        ) {
+            ShogiTheme {
+                Surface {
+                    HomeScreen(
+                        pastGames = emptyList(),
+                        isLoggedIn = false,
+                        onOpenKif = {},
+                        onGameClick = {},
+                        onStartDrill = {},
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
     fun home_withStrengthCard() {
         captureRoboImage(
             filePath = "src/test/snapshots/home_with_strength_card.png",
@@ -110,7 +130,7 @@ class HomeScreenScreenshotTest {
                         pastGames = sampleGames(),
                         isLoggedIn = false,
                         strengthCard = StrengthCardData(
-                            displayText = "51 ±25",
+                            displayText = "51.2 ±25.4",
                             detailText = "直近5局から算出",
                         ),
                         todaysDrillHint = TodaysDrillHint(
@@ -137,7 +157,7 @@ class HomeScreenScreenshotTest {
                         pastGames = sampleGames(),
                         isLoggedIn = false,
                         strengthCard = StrengthCardData(
-                            displayText = "58",
+                            displayText = "58.0",
                             detailText = "直近8局から算出",
                         ),
                         drillRecordCard = DrillRecordCardData(

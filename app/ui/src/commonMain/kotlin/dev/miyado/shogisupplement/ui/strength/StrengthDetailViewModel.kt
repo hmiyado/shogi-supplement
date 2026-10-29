@@ -1,16 +1,20 @@
 package dev.miyado.shogisupplement.ui.strength
 
+import dev.miyado.shogisupplement.ui.text.LocalizedStrings
+
 import dev.miyado.shogisupplement.db.BlunderRecord
 import dev.miyado.shogisupplement.db.EngineMatchRate
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.GameRepository
+import dev.miyado.shogisupplement.db.PositionEvalRow
 import dev.miyado.shogisupplement.db.RatingSettings
 import dev.miyado.shogisupplement.db.SettingsRepository
 import dev.miyado.shogisupplement.rating.ShogiRank
 import dev.miyado.shogisupplement.rating.bestServiceRank
+import dev.miyado.shogisupplement.strength.MateOpportunities
+import dev.miyado.shogisupplement.strength.MateStatistics
 import dev.miyado.shogisupplement.strength.StrengthEstimator
 import dev.miyado.shogisupplement.strength.StrengthNorm
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.defaultIoDispatcher
 import dev.miyado.shogisupplement.ui.common.formatShortDate
 import kotlin.math.roundToInt
@@ -54,7 +58,23 @@ class StrengthDetailViewModel(
         val recentGames = games
             .filter { it.analyzedAt >= trendStart }
             .sortedBy { it.analyzedAt }
-        val trend = recentGames.map { buildTrendPoint(it) }
+        val evaluations = games.associate { it.id to gameRepository.getPositionEvals(it.id) }
+        val trend = recentGames.map { buildTrendPoint(it, evaluations[it.id].orEmpty()) }
+        val mateStatistics = MateStatistics.aggregate(
+            opportunities = games.flatMap { game ->
+                MateOpportunities.compute(
+                    moves = game.movesUsi,
+                    evaluations = evaluations[game.id].orEmpty(),
+                    userSide = game.userSide,
+                    gameWinner = game.gameWinner,
+                    endReason = game.endReason,
+                )
+            },
+            analyzedGames = games.size,
+            verifiedGames = evaluations.values.count { rows ->
+                rows.any { it.mateVerified && it.mateIn != null }
+            },
+        )
 
         val serviceRanks = settingsRepository.getAllServiceRanks()
         val serviceAccounts = settingsRepository.getAllServiceAccounts()
@@ -68,10 +88,11 @@ class StrengthDetailViewModel(
             bestRank = buildBestRank(serviceRanks),
             trend = trend,
             services = buildServices(serviceRanks, serviceAccounts, ratingSettings, hasSavedRating),
+            mateStatistics = mateStatistics,
         )
     }
 
-    private fun buildTrendPoint(game: GameRecord): StrengthTrendPoint {
+    private suspend fun buildTrendPoint(game: GameRecord, positionEvals: List<PositionEvalRow>): StrengthTrendPoint {
         val side = requireNotNull(game.userSide)
         val userMoves = userMoveCount(game.moveCount, side)
         val estimate = StrengthEstimator.aggregate(listOf(game.rating.toInt()), userMoves)
@@ -79,7 +100,6 @@ class StrengthDetailViewModel(
         val width = StrengthNorm.deviationWidth(estimate.errorMargin)
 
         val reports = gameRepository.getReports(game.id)
-        val positionEvals = gameRepository.getPositionEvals(game.id)
         val matchResult = EngineMatchRate.compute(game.movesUsi, positionEvals, side)
 
         return StrengthTrendPoint(
@@ -89,28 +109,28 @@ class StrengthDetailViewModel(
             deviationWidth = width,
             blunderRateText = blunderRateText(reports, matchResult),
             matchRateText = matchResult?.let {
-                AppStrings.matchRateValue((it.rate * 100).roundToInt(), it.matched, it.sampleMoves)
+                LocalizedStrings.matchRateValue((it.rate * 100).roundToInt(), it.matched, it.sampleMoves)
             },
         )
     }
 
-    private fun blunderRateText(reports: List<BlunderRecord>, matchResult: EngineMatchRate.Result?): String? =
+    private suspend fun blunderRateText(reports: List<BlunderRecord>, matchResult: EngineMatchRate.Result?): String? =
         matchResult?.takeIf { it.sampleMoves > 0 }?.let {
             val pct = (reports.size.toDouble() / it.sampleMoves * 100).roundToInt()
-            AppStrings.blunderRateValue(pct, reports.size, it.sampleMoves)
+            LocalizedStrings.blunderRateValue(pct, reports.size, it.sampleMoves)
         }
 
-    private fun buildBestRank(serviceRanks: Map<String, Map<String, Int>>): StrengthDetailBestRank? {
+    private suspend fun buildBestRank(serviceRanks: Map<String, Map<String, Int>>): StrengthDetailBestRank? {
         val best = bestServiceRank(serviceRanks) ?: return null
         val rankLabel = ShogiRank.fromRaw(best.raw)?.toDisplayString() ?: return null
         return StrengthDetailBestRank(
-            label = AppStrings.strengthDetailBestRankValue(AppStrings.serviceLabel(best.service), rankLabel),
-            ruleLabel = AppStrings.ruleLabel(best.service, best.ruleId),
+            label = LocalizedStrings.strengthDetailBestRankValue(LocalizedStrings.serviceLabel(best.service), rankLabel),
+            ruleLabel = LocalizedStrings.ruleLabel(best.service, best.ruleId),
         )
     }
 
     /** 何も入力していないサービスは含めない（対局サービスカードには出さない）。 */
-    private fun buildServices(
+    private suspend fun buildServices(
         serviceRanks: Map<String, Map<String, Int>>,
         serviceAccounts: Map<String, String>,
         ratingSettings: RatingSettings,
@@ -123,9 +143,9 @@ class StrengthDetailViewModel(
         if (warsAccount != null || warsRanks.isNotEmpty()) {
             result += StrengthDetailService(
                 serviceId = "shogi_wars",
-                label = AppStrings.serviceLabel("shogi_wars"),
+                label = LocalizedStrings.serviceLabel("shogi_wars"),
                 accountName = warsAccount,
-                rules = AppStrings.warsRules.map { (ruleId, ruleLabel) ->
+                rules = LocalizedStrings.warsRules().map { (ruleId, ruleLabel) ->
                     StrengthDetailServiceRule(
                         ruleLabel = ruleLabel,
                         rankLabel = warsRanks[ruleId]?.let { ShogiRank.fromRaw(it)?.toDisplayString() },
@@ -146,7 +166,7 @@ class StrengthDetailViewModel(
         if (lishogiAccount != null || lishogiRating != null) {
             result += StrengthDetailService(
                 serviceId = "lishogi",
-                label = AppStrings.serviceLabel("lishogi"),
+                label = LocalizedStrings.serviceLabel("lishogi"),
                 accountName = lishogiAccount,
                 ratingText = lishogiRating?.toString(),
             )
@@ -161,7 +181,7 @@ class StrengthDetailViewModel(
         if (questAccount != null || questRating != null) {
             result += StrengthDetailService(
                 serviceId = "shogi_quest",
-                label = AppStrings.serviceLabel("shogi_quest"),
+                label = LocalizedStrings.serviceLabel("shogi_quest"),
                 accountName = questAccount,
                 ratingText = questRating?.toString(),
             )
@@ -172,9 +192,9 @@ class StrengthDetailViewModel(
         if (kiouAccount != null || kiouRanks.isNotEmpty()) {
             result += StrengthDetailService(
                 serviceId = "kiou",
-                label = AppStrings.serviceLabel("kiou"),
+                label = LocalizedStrings.serviceLabel("kiou"),
                 accountName = kiouAccount,
-                rules = AppStrings.kiouRules.map { (ruleId, ruleLabel) ->
+                rules = LocalizedStrings.kiouRules().map { (ruleId, ruleLabel) ->
                     StrengthDetailServiceRule(
                         ruleLabel = ruleLabel,
                         rankLabel = kiouRanks[ruleId]?.let { ShogiRank.fromRaw(it)?.toDisplayString() },

@@ -5,7 +5,7 @@ import dev.miyado.shogisupplement.kifu.isKnownTimeControlRule
 import dev.miyado.shogisupplement.kifu.timeControlDisplayText
 import dev.miyado.shogisupplement.opening.OpeningClassifier
 
-/** 判定表に無い持ち時間をまとめる絞り込み値。表示ラベルはAppStringsが持つ。 */
+/** 判定表に無い持ち時間をまとめる絞り込み値。表示ラベルはUIの共通リソースで解決する。 */
 const val TIME_CONTROL_OTHER = "other"
 
 enum class GameResultFilter {
@@ -24,13 +24,16 @@ data class GameListFilter(
     val result: GameResultFilter? = null,
     /** 解析日時の下限（epoch秒・含む）。 */
     val dateFrom: Long? = null,
+    /** 解析日時の上限（epoch秒・含む）。期間比較の過去側だけで使う。 */
+    val dateTo: Long? = null,
     val openingStyle: String? = null,
     /** 持ち時間の表示文字列（[timeControlDisplayText]の値）。[TIME_CONTROL_OTHER]なら判定表に無いものすべて。 */
     val timeControl: String? = null,
+    val positionLabel: String? = null,
 ) {
     /** 指定された絞り込み軸の数を返す。 */
     val activeCount: Int
-        get() = listOfNotNull(source, userSide, openingStyle, timeControl, result, dateFrom).size
+        get() = listOfNotNull(positionLabel, source, userSide, openingStyle, timeControl, result, dateFrom).size
 
     val isActive: Boolean
         get() = activeCount > 0
@@ -40,12 +43,13 @@ data class GameListFilter(
 fun List<GameRecord>.filterGames(filter: GameListFilter): List<GameRecord> {
     if (!filter.isActive) return this
     return filter { game ->
+        (filter.positionLabel == null || filter.positionLabel in game.positionLabels) &&
         matchesSource(game, filter.source) &&
             matchesUserSide(game, filter.userSide) &&
             matchesOpeningStyle(game, filter.openingStyle) &&
             matchesTimeControl(game, filter.timeControl) &&
             matchesResult(game, filter.result) &&
-            matchesDateFrom(game, filter.dateFrom)
+            matchesDateRange(game, filter.dateFrom, filter.dateTo)
     }
 }
 
@@ -77,8 +81,9 @@ private fun matchesResult(game: GameRecord, result: GameResultFilter?): Boolean 
     }
 }
 
-private fun matchesDateFrom(game: GameRecord, dateFrom: Long?): Boolean =
-    dateFrom == null || game.analyzedAt >= dateFrom
+private fun matchesDateRange(game: GameRecord, dateFrom: Long?, dateTo: Long?): Boolean =
+    (dateFrom == null || game.analyzedAt >= dateFrom) &&
+        (dateTo == null || game.analyzedAt <= dateTo)
 
 /**
  * 一覧に実在するsource_place（正規化値）を順序を保って重複なく返す。

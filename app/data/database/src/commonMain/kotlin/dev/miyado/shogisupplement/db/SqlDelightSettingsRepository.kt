@@ -1,6 +1,9 @@
 package dev.miyado.shogisupplement.db
 
 import dev.miyado.shogisupplement.util.currentEpochSeconds
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 /** user_settings・サービスアカウント・段級（service_rank）のDB永続化リポジトリ（[SettingsRepository]のSQLDelight実装）。 */
 class SqlDelightSettingsRepository(private val database: ShogiSupplementDatabase) : SettingsRepository {
@@ -30,6 +33,7 @@ class SqlDelightSettingsRepository(private val database: ShogiSupplementDatabase
     ) {
         database.transaction {
             database.shogiSupplementQueries.insertOrIgnoreDefaultSettings()
+            val declaredAt = currentEpochSeconds()
             database.shogiSupplementQueries.updateRatingSettings(
                 // rating カラムは推定値保存用なのでここでは変更しない（既存値を維持するため現在値で上書き）
                 database.shogiSupplementQueries.getRating().executeAsOneOrNull() ?: 1750L,
@@ -37,8 +41,18 @@ class SqlDelightSettingsRepository(private val database: ShogiSupplementDatabase
                 ratingRaw?.toLong() ?: 0L,
                 ratingRule,
                 serviceAccountName,
-                currentEpochSeconds(),
+                declaredAt,
             )
+            // ルール別段級位はsaveRatingSettingsBundleが各ルールの値を追記する。
+            // ここでは単一値で表せる申告だけを記録し、未申告の解除は履歴に残さない。
+            if (service != null && ratingRaw != null) {
+                database.shogiSupplementQueries.insertRatingDeclarationHistory(
+                    rating_service = service,
+                    rating_raw = ratingRaw.toLong(),
+                    rating_rule = ratingRule,
+                    declared_at = declaredAt,
+                )
+            }
         }
     }
 
@@ -68,6 +82,35 @@ class SqlDelightSettingsRepository(private val database: ShogiSupplementDatabase
      */
     override fun hasUserSavedRatingSettings(): Boolean =
         database.shogiSupplementQueries.getRatingDeclaredAt().executeAsOneOrNull()?.rating_declared_at != null
+
+    override fun getRatingDeclaredAt(): Long? =
+        database.shogiSupplementQueries.getRatingDeclaredAt().executeAsOneOrNull()?.rating_declared_at
+
+    override fun getRatingDeclarationsAtOrBefore(epochSeconds: Long): List<RatingDeclaration> =
+        database.shogiSupplementQueries.getRatingDeclarationsAtOrBefore(epochSeconds)
+            .executeAsList()
+            .map {
+                RatingDeclaration(
+                    service = it.rating_service,
+                    ratingRaw = it.rating_raw?.toInt(),
+                    ratingRule = it.rating_rule,
+                    declaredAt = it.declared_at,
+                )
+            }
+
+    override fun saveRatingDeclarationHistory(
+        service: String?,
+        ratingRaw: Int?,
+        ratingRule: String?,
+        declaredAt: Long,
+    ) {
+        database.shogiSupplementQueries.insertRatingDeclarationHistory(
+            rating_service = service,
+            rating_raw = ratingRaw?.toLong(),
+            rating_rule = ratingRule,
+            declared_at = declaredAt,
+        )
+    }
 
     /** 保存されたレートを返す。未設定なら 1750。 */
     override fun getRating(): Int {
@@ -224,6 +267,36 @@ class SqlDelightSettingsRepository(private val database: ShogiSupplementDatabase
             .executeAsOneOrNull() ?: "system"
     }
 
+    // ─── 棋譜一覧の保存条件 ────────────────────────────────────────────────────
+
+    override fun getSavedGameFilters(): List<SavedGameFilter> {
+        val json = database.shogiSupplementQueries
+            .getSavedGameFilters()
+            .executeAsOneOrNull()
+            ?.saved_game_filters
+            ?: return emptyList()
+        return runCatching { savedFilterJson.decodeFromString<List<SavedGameFilter>>(json) }
+            .getOrDefault(emptyList())
+    }
+
+    override fun saveGameFilter(filter: SavedGameFilter) {
+        database.transaction {
+            database.shogiSupplementQueries.insertOrIgnoreDefaultSettings()
+            val filters = getSavedGameFilters().toMutableList()
+            val existingIndex = filters.indexOfFirst { it.name == filter.name }
+            if (existingIndex >= 0) filters[existingIndex] = filter else filters += filter
+            database.shogiSupplementQueries.updateSavedGameFilters(savedFilterJson.encodeToString(filters))
+        }
+    }
+
+    override fun deleteGameFilter(name: String) {
+        database.transaction {
+            database.shogiSupplementQueries.insertOrIgnoreDefaultSettings()
+            val filters = getSavedGameFilters().filterNot { it.name == name }
+            database.shogiSupplementQueries.updateSavedGameFilters(savedFilterJson.encodeToString(filters))
+        }
+    }
+
     // ─── ルール別棋力（service_rank） ─────────────────────────────────────────
 
     /** サービスのルール別棋力を保存する（申告のみ、相応判定には使用しない）。 */
@@ -311,5 +384,13 @@ class SqlDelightSettingsRepository(private val database: ShogiSupplementDatabase
             .getAppPolicyCache()
             .executeAsOneOrNull()
             ?.app_policy_cache
+    }
+
+    private companion object {
+        // nullの「期間なし」をJSONへ明示的に書き、期間項目がないJSONは既定30日で復元する。
+        val savedFilterJson = Json {
+            ignoreUnknownKeys = true
+            encodeDefaults = true
+        }
     }
 }

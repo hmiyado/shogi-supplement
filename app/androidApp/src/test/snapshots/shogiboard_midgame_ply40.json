@@ -1,0 +1,10 @@
+{
+  "kind": "component",
+  "kindLabel": "コンポーネント",
+  "category": "shogiboard",
+  "categoryLabel": "将棋盤",
+  "screen": "midgame・ply40",
+  "screenLabel": "midgame・ply40",
+  "state": "標準状態",
+  "stateLabel": "標準状態"
+}

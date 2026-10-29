@@ -1,13 +1,22 @@
 package dev.miyado.shogisupplement.ui.report
 
+
+import dev.miyado.shogisupplement.ui.text.text
+
+import org.jetbrains.compose.resources.vectorResource
+
+import dev.miyado.shogisupplement.ui.text.UiStrings
+
+import org.jetbrains.compose.resources.getString
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -19,14 +28,19 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material3.Card
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -39,9 +53,16 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -50,24 +71,27 @@ import androidx.compose.ui.unit.sp
 import dev.miyado.shogisupplement.board.ShogiBoard
 import dev.miyado.shogisupplement.board.ShogiMove
 import dev.miyado.shogisupplement.notation.JapaneseNotation
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.ShogiSecondaryButton
 import dev.miyado.shogisupplement.ui.theme.IbmPlexMonoFamily
 import dev.miyado.shogisupplement.ui.theme.LightInk
-import dev.miyado.shogisupplement.ui.theme.ShipporiMinchoFamily
 import dev.miyado.shogisupplement.ui.theme.TextStyleDataMove
 import dev.miyado.shogisupplement.ui.theme.shogiColors
 
 /**
- * 検討中のナビ行。進む先はチップ列で選ぶので、ここは戻る操作と終了だけを持つ。
+ * 検討中のナビ行。表示中の本譜・分岐に沿って一手ずつ前後へ移動する。
  */
 @Composable
 internal fun StudyNavRow(
     studyState: StudyState,
     studySenteToMove: Boolean,
     onStudyStepBack: () -> Unit,
+    onStudyStepForward: () -> Unit,
     onStudyExit: (() -> Unit)?,
+    onSelectMove: (() -> Unit)? = null,
 ) {
+    val labelMovePrevious = stringResource(Res.string.move_previous)
+    val labelMoveNext = stringResource(Res.string.move_next)
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -81,100 +105,116 @@ internal fun StudyNavRow(
             enabled = studyState.moves.isNotEmpty(),
             modifier = Modifier.height(36.dp).widthIn(min = 36.dp),
             contentPadding = PaddingValues(horizontal = 2.dp),
-        ) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "1手戻る") }
-        Text(
-            text = when {
-                studyState.showTurnHint -> AppStrings.studyTurnHint(studySenteToMove)
-                studyState.moves.isEmpty() -> AppStrings.STUDY_START_POSITION
-                else -> AppStrings.studyPlyLabel(studyState.moves.size)
-            },
-            modifier = Modifier.weight(1f),
-            textAlign = TextAlign.Center,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.primary,
-            maxLines = 1,
-            overflow = TextOverflow.MiddleEllipsis,
-        )
-        // 進む側は形を保つためだけに置く。押せる操作はチップ列にある。
+        ) { Icon(vectorResource(Res.drawable.ic_auto_mirrored_filled_keyboard_arrow_left), contentDescription = labelMovePrevious) }
+        Row(
+            modifier = Modifier.weight(1f).then(
+                if (onSelectMove != null) Modifier.clickable(onClick = onSelectMove) else Modifier,
+            ),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+        ) {
+            Text(
+                text = when {
+                    studyState.showTurnHint -> UiStrings.studyTurnHint(studySenteToMove)
+                    studyState.moves.isEmpty() -> stringResource(Res.string.study_start_position)
+                    else -> UiStrings.studyPlyLabel(studyState.originAbsolutePly + studyState.moves.size)
+                },
+                modifier = Modifier.weight(1f, fill = false),
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 1,
+                overflow = TextOverflow.MiddleEllipsis,
+            )
+            if (onSelectMove != null) Icon(
+                vectorResource(Res.drawable.ic_filled_keyboard_arrow_down),
+                contentDescription = stringResource(Res.string.move_list_title),
+                tint = MaterialTheme.colorScheme.primary,
+            )
+        }
         TextButton(
-            onClick = {},
-            enabled = false,
+            onClick = onStudyStepForward,
+            enabled = studyState.moves.size < studyState.displayLine.size,
             modifier = Modifier.height(36.dp).widthIn(min = 36.dp),
             contentPadding = PaddingValues(horizontal = 2.dp),
-        ) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "1手進む") }
+        ) { Icon(vectorResource(Res.drawable.ic_auto_mirrored_filled_keyboard_arrow_right), contentDescription = labelMoveNext) }
         if (onStudyExit != null) {
             TextButton(
                 onClick = onStudyExit,
                 modifier = Modifier.height(36.dp),
-            ) { Text(AppStrings.STUDY_END) }
+            ) { Text(stringResource(Res.string.study_end)) }
         }
     }
 }
 
 /**
- * 検討モードのパネル。評価スロットと手順チップ列を固定の外形に収める。
- * チップ列はFlowRowで折り返し、余剰分だけ内部スクロールする。
+ * 評価の取得前後もパネル外形・行高・候補幅を変えない。
  * 終了操作はナビ行に集約し、評価スロットは状態に応じて排他表示する。
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun StudyPanel(
     studyState: StudyState,
     onChipTapped: (Int) -> Unit,
     onBranchChipTapped: (Int) -> Unit,
     onBranchPopupDismiss: () -> Unit,
-    onBranchOptionSelected: (depth: Int, moveUsi: String) -> Unit,
+    onBranchOptionSelected: (depth: Int, nodeId: Long) -> Unit,
     onAnalyze: () -> Unit,
     onCandidateTapped: (String) -> Unit,
     modifier: Modifier = Modifier,
+    onSave: (((Boolean) -> Unit) -> Unit)? = null,
+    onDeleteBranch: ((String, List<String>, Long?) -> Boolean)? = null,
 ) {
     val shogiColors = MaterialTheme.shogiColors
-    val notations = remember(studyState.baseSfen, studyState.displayLine) {
-        buildMoveNotations(studyState.baseSfen, studyState.displayLine)
+    var actionsExpanded by remember(studyState.baseSfen, studyState.moves, studyState.nodeId) { mutableStateOf(false) }
+    val snackbar = remember { SnackbarHostState() }
+    var retryAttempt by remember { mutableStateOf(0) }
+    var deletingBranch by remember(studyState.baseSfen, studyState.moves, studyState.nodeId) { mutableStateOf(false) }
+    LaunchedEffect(studyState.saveFailed, retryAttempt) {
+        if (studyState.saveFailed) {
+            val result = snackbar.showSnackbar(
+                getString(Res.string.study_save_failed),
+                actionLabel = getString(Res.string.game_restore_retry_button),
+                duration = androidx.compose.material3.SnackbarDuration.Indefinite,
+            )
+            if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) {
+                onSave?.invoke { if (!it) retryAttempt++ }
+            }
+        }
+    }
+    if (deletingBranch && onDeleteBranch != null) {
+        AlertDialog(
+            onDismissRequest = { deletingBranch = false },
+            title = { Text(stringResource(Res.string.study_delete_branch_title)) },
+            text = { Text(stringResource(Res.string.study_delete_branch_body)) },
+            confirmButton = {
+                OutlinedButton(
+                    onClick = { onDeleteBranch(studyState.baseSfen, studyState.moves, studyState.nodeId); deletingBranch = false },
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) { Text(stringResource(Res.string.study_delete_branch)) }
+            },
+            dismissButton = { TextButton(onClick = { deletingBranch = false }) { Text(stringResource(Res.string.cancel)) } },
+        )
     }
 
+    Box(modifier = modifier.fillMaxSize()) {
     Card(
-        modifier = modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
     ) {
         Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
-            // ── 見出し行: 「検討中」＋分岐元行（「42手目 ▲３四飛（−320）から分岐」）。
-            // タイトルは幅固定で省略しない、分岐元行が残り幅を使って maxLines=1 + ellipsis になる。
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text(
-                    text = AppStrings.STUDY_PANEL_TITLE,
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontFamily = ShipporiMinchoFamily,
-                        fontWeight = FontWeight.Bold,
-                    ),
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.alignByBaseline(),
-                )
-                Text(
-                    text = AppStrings.studyOriginLine(studyState.origin.label),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = shogiColors.ink2,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f).alignByBaseline(),
-                )
-            }
-
-            Spacer(Modifier.height(8.dp))
-
             // 評価スロットは固定高さとし、手動再試行はError状態だけに限定する。
             // Preparingは自動回復待ちのためLoadingと同じ表示にする。
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
+                    .height(48.dp),
                 contentAlignment = Alignment.CenterStart,
             ) {
+                Box(Modifier.fillMaxWidth().padding(end = if (onSave != null || onDeleteBranch != null) 56.dp else 0.dp)) {
                 when (val es = studyState.evalState) {
                     StudyEvalState.None -> Unit
                     StudyEvalState.Preparing -> {
@@ -182,7 +222,7 @@ internal fun StudyPanel(
                             CircularProgressIndicator(modifier = Modifier.height(16.dp).width(16.dp), strokeWidth = 2.dp)
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                AppStrings.STUDY_EVAL_PREPARING,
+                                stringResource(Res.string.study_eval_preparing),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = shogiColors.ink2,
                             )
@@ -196,7 +236,7 @@ internal fun StudyPanel(
                             CircularProgressIndicator(modifier = Modifier.height(16.dp).width(16.dp), strokeWidth = 2.dp)
                             Spacer(Modifier.width(8.dp))
                             Text(
-                                AppStrings.STUDY_EVAL_ANALYZING,
+                                stringResource(Res.string.study_eval_analyzing),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = shogiColors.ink2,
                             )
@@ -213,11 +253,41 @@ internal fun StudyPanel(
                                     else -> MaterialTheme.colorScheme.onSurface
                                 },
                             )
-                            if (es.candidates.isNotEmpty()) {
-                                Spacer(Modifier.width(10.dp))
-                                StudyCandidateRow(
-                                    candidates = es.candidates,
-                                    onCandidateTapped = onCandidateTapped,
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    UiStrings.studyEvalPerspective(studyState.flip),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = shogiColors.ink2,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Text(
+                                    UiStrings.studyOriginLine(studyState.origin.label),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = shogiColors.ink2,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                    }
+                }
+                }
+                if (onSave != null || onDeleteBranch != null) {
+                    Box(Modifier.align(Alignment.CenterEnd)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = { actionsExpanded = true }) {
+                                Icon(vectorResource(Res.drawable.ic_filled_more_horiz), contentDescription = stringResource(Res.string.study_actions))
+                            }
+                        }
+                        DropdownMenu(expanded = actionsExpanded, onDismissRequest = { actionsExpanded = false }) {
+                            if (onDeleteBranch != null) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(Res.string.study_delete_branch),
+                                        color = if (studyState.canDeleteBranch) MaterialTheme.colorScheme.error else shogiColors.ink3) },
+                                    enabled = studyState.canDeleteBranch,
+                                    onClick = { actionsExpanded = false; deletingBranch = true },
                                 )
                             }
                         }
@@ -225,74 +295,47 @@ internal fun StudyPanel(
                 }
             }
 
+            Box(Modifier.fillMaxWidth().height(44.dp), contentAlignment = Alignment.CenterStart) {
+                val candidates = (studyState.evalState as? StudyEvalState.Value)?.candidates.orEmpty()
+                if (candidates.isNotEmpty()) StudyCandidateRow(candidates, onCandidateTapped)
+            }
+
             HorizontalDivider(color = shogiColors.line)
 
             Spacer(Modifier.height(8.dp))
 
-            // displayLine全体を淡色を含めて描画し、余剰分だけこの領域内で縦スクロールする。
-            FlowRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .verticalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+            Column(
+                Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()),
             ) {
                 studyState.displayLine.forEachIndexed { depth, moveUsi ->
-                    val isCurrent = depth == studyState.moves.size - 1
-                    val isFuture = depth >= studyState.moves.size
-                    val hasBranch = studyState.branchFlags.getOrNull(depth) == true
-                    val evalSuffix = (studyState.chipEvalStates.getOrNull(depth) as? StudyEvalState.Value)
-                        ?.let { AppStrings.studyChipEvalSuffix(it.label.text) }
-                    Box {
-                        StudyMoveChip(
-                            label = notations.getOrElse(depth) { moveUsi },
-                            evalSuffix = evalSuffix,
-                            isCurrent = isCurrent,
-                            isFuture = isFuture,
-                            hasBranch = hasBranch,
-                            onClick = {
-                                if (hasBranch) onBranchChipTapped(depth) else onChipTapped(depth + 1)
+                    val options = studyState.moveOptions.getOrNull(depth).orEmpty().ifEmpty {
+                        listOf(StudyBranchOption(moveUsi, studyState.chipEvalStates.getOrNull(depth)
+                            ?: StudyEvalState.None, isCurrent = true))
+                    }
+                    key(studyState.baseSfen, studyState.displayLine.take(depth), options.map { it.nodeId }) {
+                        val board = remember(studyState.baseSfen, studyState.displayLine.take(depth)) {
+                            runCatching { ShogiBoard.fromSfen(sfenAfterMoves(studyState.baseSfen, studyState.displayLine, depth)) }.getOrNull()
+                        }
+                        StudyMoveRow(
+                            ply = studyState.originAbsolutePly + depth + 1,
+                            options = options,
+                            notation = { option -> board?.let {
+                                runCatching { JapaneseNotation.format(option.moveUsi, it) }.getOrNull()
+                            } ?: option.moveUsi },
+                            isCurrent = depth == studyState.moves.size - 1,
+                            isFuture = depth >= studyState.moves.size,
+                            scrollToRow = depth == studyState.moves.size - 1 || (studyState.moves.isEmpty() && depth == 0),
+                            onSelected = { option ->
+                                if (option.isCurrent) onChipTapped(depth + 1)
+                                else onBranchOptionSelected(depth, option.nodeId)
                             },
                         )
-                        if (studyState.openBranchPopupDepth == depth) {
-                            // ポップの兄弟変化も棋譜表記で出す（このdepthに至る直前の局面は
-                            // 全兄弟で共通なので、盤面を1回だけ組み立てて使い回す）。
-                            val popupBoard = remember(studyState.baseSfen, studyState.displayLine, depth) {
-                                runCatching {
-                                    ShogiBoard.fromSfen(sfenAfterMoves(studyState.baseSfen, studyState.displayLine, depth))
-                                }.getOrNull()
-                            }
-                            DropdownMenu(
-                                expanded = true,
-                                onDismissRequest = onBranchPopupDismiss,
-                            ) {
-                                studyState.branchPopupOptions.forEach { option ->
-                                    val optionNotation = popupBoard?.let { board ->
-                                        runCatching { JapaneseNotation.format(option.moveUsi, board) }.getOrNull()
-                                    } ?: option.moveUsi
-                                    val optionEvalText = (option.evalState as? StudyEvalState.Value)
-                                        ?.label?.text ?: AppStrings.STUDY_BRANCH_EVAL_UNKNOWN
-                                    DropdownMenuItem(
-                                        text = {
-                                            Text(
-                                                "$optionNotation  $optionEvalText" +
-                                                    if (option.isCurrent) AppStrings.STUDY_BRANCH_CURRENT_SUFFIX else "",
-                                                style = MaterialTheme.typography.bodySmall,
-                                            )
-                                        },
-                                        onClick = {
-                                            if (!option.isCurrent) onBranchOptionSelected(depth, option.moveUsi)
-                                            onBranchPopupDismiss()
-                                        },
-                                    )
-                                }
-                            }
-                        }
                     }
                 }
             }
         }
+    }
+    SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
     }
 }
 
@@ -364,67 +407,86 @@ private fun StudyCandidateRow(
 @Composable
 private fun AnalyzeButton(onClick: () -> Unit) {
     ShogiSecondaryButton(onClick = onClick) {
-        Text(AppStrings.STUDY_ANALYZE_LABEL)
+        Text(stringResource(Res.string.study_analyze_label))
     }
 }
 
-/**
- * 手順チップ。分岐にはMaterialのKeyboardArrowDownを使い、記号の字体差を避ける。
- * 現在手はhighlight背景とLightInk文字で表示し、ダークテーマでもコントラストを保つ。
- */
 @Composable
-private fun StudyMoveChip(
-    label: String,
-    evalSuffix: String?,
+private fun StudyMoveRow(
+    ply: Int,
+    options: List<StudyBranchOption>,
+    notation: (StudyBranchOption) -> String,
     isCurrent: Boolean,
     isFuture: Boolean,
-    hasBranch: Boolean,
-    onClick: () -> Unit,
+    scrollToRow: Boolean,
+    onSelected: (StudyBranchOption) -> Unit,
 ) {
-    val shogiColors = MaterialTheme.shogiColors
-    val textColor = when {
-        isCurrent -> LightInk
-        isFuture -> shogiColors.ink3
-        else -> Color.Unspecified
+    val colors = MaterialTheme.shogiColors
+    val density = LocalDensity.current
+    val measurer = rememberTextMeasurer()
+    val moveWidth = with(density) { (TextStyleDataMove.fontSize.toPx() * 8).toDp() }
+    val winSample = stringResource(Res.string.position_eval_win_in, 999)
+    val evalWidth = with(density) {
+        listOf("+99999%", winSample).maxOf {
+            measurer.measure(it, TextStyleDataMove.copy(fontFamily = IbmPlexMonoFamily)).size.width.toDp()
+        }
     }
-    Surface(
-        modifier = Modifier.clickable(onClick = onClick),
-        color = if (isCurrent) shogiColors.highlight else MaterialTheme.colorScheme.surface,
-        shape = RoundedCornerShape(4.dp),
-        border = if (hasBranch) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null,
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = if (evalSuffix != null) "$label$evalSuffix" else label,
-                style = TextStyleDataMove,
-                color = textColor,
-                maxLines = 1,
-            )
-            if (hasBranch) {
-                Icon(
-                    imageVector = Icons.Filled.KeyboardArrowDown,
-                    contentDescription = AppStrings.STUDY_BRANCH_ICON_DESC,
-                    tint = if (isCurrent) LightInk else MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(14.dp).padding(start = 2.dp),
-                )
+    val optionWidth = moveWidth + evalWidth + 12.dp + 32.dp
+    val scroll = rememberScrollState()
+    val bringIntoView = remember { BringIntoViewRequester() }
+    var placed by remember { mutableStateOf(false) }
+    LaunchedEffect(scrollToRow, placed) {
+        if (scrollToRow && placed) bringIntoView.bringIntoView()
+    }
+    val selectedIndex = options.indexOfFirst { it.isCurrent }.coerceAtLeast(0)
+    LaunchedEffect(selectedIndex, optionWidth, scroll.viewportSize) {
+        if (options.size > 1) {
+            val left = with(density) { optionWidth.roundToPx() } * selectedIndex
+            val right = left + with(density) { optionWidth.roundToPx() }
+            when {
+                left < scroll.value -> scroll.scrollTo(left)
+                right > scroll.value + scroll.viewportSize -> scroll.scrollTo(right - scroll.viewportSize)
             }
         }
     }
-}
-
-/**
- * baseSfenから各手の日本語表記を返す。
- * Why not 盤を使い回さない: 途中の失敗を後続の手へ波及させないため、手ごとに再構築する。
- */
-private fun buildMoveNotations(baseSfen: String, moves: List<String>): List<String> =
-    moves.indices.map { depth ->
-        val prevSfen = sfenAfterMoves(baseSfen, moves, depth)
-        runCatching { JapaneseNotation.format(moves[depth], ShogiBoard.fromSfen(prevSfen)) }
-            .getOrElse { moves[depth] }
+    Row(Modifier.fillMaxWidth().height(56.dp).bringIntoViewRequester(bringIntoView).onGloballyPositioned { placed = true }.testTag("study_move_row_$ply")) {
+        Box(Modifier.width(42.dp).height(56.dp).background(colors.surface2), contentAlignment = Alignment.Center) {
+            Text(ply.toString(), style = TextStyleDataMove.copy(fontFamily = IbmPlexMonoFamily), color = colors.ink3)
+        }
+        Row(if (options.size > 1) Modifier.weight(1f).horizontalScroll(scroll) else Modifier.weight(1f)) {
+            options.forEach { option ->
+                val active = isCurrent && option.isCurrent
+                val textColor = when {
+                    active -> LightInk
+                    isFuture -> colors.ink3
+                    else -> MaterialTheme.colorScheme.onSurface
+                }
+                Surface(
+                    modifier = (if (options.size > 1) Modifier.width(optionWidth) else Modifier.weight(1f))
+                        .height(56.dp).clickable { onSelected(option) }
+                        .testTag("study_move_option_${ply}_${option.nodeId}"),
+                    color = when {
+                        active -> colors.highlight
+                        option.isCurrent && options.size > 1 -> colors.highlightSoft
+                        else -> MaterialTheme.colorScheme.surface
+                    },
+                ) {
+                    Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(notation(option), style = TextStyleDataMove, color = textColor,
+                            modifier = Modifier.width(moveWidth), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Spacer(if (options.size > 1) Modifier.width(12.dp) else Modifier.weight(1f))
+                        Text((option.evalState as? StudyEvalState.Value)?.label?.text
+                                ?: stringResource(Res.string.study_branch_eval_unknown),
+                            style = TextStyleDataMove.copy(fontFamily = IbmPlexMonoFamily), color = textColor,
+                            modifier = Modifier.width(evalWidth), textAlign = TextAlign.End,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
+        }
     }
+    HorizontalDivider(color = colors.line)
+}
 
 /** baseSfen から moves を steps 手だけ進めた局面の SFEN を返す（1手でも失敗したらそこで打ち切る）。 */
 private fun sfenAfterMoves(baseSfen: String, moves: List<String>, steps: Int): String {

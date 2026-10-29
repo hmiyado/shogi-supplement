@@ -1,0 +1,10 @@
+{
+  "kind": "screen",
+  "kindLabel": "画面（Screen）",
+  "category": "report",
+  "categoryLabel": "レポート",
+  "screen": "評価値あり・グラフ・併記・一致した読み筋・rate",
+  "screenLabel": "評価値あり・グラフ・併記・一致した読み筋・rate",
+  "state": "標準状態",
+  "stateLabel": "標準状態"
+}

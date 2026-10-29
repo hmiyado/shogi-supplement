@@ -1,0 +1,35 @@
+[
+  {
+    "url": "http://127.0.0.1:4178/plain/",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.8010.12 Safari/537.36",
+    "secure": true,
+    "isolated": false,
+    "sab": false,
+    "sharedMemory": false,
+    "serviceWorker": true,
+    "controlled": false,
+    "error": "ReferenceError: SharedArrayBuffer is not defined"
+  },
+  {
+    "url": "http://127.0.0.1:4178/headers/",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.8010.12 Safari/537.36",
+    "secure": true,
+    "isolated": true,
+    "sab": true,
+    "sharedMemory": true,
+    "serviceWorker": true,
+    "controlled": false,
+    "error": null
+  },
+  {
+    "url": "http://127.0.0.1:4178/sw/",
+    "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.8010.12 Safari/537.36",
+    "secure": true,
+    "isolated": true,
+    "sab": true,
+    "sharedMemory": true,
+    "serviceWorker": true,
+    "controlled": true,
+    "error": null
+  }
+]

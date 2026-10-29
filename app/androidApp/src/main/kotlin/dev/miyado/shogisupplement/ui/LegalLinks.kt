@@ -27,7 +27,7 @@ object LegalLinks {
 
     const val RELEASE_NOTES_URL = "https://shogi-supplement.miyado.dev/release-notes.html"
 
-    // LicenseInfoScreen の表示テキスト（AppStrings.LICENSE_SOURCE_URL）と同じ値。
+    // LicenseInfoScreen の表示テキスト（LocalizedStrings.LICENSE_SOURCE_URL()）と同じ値。
     // 実際に開くURLはプラットフォーム側のこの定数を使う（iOS の IOS_SOURCE_REPO_URL と同じ複製パターン）。
     /** ライセンス画面の「ソースリポジトリ」リンクから開く GitHub リポジトリ URL。 */
     const val SOURCE_REPO_URL = "https://github.com/hmiyado/shogi-supplement"

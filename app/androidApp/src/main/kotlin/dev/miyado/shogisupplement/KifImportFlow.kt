@@ -1,5 +1,10 @@
 package dev.miyado.shogisupplement
 
+import dev.miyado.shogisupplement.ui.text.message
+
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import android.content.ClipboardManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -24,7 +29,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.rememberCoroutineScope
 import dev.miyado.shogisupplement.kifu.KifImportController
 import dev.miyado.shogisupplement.kifu.KifOrigin
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.MainUiState
 import dev.miyado.shogisupplement.ui.MainViewModel
 import dev.miyado.shogisupplement.ui.common.UserSideDialog
@@ -112,22 +116,22 @@ fun KifImportFlow(
         ModalBottomSheet(onDismissRequest = { onShowKifSourceSheetChange(false) }) {
             Column(modifier = Modifier.padding(bottom = 32.dp)) {
                 Text(
-                    AppStrings.KIF_SOURCE_TITLE,
+                    stringResource(Res.string.kif_source_title),
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 )
                 HorizontalDivider(color = MaterialTheme.shogiColors.line)
-                KifSourceRow(AppStrings.KIF_SOURCE_FILE) {
+                KifSourceRow(stringResource(Res.string.kif_source_file)) {
                     onShowKifSourceSheetChange(false)
                     filePicker.launch(arrayOf("*/*"))
                 }
                 HorizontalDivider(color = MaterialTheme.shogiColors.line)
-                KifSourceRow(AppStrings.KIF_SOURCE_CLIPBOARD) {
+                KifSourceRow(stringResource(Res.string.kif_source_clipboard)) {
                     onShowKifSourceSheetChange(false)
                     handleClipboardKif()
                 }
                 HorizontalDivider(color = MaterialTheme.shogiColors.line)
-                KifSourceRow(AppStrings.KIF_SOURCE_MANUAL) {
+                KifSourceRow(stringResource(Res.string.kif_source_manual)) {
                     onShowKifSourceSheetChange(false)
                     onStartManualKifu()
                 }
@@ -172,14 +176,14 @@ fun KifImportFlow(
                 onDismissRequest = { vm.kifImport.dismiss() },
                 title = {
                     Text(
-                        if (current.origin == KifOrigin.FILE) AppStrings.KIF_SOURCE_FILE
-                        else AppStrings.KIF_SOURCE_CLIPBOARD,
+                        if (current.origin == KifOrigin.FILE) stringResource(Res.string.kif_source_file)
+                        else stringResource(Res.string.kif_source_clipboard),
                     )
                 },
                 text = { Text(current.message) },
                 confirmButton = {
                     TextButton(onClick = { vm.kifImport.dismiss() }) {
-                        Text(AppStrings.CANCEL)
+                        Text(stringResource(Res.string.cancel))
                     }
                 },
             )

@@ -27,10 +27,11 @@ import androidx.compose.ui.unit.sp
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
 import com.github.takahirom.roborazzi.RoborazziOptions
 import com.github.takahirom.roborazzi.captureRoboImage
-import dev.miyado.shogisupplement.blunder.PositionEvalDisplay
 import dev.miyado.shogisupplement.board.ShogiBoard
 import dev.miyado.shogisupplement.board.ShogiMove
 import dev.miyado.shogisupplement.db.BlunderRecord
+import dev.miyado.shogisupplement.db.EngineMatchRate
+import kotlin.math.roundToInt
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.PositionEvalRow
 import dev.miyado.shogisupplement.drill.DrillJudge
@@ -43,10 +44,6 @@ import dev.miyado.shogisupplement.ui.home.HomeScreen
 import dev.miyado.shogisupplement.ui.home.StrengthCardData
 import dev.miyado.shogisupplement.ui.home.TodaysDrillHint
 import dev.miyado.shogisupplement.ui.report.ReportScreen
-import dev.miyado.shogisupplement.ui.report.StudyCandidate
-import dev.miyado.shogisupplement.ui.report.StudyEvalState
-import dev.miyado.shogisupplement.ui.report.StudyOrigin
-import dev.miyado.shogisupplement.ui.report.StudyState
 import dev.miyado.shogisupplement.ui.theme.LightBg
 import dev.miyado.shogisupplement.ui.theme.LightInk
 import dev.miyado.shogisupplement.ui.theme.LightPrimarySoft
@@ -57,10 +54,16 @@ import java.awt.RenderingHints
 import java.awt.image.BufferedImage
 import java.io.File
 import javax.imageio.ImageIO
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
@@ -91,7 +94,29 @@ class StoreImageTest {
         captureRoboImage(filePath = path, roborazziOptions = storeRoborazziOptions) {
             StoreCard(caption = caption, screen = screen)
         }
-        finalizeImage(File(path))
+        val source = ImageIO.read(File(path))
+        finalizeImage(source, File(path), OutputWidthPx, OutputHeightPx)
+        finalizeImage(source, File("../iosApp/fastlane/screenshots/ja/${fileName}_6.5.png"), 1284, 2778)
+        captureDuo(fileName, caption, inner = false, screen)
+        captureDuo(fileName, caption, inner = true, screen)
+    }
+
+    private fun captureDuo(fileName: String, caption: String, inner: Boolean, screen: @Composable () -> Unit) {
+        val night = if (fileName == "02_home_dark") "-night" else "-notnight"
+        val canvasWidth = if (inner) 1084 else 652
+        val canvasHeight = if (inner) 763 else 949
+        RuntimeEnvironment.setQualifiers("w${canvasWidth}dp-h${canvasHeight}dp$night-xxhdpi")
+        val suffix = if (inner) "inner" else "outer"
+        val file = File("../iosApp/fastlane/duo_screenshots/ja/${fileName}_duo_$suffix.png")
+        checkNotNull(file.parentFile).mkdirs()
+        captureRoboImage(filePath = file.path, roborazziOptions = storeRoborazziOptions) {
+            DuoStoreCard(caption, inner, screen)
+        }
+        val source = ImageIO.read(file)
+        val width = if (inner) 2853 else 1398
+        val height = if (inner) 2007 else 2034
+        check(source.width >= width && source.height >= height) { "Store images must not be upscaled" }
+        finalizeImage(source, file, width, height)
     }
 
     /**
@@ -99,14 +124,13 @@ class StoreImageTest {
      * Why not 提出枠のまま描く: 端末の中身を実寸（[PhoneWidth]）で組み立てたいので、
      * 台紙は端末より大きい。App Store Connect は透過を含む画像も受け付けない。
      */
-    private fun finalizeImage(file: File) {
-        val source = ImageIO.read(file)
-        val output = BufferedImage(OutputWidthPx, OutputHeightPx, BufferedImage.TYPE_INT_RGB)
+    private fun finalizeImage(source: BufferedImage, file: File, width: Int, height: Int) {
+        val output = BufferedImage(width, height, BufferedImage.TYPE_INT_RGB)
         output.createGraphics().apply {
             setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC)
             setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY)
             setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
-            drawImage(source, 0, 0, OutputWidthPx, OutputHeightPx, null)
+            drawImage(source, 0, 0, width, height, null)
             dispose()
         }
         ImageIO.write(output, "png", file)
@@ -123,7 +147,7 @@ class StoreImageTest {
                     pastGames = storeGames,
                     isLoggedIn = true,
                     strengthCard = StrengthCardData(
-                        displayText = "58 ±9",
+                        displayText = "58.0 ±9.0",
                         detailText = "直近20局から算出",
                         declaredRankLine = "申告: 将棋ウォーズ 初段（10秒将棋）",
                     ),
@@ -154,7 +178,7 @@ class StoreImageTest {
                     pastGames = storeGames,
                     isLoggedIn = true,
                     strengthCard = StrengthCardData(
-                        displayText = "58 ±9",
+                        displayText = "58.0 ±9.0",
                         detailText = "直近20局から算出",
                         declaredRankLine = "申告: 将棋ウォーズ 初段（10秒将棋）",
                     ),
@@ -234,19 +258,21 @@ class StoreImageTest {
     @Composable
     private fun StoreReport(
         showBlunderList: Boolean = false,
-        studyState: StudyState? = null,
     ) {
+        val matchRate = checkNotNull(EngineMatchRate.compute(storeMoves, storePositionEvals, "sente"))
         ReportScreen(
             game = storeGames.first(),
             reports = listOf(storeBlunder),
             flip = false,
-            strengthDisplayText = "58 ±9",
-            matchRateDisplayText = "64%(32/50)",
-            blunderRateDisplayText = "9%(3/33)",
             positionEvals = storePositionEvals,
+            matchRateDisplayText = dev.miyado.shogisupplement.ui.text.UiStrings.matchRateValue(
+                (matchRate.rate * 100).roundToInt(), matchRate.matched, matchRate.sampleMoves,
+            ),
+            blunderRateDisplayText = dev.miyado.shogisupplement.ui.text.UiStrings.blunderRateValue(
+                (100.0 / matchRate.sampleMoves).roundToInt(), 1, matchRate.sampleMoves,
+            ),
             initialPlyIndex = 41,
             initialBodyModeList = showBlunderList,
-            studyState = studyState,
             onBack = {},
         )
     }
@@ -333,6 +359,43 @@ private fun StoreCard(caption: String, screen: @Composable () -> Unit) {
     }
 }
 
+/** Duo用の台紙。内側は画面を約77%の面積で表示し、OSの装飾は追加しない。 */
+@Composable
+private fun DuoStoreCard(caption: String, inner: Boolean, screen: @Composable () -> Unit) {
+    val appWidth = if (inner) 950.dp else 466.dp
+    val appHeight = if (inner) appWidth * (2007f / 2853f) else appWidth * (2034f / 1398f)
+    Box(
+        Modifier.fillMaxSize().background(
+            Brush.linearGradient(listOf(LightBg, LightPrimarySoft), Offset.Zero, Offset.Infinite),
+        ),
+    ) {
+        Text(
+            text = if (inner) caption.replace("\n", "") else caption,
+            modifier = Modifier.align(Alignment.TopCenter).padding(top = if (inner) 12.dp else 36.dp),
+            style = TextStyle(
+                fontFamily = ShipporiMinchoFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = if (inner) 42.sp else 54.sp,
+                lineHeight = if (inner) 54.sp else 76.sp,
+                textAlign = TextAlign.Center,
+                color = LightInk,
+            ),
+        )
+        Box(
+            Modifier.align(Alignment.TopCenter)
+                .offset(y = if (inner) 76.dp else 210.dp)
+                .shadow(12.dp, RoundedCornerShape(16.dp))
+                .clip(RoundedCornerShape(16.dp))
+                .background(LightSurface)
+                .padding(6.dp),
+        ) {
+            Box(Modifier.requiredSize(appWidth, appHeight).clip(RoundedCornerShape(10.dp))) {
+                ShogiTheme { Surface { screen() } }
+            }
+        }
+    }
+}
+
 /** ストア画像は縮小せずそのまま書き出す（VRTのゴールデンは0.5倍で記録している）。 */
 @OptIn(ExperimentalRoborazziApi::class)
 private val storeRoborazziOptions = RoborazziOptions(
@@ -344,21 +407,19 @@ private val storeRoborazziOptions = RoborazziOptions(
  * 盤が初期局面のまま写る。
  */
 private val storeMoves: List<String> =
-    KifParser().parse(File("../data/kifu_samples/wars_game1.kif").readText()).moves
+    KifParser().parse(File("../data/kifu_samples/miyado_game1.kif").readText()).moves
 
 private const val STORE_BLUNDER_PLY = 41
 
-/** ▲２四歩から△２四歩。どちらもこの局面で合法な手にする。 */
-private const val STORE_BEST_USI = "2e2d"
-private const val STORE_BEST_REPLY_USI = "2c2d"
+private const val STORE_BEST_USI = "2f6f"
 
 private val storeGames = listOf(
     GameRecord(
         id = 1L,
-        fileName = "wars_20260910.kif",
+        fileName = "lishogi_20260910.kif",
         contentHash = "store1",
         moveCount = storeMoves.size.toLong(),
-        senteName = "miyado",
+        senteName = "あなた",
         goteName = "相手",
         analyzedAt = 1_789_000_000L,
         rating = 1750L,
@@ -368,7 +429,7 @@ private val storeGames = listOf(
         // 「自分の悪手の直後に自分の形勢が良くなる」グラフになる。
         userSide = "sente",
         uploadedAt = 1_789_000_100L,
-        sourcePlace = "wars",
+        sourcePlace = "lishogi",
         gameWinner = "gote",
         endReason = "投了",
     ),
@@ -377,7 +438,7 @@ private val storeGames = listOf(
         fileName = "wars_20260909.kif",
         contentHash = "store2",
         moveCount = 94L,
-        senteName = "miyado",
+        senteName = "あなた",
         goteName = "相手",
         analyzedAt = 1_788_900_000L,
         rating = 1750L,
@@ -392,7 +453,7 @@ private val storeGames = listOf(
         fileName = "lishogi_20260908.kif",
         contentHash = "store3",
         moveCount = 71L,
-        senteName = "miyado",
+        senteName = "あなた",
         goteName = "相手",
         analyzedAt = 1_788_800_000L,
         rating = 1750L,
@@ -409,6 +470,30 @@ private val storeSfenBeforeBlunder: String = ShogiBoard().run {
     storeMoves.take(STORE_BLUNDER_PLY - 1).forEach { push(ShogiMove.fromUsi(it)) }
     toSfen()
 }
+
+private val storeEvalRecords =
+    File("../analysis/src/jvmTest/resources/evals_game1.ndjson").readLines()
+        .filter { it.isNotBlank() }
+        .map { Json.parseToJsonElement(it).jsonObject }
+
+// USIのスコアは手番視点だが、保存済み評価値は先手視点で扱う。
+private val storePositionEvals: List<PositionEvalRow> =
+    storeEvalRecords.mapIndexed { index, record ->
+            val ply = record.getValue("ply").jsonPrimitive.int
+            check(record.getValue("file").jsonPrimitive.content == "miyado_game1.kif")
+            check(ply == index)
+            val score = record.getValue("score").jsonObject
+            val sign = if (ply % 2 == 0) 1 else -1
+            PositionEvalRow(
+                ply = ply,
+                scoreCp = score["cp"]?.jsonPrimitive?.int?.times(sign),
+                mateIn = score["mate"]?.jsonPrimitive?.int?.times(sign),
+                bestUsi = record.getValue("pv").jsonArray.firstOrNull()?.jsonPrimitive?.content,
+            )
+        }.also {
+            check(it.size == storeMoves.size + 1)
+            check(it[STORE_BLUNDER_PLY - 1].bestUsi == STORE_BEST_USI)
+        }
 
 private val storeBlunder = BlunderRecord(
     id = 1L,
@@ -428,40 +513,8 @@ private val storeBlunder = BlunderRecord(
     note = "あなたの棋力帯(偏差値47-59): 約3局に1回",
     problemType = "手筋 (両取り・素抜き) の問題",
     priority = 2.9978349024480666,
-    bestPv = "$STORE_BEST_USI $STORE_BEST_REPLY_USI",
-    punishPv = "${storeMoves[STORE_BLUNDER_PLY]} ${storeMoves[STORE_BLUNDER_PLY + 1]}",
-    cpBefore = 240L,
-)
-
-/** [STORE_BLUNDER_PLY] 手目で一気に傾き、そこから戻り切らない曲線。 */
-private val storePositionEvals: List<PositionEvalRow> = storeMoves.indices.map { ply ->
-    val cp = if (ply < STORE_BLUNDER_PLY) 40 + ply * 5 else -210 - (ply - STORE_BLUNDER_PLY) * 5
-    PositionEvalRow(ply = ply, scoreCp = cp, mateIn = null, bestUsi = storeMoves[ply])
-}
-
-// 最善手を指した先を検討している状態。候補手は手番（後手）の応手で、
-// 評価は自分（先手）視点のまま出る。
-private val storeStudyState = StudyState(
-    baseSfen = storeSfenBeforeBlunder,
-    moves = listOf(STORE_BEST_USI),
-    displayLine = listOf(STORE_BEST_USI, STORE_BEST_REPLY_USI),
-    chipEvalStates = listOf(
-        StudyEvalState.Value(PositionEvalDisplay.EvalLabel(text = "+240", sign = 1), userCp = 240),
-    ),
-    origin = StudyOrigin(label = "41手目 ▲５八金（−210）", userCp = -210),
-    originIsBestPv = false,
-    originPlyIndex = STORE_BLUNDER_PLY,
-    originSelectedIdx = null,
-    originAbsolutePly = STORE_BLUNDER_PLY,
-    flip = false,
-    branchFlags = listOf(false, false),
-    evalState = StudyEvalState.Value(
-        PositionEvalDisplay.EvalLabel(text = "+240", sign = 1),
-        userCp = 240,
-        candidates = listOf(
-            StudyCandidate("2c2d", "△２四歩", PositionEvalDisplay.EvalLabel(text = "+240", sign = 1)),
-            StudyCandidate("3c2d", "△２四銀", PositionEvalDisplay.EvalLabel(text = "+310", sign = 1)),
-            StudyCandidate("8e8f", "△８六歩", PositionEvalDisplay.EvalLabel(text = "+520", sign = 1)),
-        ),
-    ),
+    bestPv = STORE_BEST_USI,
+    punishPv = storeEvalRecords[STORE_BLUNDER_PLY].getValue("pv").jsonArray
+        .joinToString(" ") { it.jsonPrimitive.content },
+    cpBefore = storePositionEvals[STORE_BLUNDER_PLY - 1].scoreCp!!.toLong(),
 )

@@ -1,5 +1,8 @@
 package dev.miyado.shogisupplement.ui.report
 
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -20,7 +23,6 @@ import androidx.compose.ui.unit.dp
 import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.PositionEvalRow
 import dev.miyado.shogisupplement.db.openingTagList
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.buildTimeControlLine
 import dev.miyado.shogisupplement.ui.common.formatDateTime
 import dev.miyado.shogisupplement.ui.theme.shogiColors
@@ -37,7 +39,7 @@ internal fun GameInfoDialog(
     if (!show) return
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(AppStrings.GAME_INFO_DIALOG_TITLE) },
+        title = { Text(stringResource(Res.string.game_info_dialog_title)) },
         text = {
             Column {
                 // ファイル名（クリップボード取込は「クリップボード 2026-07-15 09:08」形式＝取込元を兼ねる）
@@ -61,14 +63,14 @@ internal fun GameInfoDialog(
                 if (openingStyles.isNotEmpty()) {
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "${AppStrings.GAME_INFO_OPENING_STYLE}：${openingStyles.joinToString("・")}",
+                        "${stringResource(Res.string.game_info_opening_style)}：${openingStyles.joinToString("・")}",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
                 if (game.openingCastle != null) {
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "${AppStrings.GAME_INFO_OPENING_CASTLE}：${game.openingCastle}",
+                        "${stringResource(Res.string.game_info_opening_castle)}：${game.openingCastle}",
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
@@ -81,7 +83,7 @@ internal fun GameInfoDialog(
                     Spacer(Modifier.height(8.dp))
                     Text(
                         buildAnnotatedString {
-                            append("${AppStrings.GAME_INFO_TIME_CONTROL}：")
+                            append("${stringResource(Res.string.game_info_time_control)}：")
                             append(timeControlLine)
                         },
                         style = MaterialTheme.typography.bodyMedium,
@@ -91,13 +93,13 @@ internal fun GameInfoDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text(AppStrings.GAME_INFO_CLOSE)
+                Text(stringResource(Res.string.game_info_close))
             }
         },
         dismissButton = if (onEditPlayers != null) {
             {
                 TextButton(onClick = onEditPlayers) {
-                    Text(AppStrings.GAME_INFO_EDIT_PLAYERS)
+                    Text(stringResource(Res.string.game_info_edit_players))
                 }
             }
         } else {
@@ -111,12 +113,12 @@ internal fun StudyPromoteDialog(show: Boolean, onDecision: (Boolean) -> Unit) {
     if (!show) return
     AlertDialog(
         onDismissRequest = { onDecision(false) },
-        title = { Text(AppStrings.DRILL_PROMOTE_TITLE) },
+        title = { Text(stringResource(Res.string.drill_promote_title)) },
         confirmButton = {
-            TextButton(onClick = { onDecision(true) }) { Text(AppStrings.DRILL_PROMOTE_YES) }
+            TextButton(onClick = { onDecision(true) }) { Text(stringResource(Res.string.drill_promote_yes)) }
         },
         dismissButton = {
-            TextButton(onClick = { onDecision(false) }) { Text(AppStrings.DRILL_PROMOTE_NO) }
+            TextButton(onClick = { onDecision(false) }) { Text(stringResource(Res.string.drill_promote_no)) }
         },
     )
 }
@@ -133,6 +135,8 @@ internal fun MoveListBottomSheet(
     evalDisplay: String,
     userIsGote: Boolean,
     onSelectPly: (Int) -> Unit,
+    initialSfen: String? = null,
+    includeInitial: Boolean = false,
 ) {
     if (!show) return
     ModalBottomSheet(onDismissRequest = onDismiss) {
@@ -144,6 +148,8 @@ internal fun MoveListBottomSheet(
                 evalDisplay = evalDisplay,
                 userIsGote = userIsGote,
                 onSelectPly = onSelectPly,
+                initialSfen = initialSfen,
+                includeInitial = includeInitial,
             )
         }
     }

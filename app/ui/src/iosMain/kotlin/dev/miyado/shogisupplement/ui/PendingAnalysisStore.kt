@@ -39,6 +39,8 @@ data class PendingAnalysis(
     val ratingRule: String? = null,
     val contentHash: String? = null,
     val sourcePlaceOverride: String? = null,
+    val forceReanalysis: Boolean = false,
+    val requestId: String? = null,
     val createdAtEpochSeconds: Long,
 )
 

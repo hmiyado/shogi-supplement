@@ -1,0 +1,10 @@
+{
+  "kind": "screen",
+  "kindLabel": "画面（Screen）",
+  "category": "drill",
+  "categoryLabel": "次の一手",
+  "screen": "出題",
+  "screenLabel": "出題",
+  "state": "expanded幅",
+  "stateLabel": "expanded幅"
+}

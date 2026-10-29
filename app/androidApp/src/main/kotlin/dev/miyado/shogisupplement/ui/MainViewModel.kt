@@ -1,5 +1,16 @@
 package dev.miyado.shogisupplement.ui
 
+import dev.miyado.shogisupplement.drill.DrillMode
+
+import dev.miyado.shogisupplement.importing.KifFileReader
+
+import dev.miyado.shogisupplement.ui.text.LocalizedStrings
+
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import dev.miyado.shogisupplement.navigation.NavigationEvent
+import dev.miyado.shogisupplement.navigation.NavigationMachine
+
 import android.app.Application
 import android.content.Intent
 import android.net.Uri
@@ -16,6 +27,7 @@ import dev.miyado.shogisupplement.db.GameRecord
 import dev.miyado.shogisupplement.db.GameRepository
 import dev.miyado.shogisupplement.db.RatingSettings
 import dev.miyado.shogisupplement.db.SettingsRepository
+import dev.miyado.shogisupplement.db.SavedGameFilter
 import dev.miyado.shogisupplement.engine.Engine
 import dev.miyado.shogisupplement.engine.PvInfo
 import dev.miyado.shogisupplement.engine.UsiEngineProcess
@@ -33,7 +45,6 @@ import dev.miyado.shogisupplement.pipeline.ProgressiveReportState
 import dev.miyado.shogisupplement.service.AnalysisService
 import dev.miyado.shogisupplement.service.AnalysisServiceBus
 import dev.miyado.shogisupplement.service.AnalysisServiceBus.ServiceEvent
-import dev.miyado.shogisupplement.text.AppStrings
 import dev.miyado.shogisupplement.ui.common.AppSettingsController
 import dev.miyado.shogisupplement.ui.common.PvExtState
 import dev.miyado.shogisupplement.ui.home.HomeViewModel
@@ -49,6 +60,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import java.util.UUID
 import kotlinx.coroutines.withContext
 
 /** [MainUiState]とAndroid固有の解析配線を管理するトップレベルViewModel。 */
@@ -57,12 +69,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     data class ManualKifRequest(val text: String, val fileName: String)
 
     private val gameRepository = AppDatabase.gameRepository(application)
+    val gameListQueries get() = checkNotNull(gameRepository.gameListQueries)
     private val drillRepository = AppDatabase.drillRepository(application)
     private val settingsRepository = AppDatabase.settingsRepository(application)
     private val app get() = getApplication<ShogiApp>()
 
     private val _state = MutableStateFlow<MainUiState>(MainUiState.Loading)
     val state: StateFlow<MainUiState> = _state
+
+    /** 解析画面を離れた後も確認できる、未確認の解析失敗。 */
+    private val _analysisError = MutableStateFlow<String?>(null)
+    val analysisError: StateFlow<String?> = _analysisError
 
     private val _manualKifRequest = MutableStateFlow<ManualKifRequest?>(null)
     val manualKifRequest: StateFlow<ManualKifRequest?> = _manualKifRequest
@@ -75,6 +92,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _manualKifRequest.value = null
     }
 
+    fun clearAnalysisError() {
+        _analysisError.value = null
+    }
+
     private val appSettings = AppSettingsController(settingsRepository, viewModelScope)
 
     /** テーマモード（'system' / 'light' / 'dark'）。 */
@@ -84,12 +105,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val evalDisplay: StateFlow<String> = appSettings.evalDisplay
 
     val skipSideConfirm: StateFlow<Boolean> = appSettings.skipSideConfirm
-
-    /**
-     * 通知タップから起動した場合の gameId。
-     * これが設定されている間は loadHome() の結果で上書きしない。
-     */
-    private var pendingNotificationGameId: Long? = null
 
     /** ホーム画面（games一覧・推定棋力カード・今日の1問）のロードを担う協力オブジェクト。 */
     private val homeViewModel: HomeViewModel by lazy {
@@ -126,14 +141,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     /** レポート画面の検討モード状態（null = 検討していない）。ReportViewModel へ委譲。 */
     val studyState: StateFlow<StudyState?> get() = reportViewModel.studyState
 
+    var rootNavigation by androidx.compose.runtime.mutableStateOf(dev.miyado.shogisupplement.navigation.RootNavigation())
+        private set
+
     init {
         loadHome()
         // ServiceBus からの完了イベントを監視
         viewModelScope.launch {
             AnalysisServiceBus.events.collect { event ->
+                val requestId = when (event) {
+                    is ServiceEvent.Completed -> event.requestId
+                    is ServiceEvent.Failed -> event.requestId
+                    is ServiceEvent.PositionResult -> event.requestId
+                }
+                val watching = _state.value as? MainUiState.AnalyzingReport
+                if (watching != null && !NavigationMachine.acceptsAnalysisEvent(watching.destination, watching.requestId, requestId)) {
+                    return@collect
+                }
                 when (event) {
                     is ServiceEvent.Completed -> onAnalysisCompleted(event.gameId, event.alreadyExisted)
-                    is ServiceEvent.Failed -> onAnalysisFailed(event.message)
+                    is ServiceEvent.Failed -> onAnalysisFailed(event.message, event.requestId)
                     is ServiceEvent.PositionResult -> onPositionResult(event.ply, event.pvs)
                 }
             }
@@ -141,6 +168,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         // 認証状態の変化を監視（ホーム画面の isLoggedIn を更新）
         viewModelScope.launch {
             app.authRepository.currentUser.collect { user ->
+                rootNavigation = rootNavigation.consumeCompletion()
                 val s = _state.value
                 if (s is MainUiState.Home) {
                     _state.value = s.copy(isLoggedIn = user != null)
@@ -160,22 +188,38 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /**
-     * 通知タップで起動したとき、gameId のレポートを直接表示する。
-     * onCreate/onNewIntent から呼ぶ。
-     */
-    fun handleNotificationIntent(gameId: Long) {
-        pendingNotificationGameId = gameId
+    fun openCompletedReport() {
+        val gameId = rootNavigation.completedGameId ?: return
+        rootNavigation = rootNavigation.consumeCompletion()
         showReport(gameId)
     }
 
-    /** ホーム画面（過去の解析一覧）を読み込む。 */
-    fun loadHome() {
+    fun selectRoot(tab: dev.miyado.shogisupplement.navigation.RootTab) {
+        rootNavigation = rootNavigation.select(tab)
+        when (tab) {
+            dev.miyado.shogisupplement.navigation.RootTab.HOME -> loadHome(forceHome = true)
+            dev.miyado.shogisupplement.navigation.RootTab.GAMES -> openGameList()
+            dev.miyado.shogisupplement.navigation.RootTab.REPERTOIRE -> _state.value = MainUiState.Repertoire
+        }
+    }
+
+    fun loadHome(backgroundRefresh: Boolean = false, forceHome: Boolean = false) {
+        if (!backgroundRefresh && !forceHome && _state.value.destination != dev.miyado.shogisupplement.navigation.AppDestination.HOME) {
+            val target = rootNavigation.back(_state.value.destination)
+            if (target == dev.miyado.shogisupplement.navigation.AppDestination.GAME_LIST) { openGameList(); return }
+            if (target == dev.miyado.shogisupplement.navigation.AppDestination.REPERTOIRE) { _state.value = MainUiState.Repertoire; return }
+            rootNavigation = rootNavigation.select(dev.miyado.shogisupplement.navigation.RootTab.HOME)
+        }
+        val originState = _state.value
+        val originTab = rootNavigation.selected
+        val expectedVisit = if (backgroundRefresh) {
+            (_state.value as? MainUiState.Home)?.visitId ?: return
+        } else null
         viewModelScope.launch {
-            // 通知タップ pending がある場合は loadHome の結果で上書きしない
-            if (pendingNotificationGameId != null) return@launch
             val isLoggedIn = app.authRepository.currentUser.value != null
             val result = homeViewModel.loadHomeData()
+            if (_state.value !== originState || rootNavigation.selected != originTab) return@launch
+            if (backgroundRefresh && (_state.value as? MainUiState.Home)?.visitId !== expectedVisit) return@launch
             _state.value = MainUiState.Home(
                 result.games,
                 isLoggedIn = isLoggedIn,
@@ -186,28 +230,65 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 // 発火しないため、既に進行中のセッションがある状態でHomeへ戻ったときに
                 // 次の局面到着まで一覧が空のままになるのを防ぐ）。
                 analyzingSessions = InProgressAnalysisRegistry.shared.sessions.value.values.toList(),
+                visitId = expectedVisit ?: Any(),
             )
         }
     }
 
     /** ドリル画面に遷移する。 */
-    fun startDrill() {
-        _state.value = MainUiState.Drill
+    fun startDrill(mode: DrillMode = DrillMode.NORMAL) {
+        navigateTo(MainUiState.Drill(mode))
     }
 
     /** アカウント画面に遷移する。 */
     fun openAccount() {
-        _state.value = MainUiState.Account
+        navigateTo(MainUiState.Account)
     }
 
     /** OSSライセンス一覧画面に遷移する。 */
     fun openLicenses() {
-        _state.value = MainUiState.Licenses
+        navigateTo(MainUiState.Licenses)
     }
+
+    val repertoireRepository by lazy { AppDatabase.repertoireRepository(app) }
+    val repertoireOwner get() = app.authRepository.currentUser
+    val repertoireSync by lazy {
+        dev.miyado.shogisupplement.repertoire.RepertoireSync(repertoireRepository, app.repertoireRemote) {
+            app.authRepository.currentUser.value?.id
+        }
+    }
+    suspend fun refreshPositionLabels() {
+        if (app.authRepository.currentUser.value == null) return
+        try { repertoireSync.synchronize() }
+        catch (e: kotlinx.coroutines.CancellationException) { throw e }
+        catch (_: Exception) { return }
+        val current = _state.value as? MainUiState.GameList ?: return
+        _state.value = current.copy(dataRevision = current.dataRevision + 1)
+    }
+
+    fun openRepertoire() = selectRoot(dev.miyado.shogisupplement.navigation.RootTab.REPERTOIRE)
+    suspend fun createRepertoireEngine(): dev.miyado.shogisupplement.engine.StudyEngine =
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            dev.miyado.shogisupplement.engine.BlockingStudyEngine(createEngine(), kotlinx.coroutines.Dispatchers.IO)
+        }
 
     /** 設定画面に遷移する。 */
     fun openSettings() {
-        _state.value = MainUiState.Settings
+        navigateTo(MainUiState.Settings)
+    }
+
+    /** 共通状態機械が許可した遷移だけをAndroidの表示状態へ反映する。 */
+    private fun navigateTo(target: MainUiState) {
+        val current = _state.value.destination
+        val destination = target.destination
+        val event = if (NavigationMachine.resolve(current, NavigationEvent.Back) == destination) {
+            NavigationEvent.Back
+        } else {
+            NavigationEvent.Open(destination)
+        }
+        if (NavigationMachine.resolve(current, event) == destination) {
+            _state.value = target
+        }
     }
 
     /**
@@ -216,9 +297,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      * （カード自体がその場合は表示されないため、通常到達しない）。
      */
     fun openStrengthDetail() {
+        val origin = _state.value
         viewModelScope.launch {
             val data = strengthDetailViewModel.loadStrengthDetail() ?: return@launch
-            _state.value = MainUiState.StrengthDetail(data)
+            if (_state.value !== origin) return@launch
+            navigateTo(MainUiState.StrengthDetail(data))
         }
     }
 
@@ -228,36 +311,52 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      * （カード自体がその場合は表示されないため、通常到達しない）。
      */
     fun openDrillRecordDetail() {
+        val origin = _state.value
         viewModelScope.launch {
             val data = drillRecordDetailViewModel.loadDrillRecordDetail() ?: return@launch
-            _state.value = MainUiState.DrillRecordDetail(data)
+            if (_state.value !== origin) return@launch
+            navigateTo(MainUiState.DrillRecordDetail(data))
         }
     }
 
     /** デバッグ画面に遷移する（BuildConfig.DEBUG のみ呼ばれる）。 */
     fun openDebug() {
-        _state.value = MainUiState.Debug
+        navigateTo(MainUiState.Debug)
     }
 
     /** 棋譜一覧画面に遷移する。 */
     fun openGameList() {
+        rootNavigation = rootNavigation.select(dev.miyado.shogisupplement.navigation.RootTab.GAMES)
         viewModelScope.launch {
             reloadGameList()
         }
     }
 
     private suspend fun reloadGameList() {
-        val games = withContext(Dispatchers.IO) { gameRepository.getAllGames() }
-        val blunderCounts = withContext(Dispatchers.IO) { gameRepository.getBlunderCounts() }
+        val originState = _state.value
         val isLoggedIn = app.authRepository.currentUser.value != null
         val pendingCount = if (isLoggedIn) {
-            withContext(Dispatchers.IO) { gameRepository.getNotUploadedGames().size }
+            withContext(Dispatchers.IO) { gameRepository.gameListQueries!!.pendingUploadCount() }
         } else 0
+        val savedFilters = withContext(Dispatchers.IO) { settingsRepository.getSavedGameFilters() }
+        if (_state.value !== originState || rootNavigation.selected != dev.miyado.shogisupplement.navigation.RootTab.GAMES) return
         _state.value = MainUiState.GameList(
-            games,
-            blunderCounts = blunderCounts,
+            dataRevision = ((originState as? MainUiState.GameList)?.dataRevision ?: 0) + 1,
             pendingUploadCount = pendingCount,
+            savedFilters = savedFilters,
         )
+    }
+
+    fun saveGameFilter(filter: SavedGameFilter) {
+        settingsRepository.saveGameFilter(filter)
+        val current = _state.value as? MainUiState.GameList ?: return
+        _state.value = current.copy(savedFilters = settingsRepository.getSavedGameFilters())
+    }
+
+    fun deleteGameFilter(name: String) {
+        settingsRepository.deleteGameFilter(name)
+        val current = _state.value as? MainUiState.GameList ?: return
+        _state.value = current.copy(savedFilters = settingsRepository.getSavedGameFilters())
     }
 
     /**
@@ -298,11 +397,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _state.value = s.copy(isUploading = true, uploadResult = null)
         viewModelScope.launch {
             val result = withContext(Dispatchers.IO) { app.uploadOrchestrator.uploadAll() }
-            val newGames = withContext(Dispatchers.IO) { gameRepository.getAllGames() }
-            val pendingCount = withContext(Dispatchers.IO) { gameRepository.getNotUploadedGames().size }
+            val pendingCount = withContext(Dispatchers.IO) { gameRepository.gameListQueries!!.pendingUploadCount() }
             val cur = _state.value as? MainUiState.GameList ?: return@launch
             _state.value = cur.copy(
-                games = newGames,
+                dataRevision = cur.dataRevision + 1,
                 pendingUploadCount = pendingCount,
                 isUploading = false,
                 uploadResult = result.resultMessage(),
@@ -320,7 +418,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     /**
      * 選ばれたURIのKIFを読む。表示名と本文を1回の読み取りで返す
-     * （本文はUTF-8で読めなければnull）。
+     * （読み込み・文字コードの判定に失敗した本文はnull）。
      */
     suspend fun readKifFromUri(uri: Uri): Pair<String, String?> = withContext(Dispatchers.IO) {
         resolveKifFileName(uri) to runCatching { readKifContentFromUri(uri) }.getOrNull()
@@ -336,26 +434,34 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 ratingService = request.ratingService,
                 ratingRaw = request.ratingRaw,
                 ratingRule = request.ratingRule,
+                ratingDeclaredAt = request.ratingDeclaredAt,
             )
         }
         when (next) {
             is GameImportFlow.Next.Analyze -> analyzeStoredGame(next.game)
             is GameImportFlow.Next.OpenReport -> showReport(next.gameId)
-            is GameImportFlow.Next.Failed -> _state.value = MainUiState.Error(next.message)
+            is GameImportFlow.Next.Failed -> _state.value = MainUiState.Error(next.message.ifEmpty { LocalizedStrings.UNKNOWN_ERROR() })
         }
     }
 
-    fun analyzeStoredGame(game: GameRecord) {
+    fun analyzeStoredGame(game: GameRecord, forceReanalysis: Boolean = false) {
         if (game.kifText == null) return
+        val requestId = UUID.randomUUID().toString()
         _state.value = MainUiState.AnalyzingReport(
             titleHint = game.fileName,
             moves = game.movesUsi,
             userSide = game.userSide,
             progressive = ProgressiveReportState.initial(game.movesUsi),
+            requestId = requestId,
         )
         val ctx = getApplication<Application>()
         val intent = Intent(ctx, AnalysisService::class.java).apply {
             putExtra(AnalysisService.EXTRA_GAME_ID, game.id)
+            putExtra(AnalysisService.EXTRA_FORCE_REANALYSIS, forceReanalysis)
+            putExtra(
+                AnalysisService.EXTRA_REQUEST_ID,
+                requestId,
+            )
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             ctx.startForegroundService(intent)
@@ -364,15 +470,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** @param justCompleted trueなら完了通知バナーを一度だけ表示する。 */
-    fun showReport(gameId: Long, justCompleted: Boolean = false) {
+    /** @param justCompleted trueなら解析完了バナーを一度だけ表示する。 */
+    fun showReport(gameId: Long, justCompleted: Boolean = false, expectedRequestId: String? = null) {
         viewModelScope.launch {
             val report = reportViewModel.loadReport(gameId).toScreenState()
-            pendingNotificationGameId = null
+            if (expectedRequestId != null) {
+                val current = _state.value
+                if (!NavigationMachine.acceptsAnalysisEvent(current.destination,
+                        (current as? MainUiState.AnalyzingReport)?.requestId, expectedRequestId)) return@launch
+            }
             _state.value = if (report != null) {
                 MainUiState.ShowReport(report, appSettings.evalDisplay.value, justCompleted)
             } else {
-                MainUiState.Error(AppStrings.gameNotFound(gameId))
+                MainUiState.Error(LocalizedStrings.gameNotFound(gameId))
             }
         }
     }
@@ -390,18 +500,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /**
-     * KIF ファイルの対局者名（先手・後手）をパースして返す。
-     * 読み込み・パースに失敗した場合は (null, null)。
-     */
-    /** KIF原文を読む（ファイルURI/コンテンツURIの両対応）。 */
     private fun readKifContentFromUri(uri: Uri): String =
-        if (uri.scheme == "file") {
-            java.io.File(uri.path!!).readText()
-        } else {
-            getApplication<Application>().contentResolver
-                .openInputStream(uri)!!.use { it.readBytes().decodeToString() }
-        }
+        KifFileReader.read(getApplication<Application>().contentResolver, uri)
 
     /** content URIでは末尾パスが表示名とは限らないため、Providerの表示名を優先する。 */
     private fun resolveKifFileName(uri: Uri): String {
@@ -470,36 +570,45 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             moves = session.progressive.moves,
             userSide = session.userSide,
             progressive = session.progressive,
+            requestId = session.requestId,
         )
     }
 
     private fun onAnalysisCompleted(gameId: Long, alreadyExisted: Boolean) {
+        if (!alreadyExisted) rootNavigation = rootNavigation.completed(gameId, _state.value is MainUiState.AnalyzingReport)
         // 解析中レポート画面を実際に見ているときだけレポートへ遷移する。
         // ホーム等の他画面にいる間に裏で完了しても、その画面から強制的に連れ去らない
         // （画面はレジストリの購読者に過ぎず、遷移は「見ている」ときの一度きりの体験でよい）。
         val wasWatching = _state.value is MainUiState.AnalyzingReport
         if (wasWatching) {
             // alreadyExisted=true は重複KIFの再取込（実際には何も解析していない）ため、
-            // 完了通知バナーは出さない。
-            showReport(gameId, justCompleted = !alreadyExisted)
+            // 解析完了バナーは出さない。
+            showReport(gameId, justCompleted = !alreadyExisted,
+                expectedRequestId = (_state.value as MainUiState.AnalyzingReport).requestId)
         } else if (_state.value is MainUiState.Home) {
-            loadHome()
+            loadHome(backgroundRefresh = true)
         }
     }
 
-    private fun onAnalysisFailed(message: String) {
+    private fun onAnalysisFailed(message: String, requestId: String?) {
         val wasWatching = _state.value is MainUiState.AnalyzingReport
         if (wasWatching) {
             viewModelScope.launch {
                 val games = withContext(Dispatchers.IO) {
                     gameRepository.getAllGames()
                 }
+                val current = _state.value
+                if (!NavigationMachine.acceptsAnalysisEvent(current.destination,
+                        (current as? MainUiState.AnalyzingReport)?.requestId, requestId)) return@launch
                 _state.value = MainUiState.Error(message, games)
             }
-        } else if (_state.value is MainUiState.Home) {
-            // 失敗はシステム通知で既に伝わっている。ここではホームの解析中カードを
-            // 消すためだけにリロードする（新規UIは作らない）。
-            loadHome()
+        } else {
+            // システム通知を使わないため、解析画面以外にいる場合も
+            // 画面状態とは独立して保持し、アプリ内ダイアログで知らせる。
+            _analysisError.value = message
+            if (_state.value is MainUiState.Home) {
+                loadHome(backgroundRefresh = true)
+            }
         }
     }
 
@@ -551,11 +660,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun studyStepBack() = reportViewModel.studyStepBack()
     fun studyResetToStart() = reportViewModel.studyResetToStart()
     fun endStudy() = reportViewModel.endStudy()
+    fun saveStudy(onResult: (Boolean) -> Unit) = reportViewModel.saveStudy(onResult)
+    fun savedKifForExport(gameId: Long): String? = reportViewModel.savedKifForExport(gameId)
+    fun hasUnsavedStudy(): Boolean = reportViewModel.hasUnsavedStudy()
+    fun deleteStudyBranch(baseSfen: String, moves: List<String>, nodeId: Long? = null): Boolean = reportViewModel.deleteStudyBranch(baseSfen, moves, nodeId)
+
     fun onStudyChipTapped(depth: Int) = reportViewModel.onStudyChipTapped(depth)
     fun onStudyBranchChipTapped(depth: Int) = reportViewModel.onStudyBranchChipTapped(depth)
     fun onStudyBranchPopupDismiss() = reportViewModel.onStudyBranchPopupDismiss()
-    fun onStudyBranchOptionSelected(depth: Int, moveUsi: String) = reportViewModel.onStudyBranchOptionSelected(depth, moveUsi)
+    fun onStudyBranchOptionSelected(depth: Int, nodeId: Long) = reportViewModel.onStudyBranchOptionSelected(depth, nodeId)
     fun onStudyAnalyze() = reportViewModel.onStudyAnalyze()
+    fun onStudyAutoAnalyze() = reportViewModel.onStudyAutoAnalyze()
     fun onStudyCandidateSelected(moveUsi: String) = reportViewModel.onStudyCandidateSelected(moveUsi)
 
     override fun onCleared() {

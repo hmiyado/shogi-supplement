@@ -1,0 +1,10 @@
+{
+  "kind": "screen",
+  "kindLabel": "画面（Screen）",
+  "category": "game",
+  "categoryLabel": "棋譜管理",
+  "screen": "一覧・絞り込み・sheet・chip",
+  "screenLabel": "一覧・絞り込み・sheet・chip",
+  "state": "選択中",
+  "stateLabel": "選択中"
+}

@@ -1,5 +1,12 @@
 package dev.miyado.shogisupplement
 
+import dev.miyado.shogisupplement.ui.text.UiStrings
+
+import org.jetbrains.compose.resources.stringResource
+import dev.miyado.shogisupplement.ui.generated.resources.*
+
+import dev.miyado.shogisupplement.ui.destination
+
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -12,9 +19,12 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -39,7 +49,6 @@ import dev.miyado.shogisupplement.ui.gamelist.GameListScreen
 import dev.miyado.shogisupplement.ui.manual.ManualKifuScreen
 import dev.miyado.shogisupplement.ui.theme.ShogiTheme
 
-/** アプリのエントリポイント。 */
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -85,10 +94,6 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        intent?.getLongExtra(EXTRA_GAME_ID, -1L)?.takeIf { it >= 0L }?.let { gameId ->
-            val vm: MainViewModel by viewModels()
-            vm.handleNotificationIntent(gameId)
-        }
     }
 
     /**
@@ -100,26 +105,17 @@ class MainActivity : ComponentActivity() {
         (application as ShogiApp).checkForceUpdate()
     }
 
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        setIntent(intent)
-        intent.getLongExtra(EXTRA_GAME_ID, -1L).takeIf { it >= 0L }?.let { gameId ->
-            val vm: MainViewModel by viewModels()
-            vm.handleNotificationIntent(gameId)
-        }
-    }
-
-    companion object {
-        const val EXTRA_GAME_ID = "game_id"
-    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainApp(vm: MainViewModel, state: MainUiState) {
+    val tabStateHolder = androidx.compose.runtime.saveable.rememberSaveableStateHolder()
+    val gameListSession = dev.miyado.shogisupplement.ui.gamelist.rememberGameListSession()
     var showKifSourceSheet by remember { mutableStateOf(false) }
     var showRatingSettingsDialog by remember { mutableStateOf(false) }
     var showManualKifu by remember { mutableStateOf(false) }
+    val analysisError by vm.analysisError.collectAsState()
 
     KifImportFlow(
         vm = vm,
@@ -139,88 +135,133 @@ fun MainApp(vm: MainViewModel, state: MainUiState) {
                 vm.enqueueManualKif(draft.toKifText())
             },
         )
-        return
-    }
-
-    when (state) {
-        is MainUiState.Loading -> {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
+    } else {
+        dev.miyado.shogisupplement.ui.navigation.RootTabShell(
+            selected = vm.rootNavigation.selected,
+            visible = vm.rootNavigation.showsTabs(state.destination),
+            screenKey = state.destination.name,
+            onSelect = vm::selectRoot,
+            holder = tabStateHolder,
+            onResumeAnalysis = vm::resumeAnalyzing,
+            completed = vm.rootNavigation.completedGameId != null, onOpenCompleted = vm::openCompletedReport,
+        ) {
+        when (state) {
+            is MainUiState.Loading -> {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            }
+            is MainUiState.Home -> {
+                HomeHost(vm, state, onOpenKif = { showKifSourceSheet = true })
+            }
+            is MainUiState.AnalyzingReport -> {
+                AnalyzingReportHost(vm, state)
+            }
+            is MainUiState.ShowReport -> {
+                ReportHost(vm, state)
+            }
+            is MainUiState.Drill -> {
+                BackHandler { vm.loadHome() }
+                DrillScreen(onBack = { vm.loadHome() }, mode = state.mode)
+            }
+            is MainUiState.Account -> {
+                AccountHost(vm)
+            }
+            is MainUiState.Licenses -> {
+                BackHandler { vm.openSettings() }
+                val context = LocalContext.current
+                LicensesScreen(
+                    onBack = { vm.openSettings() },
+                    onOpenSourceRepo = {
+                        context.startActivity(
+                            Intent(Intent.ACTION_VIEW, Uri.parse(LegalLinks.SOURCE_REPO_URL)),
+                        )
+                    },
+                )
+            }
+            is MainUiState.Settings -> {
+                SettingsHost(vm)
+            }
+            is MainUiState.StrengthDetail -> {
+                StrengthDetailHost(vm, state, onEditAccounts = { showRatingSettingsDialog = true })
+            }
+            is MainUiState.DrillRecordDetail -> {
+                BackHandler { vm.loadHome() }
+                val context = LocalContext.current
+                val view = LocalView.current
+                DrillRecordDetailScreen(
+                    data = state.data,
+                    onBack = { vm.loadHome() },
+                    onShare = { shareScreen(context, view) },
+                )
+            }
+            MainUiState.Repertoire -> {
+                val owner by vm.repertoireOwner.collectAsState()
+                val repertoireEvalDisplay by vm.evalDisplay.collectAsState()
+                dev.miyado.shogisupplement.ui.repertoire.RepertoireScreen(
+                    vm.repertoireRepository, owner?.id, vm.repertoireSync, vm::createRepertoireEngine,
+                    onBack = { vm.loadHome() },
+                    evalDisplay = repertoireEvalDisplay,
+                )
+            }
+            is MainUiState.GameList -> {
+                val labelOwner by vm.repertoireOwner.collectAsState()
+                androidx.compose.runtime.LaunchedEffect(labelOwner?.id) { vm.refreshPositionLabels() }
+                BackHandler { vm.loadHome() }
+                GameListScreen(
+                    onAddGame = { showKifSourceSheet = true },
+                    games = emptyList(),
+                    queries = vm.gameListQueries,
+                    session = gameListSession,
+                    labelOwner = labelOwner?.id,
+                    dataRevision = state.dataRevision,
+                    pendingUploadCount = state.pendingUploadCount,
+                    isUploading = state.isUploading,
+                    uploadResult = state.uploadResult,
+                    savedFilters = state.savedFilters,
+                    onBack = null,
+                    onGameClick = { game -> vm.showReport(game.id) },
+                    onSaveFilter = { filter -> vm.saveGameFilter(filter) },
+                    onDeleteSavedFilter = { name -> vm.deleteGameFilter(name) },
+                    onUpload = { vm.uploadFromGameList() },
+                    onDeleteGame = { game, deleteServer, onResult ->
+                        vm.deleteGame(game, deleteServer, onResult)
+                    },
+                )
+            }
+            is MainUiState.Error -> {
+                BackHandler { vm.loadHome() }
+                ErrorScreen(
+                    message = state.message,
+                    pastGames = state.pastGames,
+                    onRetry = { vm.loadHome() },
+                    onOpenKif = { showKifSourceSheet = true },
+                    onGameClick = { game -> vm.showReport(game.id) },
+                )
+            }
+            is MainUiState.Debug -> {
+                BackHandler { vm.loadHome() }
+                DebugScreen(onBack = { vm.loadHome() })
             }
         }
-        is MainUiState.Home -> {
-            HomeHost(vm, state, onOpenKif = { showKifSourceSheet = true })
         }
-        is MainUiState.AnalyzingReport -> {
-            AnalyzingReportHost(vm, state)
-        }
-        is MainUiState.ShowReport -> {
-            ReportHost(vm, state)
-        }
-        is MainUiState.Drill -> {
-            BackHandler { vm.loadHome() }
-            DrillScreen(onBack = { vm.loadHome() })
-        }
-        is MainUiState.Account -> {
-            AccountHost(vm)
-        }
-        is MainUiState.Licenses -> {
-            BackHandler { vm.openSettings() }
-            val context = LocalContext.current
-            LicensesScreen(
-                onBack = { vm.openSettings() },
-                onOpenSourceRepo = {
-                    context.startActivity(
-                        Intent(Intent.ACTION_VIEW, Uri.parse(LegalLinks.SOURCE_REPO_URL)),
-                    )
-                },
-            )
-        }
-        is MainUiState.Settings -> {
-            SettingsHost(vm)
-        }
-        is MainUiState.StrengthDetail -> {
-            StrengthDetailHost(vm, state, onEditAccounts = { showRatingSettingsDialog = true })
-        }
-        is MainUiState.DrillRecordDetail -> {
-            BackHandler { vm.loadHome() }
-            val context = LocalContext.current
-            val view = LocalView.current
-            DrillRecordDetailScreen(
-                data = state.data,
-                onBack = { vm.loadHome() },
-                onShare = { shareScreen(context, view) },
-            )
-        }
-        is MainUiState.GameList -> {
-            BackHandler { vm.loadHome() }
-            GameListScreen(
-                games = state.games,
-                blunderCounts = state.blunderCounts,
-                pendingUploadCount = state.pendingUploadCount,
-                isUploading = state.isUploading,
-                uploadResult = state.uploadResult,
-                onBack = { vm.loadHome() },
-                onGameClick = { game -> vm.showReport(game.id) },
-                onUpload = { vm.uploadFromGameList() },
-                onDeleteGame = { game, deleteServer, onResult ->
-                    vm.deleteGame(game, deleteServer, onResult)
-                },
-            )
-        }
-        is MainUiState.Error -> {
-            BackHandler { vm.loadHome() }
-            ErrorScreen(
-                message = state.message,
-                pastGames = state.pastGames,
-                onRetry = { vm.loadHome() },
-                onOpenKif = { showKifSourceSheet = true },
-                onGameClick = { game -> vm.showReport(game.id) },
-            )
-        }
-        is MainUiState.Debug -> {
-            BackHandler { vm.loadHome() }
-            DebugScreen(onBack = { vm.loadHome() })
-        }
+    }
+
+    analysisError?.let { message ->
+        AlertDialog(
+            onDismissRequest = { vm.clearAnalysisError() },
+            title = {
+                Text(
+                    text = stringResource(Res.string.analysis_failed_dialog_title),
+                    color = MaterialTheme.colorScheme.error,
+                )
+            },
+            text = { Text(UiStrings.errorMessage(message)) },
+            confirmButton = {
+                TextButton(onClick = { vm.clearAnalysisError() }) {
+                    Text(stringResource(Res.string.close))
+                }
+            },
+        )
     }
 }

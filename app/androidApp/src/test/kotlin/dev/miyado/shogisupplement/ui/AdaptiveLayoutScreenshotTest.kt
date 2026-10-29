@@ -119,7 +119,7 @@ class AdaptiveLayoutScreenshotTest {
                         pastGames = sampleGames(),
                         isLoggedIn = true,
                         strengthCard = StrengthCardData(
-                            displayText = "51 ±25",
+                            displayText = "51.2 ±25.4",
                             detailText = "直近5局から算出",
                         ),
                         todaysDrillHint = TodaysDrillHint(ply = 41L),
