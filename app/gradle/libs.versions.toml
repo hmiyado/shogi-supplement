@@ -27,7 +27,7 @@ compose-multiplatform = "1.12.2"
 # typealiasのため実体は共通。バージョンはCMP本体が内部で参照するlifecycleに合わせる（競合回避）。
 kmp-lifecycle = "2.11.0"
 # server/worker（Cloud Runワーカー）専用の依存。androidApp/iosAppからは参照されない。
-nimbus-jose-jwt = "10.9.1"
+nimbus-jose-jwt = "10.10"
 logback = "1.6.5"
 cryptography = "0.6.0"
 
