@@ -72,7 +72,7 @@ class SqlDelightGameListReader(
             filter.openingStyle, filter.timeControl, filter.positionLabel, owner.orEmpty()).executeAsOne()
         val ratings = queries.ratings(filter.source, filter.userSide, filter.result?.name, filter.dateFrom, filter.dateTo,
             filter.openingStyle, filter.timeControl, filter.positionLabel, owner.orEmpty()).executeAsList()
-        GameListSummary(row.games.toInt(), row.decided.toInt(), row.wins.toInt(), row.blunders.toInt(), row.user_moves.toInt(), ratings.map { it.toInt() })
+        GameListSummary(row.games.toInt(), requireNotNull(row.decided).toInt(), requireNotNull(row.wins).toInt(), requireNotNull(row.blunders).toInt(), requireNotNull(row.user_moves).toInt(), ratings.map { it.toInt() })
     }
 
     override fun facets(owner: String?): GameListFacets {
