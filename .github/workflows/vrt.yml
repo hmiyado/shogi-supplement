@@ -56,7 +56,7 @@ jobs:
 
       # Why not v6以降: キャッシュ機能がMIT対象外の商用コンポーネントへ分離され、
       # 使用にGradle社のTerms of Useへの同意が必要になったため（worker-test.ymlと同じ理由）。
-      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
 
       # Why not android-actions/setup-android: サードパーティのアクションを使うと
       # リポジトリのアクション許可設定に依存し、許可されていない環境ではジョブが
