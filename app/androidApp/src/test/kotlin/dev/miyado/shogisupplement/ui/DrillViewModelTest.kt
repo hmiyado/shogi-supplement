@@ -338,6 +338,42 @@ class DrillViewModelTest {
     // ─── 読み筋の連続入力（自己説明） ─────────────────────────────────────────
 
     @Test
+    fun questionToSavedAnswerAndNextRound() {
+        val repos = createDb()
+        val vm = buildVmAtQuestion(repos)
+        val question = vm.state.value as DrillUiState.Question
+        assertEquals(sfenBefore, question.sfenCurrent)
+        assertEquals(0, question.attemptCount)
+        assertEquals(1, question.totalCandidates)
+
+        vm.onSquareTapped(ShogiSquare(7, 7))
+        val selected = vm.state.value as DrillUiState.Question
+        assertEquals(ShogiSquare(7, 7), selected.selectedFrom)
+        assertTrue(ShogiSquare(7, 6) in selected.legalDestinations)
+
+        vm.onSquareTapped(ShogiSquare(7, 6))
+        val moved = vm.state.value as DrillUiState.Question
+        assertEquals(listOf("7g7f"), moved.moves)
+        assertEquals(ShogiBoard.fromSfen(sfenBefore).also { it.push(ShogiMove.fromUsi("7g7f")) }.toSfen(), moved.sfenCurrent)
+
+        vm.submitAnswer()
+        val result = vm.state.value as DrillUiState.Result
+        assertTrue(result.drillResult.isCorrect)
+        assertEquals("7g7f", result.drillResult.userMoveUsi)
+        val attempts = repos.drill.getDrillAttempts(question.blunder.id)
+        assertEquals(1, attempts.size)
+        assertEquals("7g7f", attempts.single().userMoveUsi)
+        assertTrue(attempts.single().isCorrect)
+
+        vm.loadNextQuestion()
+        val next = vm.state.value as DrillUiState.Question
+        assertEquals(question.blunder.id, next.blunder.id)
+        assertEquals(1, next.attemptCount)
+        assertEquals(sfenBefore, next.sfenCurrent)
+        assertTrue(next.moves.isEmpty())
+    }
+
+    @Test
     fun onSquareTapped_appliesMoveButStaysInQuestion_andAccumulatesMoves() {
         val vm = buildVmAtQuestion()
 
