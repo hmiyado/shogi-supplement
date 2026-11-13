@@ -7,13 +7,19 @@ on:
       - "tools/comment_lint.py"
       - ".github/workflows/comment-lint.yml"
 
+permissions:
+  contents: read
+
 jobs:
   comment-lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           # 差分検査のためbase側の履歴が要る
           fetch-depth: 0
       - name: Check comments on changed files
-        run: python3 tools/comment_lint.py --diff "origin/${{ github.base_ref }}"
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: python3 tools/comment_lint.py --diff "origin/$BASE_REF"
