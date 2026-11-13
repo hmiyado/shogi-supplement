@@ -8,15 +8,19 @@ import dev.miyado.shogisupplement.ui.generated.resources.*
 
 import dev.miyado.shogisupplement.ui.text.LocalizedStrings
 
+import android.Manifest
 import android.app.Notification
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.IBinder
+import android.os.Build
 import android.provider.OpenableColumns
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import dev.miyado.shogisupplement.ShogiApp
 import dev.miyado.shogisupplement.crash.SentryCrashReporter
 import dev.miyado.shogisupplement.crash.isAlreadyReported
@@ -241,6 +245,13 @@ class AnalysisService : Service() {
     }
 
     private fun updateProgressNotification(done: Int, total: Int) {
+        // 通知拒否時も解析と startForeground は継続し、通常の通知更新だけを省く。
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
         notificationManager.notify(NOTIF_ID, buildProgressNotification(done, total))
     }
 

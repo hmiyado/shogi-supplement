@@ -56,6 +56,9 @@ class DrillViewModelTest {
 
     @Before
     fun setUp() {
+        // Robolectric の sandbox で JDBC が先に初期化されても、通常のテストの
+        // クラスローダーから見える SQLite ドライバーを登録する。
+        Class.forName("org.sqlite.JDBC")
         Dispatchers.setMain(testDispatcher)
     }
 

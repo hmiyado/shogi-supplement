@@ -8,3 +8,7 @@ updates:
       interval: "weekly"
     exclude-paths:
       - "/app/kotlin-js-store/**"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"

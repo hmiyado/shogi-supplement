@@ -13,13 +13,26 @@
 
 ## 構成
 
-- `app/shared/` — KMP共通ロジック（KIFパーサ・盤面・悪手抽出/分類・相応判定・強さ推定・
-  連盟式棋譜表記・次の一手問題の判定・DB・エンジンブリッジ）
-- `app/ui/` — Compose Multiplatform のUI（画面）＋KMP ViewModel。Android/iOS共通
-- `app/androidApp/` — Android専用の配線: エンジン別プロセス実行・Foreground Service・
-  Supabase連携・各画面のViewModel配線（Host）
-- `app/iosApp/` — Xcodeプロジェクト（xcodegen管理）。`:shared`/`:ui` のKotlin/Nativeフレーム
-  ワークを読み込み、エンジン本体はプロセス内静的リンクで組み込む
+Gradleモジュール:
+
+- `app/kifu/`（`:kifu`）— 盤面・合法手・SFEN・KIFパース
+- `app/analysis/`（`:analysis`）— 解析ドメイン・悪手判定・強さ推定・次の一手
+- `app/application/`（`:application`）— portとuse case
+- `app/contracts/`（`:contracts`）— 通信DTO・ワイヤ形式とドメインの相互変換
+- `app/data/database/`（`:data:database`）— SQLDelightによるDB実装
+- `app/data/supabase/`（`:data:supabase`）— Supabase連携・引き継ぎ用暗号
+- `app/engine/ios/`（`:engine:ios`）— iOSプロセス内エンジン・WKWebView内WASMブリッジ
+- `app/engine/remote/`（`:engine:remote`）— サーバー解析・失敗時のフェイルオーバー
+- `app/engine/subprocess/`（`:engine:subprocess`）— Android・JVMの別プロセスエンジン
+- `app/ui/`（`:ui`）— Compose Multiplatform UI・KMP ViewModel
+- `app/androidApp/`（`:androidApp`）— Androidアプリ本体・具体実装とViewModelの配線
+- `app/server/worker/`（`:server:worker`）— Ktor解析ワーカー
+- `app/webApp/`（`:webApp`）— 棋譜検討用wasmJsアプリ
+
+その他:
+
+- `app/iosApp/` — Xcodeプロジェクト（xcodegen管理）。`:ui` が生成する `SharedUi`
+  フレームワークを読み込み、エンジン本体はプロセス内静的リンクで組み込む
 - `docs/` — 設計資料・利用規約
 
 ## ビルド
@@ -43,8 +56,8 @@ JAVA_HOME=/path/to/jdk-21 ./gradlew :androidApp:assembleDebug
 cd app/iosApp
 ./engine/build_ios.sh sim      # やねうら王を静的ライブラリ(libyaneuraou.a)としてビルド
 xcodegen generate              # project.yml から iosApp.xcodeproj を生成
-open iosApp.xcodeproj          # Xcodeでビルド・実行（:shared/:ui のフレームワークは
-                                # preBuildScripts が JAVA_HOME=temurin-21 で ./gradlew を呼んで自動リンクする）
+open iosApp.xcodeproj          # Xcodeでビルド・実行（:ui の SharedUi フレームワークは
+                                # preBuildScripts が JAVA_HOME=temurin-21 で ./gradlew を呼んでビルドし、Xcodeがリンクする）
 ```
 
 ## テスト
