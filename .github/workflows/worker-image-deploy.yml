@@ -40,10 +40,12 @@ concurrency:
 
 permissions:
   contents: read
-  id-token: write # WIF（google-github-actions/auth）に必須
 
 jobs:
   build-and-deploy:
+    permissions:
+      contents: read
+      id-token: write # WIF（google-github-actions/auth）に必須
     runs-on: ubuntu-latest
     # GitHub Environmentsで`production`にRequired reviewersを設定すれば、
     # ここに人間承認ゲートを追加できる（任意設定）。
@@ -51,6 +53,8 @@ jobs:
     environment: production
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       # Why not Variables（vars.*）: 公開リポジトリではワークフローログを誰でも読めるが、
       # Variablesはログ出力時にマスクされない。プロジェクトID・プロジェクト番号を含む値が
