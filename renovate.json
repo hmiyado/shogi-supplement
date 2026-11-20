@@ -14,6 +14,16 @@
       "depNameTemplate": "hashicorp/terraform",
       "datasourceTemplate": "github-releases",
       "extractVersionTemplate": "^v(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
+      "description": "actions.lock検証に使うgh-actions-lock拡張の版を追従させる",
+      "managerFilePatterns": ["/^\\.github/workflows/actions-lock-verify\\.yml$/"],
+      "matchStrings": [
+        "ACTIONS_LOCK_EXT_VERSION:\\s*(?<currentValue>v[0-9]+\\.[0-9]+\\.[0-9]+)"
+      ],
+      "depNameTemplate": "github/gh-actions-lock",
+      "datasourceTemplate": "github-releases"
     }
   ],
   "packageRules": [
@@ -23,6 +33,11 @@
       "matchPackageNames": ["eclipse-temurin"],
       "matchCurrentValue": "/^17/",
       "enabled": false
+    },
+    {
+      "description": "actionsの更新PRはmainから遅れたら作り直し、actions.lockを常に最新のmainに対して再生成させる（lock導入前に作られた#103がそのままマージされstartup_failureになった再発防止）",
+      "matchManagers": ["github-actions"],
+      "rebaseWhen": "behind-base-branch"
     }
   ]
 }

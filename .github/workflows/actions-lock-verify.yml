@@ -1,0 +1,60 @@
+name: actions.lock verify
+
+# actions.lock とワークフローの uses: が食い違ったまま main に入ると、その action を
+# 使う全ワークフローが startup_failure になる（2026-11-19 shogi #103、#117 で復旧）。
+# Renovate は PR ごとに actions.lock を再生成するが、lock 導入前に作られた PR や
+# 再生成に失敗した PR はすり抜ける。PR の時点でここで落とす。
+#
+# Why no `uses:`: このワークフロー自身が actions.lock の食い違いで startup_failure に
+# なると、必須チェックが理由不明の「待機中」になる。action を一切使わず、ランナー
+# 同梱の git と gh だけで動かす。
+#
+# Why no paths filter: 必須チェックに paths を付けると、該当しない PR で永久に
+# 待機中になりマージできなくなる。実行は 1 分未満なので全 PR で回す。
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: actions-lock-verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: actions-lock-verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # Renovate の customManagers（renovate.json）がこの行を更新する
+      ACTIONS_LOCK_EXT_VERSION: v0.4.1
+    steps:
+      # pull_request では github.sha は PR を main にマージした結果のコミット。
+      # マージ後の状態を検証したいのでそれを取る。public repo のため認証なしで fetch する。
+      - name: Fetch the commit under test
+        env:
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -eu
+          git init -q repo
+          git -C repo remote add origin "https://github.com/${REPO}.git"
+          git -C repo fetch -q --depth=1 origin "$SHA"
+          git -C repo checkout -q --detach FETCH_HEAD
+
+      - name: Install gh-actions-lock
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh extension install github/gh-actions-lock --pin "$ACTIONS_LOCK_EXT_VERSION"
+
+      - name: Verify actions.lock
+        working-directory: repo
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh actions-lock --verify
