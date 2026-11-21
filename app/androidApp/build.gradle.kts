@@ -1,5 +1,4 @@
 import java.util.Properties
-import org.gradle.jvm.toolchain.JavaLanguageVersion
 
 plugins {
     alias(libs.plugins.androidApplication)
@@ -181,13 +180,6 @@ android {
                 // ズレないようテストJVM自体のタイムゾーンを固定する。
                 it.systemProperty("user.timezone", "Asia/Tokyo")
                 it.environment("TZ", "Asia/Tokyo")
-                // Why not アプリ本体もJava 21へ上げる: AboutLibraries 15のテスト用成果物だけが
-                // Java 21を要求するため、アプリのJava 17互換性は維持する。
-                it.javaLauncher.set(
-                    javaToolchains.launcherFor {
-                        languageVersion.set(JavaLanguageVersion.of(21))
-                    },
-                )
                 // VRT一括実行でのテストJVMのOOM対策（Sentryテストノイズの根本の片割れ）。
                 // Why not ヒープ増量だけ: 描画分がクラスをまたいで積み上がるため、
                 // goldenが増えるたびに上限へ張り付く。一定クラスごとにJVMを作り直す。
