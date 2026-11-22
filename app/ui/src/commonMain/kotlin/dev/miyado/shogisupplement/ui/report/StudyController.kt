@@ -69,6 +69,8 @@ class StudyController(
      * 局面変更時にキャンセルする。再判定対象の局面ごとに同時に生きるループは1本だけ。
      */
     private var pollJob: Job? = null
+    private var analysisJob: Job? = null
+    private var studyGeneration = 0L
 
     /** 再開時も既存の木を再利用するが、表示局面は常にルートから始める。 */
     fun startStudy(
@@ -85,6 +87,7 @@ class StudyController(
         protectedMoves: List<String>? = null,
     ) {
         val board = runCatching { ShogiBoard.fromSfen(baseSfen) }.getOrNull() ?: return
+        if (_studyState.value != null) endStudy()
         studyBoard = board
         protectedMainline = protectedMoves
         if (initialTree != null) {
@@ -331,6 +334,9 @@ class StudyController(
     }
 
     fun endStudy() {
+        studyGeneration++
+        analysisJob?.cancel()
+        analysisJob = null
         pollJob?.cancel()
         pollJob = null
         studyEngine?.quit()
@@ -341,10 +347,7 @@ class StudyController(
     }
 
     fun dispose() {
-        pollJob?.cancel()
-        pollJob = null
-        studyEngine?.quit()
-        studyEngine = null
+        endStudy()
         treesByOrigin.clear()
         saveFailed = false
     }
@@ -409,9 +412,13 @@ class StudyController(
         studyEvalRunning = true
         _studyState.update { it?.copy(evalState = StudyEvalState.Loading) }
 
-        scope.launch {
+        val generation = studyGeneration
+        analysisJob = scope.launch {
             val evalResult = try {
-                val engine = studyEngine ?: studyEngineFactory().also { studyEngine = it }
+                val engine = studyEngine ?: studyEngineFactory().also {
+                    if (generation != studyGeneration) { it.quit(); return@launch }
+                    studyEngine = it
+                }
                 val pvs = engine.analyzeSfen(
                     baseSfen,
                     moves,
@@ -426,6 +433,7 @@ class StudyController(
             } catch (_: Throwable) {
                 StudyEvalState.Error
             }
+            if (generation != studyGeneration) return@launch
             studyEvalRunning = false
 
             val currentTree = treesByOrigin[baseSfen] ?: StudyTree()

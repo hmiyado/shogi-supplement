@@ -6,6 +6,10 @@ import dev.miyado.shogisupplement.engine.BlockingStudyEngine
 import dev.miyado.shogisupplement.engine.Engine
 import dev.miyado.shogisupplement.engine.EngineInvariants
 import dev.miyado.shogisupplement.engine.PvInfo
+import dev.miyado.shogisupplement.engine.StudyEngine
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -21,6 +25,55 @@ import kotlin.test.assertTrue
 /** 検討木の永続化・分岐操作を保証する。 */
 @OptIn(ExperimentalCoroutinesApi::class)
 class StudyControllerTest {
+    @Test
+    fun `検討終了後に旧解析が完了しても再開した検討に影響しない`() {
+        val oldResult = CompletableDeferred<Unit>()
+        val newResult = CompletableDeferred<Unit>()
+        var calls = 0
+        var cancelled = false
+        val controller = StudyController(
+            scope = testScope,
+            studyEngineFactory = {
+                object : StudyEngine {
+                    override suspend fun analyzeSfen(sfen: String, additionalMoves: List<String>, nodes: Int, multiPv: Int): List<PvInfo> {
+                        val call = ++calls
+                        if (call == 1) {
+                            try {
+                                oldResult.await()
+                            } catch (e: kotlinx.coroutines.CancellationException) {
+                                cancelled = true
+                                // 同期エンジンのようにキャンセル後も遅れて戻る実装を模擬する。
+                                withContext(NonCancellable) { oldResult.await() }
+                            }
+                        } else {
+                            newResult.await()
+                        }
+                        return listOf(PvInfo(multipv = 1, score = Score.Cp(50), pv = emptyList(), nodes = 0L))
+                    }
+                    override fun quit() {}
+                }
+            },
+            evalDisplayProvider = { "cp" },
+        )
+        controller.startStudy(startSfen, false, false, 0, null, 0, noOrigin)
+        controller.analyzeCurrentPosition()
+        assertEquals(1, calls)
+        controller.endStudy()
+        assertTrue(cancelled)
+        controller.startStudy(startSfen, false, false, 0, null, 0, noOrigin)
+        controller.analyzeCurrentPosition()
+        assertEquals(2, calls)
+        oldResult.complete(Unit)
+        testScope.testScheduler.runCurrent()
+        assertEquals(StudyEvalState.Loading, controller.studyState.value?.evalState)
+        controller.analyzeCurrentPosition()
+        assertEquals(2, calls, "旧解析の完了で実行中ガードが解除されない")
+        newResult.complete(Unit)
+        testScope.testScheduler.runCurrent()
+        assertIs<StudyEvalState.Value>(controller.studyState.value?.evalState)
+        controller.dispose()
+    }
+
     @Test
     fun inlineRowsFollowSelectedBranchAndKeepSiblingEvaluationsSeparate() {
         val (controller, _) = newController()

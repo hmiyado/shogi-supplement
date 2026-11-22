@@ -192,6 +192,7 @@ class IosMainController(
         engineFactory = studyEngineFactory(),
         evalDisplayProvider = { appSettings.evalDisplay.value },
         localEngineLikelyAvailable = studyLocalEngineLikelyAvailable(),
+        studyEngineFactory = cancellableStudyEngineFactory(),
     )
 
     /**
@@ -202,6 +203,36 @@ class IosMainController(
         withContext(defaultIoDispatcher) {
             dev.miyado.shogisupplement.engine.BlockingStudyEngine(studyEngineFactory()(), defaultIoDispatcher)
         }
+
+    private fun cancellableStudyEngineFactory(): (suspend () -> dev.miyado.shogisupplement.engine.StudyEngine)? {
+        val auth = authRepository ?: return null
+        val baseUrl = analysisBaseUrl ?: return null
+        val client = studyAnalysisHttpClient ?: return null
+        if (IosEngineHost.ENGINE_LINKED) return null
+        val runner = RemoteAnalysisRunner(
+            baseUrl = baseUrl,
+            accessTokenProvider = { checkNotNull(auth.accessToken()) { "アクセストークンが取得できない" } },
+            platform = "ios",
+            httpClient = client,
+            appCheckTokenProvider = { if (DebugBackendStore.active == null) AppCheckTokenBridge.getToken() else null },
+        )
+        return {
+            val local = dev.miyado.shogisupplement.engine.BlockingStudyEngine(WasmStudyEngine(), defaultIoDispatcher)
+            object : dev.miyado.shogisupplement.engine.StudyEngine {
+                override suspend fun analyzeSfen(sfen: String, additionalMoves: List<String>, nodes: Int, multiPv: Int): List<dev.miyado.shogisupplement.engine.PvInfo> =
+                    try {
+                        local.analyzeSfen(sfen, additionalMoves, nodes, multiPv)
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        if (auth.currentUser.value == null) auth.signInAnonymously()
+                        runner.analyzePosition(sfen, additionalMoves, multiPv)
+                    }
+
+                override fun quit() = local.quit()
+            }
+        }
+    }
 
     private fun studyEngineFactory(): () -> Engine {
         val auth = authRepository

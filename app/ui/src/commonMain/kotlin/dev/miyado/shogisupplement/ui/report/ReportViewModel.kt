@@ -43,6 +43,7 @@ class ReportViewModel(
     private val evalDisplayProvider: () -> String,
     private val ioDispatcher: CoroutineDispatcher = defaultIoDispatcher,
     private val localEngineLikelyAvailable: () -> Boolean = { true },
+    private val studyEngineFactory: (suspend () -> dev.miyado.shogisupplement.engine.StudyEngine)? = null,
 ) {
     private var studyDocument: StudyDocument? = null
     private var studyGame: GameRecord? = null
@@ -58,7 +59,7 @@ class ReportViewModel(
     /** Why not engineFactoryをそのまま渡す: 同期のエンジンは待てる実行文脈へ隔離する必要がある。 */
     val studyController = StudyController(
         scope,
-        { withContext(ioDispatcher) { BlockingStudyEngine(engineFactory(), ioDispatcher) } },
+        studyEngineFactory ?: { withContext(ioDispatcher) { BlockingStudyEngine(engineFactory(), ioDispatcher) } },
         evalDisplayProvider,
         localEngineLikelyAvailable,
         onTreeChanged = { saveStudy {} },
