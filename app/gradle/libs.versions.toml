@@ -1,8 +1,8 @@
 [versions]
 # 全モジュール（shared/ui/androidApp/server-worker）共通のJVMターゲット。
-# ここを変えるだけで4箇所のjvmToolchain（＋androidAppのsourceCompatibility/
+# ここを変えるだけで各モジュールのjvmToolchain（＋androidAppのsourceCompatibility/
 # targetCompatibility）に反映される。個別ファイルへの直書きは値のズレを生むため避ける。
-jvm-toolchain = "17"
+jvm-toolchain = "21"
 # CMP 1.9系はKotlin 2.3必須。supabase-kt/ktor-client-darwinのiOS klib（ABI 2.3.0）を
 # 消費するにもKotlin 2.3系が必要（shared/build.gradle.kts参照）。
 kotlin = "2.4.21"
