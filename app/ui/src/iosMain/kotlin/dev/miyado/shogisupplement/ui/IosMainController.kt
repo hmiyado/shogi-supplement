@@ -194,27 +194,27 @@ class IosMainController(
         localEngineLikelyAvailable = studyLocalEngineLikelyAvailable(),
     )
 
-    /**
-     * エンジン入り版は常駐エンジンを共有する。engineless版は認証とURLがある場合だけ
-     * [RemoteStudyEngine]を返し、設定漏れでは取込解析と同じく例外を投げる。
-     */
     suspend fun createRepertoireEngine(): dev.miyado.shogisupplement.engine.StudyEngine =
         withContext(defaultIoDispatcher) {
             dev.miyado.shogisupplement.engine.BlockingStudyEngine(studyEngineFactory()(), defaultIoDispatcher)
         }
 
     private fun studyEngineFactory(): () -> Engine {
+        if (IosEngineHost.ENGINE_LINKED) return IosEngineHost.studyEngineFactory()
+
         val auth = authRepository
         val baseUrl = analysisBaseUrl
         val runnerHttpClient = studyAnalysisHttpClient
-        if (IosEngineHost.ENGINE_LINKED || auth == null || baseUrl == null || runnerHttpClient == null) {
-            return IosEngineHost.studyEngineFactory()
+        if (auth == null || baseUrl == null || runnerHttpClient == null) {
+            return { WasmStudyEngine() }
         }
         val runner = RemoteAnalysisRunner(
             baseUrl = baseUrl,
             accessTokenProvider = { checkNotNull(auth.accessToken()) { "アクセストークンが取得できない" } },
             platform = "ios",
             httpClient = runnerHttpClient,
+            // 検討では失敗後に画面から再試行できる。自動再送で待機時間を積み増さない。
+            maxRetries = 0,
             appCheckTokenProvider = { if (DebugBackendStore.active == null) AppCheckTokenBridge.getToken() else null },
         )
         val remoteEngine = RemoteStudyEngine { sfen, moves, multiPv ->
@@ -232,17 +232,14 @@ class IosMainController(
     }
 
     /**
-     * WASM＋サーバー構成では、未準備時の自動フォールバックによるクォータ消費を防ぐため
-     * [WasmStudyBridge.localReadyProvider]がfalseなら着手解析を自動発火しない。
+     * 自動解析でサーバーの枠を消費しないよう、WASMの準備完了を待つ。
      */
     private fun studyLocalEngineLikelyAvailable(): () -> Boolean {
-        val auth = authRepository
-        val baseUrl = analysisBaseUrl
-        val runnerHttpClient = studyAnalysisHttpClient
-        if (IosEngineHost.ENGINE_LINKED || auth == null || baseUrl == null || runnerHttpClient == null) {
-            return { true }
+        return if (IosEngineHost.ENGINE_LINKED) {
+            { true }
+        } else {
+            { WasmStudyBridge.localReadyProvider?.invoke() ?: false }
         }
-        return { WasmStudyBridge.localReadyProvider?.invoke() ?: false }
     }
 
     /** 読み筋オンデマンド延長の状態 Map（blunderId → PvExtState）。ReportViewModel へ委譲。 */
@@ -697,7 +694,7 @@ class IosMainController(
      * サーバーURLの有無は結果に影響しない。
      */
     private suspend fun analyzerConfigurationError(): AnalysisOrchestrator.Outcome.Failed? =
-        if (!IosEngineHost.ENGINE_LINKED && analysisBaseUrl == null &&
+        if (!IosEngineHost.ENGINE_LINKED && analysisBaseUrl == null && DebugBackendStore.active == null &&
             !settingsRepository.isAccountDeclined()
         ) {
             AnalysisOrchestrator.Outcome.Failed(LocalizedStrings.ANALYSIS_SERVER_NOT_CONFIGURED())

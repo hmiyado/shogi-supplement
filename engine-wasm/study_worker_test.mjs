@@ -64,6 +64,16 @@ test("iOS host forwards drill purpose and keeps legacy calls valid", () => {
 });
 
 for (const worker of ["study-worker.js", "analysis-worker.js"]) {
+  test(`${worker}: limits the transposition table before changing Threads`, () => {
+    const code = readFileSync(new URL(`../docs/kento/${worker}`, import.meta.url), "utf8");
+    const context = vm.createContext({ importScripts() {}, self: {} });
+    vm.runInContext(code, context);
+    const options = vm.runInContext("SETOPTIONS.map(([name, value]) => name + '=' + value)", context);
+    const hash = options.indexOf("USI_Hash=128");
+    const threads = options.indexOf("Threads=1");
+    assert(hash >= 0 && threads > hash);
+  });
+
   test(`${worker}: retains mate distance and verification independently`, () => {
     const code = readFileSync(new URL(`../docs/kento/${worker}`, import.meta.url), "utf8");
     const context = vm.createContext({ importScripts() {}, self: {} });

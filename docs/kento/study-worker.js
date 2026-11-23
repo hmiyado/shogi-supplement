@@ -136,8 +136,9 @@ function parseInfo(line) {
 const SETOPTIONS = [
   ["EvalDir", "/eval"],
   ["USI_OwnBook", "false"],
-  ["Threads", "1"],
+  // Threadsの変更で置換表が再確保されるため、先にWASMで確保可能なサイズへ設定する。
   ["USI_Hash", "128"],
+  ["Threads", "1"],
   ["NetworkDelay", "0"],
   ["NetworkDelay2", "0"],
   ["FV_SCALE", "20"],

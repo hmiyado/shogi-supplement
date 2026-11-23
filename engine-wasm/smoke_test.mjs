@@ -21,8 +21,8 @@ function buildCommands() {
 	const setoptions = [
 		["EvalDir", path.dirname(EVAL_NN)],
 		["FV_SCALE", "20"],
-		["Threads", "1"],
 		["USI_Hash", "128"],
+		["Threads", "1"],
 		["MultiPV", "2"],
 		["NetworkDelay", "0"],
 		["NetworkDelay2", "0"],
