@@ -261,3 +261,5 @@ Android/iOS双方でネイティブドライバを使う。テーブル: `game` 
 - ユーザー向け文言は `analysis/text/AppStrings.kt` 以外に直書きしない
 - 依存追加時: AboutLibraries `exportLibraryDefinitions` を再実行し、licenses系VRT goldenも更新する。
   manifest・依存変更を含む変更は実機起動スモークを必須とする
+
+Renovate の依存更新 PR で Gradle 設定や Kotlin の npm ロックが変わる場合、CI は JS と Wasm の package-lock を再生成し、差分があれば bot のコミットとして PR に追加する。追加後は Renovate Verification を起動して更新後のコミットを検証する。
