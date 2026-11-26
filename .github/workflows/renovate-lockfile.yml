@@ -1,0 +1,147 @@
+name: Renovate lockfile update
+
+on:
+  pull_request:
+    paths:
+      - 'app/gradle/libs.versions.toml'
+      - 'app/**/build.gradle.kts'
+      - 'app/settings.gradle.kts'
+      - 'app/gradle/wrapper/gradle-wrapper.properties'
+      - 'app/kotlin-js-store/**'
+
+permissions: {}
+
+jobs:
+  regenerate:
+    if: >-
+      github.event.pull_request.user.login == 'renovate[bot]' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      startsWith(github.head_ref, 'renovate/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    outputs:
+      changed: ${{ steps.patch.outputs.changed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Check head author
+        id: author
+        run: |
+          if [ "$(git log -1 --format='%an')" = 'github-actions[bot]' ] || [ "$(git log -1 --format='%ae')" = '41898282+github-actions[bot]@users.noreply.github.com' ]; then
+            echo 'bot=true' >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880
+        if: steps.author.outputs.bot != 'true'
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c
+        if: steps.author.outputs.bot != 'true'
+
+      # Why not a third-party SDK action: repository action policies may prevent the job from starting.
+      - name: Set up Android SDK
+        if: steps.author.outputs.bot != 'true'
+        run: |
+          set -eu
+          SDK_ROOT="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"
+          SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            echo "sdkmanager not found at $SDKMANAGER" >&2
+            exit 1
+          fi
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          "$SDKMANAGER" "platforms;android-37.0" "build-tools;37.0.0" > /dev/null
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+
+      - name: Configure npm minimum release age
+        if: steps.author.outputs.bot != 'true'
+        run: |
+          sudo npm install -g npm@11
+          npm config set min-release-age 7 --location=user
+
+      - name: Regenerate locks
+        if: steps.author.outputs.bot != 'true'
+        working-directory: app
+        run: ./gradlew kotlinUpgradePackageLock kotlinWasmUpgradePackageLock --no-parallel --stacktrace
+
+      - name: Create patch
+        id: patch
+        if: steps.author.outputs.bot != 'true'
+        run: |
+          git diff --binary -- app/kotlin-js-store/package-lock.json app/kotlin-js-store/wasm/package-lock.json > "$RUNNER_TEMP/locks.patch"
+          if [ -s "$RUNNER_TEMP/locks.patch" ]; then
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: steps.patch.outputs.changed == 'true'
+        with:
+          name: renovate-lockfile-patch
+          path: ${{ runner.temp }}/locks.patch
+          retention-days: 1
+
+  commit:
+    needs: regenerate
+    if: needs.regenerate.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+
+      - name: Download and apply patch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -eu
+          gh run download "$RUN_ID" --name renovate-lockfile-patch --dir "$RUNNER_TEMP/lock-patch"
+          git apply --index "$RUNNER_TEMP/lock-patch/locks.patch"
+          while IFS= read -r file; do
+            case "$file" in
+              app/kotlin-js-store/package-lock.json|app/kotlin-js-store/wasm/package-lock.json) ;;
+              *) echo "Unexpected changed file: $file" >&2; exit 1 ;;
+            esac
+          done < <(git diff --cached --name-only)
+          git diff --cached --quiet && exit 1
+
+      - name: Commit and push
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_REF: ${{ github.head_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -eu
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'chore: update Kotlin npm lockfiles'
+          AUTH_HEADER="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          REMOTE_SHA=$(git -c http.extraheader="$AUTH_HEADER" ls-remote origin "refs/heads/$HEAD_REF" | cut -f1)
+          if [ "$REMOTE_SHA" != "$HEAD_SHA" ]; then
+            echo 'PR head has changed' >&2
+            exit 1
+          fi
+          git -c http.extraheader="$AUTH_HEADER" push origin "HEAD:refs/heads/$HEAD_REF"
+
+      # Why dispatch: pushes made with GITHUB_TOKEN do not trigger other workflows.
+      - name: Dispatch verification
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          gh workflow run renovate-verify.yml --ref "$HEAD_REF" || echo '::warning::Could not dispatch Renovate Verification'
