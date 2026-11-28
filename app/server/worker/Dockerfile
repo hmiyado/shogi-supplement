@@ -58,7 +58,7 @@ RUN /src/fetch_hao_eval.sh "${ENGINE_EVAL_SHA256}" /out
 # Why not 25へ上げる: Gradleのtoolchainが要求するJDKをこのイメージが持たないとビルドが落ちる
 # （toolchainの自動取得は有効にしていない）。このステージは成果物に残らないため、
 # 新しいJDKを載せる利点も無い。
-FROM eclipse-temurin:21-jdk AS build
+FROM eclipse-temurin:25-jdk AS build
 WORKDIR /workspace
 
 # :server:worker は :contracts / :analysis / :engine:subprocess のjvmターゲットに依存するため
