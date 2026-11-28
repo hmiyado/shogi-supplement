@@ -73,7 +73,8 @@ Workerの来歴とWasmのVERSIONも更新し、旧結果とキャッシュを分
 
 ### ストア画像
 
-UIが変わったリリースでは掲載画像も更新する。
+`fastlane ios submit` は毎回、掲載画像を再生成してからApp Store Connectの画像を差し替える。
+IPAを直接TestFlightにアップロードした場合も同じ手順で更新する。
 
 iPhone Duo対応版はXcode 27.1以降でビルドし、内側・外側の実画面と開閉時の状態保持を確認する。
 専用画像は`*_duo_inner.*`・`*_duo_outer.*`。指定寸法とテスト生成手順は
@@ -88,7 +89,7 @@ cd app && ./gradlew :androidApp:recordRoborazziDebug --tests "*StoreImageTest*" 
   Duo内外各6枚は `app/iosApp/fastlane/duo_screenshots/ja/` へ生成する。
   fastlane 2.241.2で提出用に通常12枚とDuo10枚を`app/iosApp/build/store_screenshots/ja/`へまとめる。
   Duoは内外で同一区分のため、ホーム・形勢グラフ・悪手一覧・出題・結果を各5枚に絞る。
-  `beta`と`submit`が準備処理を実行し、`deliver`はこの提出用フォルダを使う。
+  `submit` が再生成と準備処理を実行し、`deliver` はこの提出用フォルダを使う。
   差分を目で確認してから準備コミットに含め、アップロード後もDuo区分への反映を確認する。
 - 1枚は「見出し＋端末モック」の組み。見出しの文言・画面の中身の数値はどちらも
   `StoreImageTest.kt` にある。見出しは2行までに収める（はみ出すと端末に被る）。

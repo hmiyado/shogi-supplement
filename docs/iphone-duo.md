@@ -73,7 +73,7 @@ Duoの内外は同じ表示区分に入る。[表示区分あたりの上限10�
 `fastlane/store_screenshot_upload.rb`は通常iPhone向け12枚とDuo向け10枚を
 `app/iosApp/build/store_screenshots/ja/`へコピーする。画像の再描画や変形はしない。
 fastlaneと同じ寸法判定で表示区分と枚数を検査し、不足・異なる寸法・10枚超過では停止する。
-`beta`の画像生成後と`submit`の提出前に準備し、`deliver`の`screenshots_path`へ渡す。
+`submit` で画像を再生成した後に準備し、`deliver` の `screenshots_path` へ渡す。
 
 ```sh
 cd app/iosApp
