@@ -1047,6 +1047,7 @@ private fun IosReportScreenHost(
         onStudyEnd = { controller.endStudy() },
         onSaveStudy = controller::saveStudy,
         onDeleteStudyBranch = controller::deleteStudyBranch,
+        studyAnalysisAvailability = controller::studyAnalysisAvailability,
         onStudyChipTapped = { depth -> controller.onStudyChipTapped(depth) },
         onStudyBranchChipTapped = { depth -> controller.onStudyBranchChipTapped(depth) },
         onStudyBranchPopupDismiss = { controller.onStudyBranchPopupDismiss() },

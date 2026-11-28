@@ -24,6 +24,8 @@ object WasmStudyBridge {
     /** WASMバイナリとWebViewページが準備済みかを返す。未準備ならfalseで、解析開始はfail-fastする。 */
     var localReadyProvider: (() -> Boolean)? = null
 
+    var workerReadyProvider: (() -> Boolean)? = null
+
     private var activeRequestId: String? = null
     private var onResultCallback: ((String) -> Unit)? = null
     private var onErrorCallback: ((String) -> Unit)? = null

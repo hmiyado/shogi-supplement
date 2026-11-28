@@ -134,6 +134,7 @@ fun ReportScreen(
     initialShowGameInfoDialog: Boolean = false,
     initialBodyModeList: Boolean = false,
     justCompleted: Boolean = false,
+    studyAnalysisAvailability: (() -> StudyAnalysisAvailability)? = null,
 ) {
     val labelGameResultLoss = stringResource(Res.string.game_result_loss)
 
@@ -547,6 +548,7 @@ fun ReportScreen(
                                 onCandidateTapped = onStudyCandidateSelected,
                                 onSave = onSaveStudy,
                                 onDeleteBranch = onDeleteStudyBranch,
+                                analysisAvailability = studyAnalysisAvailability,
                                 modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 4.dp),
                             )
                         } else {

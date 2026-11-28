@@ -32,6 +32,10 @@
     <string name="rating_field_rating">レート</string>
     <string name="save">保存</string>
     <string name="study_actions">検討の操作</string>
+    <string name="study_local_analysis">端末内解析</string>
+    <string name="study_cloud_analysis">クラウド解析</string>
+    <string name="study_analysis_enabled">有効</string>
+    <string name="study_analysis_disabled">無効</string>
     <string name="study_saved">端末に保存しました</string>
     <string name="study_save_failed">保存できませんでした。編集内容は画面に残っています。</string>
     <string name="study_open_failed">検討を開けませんでした。棋譜一覧からもう一度開いてください。</string>

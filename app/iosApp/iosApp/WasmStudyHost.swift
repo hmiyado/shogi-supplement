@@ -22,6 +22,7 @@ final class WasmStudyHost: NSObject {
     private var loadedRootURL: URL?
     private let pageReadyLock = NSLock()
     private var _isPageReady = false
+    private var _isWorkerReady = false
     private var busyRequestId: String?
 
     /// ページの読み込み完了状態（[KentoAssetCache.state] と同じくどのスレッドからでも
@@ -35,6 +36,19 @@ final class WasmStudyHost: NSObject {
         set {
             pageReadyLock.lock()
             _isPageReady = newValue
+            pageReadyLock.unlock()
+        }
+    }
+
+    private var isWorkerReady: Bool {
+        get {
+            pageReadyLock.lock()
+            defer { pageReadyLock.unlock() }
+            return _isWorkerReady
+        }
+        set {
+            pageReadyLock.lock()
+            _isWorkerReady = newValue
             pageReadyLock.unlock()
         }
     }
@@ -69,6 +83,15 @@ final class WasmStudyHost: NSObject {
                 return KotlinBoolean(bool: false)
             }
             return KotlinBoolean(bool: true)
+        }
+        WasmStudyBridge.shared.workerReadyProvider = { [weak self] in
+            guard let self, case .ready = KentoAssetCache.shared.state else {
+                return KotlinBoolean(bool: false)
+            }
+            if !self.isPageReady {
+                self.warmUp()
+            }
+            return KotlinBoolean(bool: self.isWorkerReady)
         }
     }
 
@@ -197,6 +220,7 @@ final class WasmStudyHost: NSObject {
         webView = nil
         loadedRootURL = nil
         isPageReady = false
+        isWorkerReady = false
         if let requestId = busyRequestId {
             finish(requestId: requestId) {
                 WasmStudyBridge.shared.onError(requestId: requestId, message: "常駐WKWebViewホストが破棄されました")
@@ -219,10 +243,13 @@ final class WasmStudyHost: NSObject {
 
 extension WasmStudyHost: WKScriptMessageHandler {
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard message.webView === webView else { return }
         guard let dict = message.body as? [String: Any], let type = dict["type"] as? String else { return }
         switch type {
         case "study-ready":
             handleStudyReady()
+        case "study-worker-availability":
+            isWorkerReady = dict["available"] as? Bool ?? false
         case "study-result":
             handleResult(dict)
         case "study-error", "study-page-error", "study-init-error":

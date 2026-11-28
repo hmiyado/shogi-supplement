@@ -76,6 +76,9 @@ import dev.miyado.shogisupplement.ui.theme.IbmPlexMonoFamily
 import dev.miyado.shogisupplement.ui.theme.LightInk
 import dev.miyado.shogisupplement.ui.theme.TextStyleDataMove
 import dev.miyado.shogisupplement.ui.theme.shogiColors
+import kotlinx.coroutines.delay
+
+data class StudyAnalysisAvailability(val local: Boolean, val cloud: Boolean)
 
 /**
  * 検討中のナビ行。表示中の本譜・分岐に沿って一手ずつ前後へ移動する。
@@ -163,9 +166,20 @@ internal fun StudyPanel(
     modifier: Modifier = Modifier,
     onSave: (((Boolean) -> Unit) -> Unit)? = null,
     onDeleteBranch: ((String, List<String>, Long?) -> Boolean)? = null,
+    analysisAvailability: (() -> StudyAnalysisAvailability)? = null,
 ) {
     val shogiColors = MaterialTheme.shogiColors
+    val hasActions = onSave != null || onDeleteBranch != null || analysisAvailability != null
     var actionsExpanded by remember(studyState.baseSfen, studyState.moves, studyState.nodeId) { mutableStateOf(false) }
+    var availability by remember { mutableStateOf<StudyAnalysisAvailability?>(null) }
+    LaunchedEffect(actionsExpanded, analysisAvailability) {
+        if (actionsExpanded && analysisAvailability != null) {
+            while (true) {
+                availability = analysisAvailability()
+                delay(500)
+            }
+        }
+    }
     val snackbar = remember { SnackbarHostState() }
     var retryAttempt by remember { mutableStateOf(0) }
     var deletingBranch by remember(studyState.baseSfen, studyState.moves, studyState.nodeId) { mutableStateOf(false) }
@@ -214,7 +228,7 @@ internal fun StudyPanel(
                     .height(48.dp),
                 contentAlignment = Alignment.CenterStart,
             ) {
-                Box(Modifier.fillMaxWidth().padding(end = if (onSave != null || onDeleteBranch != null) 56.dp else 0.dp)) {
+                Box(Modifier.fillMaxWidth().padding(end = if (hasActions) 56.dp else 0.dp)) {
                 when (val es = studyState.evalState) {
                     StudyEvalState.None -> Unit
                     StudyEvalState.Preparing -> {
@@ -274,14 +288,22 @@ internal fun StudyPanel(
                     }
                 }
                 }
-                if (onSave != null || onDeleteBranch != null) {
+                if (hasActions) {
                     Box(Modifier.align(Alignment.CenterEnd)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = { actionsExpanded = true }) {
+                            IconButton(onClick = {
+                                availability = analysisAvailability?.invoke()
+                                actionsExpanded = true
+                            }) {
                                 Icon(vectorResource(Res.drawable.ic_filled_more_horiz), contentDescription = stringResource(Res.string.study_actions))
                             }
                         }
                         DropdownMenu(expanded = actionsExpanded, onDismissRequest = { actionsExpanded = false }) {
+                            availability?.let {
+                                AnalysisAvailabilityRow(stringResource(Res.string.study_local_analysis), it.local)
+                                AnalysisAvailabilityRow(stringResource(Res.string.study_cloud_analysis), it.cloud)
+                                if (onDeleteBranch != null) HorizontalDivider(color = shogiColors.line)
+                            }
                             if (onDeleteBranch != null) {
                                 DropdownMenuItem(
                                     text = { Text(stringResource(Res.string.study_delete_branch),
@@ -336,6 +358,22 @@ internal fun StudyPanel(
         }
     }
     SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
+    }
+}
+
+@Composable
+private fun AnalysisAvailabilityRow(label: String, enabled: Boolean) {
+    val colors = MaterialTheme.shogiColors
+    Row(
+        modifier = Modifier.fillMaxWidth().widthIn(min = 216.dp).padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(label, color = colors.ink2, style = MaterialTheme.typography.bodyMedium)
+        Text(
+            stringResource(if (enabled) Res.string.study_analysis_enabled else Res.string.study_analysis_disabled),
+            color = if (enabled) MaterialTheme.colorScheme.primary else colors.loss,
+            style = MaterialTheme.typography.bodyMedium,
+        )
     }
 }
 

@@ -70,20 +70,30 @@ var nextWorker = null;
 var nextWorkerReady = false;
 var studyBusy = false;
 
-function prepareNextWorker() {
+function discardNextWorker(worker) {
+  if (nextWorker !== worker) return;
+  nextWorker = null;
   nextWorkerReady = false;
+  worker.terminate();
+  postStudy("study-worker-availability", { available: false });
+}
+
+function prepareNextWorker() {
+  if (!studyAssetBaseUrl || nextWorker || studyBusy) return;
   var worker = new Worker(new URL("study-worker.js", document.baseURI).href);
   nextWorker = worker;
   worker.onmessage = function (ev) {
-    if (ev.data.type === "prepared" && nextWorker === worker) {
+    if (nextWorker !== worker) return;
+    if (ev.data.type === "prepared") {
       nextWorkerReady = true;
+      postStudy("study-worker-availability", { available: true });
+    } else if (ev.data.type === "error") {
+      discardNextWorker(worker);
+      postStudy("study-init-error", { message: ev.data.message });
     }
   };
   worker.onerror = function () {
-    if (nextWorker === worker) {
-      nextWorker = null;
-      nextWorkerReady = false;
-    }
+    discardNextWorker(worker);
   };
   window.kentoBridge.resolveAssetDirUrl(
     studyAssetBaseUrl,
@@ -93,17 +103,14 @@ function prepareNextWorker() {
       }
     },
     function (message) {
-      if (nextWorker === worker) {
-        nextWorker = null;
-        nextWorkerReady = false;
-      }
+      if (nextWorker !== worker) return;
+      discardNextWorker(worker);
       postStudy("study-init-error", { message: "エンジン資産バージョンの解決に失敗: " + message });
     },
   );
 }
 
-// [assetBaseUrl] はローカル資産キャッシュのベースURL（絶対URL）。呼び出しは起動後1回だけを
-// 想定する（複数回呼ぶと待機Workerが二重に立ち上がる）。
+// [assetBaseUrl] はローカル資産キャッシュのベースURL（絶対URL）。
 window.__initStudy = function (assetBaseUrl) {
   studyAssetBaseUrl = assetBaseUrl;
   prepareNextWorker();
@@ -116,6 +123,7 @@ window.__initStudy = function (assetBaseUrl) {
 // （検討中に何秒も待たせてからサーバーへ切り替えるのを避けるための即時失敗）。
 window.__analyzePosition = function (requestId, baseSfenArg, movesJson, multiPv, purpose) {
   if (studyBusy || !nextWorkerReady || !nextWorker) {
+    prepareNextWorker();
     postStudy("study-error", { requestId: requestId, message: "対話的解析ホストが未準備です" });
     return;
   }
@@ -124,22 +132,26 @@ window.__analyzePosition = function (requestId, baseSfenArg, movesJson, multiPv,
   nextWorker = null;
   nextWorkerReady = false;
 
+  function finish(type, payload) {
+    worker.onmessage = null;
+    worker.onerror = null;
+    worker.terminate();
+    studyBusy = false;
+    postStudy("study-worker-availability", { available: false });
+    postStudy(type, Object.assign({ requestId: requestId }, payload));
+    prepareNextWorker();
+  }
+
   worker.onmessage = function (ev) {
     var msg = ev.data;
     if (msg.type === "result") {
-      studyBusy = false;
-      postStudy("study-result", { requestId: requestId, result: msg.result });
-      prepareNextWorker();
+      finish("study-result", { result: msg.result });
     } else if (msg.type === "error") {
-      studyBusy = false;
-      postStudy("study-error", { requestId: requestId, message: msg.message });
-      prepareNextWorker();
+      finish("study-error", { message: msg.message });
     }
   };
   worker.onerror = function (err) {
-    studyBusy = false;
-    postStudy("study-error", { requestId: requestId, message: "Workerエラー: " + (err.message || err) });
-    prepareNextWorker();
+    finish("study-error", { message: "Workerエラー: " + (err.message || err) });
   };
   worker.postMessage({ type: "analyze", baseSfenArg: baseSfenArg, movesJson: movesJson, multiPv: multiPv, purpose: purpose });
 };

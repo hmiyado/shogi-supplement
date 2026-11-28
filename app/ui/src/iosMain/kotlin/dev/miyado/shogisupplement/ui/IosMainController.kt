@@ -36,6 +36,7 @@ import dev.miyado.shogisupplement.engine.IsolatedEngine
 import dev.miyado.shogisupplement.engine.FailoverAnalyzer
 import dev.miyado.shogisupplement.engine.FailoverEngine
 import dev.miyado.shogisupplement.engine.RemoteAnalysisRunner
+import dev.miyado.shogisupplement.engine.RemoteAnalysisException
 import dev.miyado.shogisupplement.engine.WasmAnalysisRunner
 import dev.miyado.shogisupplement.engine.WasmStudyBridge
 import dev.miyado.shogisupplement.engine.WasmStudyEngine
@@ -57,6 +58,7 @@ import dev.miyado.shogisupplement.ui.common.PvExtState
 import dev.miyado.shogisupplement.ui.common.defaultIoDispatcher
 import dev.miyado.shogisupplement.ui.home.HomeViewModel
 import dev.miyado.shogisupplement.ui.report.ReportViewModel
+import dev.miyado.shogisupplement.ui.report.StudyAnalysisAvailability
 import dev.miyado.shogisupplement.ui.report.StudyOrigin
 import dev.miyado.shogisupplement.ui.report.StudyState
 import dev.miyado.shogisupplement.upload.DeleteGameOutcome
@@ -76,10 +78,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.time.Instant
 import platform.Foundation.NSDate
 import platform.Foundation.NSDateFormatter
 import platform.Foundation.NSNotificationCenter
 import platform.Foundation.NSOperationQueue
+import platform.Foundation.NSUserDefaults
 import platform.Foundation.NSUUID
 import platform.UIKit.UIApplicationWillEnterForegroundNotification
 import platform.UIKit.UIPasteboard
@@ -199,6 +203,19 @@ class IosMainController(
             dev.miyado.shogisupplement.engine.BlockingStudyEngine(studyEngineFactory()(), defaultIoDispatcher)
         }
 
+    fun studyAnalysisAvailability(): StudyAnalysisAvailability {
+        val userId = authRepository?.currentUser?.value?.id
+        val resetAt = userId?.let { NSUserDefaults.standardUserDefaults.doubleForKey(studyQuotaKey(it)) } ?: 0.0
+        return StudyAnalysisAvailability(
+            local = IosEngineHost.ENGINE_LINKED || WasmStudyBridge.workerReadyProvider?.invoke() == true,
+            cloud = !IosEngineHost.ENGINE_LINKED && serverAnalysisAvailable() &&
+                resetAt <= currentEpochSeconds(),
+        )
+    }
+
+    private fun studyQuotaKey(userId: String): String = "studyCloudQuotaReset.$userId"
+
+    @OptIn(kotlin.time.ExperimentalTime::class)
     private fun studyEngineFactory(): () -> Engine {
         if (IosEngineHost.ENGINE_LINKED) return IosEngineHost.studyEngineFactory()
 
@@ -218,12 +235,22 @@ class IosMainController(
             appCheckTokenProvider = { if (DebugBackendStore.active == null) AppCheckTokenBridge.getToken() else null },
         )
         val remoteEngine = RemoteStudyEngine { sfen, moves, multiPv ->
+            check(!settingsRepository.isAccountDeclined()) { "サーバー解析は利用できません" }
             // サーバー解析はJWT必須のため、未ログインならここで匿名サインインする
             // （通常は取込解析時に済んでいるはずで、ここに来るのは保険）。
             if (auth.currentUser.value == null) {
                 auth.signInAnonymously()
             }
-            runner.analyzePosition(sfen, moves, multiPv)
+            val userId = auth.currentUser.value?.id
+            try {
+                runner.analyzePosition(sfen, moves, multiPv)
+            } catch (e: RemoteAnalysisException.QuotaExceeded) {
+                val resetAt = runCatching { Instant.parse(e.resetAt).epochSeconds }.getOrNull()
+                if (userId != null && resetAt != null) {
+                    NSUserDefaults.standardUserDefaults.setDouble(resetAt.toDouble(), forKey = studyQuotaKey(userId))
+                }
+                throw e
+            }
         }
         // ローカルWASM優先・不可時（WASMバイナリ未準備・ホスト起動失敗）はサーバーへ
         // （FailoverEngine KDoc参照。WasmStudyEngineはfail-fastで即座に例外を投げるため

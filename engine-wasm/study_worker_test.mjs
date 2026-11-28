@@ -63,6 +63,48 @@ test("iOS host forwards drill purpose and keeps legacy calls valid", () => {
   }
 });
 
+test("iOS host releases each study worker and recovers after preparation fails", () => {
+  const hostSource = readFileSync(new URL("../docs/kento/wasm-analysis-host.js", import.meta.url), "utf8");
+  const workers = [];
+  const replies = [];
+  const window = {
+    webkit: { messageHandlers: { wasmStudy: { postMessage: (message) => replies.push(message) } } },
+    kentoBridge: { resolveAssetDirUrl: (url, onSuccess) => onSuccess(url) },
+  };
+  class Worker {
+    constructor() {
+      workers.push(this);
+    }
+    postMessage() {}
+    terminate() {
+      this.terminated = true;
+    }
+  }
+  const context = vm.createContext({ window, Worker, URL, document: { baseURI: "https://example.com/kento/" } });
+  vm.runInContext(hostSource, context);
+  window.__initStudy("https://example.com/assets/");
+  const failed = workers.at(-1);
+  failed.onmessage({ data: { type: "error", message: "prepare failed" } });
+  assert.equal(failed.terminated, true);
+  assert.equal(workers.length, 1);
+  assert.equal(replies.findLast((reply) => reply.type === "study-worker-availability").available, false);
+
+  window.__analyzePosition("retry", "startpos", "[]", 3);
+  assert.equal(replies.at(-1).type, "study-error");
+  for (let index = 0; index < 10; index++) {
+    const worker = workers.at(-1);
+    worker.onmessage({ data: { type: "prepared" } });
+    assert.equal(replies.at(-1).available, true);
+    window.__analyzePosition(String(index), "startpos", "[]", 3);
+    worker.onmessage({ data: { type: "result", result: { bestmove: "7g7f" } } });
+    assert.equal(replies.at(-1).requestId, String(index));
+    assert.equal(replies.at(-1).type, "study-result");
+    assert.equal(worker.terminated, true);
+    assert.equal(replies.findLast((reply) => reply.type === "study-worker-availability").available, false);
+    assert.equal(workers.filter((candidate) => !candidate.terminated).length, 1);
+  }
+});
+
 for (const worker of ["study-worker.js", "analysis-worker.js"]) {
   test(`${worker}: limits the transposition table before changing Threads`, () => {
     const code = readFileSync(new URL(`../docs/kento/${worker}`, import.meta.url), "utf8");
