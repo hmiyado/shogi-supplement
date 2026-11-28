@@ -117,7 +117,10 @@ jobs:
               *) echo "Unexpected changed file: $file" >&2; exit 1 ;;
             esac
           done < <(git diff --cached --name-only)
-          git diff --cached --quiet && exit 1
+          if git diff --cached --quiet; then
+            echo 'No changes to commit (patch produced no staged changes)' >&2
+            exit 1
+          fi
 
       - name: Commit and push
         env:
