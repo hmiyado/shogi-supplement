@@ -2,9 +2,10 @@ name: Renovate Verification
 
 on:
   pull_request:
+  workflow_dispatch:
 
 concurrency:
-  group: renovate-verify-${{ github.event.pull_request.number }}
+  group: renovate-verify-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -12,7 +13,7 @@ permissions:
 
 jobs:
   jvm-and-wasm:
-    if: github.event.pull_request.user.login == 'renovate[bot]'
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.user.login == 'renovate[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -83,7 +84,7 @@ jobs:
           retention-days: 7
 
   ios-compile:
-    if: github.event.pull_request.user.login == 'renovate[bot]'
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.user.login == 'renovate[bot]'
     runs-on: macos-latest
     timeout-minutes: 30
     steps:
