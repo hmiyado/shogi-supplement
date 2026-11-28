@@ -37,7 +37,7 @@ Gradleモジュール:
 
 ## ビルド
 
-必要要件: JDK 21（`JAVA_HOME`をtemurin-21等に設定）／ Android SDK（compileSdk 37.1）。
+必要要件: Temurin JDK 21.0.13.1+2 以降の Java 21（`JAVA_HOME`をインストール先に設定）／ Android SDK（compileSdk 37.1）。
 
 ### Android
 
@@ -56,8 +56,7 @@ JAVA_HOME=/path/to/jdk-21 ./gradlew :androidApp:assembleDebug
 cd app/iosApp
 ./engine/build_ios.sh sim      # やねうら王を静的ライブラリ(libyaneuraou.a)としてビルド
 xcodegen generate              # project.yml から iosApp.xcodeproj を生成
-open iosApp.xcodeproj          # Xcodeでビルド・実行（:ui の SharedUi フレームワークは
-                                # preBuildScripts が JAVA_HOME=temurin-21 で ./gradlew を呼んでビルドし、Xcodeがリンクする）
+open iosApp.xcodeproj          # Xcodeでビルド・実行（Gradle は java_home -v 21 が選ぶ JDK を使う）
 ```
 
 ## テスト

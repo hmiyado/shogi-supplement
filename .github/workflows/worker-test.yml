@@ -52,7 +52,7 @@ jobs:
       - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
         with:
           distribution: temurin
-          java-version: "21"
+          java-version: "21.0.13.1+2"
 
       # Why not v6以降: キャッシュ機能がMIT対象外の商用コンポーネント（gradle-actions-caching）へ
       # 分離され、使用にGradle社のTerms of Use への同意が必要になった。キャッシュを無効にすれば

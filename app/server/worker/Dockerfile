@@ -55,10 +55,7 @@ ARG ENGINE_EVAL_SHA256
 RUN /src/fetch_hao_eval.sh "${ENGINE_EVAL_SHA256}" /out
 
 # ── worker jar build stage ───────────────────────────────────────────────
-# Why not 25へ上げる: Gradleのtoolchainが要求するJDKをこのイメージが持たないとビルドが落ちる
-# （toolchainの自動取得は有効にしていない）。このステージは成果物に残らないため、
-# 新しいJDKを載せる利点も無い。
-FROM eclipse-temurin:21-jdk AS build
+FROM eclipse-temurin:21.0.13.1_2-jdk AS build
 WORKDIR /workspace
 
 # :server:worker は :contracts / :analysis / :engine:subprocess のjvmターゲットに依存するため
@@ -68,7 +65,7 @@ COPY . .
 RUN ./gradlew :server:worker:installDist --no-daemon
 
 # ── runtime stage ────────────────────────────────────────────────────────
-FROM --platform=linux/amd64 eclipse-temurin:25-jre AS runtime
+FROM --platform=linux/amd64 eclipse-temurin:25.0.5.1_2-jre AS runtime
 WORKDIR /app
 
 COPY --from=build /workspace/server/worker/build/install/worker /app

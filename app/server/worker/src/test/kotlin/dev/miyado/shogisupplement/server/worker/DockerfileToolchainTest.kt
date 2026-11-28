@@ -17,7 +17,7 @@ class DockerfileToolchainTest {
         val dockerfile = File("Dockerfile")
         val versions = File("../../gradle/libs.versions.toml")
 
-        val buildStageJdk = Regex("""FROM eclipse-temurin:(\d+)-jdk AS build""")
+        val buildStageJdk = Regex("""FROM eclipse-temurin:(\d+)(?:\.\d+)*(?:_\d+)?-jdk AS build""")
             .find(dockerfile.readText())
             ?.groupValues?.get(1)
         assertNotNull(buildStageJdk, "Dockerfileのビルドステージが読み取れない: ${dockerfile.absolutePath}")

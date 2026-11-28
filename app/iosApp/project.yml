@@ -185,7 +185,9 @@ targets:
           else
             TASK=":ui:link${BASE_CONFIGURATION}FrameworkIosSimulatorArm64"
           fi
-          JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home ./gradlew "$TASK" "${GRADLE_ARGS[@]}"
+          JAVA_HOME="$(/usr/libexec/java_home -F -v 21)"
+          export JAVA_HOME
+          ./gradlew "$TASK" "${GRADLE_ARGS[@]}"
         basedOnDependencyAnalysis: false
       # Supabase接続設定（URL/anonキー）とサーバー解析のベースURLを app/local.properties
       # から読んで SupabaseConfig.properties としてバンドルへ直接生成する（Androidの
@@ -286,7 +288,9 @@ targets:
         script: |
           set -e
           cd "$SRCROOT/.."
-          JAVA_HOME=/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home ./gradlew :ui:syncComposeResourcesForIos
+          JAVA_HOME="$(/usr/libexec/java_home -F -v 21)"
+          export JAVA_HOME
+          ./gradlew :ui:syncComposeResourcesForIos
         basedOnDependencyAnalysis: false
     postBuildScripts:
       # engineless構成では評価関数（eval/nn.bin=GPL）もバンドルから外す。

@@ -23,8 +23,8 @@
       "matchDatasources": ["docker"],
       "matchPackageNames": ["eclipse-temurin"],
       "matchFileNames": ["app/server/worker/Dockerfile"],
-      "matchCurrentValue": "/^21-jdk$/",
-      "enabled": false
+      "matchCurrentValue": "/^21([.][0-9]+)*(_[0-9]+)?-jdk$/",
+      "allowedVersions": "/^21([.][0-9]+)*(_[0-9]+)?-jdk$/"
     }
   ]
 }
