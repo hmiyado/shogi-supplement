@@ -22,7 +22,8 @@
       "description": "workerのビルドステージのJDKはlibs.versions.tomlのjvm-toolchainに合わせる。ここだけ上げるとGradleがtoolchainを見つけられずDockerビルドが落ちる",
       "matchDatasources": ["docker"],
       "matchPackageNames": ["eclipse-temurin"],
-      "matchCurrentValue": "/^17/",
+      "matchFileNames": ["app/server/worker/Dockerfile"],
+      "matchCurrentValue": "/^21-jdk$/",
       "enabled": false
     }
   ]

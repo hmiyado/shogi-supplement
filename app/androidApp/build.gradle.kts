@@ -61,7 +61,9 @@ aboutLibraries {
 
 android {
     namespace = "dev.miyado.shogisupplement"
-    compileSdk = 37
+    compileSdk {
+        version = release(37) { minorApiLevel = 1 }
+    }
 
     defaultConfig {
         applicationId = "dev.miyado.shogisupplement"

@@ -37,7 +37,7 @@ Gradleモジュール:
 
 ## ビルド
 
-必要要件: JDK 21（`JAVA_HOME`をtemurin-21等に設定）／ Android SDK（compileSdk 36）。
+必要要件: JDK 21（`JAVA_HOME`をtemurin-21等に設定）／ Android SDK（compileSdk 37.1）。
 
 ### Android
 
